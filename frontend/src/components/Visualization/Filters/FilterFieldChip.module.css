@@ -73,4 +73,35 @@
   opacity: 0.45;
 }
 
+/* Measure (HAVING) min/max — matches ContinuousFilterControl density */
+.measureFilter {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 4px 8px 6px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.measureInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.measureRowLabel {
+  font-size: 0.65rem !important;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.2;
+}
+
+.measureInput {
+  width: 100%;
+  min-width: 0;
+}
+
 

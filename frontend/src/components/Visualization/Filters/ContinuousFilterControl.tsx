@@ -1,11 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useEffect } from 'react';
-import { 
-  Slider, 
-  TextField, 
-  Box, 
+import {
+  Slider,
+  TextField,
+  Box,
   Typography,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import { ContinuousFilterMetadata } from '../../../types';
 import styles from './ContinuousFilterControl.module.css';
@@ -16,6 +16,26 @@ interface ContinuousFilterControlProps {
   max: number | null;
   onChange: (min: number | null, max: number | null) => void;
 }
+
+const compactFieldSx = {
+  '& .MuiInputBase-root': {
+    minHeight: 0,
+    height: 20,
+  },
+  '& .MuiInputBase-input': {
+    fontSize: '0.75rem',
+    lineHeight: 1.2,
+    height: 'auto',
+    py: 0,
+    px: 0,
+  },
+  '& .MuiInput-underline:before': {
+    borderBottomColor: 'rgba(0,0,0,0.2)',
+  },
+  '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+    borderBottomColor: 'rgba(0,0,0,0.35)',
+  },
+} as const;
 
 const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
   metadata,
@@ -42,19 +62,16 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
     setMaxText(max !== null && max !== undefined ? String(max) : '');
   }, [min, max, metadata.min, metadata.max]);
 
-  const handleSliderChange = (event: Event, newValue: number | number[]) => {
+  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
     const [newMin, newMax] = newValue as [number, number];
     setSliderValue([newMin, newMax]);
   };
 
-  const handleSliderCommit = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+  const handleSliderCommit = (_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     const [newMin, newMax] = newValue as [number, number];
     onChange(newMin, newMax);
   };
 
-  const handleMinInputChange = (value: string) => {
-    setMinText(value);
-  };
   const commitMinInput = () => {
     if (minText === '') {
       onChange(null, max);
@@ -67,9 +84,6 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
     }
   };
 
-  const handleMaxInputChange = (value: string) => {
-    setMaxText(value);
-  };
   const commitMaxInput = () => {
     if (maxText === '') {
       onChange(min, null);
@@ -85,8 +99,8 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
   if (metadata.loading) {
     return (
       <Box className={styles.container}>
-        <CircularProgress size={20} />
-        <Typography variant="caption" sx={{ ml: 1 }}>
+        <CircularProgress size={16} />
+        <Typography variant="caption" sx={{ ml: 1, fontSize: '0.7rem' }}>
           Loading range...
         </Typography>
       </Box>
@@ -96,7 +110,7 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
   if (metadata.error) {
     return (
       <Box className={styles.container}>
-        <Typography variant="caption" color="error">
+        <Typography variant="caption" color="error" sx={{ fontSize: '0.7rem' }}>
           Error: {metadata.error}
         </Typography>
       </Box>
@@ -106,7 +120,7 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
   if (metadata.min == null || metadata.max == null) {
     return (
       <Box className={styles.container}>
-        <Typography variant="caption" color="textSecondary">
+        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
           No range data available for this filter.
         </Typography>
       </Box>
@@ -115,69 +129,64 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
 
   const range = metadata.max - metadata.min;
   const step = range > 100 ? Math.pow(10, Math.floor(Math.log10(range)) - 1) : range / 100;
+  const rangeTitle = `${metadata.min.toLocaleString()} – ${metadata.max.toLocaleString()}`;
 
   return (
-    <Box className={styles.container}>
-      <Box className={styles.filterBox}>
-        {/* Range header inside frame */}
-        <Box className={styles.rangeHeader}>
-          <Typography variant="caption" color="textSecondary">
-            Available range: {metadata.min.toLocaleString()} - {metadata.max.toLocaleString()}
-          </Typography>
-        </Box>
+    <Box className={styles.container} title={`Available: ${rangeTitle}`}>
+      <Box className={styles.sliderRow}>
+        <Slider
+          value={sliderValue}
+          onChange={handleSliderChange}
+          onChangeCommitted={handleSliderCommit}
+          valueLabelDisplay="auto"
+          min={metadata.min}
+          max={metadata.max}
+          step={step}
+          size="small"
+          sx={{ py: 0.5, my: 0 }}
+        />
+      </Box>
 
-        {/* Slider */}
-        <Box className={styles.sliderContainer}>
-          <Slider
-            value={sliderValue}
-            onChange={handleSliderChange}
-            onChangeCommitted={handleSliderCommit}
-            valueLabelDisplay="auto"
-            min={metadata.min}
-            max={metadata.max}
-            step={step}
+      <Box className={styles.inputsRow}>
+        <Box className={styles.inputGroup}>
+          <Typography component="label" variant="caption" className={styles.rowLabel}>
+            Min
+          </Typography>
+          <TextField
+            aria-label="Min value"
+            type="text"
             size="small"
+            variant="standard"
+            value={minText}
+            onChange={(e) => setMinText(e.target.value)}
+            onBlur={commitMinInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMinInput();
+            }}
+            inputProps={{ min: metadata.min, max: metadata.max, step }}
+            className={styles.input}
+            sx={compactFieldSx}
           />
         </Box>
-
-        {/* Input fields */}
-        <Box className={styles.inputsContainer}>
-          <Box className={styles.inputGroup}>
-            <Typography variant="caption" className={styles.inputLabel}>Min</Typography>
-            <TextField
-              aria-label="Min value"
-              type="text"
-              size="small"
-              value={minText}
-              onChange={(e) => handleMinInputChange(e.target.value)}
-              onBlur={commitMinInput}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitMinInput(); }}
-              inputProps={{
-                min: metadata.min,
-                max: metadata.max,
-                step,
-              }}
-              className={styles.input}
-            />
-          </Box>
-          <Box className={styles.inputGroup}>
-            <Typography variant="caption" className={styles.inputLabel}>Max</Typography>
-            <TextField
-              aria-label="Max value"
-              type="text"
-              size="small"
-              value={maxText}
-              onChange={(e) => handleMaxInputChange(e.target.value)}
-              onBlur={commitMaxInput}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitMaxInput(); }}
-              inputProps={{
-                min: metadata.min,
-                max: metadata.max,
-                step,
-              }}
-              className={styles.input}
-            />
-          </Box>
+        <Box className={styles.inputGroup}>
+          <Typography component="label" variant="caption" className={styles.rowLabel}>
+            Max
+          </Typography>
+          <TextField
+            aria-label="Max value"
+            type="text"
+            size="small"
+            variant="standard"
+            value={maxText}
+            onChange={(e) => setMaxText(e.target.value)}
+            onBlur={commitMaxInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMaxInput();
+            }}
+            inputProps={{ min: metadata.min, max: metadata.max, step }}
+            className={styles.input}
+            sx={compactFieldSx}
+          />
         </Box>
       </Box>
     </Box>
@@ -185,5 +194,3 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
 };
 
 export default ContinuousFilterControl;
-
-

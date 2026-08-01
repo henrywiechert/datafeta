@@ -50,7 +50,7 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
     const trimmedAlias = alias.trim();
     const newValue = trimmedAlias || undefined;
     const oldValue = initialAliasRef.current || undefined;
-    
+
     // Only call onConfirm if the value actually changed
     if (newValue !== oldValue) {
       onConfirm(newValue);
@@ -87,32 +87,75 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
       disablePortal
       slotProps={{
         paper: {
-          sx: { p: 1.5, minWidth: 280 }
-        }
+          sx: {
+            p: 1,
+            width: 260,
+            maxWidth: 'calc(100vw - 32px)',
+            borderRadius: 1,
+          },
+        },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          <strong>{field.columnName}</strong>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 0.5,
+          mb: 0.75,
+          minHeight: 22,
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            color: 'text.primary',
+            lineHeight: 1.3,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={field.columnName}
+        >
+          {field.columnName}
         </Typography>
-        <IconButton size="small" onClick={onClose} sx={{ ml: 1, p: 0.25 }}>
-          <CloseIcon fontSize="small" />
+        <IconButton
+          size="small"
+          aria-label="Close"
+          onClick={onClose}
+          sx={{ p: 0.25, ml: 0.25, flexShrink: 0 }}
+        >
+          <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Box>
       <TextField
+        id="field-alias-input"
         inputRef={inputRef}
         size="small"
         fullWidth
+        variant="standard"
         placeholder="Display name"
         value={alias}
         onChange={(e) => setAlias(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleConfirm}
-        sx={{ 
-          '& .MuiInputBase-input': { 
-            fontSize: '0.875rem',
-            py: 0.75,
-          }
+        inputProps={{ 'aria-label': 'Display name' }}
+        sx={{
+          '& .MuiInputBase-root': {
+            minHeight: 0,
+            height: 22,
+          },
+          '& .MuiInputBase-input': {
+            fontSize: '0.75rem',
+            lineHeight: 1.2,
+            py: 0,
+            px: 0,
+          },
+          '& .MuiInput-underline:before': {
+            borderBottomColor: 'rgba(0,0,0,0.2)',
+          },
         }}
       />
     </Popover>
