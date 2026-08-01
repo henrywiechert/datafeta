@@ -32,15 +32,25 @@
   padding: 3px 8px;
 }
 
-.valueListSwitcher {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+.valueListToggleWrap {
+  display: inline-flex;
+  margin-bottom: 6px;
+  width: fit-content;
 }
 
-.valueListSwitcher button {
+.valueListToggle {
+  margin: 0;
+  align-items: center;
+}
+
+.valueListToggle :global(.MuiFormControlLabel-label) {
   font-size: 11px;
-  padding: 3px 8px;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.valueListToggle :global(.MuiSwitch-root) {
+  margin-right: 2px;
 }
 
 .filterBox {
@@ -81,7 +91,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin: 4px 0;
+  margin: 4px 0 2px;
   padding: 0 4px;
 }
 

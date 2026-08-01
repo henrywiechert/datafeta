@@ -82,7 +82,7 @@ FilterPanel
 - Null value display as `(null)`
 - Numeric vs. alphabetic sorting auto-detection
 - Partial results warning with Query Regex backend filter option
-- **All | Relevant** value-list mode (Relevant constrains options by sibling discrete filters)
+- **Respect other filters** toggle (on = constrain options by sibling discrete filters; off = full list)
 - **Selection | Pattern** match mode, shown only when the value list is sampled (`metadata.isPartial`)
   or when the filter is already in pattern mode, so a saved pattern config stays editable. On a
   column small enough to enumerate, the checkbox list is the complete answer and LIKE adds nothing.

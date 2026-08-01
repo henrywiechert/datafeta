@@ -8,7 +8,8 @@ import {
   Typography,
   Alert,
   FormControlLabel,
-  Switch
+  Switch,
+  Tooltip,
 } from '@mui/material';
 import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator, DiscreteValueListMode } from '../../../types';
 import { filterValueKey } from '../../../utils/filterValueKey';
@@ -350,22 +351,27 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       )}
 
       {onValueListModeChange && (
-        <Box className={styles.valueListSwitcher}>
-          <Button
-            size="small"
-            variant={valueListMode === 'all' ? 'contained' : 'text'}
-            onClick={() => onValueListModeChange('all')}
-          >
-            All
-          </Button>
-          <Button
-            size="small"
-            variant={valueListMode === 'relevant' ? 'contained' : 'text'}
-            onClick={() => onValueListModeChange('relevant')}
-          >
-            Relevant
-          </Button>
-        </Box>
+        <Tooltip
+          title="When on, only list values still possible given other discrete filters. When off, show the full value list."
+          placement="top"
+          enterDelay={400}
+        >
+          <span className={styles.valueListToggleWrap}>
+            <FormControlLabel
+              className={styles.valueListToggle}
+              control={
+                <Switch
+                  size="small"
+                  checked={valueListMode === 'relevant'}
+                  onChange={(e) =>
+                    onValueListModeChange(e.target.checked ? 'relevant' : 'all')
+                  }
+                />
+              }
+              label="Respect other filters"
+            />
+          </span>
+        </Tooltip>
       )}
 
       {isPatternMode && (
@@ -521,6 +527,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
             </Button>
           </Box>
         </Box>
+        <div className={styles.sectionDivider} />
 
       {/* Checkbox list: selected values pinned on top */}
       <Box className={styles.checkboxList}>
