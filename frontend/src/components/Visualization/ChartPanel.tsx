@@ -73,7 +73,15 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     <Box 
       ref={containerRef}
       onClick={handleContainerClick}
-      sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        p: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
     >
       {showTableRows ? (
         <Box sx={{ mb: 1 }}>

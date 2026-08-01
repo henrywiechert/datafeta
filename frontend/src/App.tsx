@@ -532,7 +532,7 @@ function AppContent() {
   return (
     <div className="App">
       {/* Main content area */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined} />} />

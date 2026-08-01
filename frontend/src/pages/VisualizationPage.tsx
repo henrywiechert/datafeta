@@ -630,6 +630,7 @@ const VisualizationPageContent = () => {
 
                     {/* Main Content - Chart */}
                     <Panel defaultSize={`${initialChartSize}%`} minSize="40%">
+                        <Box sx={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
                         <ChartPanel
                             xAxisFields={xAxisFields}
                             yAxisFields={yAxisFields}
@@ -646,6 +647,7 @@ const VisualizationPageContent = () => {
                             onReorderTableColumns={handleReorderTableColumns}
                             axisDropFieldIdsRef={axisDropFieldIdsRef}
                         />
+                        </Box>
                     </Panel>
                 </PanelGroup>
             </Box>
