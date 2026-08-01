@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useMemo } from 'react';
 import { Field, FieldOverrideState } from '../../../types';
+import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
 
 interface UseFieldOverridesProps {
   xAxisFields: Field[];
@@ -13,8 +14,6 @@ interface UseFieldOverridesProps {
   colorScheme: string;
   colorBias: number;
   dispatch: (action: any) => void;
-  recordAction: (snapshot: any) => void;
-  getUndoableSnapshot: () => any;
 }
 
 interface FieldOverrideHandlers {
@@ -39,9 +38,9 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
     sizeField,
     fieldOverrides,
     dispatch,
-    recordAction,
-    getUndoableSnapshot,
   } = props;
+
+  const recordUndoPoint = useRecordUndoPoint();
 
   // Build a lookup of all known fields by id
   const fieldById = useMemo(() => {
@@ -65,7 +64,7 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
   }, [xAxisFields, yAxisFields, filterFields, availableFields, colorField, sizeField]);
 
   const handleUpdateOverride = (fieldId: string, patch: Partial<FieldOverrideState>) => {
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
     dispatch({
       type: 'UPDATE_FIELD_OVERRIDE',
       payload: { fieldId, override: patch },
@@ -73,7 +72,7 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
   };
 
   const handleClearOverride = (fieldId: string) => {
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
     dispatch({
       type: 'CLEAR_FIELD_OVERRIDE',
       payload: { fieldId },

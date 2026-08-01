@@ -106,7 +106,32 @@ const {
 } = useDragDrop(availableFields);
 ```
 
-**Key behavior:** Every operation calls `recordAction(getUndoableSnapshot())` before modifying state.
+**Key behavior:** Every operation calls `recordUndoPoint()` before modifying state.
+
+---
+
+### `useRecordUndoPoint`
+
+Pushes the current visualisation state onto the undo stack. Call it *before* dispatching a
+state change, so undo returns to the pre-change state.
+
+```typescript
+const recordUndoPoint = useRecordUndoPoint();
+
+const handleSwapAxis = useCallback(() => {
+  recordUndoPoint();
+  dispatch({ type: 'SWAP_AXIS_FIELDS' });
+}, [recordUndoPoint, dispatch]);
+```
+
+It reads `getUndoableSnapshot` (VisualizationContext) and `recordAction` (UndoRedoContext)
+itself, so action hooks no longer take them as props. Both halves are stable, which makes
+the returned callback stable — it can sit in a dependency array without invalidating
+memoized callbacks whenever state changes. That property matters: an unstable snapshot
+getter once rebuilt the chart grid on every draft filter edit, redrawing the whole plot.
+
+The raw `getUndoableSnapshot` is still used directly by undo/redo itself, which captures
+the current state to push onto the opposite stack rather than recording a new undo point.
 
 ---
 

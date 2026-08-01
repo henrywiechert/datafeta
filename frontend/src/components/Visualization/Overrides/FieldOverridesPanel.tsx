@@ -5,7 +5,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
-import { useUndoRedo } from '../../../contexts/UndoRedoContext';
+import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
@@ -105,9 +105,9 @@ const AreaFillOpacityControl: React.FC<AreaFillOpacityControlProps> = ({ value, 
 };
 
 const FieldOverridesPanel: React.FC = () => {
-  const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
+  const { state, dispatch } = useVisualizationContext();
   const { dataSource } = useDataSource();
-  const { recordAction } = useUndoRedo();
+  const recordUndoPoint = useRecordUndoPoint();
 
   // Get availableFields from DataSourceContext (session-scoped)
   const { availableFields } = dataSource;
@@ -173,8 +173,6 @@ const FieldOverridesPanel: React.FC = () => {
     colorScheme: colorScheme || 'tableau10',
     colorBias: colorBias ?? 0,
     dispatch,
-    recordAction,
-    getUndoableSnapshot,
   });
 
   const rows = useMemo(
@@ -212,18 +210,14 @@ const FieldOverridesPanel: React.FC = () => {
   // Track previous auto-selected type to detect changes
   const prevAutoSelectedTypeRef = useRef<string | undefined>(autoSelectedType);
 
-  const recordUndoSnapshot = React.useCallback(() => {
-    recordAction(getUndoableSnapshot());
-  }, [recordAction, getUndoableSnapshot]);
-
   const applyGlobalActions = React.useCallback((
     actions: any[],
     options?: { clearOverrides?: () => void },
   ) => {
-    recordUndoSnapshot();
+    recordUndoPoint();
     options?.clearOverrides?.();
     actions.forEach(action => dispatch(action));
-  }, [recordUndoSnapshot, dispatch]);
+  }, [recordUndoPoint, dispatch]);
 
   const applyGlobalAction = React.useCallback((
     action: any,

@@ -18,7 +18,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
-import { useUndoRedo } from '../../../contexts/UndoRedoContext';
+import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
 import {
   OverlayConfig,
   OverlayType,
@@ -310,8 +310,8 @@ const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
 // --- Main section component --------------------------------------------------
 
 const OverlaysSection: React.FC = () => {
-  const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
-  const { recordAction } = useUndoRedo();
+  const { state, dispatch } = useVisualizationContext();
+  const recordUndoPoint = useRecordUndoPoint();
 
   const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField, chartTypeParams } = state;
   const overlays: OverlayConfig[] = overlayConfigs ?? DEFAULT_OVERLAYS;
@@ -368,7 +368,7 @@ const OverlaysSection: React.FC = () => {
   );
 
   const handleToggle = (type: OverlayType, enabled: boolean) => {
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
     dispatch({ type: 'TOGGLE_OVERLAY', payload: { type, enabled } });
   };
 

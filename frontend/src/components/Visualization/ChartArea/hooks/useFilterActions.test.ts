@@ -6,9 +6,15 @@ import type { Field } from '../../../../types';
 const mockUseVisualizationContext = jest.fn();
 const mockAddFieldAsDiscreteFilter = jest.fn();
 const mockUpdateExistingDiscreteFilter = jest.fn();
+const mockRecordUndoPoint = jest.fn();
 
 jest.mock('../../../../contexts/VisualizationContext', () => ({
   useVisualizationContext: () => mockUseVisualizationContext(),
+}));
+
+// Stable identity across renders, as the real hook guarantees.
+jest.mock('../../../../hooks/useRecordUndoPoint', () => ({
+  useRecordUndoPoint: () => mockRecordUndoPoint,
 }));
 
 jest.mock('../../../../utils/filterActions', () => ({
@@ -27,12 +33,9 @@ const makeField = (columnName: string, overrides?: Partial<Field>): Field => ({
 
 describe('useFilterActions discrete legend bridge', () => {
   const dispatch = jest.fn();
-  const recordAction = jest.fn();
-  const getUndoableSnapshot = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    getUndoableSnapshot.mockReturnValue({ snapshot: true });
   });
 
   it('updates an existing discrete color filter for keep actions', () => {
@@ -61,17 +64,13 @@ describe('useFilterActions discrete legend bridge', () => {
       },
     });
 
-    const { result } = renderHook(() => useFilterActions({
-      recordAction,
-      getUndoableSnapshot,
-      grid: null,
-    }));
+    const { result } = renderHook(() => useFilterActions({ grid: null }));
 
     act(() => {
       result.current.handleLegendFilterAction('keep', ['Gentoo'], ['Adelie', 'Gentoo']);
     });
 
-    expect(recordAction).toHaveBeenCalledWith({ snapshot: true });
+    expect(mockRecordUndoPoint).toHaveBeenCalled();
     expect(mockUpdateExistingDiscreteFilter).toHaveBeenCalledWith(
       'filter-species',
       'species',
@@ -98,17 +97,13 @@ describe('useFilterActions discrete legend bridge', () => {
       },
     });
 
-    const { result } = renderHook(() => useFilterActions({
-      recordAction,
-      getUndoableSnapshot,
-      grid: null,
-    }));
+    const { result } = renderHook(() => useFilterActions({ grid: null }));
 
     act(() => {
       result.current.handleShapeLegendFilterAction('exclude', ['B'], ['A', 'B', 'C']);
     });
 
-    expect(recordAction).toHaveBeenCalledWith({ snapshot: true });
+    expect(mockRecordUndoPoint).toHaveBeenCalled();
     expect(mockAddFieldAsDiscreteFilter).toHaveBeenCalledWith(
       shapeField,
       ['A', 'C'],
@@ -130,18 +125,14 @@ describe('useFilterActions discrete legend bridge', () => {
       },
     });
 
-    const { result } = renderHook(() => useFilterActions({
-      recordAction,
-      getUndoableSnapshot,
-      grid: null,
-    }));
+    const { result } = renderHook(() => useFilterActions({ grid: null }));
 
     act(() => {
       result.current.handleLegendFilterAction('keep', ['A'], ['A', 'B']);
       result.current.handleShapeLegendFilterAction('exclude', ['B'], ['A', 'B']);
     });
 
-    expect(recordAction).not.toHaveBeenCalled();
+    expect(mockRecordUndoPoint).not.toHaveBeenCalled();
     expect(mockAddFieldAsDiscreteFilter).not.toHaveBeenCalled();
     expect(mockUpdateExistingDiscreteFilter).not.toHaveBeenCalled();
   });
@@ -149,8 +140,6 @@ describe('useFilterActions discrete legend bridge', () => {
 
 describe('useFilterActions tooltip grid injection', () => {
   const dispatch = jest.fn();
-  const recordAction = jest.fn();
-  const getUndoableSnapshot = jest.fn(() => ({ snapshot: true }));
 
   const grid = {
     layout: { rows: 1, columns: 1 },
@@ -180,11 +169,7 @@ describe('useFilterActions tooltip grid injection', () => {
   it('keeps the grid identity when draft filter configurations change', () => {
     mockUseVisualizationContext.mockReturnValue(stateWith(['a']));
 
-    const { result, rerender } = renderHook(() => useFilterActions({
-      recordAction,
-      getUndoableSnapshot,
-      grid,
-    }));
+    const { result, rerender } = renderHook(() => useFilterActions({ grid }));
     const injectedGrid = result.current.gridWithTooltipAction;
     expect(injectedGrid).not.toBe(grid);
 

@@ -227,7 +227,7 @@ Persisted to localStorage
 ```
 User action (e.g., add field)
     ↓
-recordAction(currentState)  ← Save before change
+recordUndoPoint()  ← Save before change
     ↓
 VisualizationContext dispatch
     ↓
@@ -239,6 +239,12 @@ VisualizationContext dispatch({ type: 'RESTORE_STATE', payload: previousState })
     ↓
 completeUndo(currentState) ← Move to redo stack
 ```
+
+`useRecordUndoPoint` is the single bridge between the two contexts: it reads
+`getUndoableSnapshot` from VisualizationContext and `recordAction` from UndoRedoContext, so
+action hooks depend on one stable callback instead of threading both through props. Only
+undo/redo touch `getUndoableSnapshot` directly, to capture `currentState` for the opposite
+stack.
 
 ---
 

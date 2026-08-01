@@ -7,10 +7,11 @@
 import { useCallback } from 'react';
 import { columnCacheManager } from '../../../../services/columnCacheManager';
 import { filterTierManager } from '../../../../services/filterTierManager';
+import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 
 interface UseChartActionsProps {
   dispatch: (action: any) => void;
-  recordAction: (snapshot: any) => void;
+  /** Only for undo/redo, which capture the current state to push onto the other stack. */
   getUndoableSnapshot: () => any;
   undo: () => any;
   completeUndo: (state: any) => void;
@@ -25,7 +26,6 @@ interface UseChartActionsProps {
 
 export function useChartActions({
   dispatch,
-  recordAction,
   getUndoableSnapshot,
   undo,
   completeUndo,
@@ -37,6 +37,8 @@ export function useChartActions({
   selectedTable,
   selectedDatabase,
 }: UseChartActionsProps) {
+  const recordUndoPoint = useRecordUndoPoint();
+
   const handleResetWorkspace = useCallback(() => {
     dispatch({ type: 'CLEAR_MEASURE_GROUP' });
     clearSessionFilters();
@@ -44,9 +46,9 @@ export function useChartActions({
   }, [dispatch, clearSessionFilters, resetWorkspace]);
 
   const handleSwapAxis = useCallback(() => {
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
     dispatch({ type: 'SWAP_AXIS_FIELDS' });
-  }, [recordAction, getUndoableSnapshot, dispatch]);
+  }, [recordUndoPoint, dispatch]);
 
   const handleUndo = useCallback(() => {
     const previousState = undo();
@@ -82,18 +84,18 @@ export function useChartActions({
 
   const handleIndependentXAxisToggle = useCallback(
     (independent: boolean) => {
-      recordAction(getUndoableSnapshot());
+      recordUndoPoint();
       dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'x', independent } });
     },
-    [dispatch, getUndoableSnapshot, recordAction],
+    [dispatch, recordUndoPoint],
   );
 
   const handleIndependentYAxisToggle = useCallback(
     (independent: boolean) => {
-      recordAction(getUndoableSnapshot());
+      recordUndoPoint();
       dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'y', independent } });
     },
-    [dispatch, getUndoableSnapshot, recordAction],
+    [dispatch, recordUndoPoint],
   );
 
   const handleForceRefresh = useCallback(async () => {

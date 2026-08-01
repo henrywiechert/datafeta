@@ -10,6 +10,7 @@
 
 import { useCallback, useMemo, useRef } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
+import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 import { toDatePartInteger } from '../utils/dateTimeConversion';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
@@ -18,33 +19,30 @@ import type { LegendFilterAction } from '../../Legend/LegendPanel';
 import type { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 
 interface UseFilterActionsProps {
-  recordAction: (snapshot: any) => void;
-  getUndoableSnapshot: () => any;
   /** Chart grid produced by useChartGeneration – used for tooltip callback injection. */
   grid: GridResultModel | null;
 }
 
 export function useFilterActions({
-  recordAction,
-  getUndoableSnapshot,
   grid,
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
   const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
+  const recordUndoPoint = useRecordUndoPoint();
 
   // `handleTooltipFilterAction` is injected into every plot cell's options below, so a
   // new identity rebuilds the grid and makes Observable Plot redraw the SVG. Its inputs
-  // change on every draft filter edit (`filterConfigurations`, and `getUndoableSnapshot`
-  // with it), so they are read through a ref to keep the callbacks stable.
-  const latest = useRef({ filterFields, filterConfigurations, queryResult, recordAction, getUndoableSnapshot });
-  latest.current = { filterFields, filterConfigurations, queryResult, recordAction, getUndoableSnapshot };
+  // change on every draft filter edit, so they are read through a ref to keep the
+  // callbacks stable.
+  const latest = useRef({ filterFields, filterConfigurations, queryResult });
+  latest.current = { filterFields, filterConfigurations, queryResult };
 
   const applyDiscreteLegendFilterAction = useCallback(
     (field: Field | null, action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
       if (!field) return;
 
-      const { filterFields, filterConfigurations, recordAction, getUndoableSnapshot } = latest.current;
-      recordAction(getUndoableSnapshot());
+      const { filterFields, filterConfigurations } = latest.current;
+      recordUndoPoint();
 
       const keepValues =
         action === 'keep'
@@ -80,7 +78,7 @@ export function useFilterActions({
         dispatch,
       );
     },
-    [dispatch],
+    [dispatch, recordUndoPoint],
   );
 
   // ── Legend → Filter bridge ───────────────────────────────────────────
@@ -107,14 +105,8 @@ export function useFilterActions({
       // 'keep' and 'exclude' require a concrete rawValue; 'filter-visible' does not
       if (action !== 'filter-visible' && field.rawValue == null) return;
 
-      const {
-        filterFields,
-        filterConfigurations,
-        queryResult,
-        recordAction,
-        getUndoableSnapshot,
-      } = latest.current;
-      recordAction(getUndoableSnapshot());
+      const { filterFields, filterConfigurations, queryResult } = latest.current;
+      recordUndoPoint();
 
       const existingFilter = filterFields.find(
         (f: any) => f.columnName === sourceField.columnName,
@@ -179,7 +171,7 @@ export function useFilterActions({
         );
       }
     },
-    [dispatch],
+    [dispatch, recordUndoPoint],
   );
 
   // ── Inject tooltip filter callback into each cell ────────────────────

@@ -160,7 +160,7 @@ User Action (drop field, change scheme, etc.)
  Global                   Per-field
     │                         │
     ▼                         ▼
-recordAction()           handleUpdateOverride()
+recordUndoPoint()        handleUpdateOverride()
 dispatch(SET_*)          dispatch(UPDATE_FIELD_OVERRIDE)
 clearXOverridesForAll()        │
     │                         │
@@ -251,7 +251,7 @@ When changing global settings, per-field overrides for that property are cleared
 
 ```typescript
 onDrop={(field) => {
-  recordAction(getUndoableSnapshot());
+  recordUndoPoint();
   clearColorOverridesForAllFields();  // Clear per-field color overrides
   dispatch({ type: 'SET_COLOR_FIELD', payload: field });
 }}
