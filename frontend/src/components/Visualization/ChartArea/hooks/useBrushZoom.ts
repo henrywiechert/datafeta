@@ -20,6 +20,7 @@ import {
   Dispatch,
 } from '../../../../utils/filterActions';
 import { formatISODateTime } from '../../../../datetime/datetimeFormatUtils';
+import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 
 /**
  * Format epoch ms to a filter-friendly ISO string using UTC components.
@@ -67,8 +68,6 @@ interface UseBrushZoomParams {
   filterFields: Field[];
   appliedFilterConfigurations: Record<string, FilterConfig>;
   filterMetadata: Record<string, FilterMetadata>;
-  recordAction: (snapshot: any) => void;
-  getUndoableSnapshot: () => any;
   independentDomains?: { x?: boolean; y?: boolean };
 }
 
@@ -80,11 +79,10 @@ export function useBrushZoom({
   filterFields,
   appliedFilterConfigurations,
   filterMetadata,
-  recordAction,
-  getUndoableSnapshot,
   independentDomains,
 }: UseBrushZoomParams) {
   const brushDisabled = !!(independentDomains?.x || independentDomains?.y);
+  const recordUndoPoint = useRecordUndoPoint();
 
   const findExistingZoomFilter = useCallback(
     (columnName: string): { fieldId: string; config: FilterConfig } | null => {
@@ -111,7 +109,7 @@ export function useBrushZoom({
       console.debug('[BrushZoom] scale', brush.axis, scale);
       if (!scale || !scale.domain || !scale.range) { console.debug('[BrushZoom] scale missing domain/range'); return; }
 
-      recordAction(getUndoableSnapshot());
+      recordUndoPoint();
 
       if (isBandScale(scale)) {
         const selectedValues = invertBand(brush.startPx, brush.endPx, scale);
@@ -195,7 +193,7 @@ export function useBrushZoom({
         }
       }
     },
-    [dispatch, filterFields, findExistingZoomFilter, recordAction, getUndoableSnapshot],
+    [dispatch, filterFields, findExistingZoomFilter, recordUndoPoint],
   );
 
   const handleZoomOut = useCallback(() => {
@@ -204,7 +202,7 @@ export function useBrushZoom({
     );
     if (zoomFilters.length === 0) return;
 
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
 
     for (const [fieldId, cfg] of zoomFilters) {
       if (cfg.type === 'continuous' && cfg.min != null && cfg.max != null) {
@@ -284,7 +282,7 @@ export function useBrushZoom({
         );
       }
     }
-  }, [appliedFilterConfigurations, filterMetadata, dispatch, recordAction, getUndoableSnapshot]);
+  }, [appliedFilterConfigurations, filterMetadata, dispatch, recordUndoPoint]);
 
   const handleZoomReset = useCallback(() => {
     const zoomFieldIds = Object.entries(appliedFilterConfigurations)
@@ -292,14 +290,14 @@ export function useBrushZoom({
       .map(([fieldId]) => fieldId);
     if (zoomFieldIds.length === 0) return;
 
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
 
     const remainingFields = filterFields.filter((f) => !zoomFieldIds.includes(f.id));
     dispatch({ type: 'SET_FILTER_FIELDS', payload: remainingFields } as VisualizationAction);
     for (const fieldId of zoomFieldIds) {
       dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId } as VisualizationAction);
     }
-  }, [appliedFilterConfigurations, filterFields, dispatch, recordAction, getUndoableSnapshot]);
+  }, [appliedFilterConfigurations, filterFields, dispatch, recordUndoPoint]);
 
   const hasActiveZoomFilters = useMemo(
     () => Object.values(appliedFilterConfigurations).some((cfg) => cfg.isZoomFilter),

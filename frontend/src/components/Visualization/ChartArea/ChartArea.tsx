@@ -6,6 +6,7 @@ import { useVisualizationContext, useChannels } from '../../../contexts/Visualiz
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
+import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useSheetCacheSave } from '../../../hooks/useSheetCacheCoordinator';
 import {
@@ -64,7 +65,8 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   // -- Contexts ----------------------------------------------------------------
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } =
     useVisualizationContext();
-  const { recordAction, undo, completeUndo, redo, completeRedo, discardLastAction, canUndo, canRedo } = useUndoRedo();
+  const { undo, completeUndo, redo, completeRedo, discardLastAction, canUndo, canRedo } = useUndoRedo();
+  const recordUndoPoint = useRecordUndoPoint();
   const { dataSource, clearSessionFilters } = useDataSource();
   const { resetWorkspace, activeSheet } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
@@ -271,21 +273,14 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     yAxisFields,
   ]);
 
-  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({
-    recordAction,
-    getUndoableSnapshot,
-    grid,
-  });
+  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({ grid });
   const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction);
 
   const handleHeatmapSizeToolbarChange = useCallback((toolbarState: HeatmapSizeToolbarState | null) => {
     setHeatmapSizeToolbarState(toolbarState);
   }, []);
 
-  const { handleTableCellFilterAction } = useTableRowsFilterActions({
-    recordAction,
-    getUndoableSnapshot,
-  });
+  const { handleTableCellFilterAction } = useTableRowsFilterActions();
 
   const { ganttFullDataRange, handleGanttZoomRangeChange } = useGanttZoom({
     isGanttChart,
@@ -305,7 +300,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     handleForceRefresh,
   } = useChartActions({
     dispatch,
-    recordAction,
     getUndoableSnapshot,
     undo,
     completeUndo,
@@ -323,8 +317,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     filterFields: state.filterFields,
     appliedFilterConfigurations,
     filterMetadata: state.filterMetadata,
-    recordAction,
-    getUndoableSnapshot,
     independentDomains,
   });
 
@@ -567,7 +559,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
             onForceRefresh={handleForceRefresh}
             bandThicknessScale={channels.size.bandThicknessScale}
             onBandThicknessScaleChange={(scale) => {
-              recordAction(getUndoableSnapshot());
+              recordUndoPoint();
               dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
             }}
             onZoomOut={handleZoomOut}
@@ -583,7 +575,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
                 : undefined
             }
             onToggleTableRows={(show) => {
-              recordAction(getUndoableSnapshot());
+              recordUndoPoint();
               // Option C: seed the table view's column list once from the current
               // encodings when entering the view with an empty list. Afterwards
               // the list is user-owned and never re-seeded.

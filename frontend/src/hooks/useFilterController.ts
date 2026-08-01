@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
-import { useUndoRedo } from './useUndoRedo';
+import { useRecordUndoPoint } from './useRecordUndoPoint';
 import { useGlobalFilters } from './useGlobalFilters';
 import { useFilterConfigWriter } from './useFilterConfigWriter';
 import { FilterConfig } from '../types';
@@ -26,8 +26,8 @@ export interface UseFilterControllerReturn {
 export function useFilterController(): UseFilterControllerReturn {
   const dataSourceContext = useDataSource();
   const { dataSource } = dataSourceContext;
-  const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
-  const { recordAction } = useUndoRedo();
+  const { state, dispatch } = useVisualizationContext();
+  const recordUndoPoint = useRecordUndoPoint();
   const writeFilterConfig = useFilterConfigWriter();
   const {
     markFilterAsGlobal,
@@ -88,21 +88,21 @@ export function useFilterController(): UseFilterControllerReturn {
       return;
     }
 
-    recordAction(getUndoableSnapshot());
+    recordUndoPoint();
     dispatch({
       type: 'SET_FILTER_FIELDS',
       payload: filterFieldsRef.current.filter((field) => field.id !== fieldId),
     });
     dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
-  }, [dispatch, getUndoableSnapshot, recordAction]);
+  }, [dispatch, recordUndoPoint]);
 
   const updateFilterConfig = useCallback((fieldId: string, config: FilterConfig) => {
     if (!draftDirtyRef.current) {
       draftDirtyRef.current = true;
-      recordAction(getUndoableSnapshot());
+      recordUndoPoint();
     }
     writeFilterConfig(fieldId, config);
-  }, [getUndoableSnapshot, recordAction, writeFilterConfig]);
+  }, [recordUndoPoint, writeFilterConfig]);
 
   const applyFilters = useCallback(() => {
     // The pre-edit snapshot was already recorded by the first updateFilterConfig call.

@@ -12,6 +12,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
+import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 import {
   addFieldAsDiscreteFilter,
   updateExistingDiscreteFilter,
@@ -20,16 +21,9 @@ import { getResultColumnName } from '../../../../utils/fieldUtils';
 import type { Field, DiscreteFilterConfig } from '../../../../types';
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
-interface UseTableRowsFilterActionsProps {
-  recordAction: (snapshot: any) => void;
-  getUndoableSnapshot: () => any;
-}
-
-export function useTableRowsFilterActions({
-  recordAction,
-  getUndoableSnapshot,
-}: UseTableRowsFilterActionsProps) {
+export function useTableRowsFilterActions() {
   const { state, dispatch } = useVisualizationContext();
+  const recordUndoPoint = useRecordUndoPoint();
   const { xAxisFields, yAxisFields, colorField, sizeField, labelFields, tooltipFields, filterFields, filterConfigurations } = state;
   // Collect all encoding-channel fields (mirrors collectAllFields in useTableRowsQuery)
   const allFields = useMemo(() => {
@@ -57,7 +51,7 @@ export function useTableRowsFilterActions({
       const sourceField = allFields.find((f) => getResultColumnName(f) === columnName);
       if (!sourceField) return;
 
-      recordAction(getUndoableSnapshot());
+      recordUndoPoint();
 
       // Check for existing filter on this column
       const existingFilter = filterFields.find(
@@ -134,7 +128,7 @@ export function useTableRowsFilterActions({
         }
       }
     },
-    [allFields, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [allFields, filterFields, filterConfigurations, dispatch, recordUndoPoint],
   );
 
   return { handleTableCellFilterAction };
