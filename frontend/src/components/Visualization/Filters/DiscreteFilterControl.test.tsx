@@ -4,20 +4,34 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator } from '../../../types';
 
-const buildMetadata = (availableValues: any[]): DiscreteFilterMetadata => ({
+const buildMetadata = (
+  availableValues: any[],
+  overrides?: Partial<DiscreteFilterMetadata>,
+): DiscreteFilterMetadata => ({
   fieldId: 'category',
   columnName: 'category',
   type: 'discrete',
   loading: false,
   availableValues,
+  ...overrides,
 });
 
 const Harness: React.FC<{
   metadata: DiscreteFilterMetadata;
   selectedValues?: any[];
   onPatternChange?: jest.Mock;
-}> = ({ metadata, selectedValues = [], onPatternChange }) => {
-  const [matchMode, setMatchMode] = React.useState<DiscreteFilterMatchMode>('selection');
+  onValueListModeChange?: jest.Mock;
+  valueListMode?: 'all' | 'relevant';
+  initialMatchMode?: DiscreteFilterMatchMode;
+}> = ({
+  metadata,
+  selectedValues = [],
+  onPatternChange,
+  onValueListModeChange,
+  valueListMode = 'all',
+  initialMatchMode = 'selection',
+}) => {
+  const [matchMode, setMatchMode] = React.useState<DiscreteFilterMatchMode>(initialMatchMode);
   const [pattern, setPattern] = React.useState('');
   const [patternOperator, setPatternOperator] = React.useState<DiscretePatternOperator>('like');
   const [isInversePattern, setIsInversePattern] = React.useState(false);
@@ -30,6 +44,7 @@ const Harness: React.FC<{
       pattern={pattern}
       patternOperator={patternOperator}
       isInversePattern={isInversePattern}
+      valueListMode={valueListMode}
       onChange={jest.fn()}
       onPatternChange={(config) => {
         setMatchMode(config.matchMode);
@@ -38,6 +53,7 @@ const Harness: React.FC<{
         setIsInversePattern(config.isInversePattern);
         onPatternChange?.(config);
       }}
+      onValueListModeChange={onValueListModeChange}
       onRefetchValues={jest.fn().mockResolvedValue(undefined)}
     />
   );
@@ -70,7 +86,7 @@ describe('DiscreteFilterControl', () => {
 
     render(
       <Harness
-        metadata={buildMetadata(['Alpha', 'Beta'])}
+        metadata={buildMetadata(['Alpha', 'Beta'], { isPartial: true })}
         selectedValues={['Alpha']}
         onPatternChange={handlePatternChange}
       />
@@ -95,5 +111,44 @@ describe('DiscreteFilterControl', () => {
       patternOperator: 'like',
       isInversePattern: false,
     });
+  });
+
+  test('calls onValueListModeChange when Relevant is clicked', () => {
+    const handleMode = jest.fn();
+    render(
+      <Harness
+        metadata={buildMetadata(['Alpha', 'Beta'])}
+        selectedValues={['Alpha']}
+        onValueListModeChange={handleMode}
+        valueListMode="all"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Relevant' }));
+    expect(handleMode).toHaveBeenCalledWith('relevant');
+  });
+
+  test('hides the pattern mode switcher when the value list is complete', () => {
+    render(
+      <Harness
+        metadata={buildMetadata(['Alpha', 'Beta'])}
+        selectedValues={['Alpha']}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Pattern' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Selection' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the switcher for a filter already in pattern mode on a complete list', () => {
+    render(
+      <Harness
+        metadata={buildMetadata(['Alpha', 'Beta'])}
+        selectedValues={['Alpha']}
+        initialMatchMode="pattern"
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Selection' })).toBeInTheDocument();
   });
 });

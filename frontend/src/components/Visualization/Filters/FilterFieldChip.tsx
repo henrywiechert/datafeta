@@ -7,7 +7,7 @@ import PublicIcon from '@mui/icons-material/Public';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { Field, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
+import { Field, FilterConfig, FilterMetadata, FilterScope, DiscreteValueListMode } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
 import { DateTimeRangeFilter } from '../../DateTime';
@@ -15,6 +15,8 @@ import styles from './FilterFieldChip.module.css';
 import FieldChip from '../FieldChip';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { getResultColumnName } from '../../../utils/fieldUtils';
+import { resolveValueListMode } from '../../../utils/cascadingFilters';
+import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
 
 interface FilterFieldChipProps {
   field: Field;
@@ -22,7 +24,11 @@ interface FilterFieldChipProps {
   filterMetadata: FilterMetadata | undefined;
   onConfigChange: (config: FilterConfig) => void;
   onRemove: () => void;
-  onRefetchValues: (regexPattern?: string) => Promise<void>;
+  onRefetchValues: (
+    regexPattern?: string,
+    options?: FilterValueListFetchOptions,
+  ) => Promise<void>;
+  onValueListModeChange?: (mode: DiscreteValueListMode) => void;
   // New: scope-related props
   filterScope?: FilterScope;
   onScopeChange?: (newScope: FilterScope) => void;
@@ -38,6 +44,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   onConfigChange,
   onRemove,
   onRefetchValues,
+  onValueListModeChange,
   filterScope = 'sheet',
   onScopeChange,
   isDisabled = false,
@@ -86,10 +93,19 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
   // Memoize these handlers to keep callbacks stable for child components (CheckboxItem memoization)
   const handleDiscreteChange = useCallback((values: any[]) => {
-    // Compute excludedValues for query optimization (NOT IN when shorter than IN)
+    // Compute excludedValues for query optimization (NOT IN when shorter than IN).
+    // Both fields describe the column's full value universe, so they may only be
+    // derived from a complete list: a Relevant (sibling-constrained) list would make
+    // "all visible values selected" look like "all values selected" and drop the
+    // filter, and would turn NOT IN into a pass for every value outside the list.
     let excludedValues: any[] | undefined;
     let totalAvailableCount: number | undefined;
-    if (filterMetadata && filterMetadata.type === 'discrete' && !filterMetadata.isPartial) {
+    if (
+      filterMetadata
+      && filterMetadata.type === 'discrete'
+      && !filterMetadata.isPartial
+      && !filterMetadata.constrainedByOtherFilters
+    ) {
       const available = filterMetadata.availableValues;
       totalAvailableCount = available.length;
       const selectedKeySet = new Set(values.map(v => v === null || v === undefined ? '__NULL__' : String(v)));
@@ -113,6 +129,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
       isZoomFilter: filterConfig?.isZoomFilter,
+      valueListMode: filterConfig?.type === 'discrete' ? filterConfig.valueListMode : undefined,
     });
   }, [
     field.id,
@@ -124,7 +141,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     discretePattern,
     discretePatternOperator,
     discreteInversePattern,
-    filterConfig?.isZoomFilter,
+    filterConfig,
   ]);
 
   const handleDiscretePatternChange = useCallback((patternConfig: {
@@ -145,6 +162,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
       isZoomFilter: filterConfig?.isZoomFilter,
+      valueListMode: filterConfig?.type === 'discrete' ? filterConfig.valueListMode : undefined,
     });
   }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterConfig]);
 
@@ -260,8 +278,10 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           pattern={filterConfig && filterConfig.type === 'discrete' ? filterConfig.pattern : ''}
           patternOperator={filterConfig && filterConfig.type === 'discrete' ? filterConfig.patternOperator : 'like'}
           isInversePattern={filterConfig && filterConfig.type === 'discrete' ? filterConfig.isInversePattern : false}
+          valueListMode={resolveValueListMode(filterConfig)}
           onChange={handleDiscreteChange}
           onPatternChange={handleDiscretePatternChange}
+          onValueListModeChange={onValueListModeChange}
           onRefetchValues={onRefetchValues}
         />
       );

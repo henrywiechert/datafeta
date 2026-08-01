@@ -23,7 +23,8 @@ import {
   VirtualColumnDefinition,
   VirtualTableDefinition,
   QueryResult,
-  ForeignKeyRelationship
+  ForeignKeyRelationship,
+  Filter
 } from '../../types';
 import { fetchWithErrorHandling, API_BASE_URL, createAbortController, buildUrl } from './apiClient';
 import { deduplicateFilterValues } from '../../utils/filterValueKey';
@@ -201,7 +202,9 @@ export const metadataApi = {
     unionTables?: string[],
     virtualColumns?: VirtualColumnDefinition[],
     virtualTable?: VirtualTableDefinition,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    /** Sibling filters constraining the value list (Relevant mode) */
+    filters?: Filter[],
   ): Promise<any[]> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
@@ -260,6 +263,10 @@ export const metadataApi = {
       queryDesc.use_random_sample = true;
     }
 
+    if (filters && filters.length > 0) {
+      queryDesc.filters = filters;
+    }
+
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
       method: 'POST',
       headers: {
@@ -316,7 +323,9 @@ export const metadataApi = {
     virtualColumns?: VirtualColumnDefinition[],
     virtualTable?: VirtualTableDefinition,
     signal?: AbortSignal,
-    sourceTable?: string
+    sourceTable?: string,
+    /** Sibling filters constraining the count (Relevant mode). Same list as getDistinctValues. */
+    filters?: Filter[],
   ): Promise<number> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
@@ -350,6 +359,9 @@ export const metadataApi = {
     }
     if (sourceTable) {
       requestBody.sourceTable = sourceTable;
+    }
+    if (filters && filters.length > 0) {
+      requestBody.filters = filters;
     }
     
     const response = await fetchWithErrorHandling(

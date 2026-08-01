@@ -8,7 +8,7 @@
  *  • Injection of the tooltip callback into the chart grid
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { toDatePartInteger } from '../utils/dateTimeConversion';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
@@ -32,10 +32,18 @@ export function useFilterActions({
   const { state, dispatch } = useVisualizationContext();
   const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
 
+  // `handleTooltipFilterAction` is injected into every plot cell's options below, so a
+  // new identity rebuilds the grid and makes Observable Plot redraw the SVG. Its inputs
+  // change on every draft filter edit (`filterConfigurations`, and `getUndoableSnapshot`
+  // with it), so they are read through a ref to keep the callbacks stable.
+  const latest = useRef({ filterFields, filterConfigurations, queryResult, recordAction, getUndoableSnapshot });
+  latest.current = { filterFields, filterConfigurations, queryResult, recordAction, getUndoableSnapshot };
+
   const applyDiscreteLegendFilterAction = useCallback(
     (field: Field | null, action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
       if (!field) return;
 
+      const { filterFields, filterConfigurations, recordAction, getUndoableSnapshot } = latest.current;
       recordAction(getUndoableSnapshot());
 
       const keepValues =
@@ -72,7 +80,7 @@ export function useFilterActions({
         dispatch,
       );
     },
-    [filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [dispatch],
   );
 
   // ── Legend → Filter bridge ───────────────────────────────────────────
@@ -99,6 +107,13 @@ export function useFilterActions({
       // 'keep' and 'exclude' require a concrete rawValue; 'filter-visible' does not
       if (action !== 'filter-visible' && field.rawValue == null) return;
 
+      const {
+        filterFields,
+        filterConfigurations,
+        queryResult,
+        recordAction,
+        getUndoableSnapshot,
+      } = latest.current;
       recordAction(getUndoableSnapshot());
 
       const existingFilter = filterFields.find(
@@ -164,7 +179,7 @@ export function useFilterActions({
         );
       }
     },
-    [queryResult, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [dispatch],
   );
 
   // ── Inject tooltip filter callback into each cell ────────────────────

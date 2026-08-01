@@ -123,6 +123,28 @@ class TestDistinctCountEndpoint:
         assert kwargs['source_table'] == 'products'
         assert kwargs['virtual_columns'] is None
         assert kwargs['virtual_table'] is None
+        assert kwargs['filters'] is None
+
+    def test_passes_sibling_filters_to_service(self):
+        """Relevant-mode picker lists send the same Filter[] shape as /query."""
+        client = make_client()
+        payload = {
+            "field": "city",
+            "table": "sales",
+            "filters": [
+                {"field": "country", "operator": "in", "value": ["US", "DE"]},
+            ],
+        }
+        with patch.object(query_router, 'CardinalityService') as mock_service_cls:
+            mock_service_cls.return_value.get_distinct_count.return_value = 3
+            response = client.post("/distinct-count", json=payload)
+
+        assert response.status_code == 200
+        assert response.json() == {"count": 3}
+        filters = mock_service_cls.return_value.get_distinct_count.call_args.kwargs['filters']
+        assert [(f.field, f.operator, f.value) for f in filters] == [
+            ("country", "in", ["US", "DE"]),
+        ]
 
 
 class TestQueryEndpointValidation:

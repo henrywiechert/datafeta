@@ -32,6 +32,7 @@ from backend.services.query_components.optimization_context_builder import (
 )
 from backend.services.query_components.result_budget_applier import apply_result_budget
 from backend.services.query_components.filter_builder import FilterBuilder
+from backend.services.query_components.filter_table_scope import scope_filters_to_table
 from backend.services.query_components.sampling_limits_builder import (
     SamplingAndLimitsBuilder,
 )
@@ -689,6 +690,21 @@ class QueryService:
                             f"Filter value query: Using source table '{source_table_name}' directly "
                             f"for field '{column_name}' (bypassing JOIN to get ALL distinct values)"
                         )
+
+                        # Dropping the JOIN also drops the other tables from FROM, so
+                        # filters referencing them can no longer be resolved. Skip them
+                        # (same rule as CardinalityService) rather than emit an unknown
+                        # column. Keeps /query and /distinct-count consistent.
+                        virtual_column_names = {
+                            vc.name for vc in (query_desc.virtual_columns or [])
+                        }
+                        scoped_filters = scope_filters_to_table(
+                            query_desc.filters,
+                            known_tables,
+                            source_table_name,
+                            is_virtual_column=virtual_column_names.__contains__,
+                            log_context="Filter value query",
+                        )
                         
                         # Create a new dimension with just the column name
                         from backend.models.query import Dimension
@@ -707,7 +723,7 @@ class QueryService:
                             target_database=query_desc.target_database,
                             dimensions=[simplified_dim],
                             measures=query_desc.measures,
-                            filters=query_desc.filters,  # Keep filters but they may need adjustment
+                            filters=scoped_filters,
                             orderBy=query_desc.orderBy,
                             limit=query_desc.limit,
                             offset=query_desc.offset,

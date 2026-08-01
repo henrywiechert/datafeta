@@ -1,12 +1,30 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition } from '../types';
+import { Field, FilterConfig, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { apiService } from '../apiService';
 import { isMeasureNamesField } from '../utils/syntheticFields';
+import { buildCascadingFiltersForField } from '../utils/cascadingFilters';
+import { convertFilterConfigsToFilters } from '../queryBuilder/queryBuilder';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
+}
+
+export interface FilterValueListFetchOptions {
+    /**
+     * Sibling configs constraining the distinct list (Relevant mode), supplied by
+     * `useRelevantValueLists`. Omitted or empty means the full, unconstrained list —
+     * which is also what a cold start fetches, so `totalAvailableCount` is always
+     * derived from the true column cardinality.
+     */
+    siblingConfigurations?: Record<string, FilterConfig>;
+    /**
+     * When true, rewrite the draft discrete selection from the fetch result
+     * (select-all matching / clear). Used by Query Regex; default false so
+     * All/Relevant list refreshes never mutate selections.
+     */
+    applySelectionFromResult?: boolean;
 }
 
 interface UseFilterMetadataParams {
@@ -23,8 +41,12 @@ interface UseFilterMetadataParams {
 }
 
 export interface UseFilterMetadataReturn {
-    fetchFilterMetadata: (field: Field) => Promise<void>;
-    refetchFilterValues: (fieldId: string, regexPattern?: string) => Promise<void>;
+    fetchFilterMetadata: (field: Field, options?: FilterValueListFetchOptions) => Promise<void>;
+    refetchFilterValues: (
+        fieldId: string,
+        regexPattern?: string,
+        options?: FilterValueListFetchOptions,
+    ) => Promise<void>;
 }
 
 const resolveFilterType = (field: Field): 'discrete' | 'continuous' | 'datetime' | 'measure' => {
@@ -80,6 +102,25 @@ export function useFilterMetadata({
     // Track field signatures to refetch metadata when field semantics change in-place.
     const filterFieldSignaturesRef = useRef<Map<string, string>>(new Map());
 
+    // Relevant-mode refetches run in the background (debounced on sibling edits), so a
+    // field can be removed while its request is in flight. Guard dispatches against that.
+    const liveFieldIdsRef = useRef<Set<string>>(new Set());
+    liveFieldIdsRef.current = new Set(filterFields.map(f => f.id));
+    const isFieldLive = useCallback((fieldId: string) => liveFieldIdsRef.current.has(fieldId), []);
+
+    // Single conversion site: both /distinct-count and /query receive the same Filter[],
+    // so the sampling decision and the value list are always constrained identically.
+    const resolveSiblingApiFilters = useCallback((
+        fieldId: string,
+        options?: FilterValueListFetchOptions,
+    ) => {
+        const cascadingConfigs = buildCascadingFiltersForField(
+            fieldId,
+            options?.siblingConfigurations ?? {},
+        );
+        return convertFilterConfigsToFilters(cascadingConfigs);
+    }, []);
+
     // Cleanup: abort all pending filter metadata fetches on unmount
     useEffect(() => {
         // Capture current controllers map reference to avoid eslint warning about ref changing
@@ -93,7 +134,10 @@ export function useFilterMetadata({
     }, []);
 
     // Fetch filter metadata for a field
-    const fetchFilterMetadata = useCallback(async (field: Field) => {
+    const fetchFilterMetadata = useCallback(async (
+        field: Field,
+        options?: FilterValueListFetchOptions,
+    ) => {
         if (!selectedTable) return;
         
         // MeasureNames is no longer used as a filter selector.
@@ -173,6 +217,9 @@ export function useFilterMetadata({
 
         try {
             if (filterType === 'discrete') {
+                // Sibling constraints for Relevant mode (empty in All mode)
+                const siblingFilters = resolveSiblingApiFilters(field.id, options);
+
                 // First, get the count of distinct values
                 const count = await apiService.getDistinctValuesCount(
                     field.columnName,
@@ -185,9 +232,15 @@ export function useFilterMetadata({
                     virtualColumns,  // Pass virtual columns for expression support
                     virtualTable,  // Pass virtual table for JOIN support
                     abortController.signal,  // Pass the abort signal
-                    field.sourceTable  // Pass source table for multi-table support
+                    field.sourceTable,  // Pass source table for multi-table support
+                    siblingFilters  // Constrain the count the same way as the value list
                 );
-                
+
+                if (!isFieldLive(field.id)) {
+                    filterMetadataAbortControllers.current.delete(field.id);
+                    return;
+                }
+
                 let values: any[];
                 let isPartial = false;
                 let warningMessage: string | undefined;
@@ -206,7 +259,8 @@ export function useFilterMetadata({
                         unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
                         virtualTable,  // Pass virtual table for JOIN support
-                        abortController.signal  // Pass the abort signal
+                        abortController.signal,  // Pass the abort signal
+                        siblingFilters  // Constrain to values relevant under other filters
                     );
                 } else {
                     // Too many values - fetch only 100 random samples
@@ -222,12 +276,18 @@ export function useFilterMetadata({
                         unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
                         virtualTable,  // Pass virtual table for JOIN support
-                        abortController.signal  // Pass the abort signal
+                        abortController.signal,  // Pass the abort signal
+                        siblingFilters  // Constrain to values relevant under other filters
                     );
                     isPartial = true;
                     warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
                 }
-                
+
+                if (!isFieldLive(field.id)) {
+                    filterMetadataAbortControllers.current.delete(field.id);
+                    return;
+                }
+
                 const metadata: FilterMetadata = {
                     fieldId: field.id,
                     columnName: field.columnName,
@@ -238,6 +298,7 @@ export function useFilterMetadata({
                     originalTotalCount: count, // Store the original count for later reference
                     isPartial,
                     warningMessage,
+                    constrainedByOtherFilters: siblingFilters.length > 0,
                 };
 
                 dispatch({
@@ -264,9 +325,15 @@ export function useFilterMetadata({
                                 selectedValues: values,
                                 // When the distinct list is complete, tag cardinality so query
                                 // building can omit IN (...) when all values remain selected.
-                                totalAvailableCount: isPartial ? undefined : values.length,
+                                // A sibling-constrained list is not the full cardinality.
+                                totalAvailableCount: isPartial || siblingFilters.length > 0
+                                    ? undefined
+                                    : values.length,
                                 dateTimePart: field.dateTimePart,
                                 dateTimeMode: field.dateTimeMode,
+                                valueListMode: existing?.type === 'discrete'
+                                    ? existing.valueListMode
+                                    : undefined,
                             }
                         }
                     });
@@ -274,8 +341,10 @@ export function useFilterMetadata({
                     // Reconcile pure-exclusion configs: when selectedValues is empty
                     // but excludedValues is set (e.g. from table context menu "Exclude"),
                     // compute selectedValues = allAvailable - excluded now that metadata arrived.
+                    // Only valid against the full value list, never a Relevant-constrained one.
                     if (
                         existing.type === 'discrete'
+                        && siblingFilters.length === 0
                         && existing.selectedValues.length === 0
                         && existing.excludedValues
                         && existing.excludedValues.length > 0
@@ -399,7 +468,9 @@ export function useFilterMetadata({
             if (err.message === 'Request was cancelled') {
                 return;
             }
-            
+
+            if (!isFieldLive(field.id)) return;
+
             // Set error state for actual errors
             const errorMetadata: FilterMetadata = {
                 fieldId: field.id,
@@ -417,14 +488,20 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable]);
+    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable, resolveSiblingApiFilters, isFieldLive]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
-    const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {
+    // or with changed sibling constraints (Relevant mode).
+    const refetchFilterValues = useCallback(async (
+        fieldId: string,
+        regexPattern?: string,
+        options?: FilterValueListFetchOptions,
+    ) => {
         const field = filterFields.find(f => f.id === fieldId);
         if (!field || !selectedTable) return;
         
         const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
+        const siblingFilters = resolveSiblingApiFilters(fieldId, options);
         
         // Cancel any existing fetch for this field
         const existingController = filterMetadataAbortControllers.current.get(fieldId);
@@ -438,7 +515,7 @@ export function useFilterMetadata({
         
         // Set loading state
         const currentMetadata = filterMetadata[fieldId];
-        if (currentMetadata && currentMetadata.type === 'discrete') {
+        if (currentMetadata && currentMetadata.type === 'discrete' && isFieldLive(fieldId)) {
             dispatch({
                 type: 'SET_FILTER_METADATA',
                 payload: {
@@ -461,9 +538,15 @@ export function useFilterMetadata({
                 virtualColumns,  // Pass virtual columns for expression support
                 virtualTable,  // Pass virtual table for JOIN support
                 abortController.signal,  // Pass the abort signal
-                field.sourceTable  // Pass source table for multi-table support
+                field.sourceTable,  // Pass source table for multi-table support
+                siblingFilters  // Constrain the count the same way as the value list
             );
-            
+
+            if (!isFieldLive(fieldId)) {
+                filterMetadataAbortControllers.current.delete(fieldId);
+                return;
+            }
+
             let values: any[];
             let isPartial = false;
             let warningMessage: string | undefined;
@@ -488,7 +571,8 @@ export function useFilterMetadata({
                     unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
                     virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal  // Pass the abort signal
+                    abortController.signal,  // Pass the abort signal
+                    siblingFilters  // Constrain to values relevant under other filters
                 );
                 
                 // Keep isPartial=true if this field originally had >5000 values
@@ -516,12 +600,18 @@ export function useFilterMetadata({
                     unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
                     virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal  // Pass the abort signal
+                    abortController.signal,  // Pass the abort signal
+                    siblingFilters  // Constrain to values relevant under other filters
                 );
                 isPartial = true;
                 warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;
             }
-            
+
+            if (!isFieldLive(fieldId)) {
+                filterMetadataAbortControllers.current.delete(fieldId);
+                return;
+            }
+
             const metadata: FilterMetadata = {
                 fieldId: field.id,
                 columnName: field.columnName,
@@ -533,6 +623,7 @@ export function useFilterMetadata({
                 isPartial,
                 warningMessage,
                 appliedRegexQuery,
+                constrainedByOtherFilters: siblingFilters.length > 0,
             };
             
             dispatch({
@@ -540,54 +631,46 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata }
             });
 
-            const currentConfig = filterConfigurations[fieldId];
-            const preservePatternMode = currentConfig
-                && currentConfig.type === 'discrete'
-                && currentConfig.matchMode === 'pattern';
-            
             // Update selected values:
             // - If count is 0: clear selections
             // - If count <=5000 (and >0): select all new values
             // - If count >5000: keep existing selections (partial results)
-            if (preservePatternMode) {
-                // Previewing sampled values for a pattern filter should not rewrite the
-                // persisted filter config into a selection list.
-            } else if (count === 0) {
-                // Clear selections when no results
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId,
-                        config: {
-                            fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'discrete',
-                            selectedValues: [],
-                            matchMode: 'selection',
-                            dateTimePart: field.dateTimePart,
-                            dateTimeMode: field.dateTimeMode,
+            // Only Query Regex asks for this. An All/Relevant list refresh must leave
+            // the selection untouched — it changes which values are visible, not which
+            // ones are picked.
+            if (options?.applySelectionFromResult === true) {
+                const currentConfig = filterConfigurations[fieldId];
+                const preservePatternMode = currentConfig
+                    && currentConfig.type === 'discrete'
+                    && currentConfig.matchMode === 'pattern';
+
+                if (preservePatternMode) {
+                    // Previewing sampled values for a pattern filter should not rewrite the
+                    // persisted filter config into a selection list.
+                } else if (count <= 5000) {
+                    // Select all matching values (an empty result clears the selection).
+                    // valueListMode is the picker's view state and survives the rewrite.
+                    dispatch({
+                        type: 'SET_FILTER_CONFIGURATION',
+                        payload: {
+                            fieldId,
+                            config: {
+                                fieldId: field.id,
+                                columnName: field.columnName,
+                                type: 'discrete',
+                                selectedValues: values,
+                                matchMode: 'selection',
+                                dateTimePart: field.dateTimePart,
+                                dateTimeMode: field.dateTimeMode,
+                                valueListMode: currentConfig?.type === 'discrete'
+                                    ? currentConfig.valueListMode
+                                    : undefined,
+                            }
                         }
-                    }
-                });
-            } else if (count <= 5000) {
-                // Select all matching values when we have a manageable number
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId,
-                        config: {
-                            fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'discrete',
-                            selectedValues: values,
-                            matchMode: 'selection',
-                            dateTimePart: field.dateTimePart,
-                            dateTimeMode: field.dateTimeMode,
-                        }
-                    }
-                });
+                    });
+                }
+                // If count > 5000, don't update selectedValues (keep existing 100 selected)
             }
-            // If count > 5000, don't update selectedValues (keep existing 100 selected)
             
             // Clean up the abort controller after successful refetch
             filterMetadataAbortControllers.current.delete(fieldId);
@@ -599,15 +682,25 @@ export function useFilterMetadata({
             if (err.message === 'Request was cancelled') {
                 return;
             }
-            
-            // Set error state for actual errors
+
+            if (!isFieldLive(fieldId)) return;
+
+            // Set error state for actual errors. Keep the values we already have so a
+            // failed background refresh does not blank out a usable picker list.
             const errorMetadata: FilterMetadata = {
                 fieldId: field.id,
                 columnName: field.columnName,
                 type: 'discrete',
                 loading: false,
                 error: err.message,
-                availableValues: [],
+                availableValues: currentMetadata?.type === 'discrete'
+                    ? currentMetadata.availableValues
+                    : [],
+                // Keep the flag describing the values we are still showing, not the
+                // constraints of the fetch that just failed.
+                constrainedByOtherFilters: currentMetadata?.type === 'discrete'
+                    ? currentMetadata.constrainedByOtherFilters
+                    : undefined,
             };
             
             dispatch({
@@ -615,7 +708,7 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [filterFields, filterMetadata, filterConfigurations, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable]);
+    }, [filterFields, filterMetadata, filterConfigurations, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable, resolveSiblingApiFilters, isFieldLive]);
 
     // Fetch filter metadata when new filter fields are added
     // Also re-fetch when the selected table/database changes to handle config loading scenarios

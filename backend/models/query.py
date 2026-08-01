@@ -287,6 +287,10 @@ class DistinctCountRequest(BaseModel):
     sourceTable: Optional[str] = None  # explicit source table (multi-table JOIN support)
     virtualColumns: Optional[List[VirtualColumnDefinition]] = None
     virtualTable: Optional[VirtualTableDefinition] = None
+    # Sibling filters for cascading discrete picker lists (Relevant mode; excludes self).
+    # Same wire shape as QueryDescription.filters so the count and the value list are
+    # always constrained identically.
+    filters: List[Filter] = Field(default_factory=list)
 
 
 class CountResponse(BaseModel):

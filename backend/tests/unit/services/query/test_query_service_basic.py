@@ -601,3 +601,46 @@ def test_join_filter_value_query_aliases_qualified_field_name(query_service: Que
     assert '"races"' in sql
     assert '"status"' in sql
     assert '"races.status"' in sql
+
+
+def test_join_filter_value_query_scopes_sibling_filters(query_service: QueryService) -> None:
+    """Dropping the JOIN also re-scopes the sibling filters carried into the query.
+
+    A filter on the other table cannot be resolved against the single-table FROM, and a
+    filter on the resolved table would be read as a literal dotted column name.
+    """
+    virtual_table = VirtualTableDefinition(
+        primary_table="results",
+        mode="join",
+        joined_tables=[
+            TableJoinDefinition(
+                table_name="races",
+                join_type="LEFT",
+                on_conditions=["results.raceId = races.raceId"],
+            )
+        ],
+        union_tables=[],
+    )
+    description = _make_base_description(
+        target_table="results",
+        dimensions=[Dimension(field="races.status", flavour="discrete")],
+        fetch_filter_values=True,
+        virtual_table=virtual_table,
+        filters=[
+            Filter(field="races.year", operator="in", value=[2020]),
+            Filter(field="results.points", operator="in", value=[10]),
+        ],
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="results",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    # Same-table sibling: prefix stripped so it resolves as a column of "races".
+    assert '"year" IN (2020)' in sql
+    assert '"races.year"' not in sql
+    # Other-table sibling: skipped rather than emitted as an unknown column.
+    assert "points" not in sql

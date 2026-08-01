@@ -117,6 +117,7 @@ export type {
   FilterScope,
   DiscreteFilterMatchMode,
   DiscretePatternOperator,
+  DiscreteValueListMode,
   DiscreteFilterConfig,
   ContinuousFilterConfig,
   DateTimeFilterConfig,

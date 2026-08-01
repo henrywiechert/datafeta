@@ -146,3 +146,53 @@ describe('useFilterActions discrete legend bridge', () => {
     expect(mockUpdateExistingDiscreteFilter).not.toHaveBeenCalled();
   });
 });
+
+describe('useFilterActions tooltip grid injection', () => {
+  const dispatch = jest.fn();
+  const recordAction = jest.fn();
+  const getUndoableSnapshot = jest.fn(() => ({ snapshot: true }));
+
+  const grid = {
+    layout: { rows: 1, columns: 1 },
+    cells: [
+      {
+        id: 'cell-0',
+        content: { kind: 'plot', options: { __customTooltip: { enabled: true } } },
+      },
+    ],
+  } as any;
+
+  const stateWith = (selectedValues: string[]) => ({
+    dispatch,
+    state: {
+      colorField: null,
+      shapeField: null,
+      filterFields: [],
+      filterConfigurations: {
+        'filter-a': { fieldId: 'filter-a', columnName: 'a', type: 'discrete', selectedValues },
+      },
+      queryResult: null,
+    },
+  });
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('keeps the grid identity when draft filter configurations change', () => {
+    mockUseVisualizationContext.mockReturnValue(stateWith(['a']));
+
+    const { result, rerender } = renderHook(() => useFilterActions({
+      recordAction,
+      getUndoableSnapshot,
+      grid,
+    }));
+    const injectedGrid = result.current.gridWithTooltipAction;
+    expect(injectedGrid).not.toBe(grid);
+
+    mockUseVisualizationContext.mockReturnValue(stateWith(['a', 'b']));
+    rerender();
+
+    // A fresh grid reference here would rebuild every cell's plot options and make
+    // Observable Plot redraw the SVG on each filter checkbox click.
+    expect(result.current.gridWithTooltipAction).toBe(injectedGrid);
+  });
+});

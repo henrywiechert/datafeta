@@ -239,15 +239,19 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   // Get undoable state snapshot. Both the captured keys and the restore logic
   // (undoRedoReducer) are driven by PERSISTED_STATE_KEYS, so adding a persisted
   // setting only requires updating that single list.
-  const snapshotDeps = PERSISTED_STATE_KEYS.map((key) => state[key]);
+  //
+  // The getter is only called imperatively from event handlers, so it reads state
+  // through a ref and keeps a stable identity. It is a dependency of nearly every
+  // action callback, and re-creating it on each state change invalidated memoized
+  // chart props — a draft filter edit would then redraw the whole plot.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const getUndoableSnapshot = useCallback(
     (): VisualizationStateSnapshot =>
       Object.fromEntries(
-        PERSISTED_STATE_KEYS.map((key) => [key, state[key]]),
+        PERSISTED_STATE_KEYS.map((key) => [key, stateRef.current[key]]),
       ) as unknown as VisualizationStateSnapshot,
-    // REASON: snapshotDeps is a dynamic array derived from PERSISTED_STATE_KEYS — ESLint can't statically verify it, but it is the correct dep list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    snapshotDeps,
+    [],
   );
 
   return (

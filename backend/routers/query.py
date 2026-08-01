@@ -76,7 +76,8 @@ def get_distinct_count(
         union_tables=request.unionTables,
         virtual_columns=request.virtualColumns or None,
         virtual_table=request.virtualTable,
-        source_table=request.sourceTable
+        source_table=request.sourceTable,
+        filters=request.filters or None,
     )
     
     return CountResponse(count=count)
