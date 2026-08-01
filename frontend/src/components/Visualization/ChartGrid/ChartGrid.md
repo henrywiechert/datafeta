@@ -212,7 +212,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 
 1. **Three-layer scrolling** — Horizontal and vertical scrolling are separated to allow fixed Y-axes while plots scroll horizontally
 2. **Transform-based sync** — `translateY(-scrollTop)` keeps plots aligned with vertical scroll without re-rendering
-3. **External axes** — Axes are rendered separately from plots using `suppressAxes()` to remove them from cells
+3. **External axes** — Axes are rendered separately from plots using `suppressAxes()` to remove them from cells. Its result is memoized per cell: `ObservablePlot` only skips a redraw when the `options` reference is identical, so deriving a fresh object each render would re-run `Plot.plot()` and replace every cell's SVG whenever `PlotArea` re-renders, for whatever reason
 4. **useDeferredValue** — React 18 feature to defer spec updates, showing old chart during transitions
 5. **Aggressive memoization** — All components use `React.memo` with custom comparators to prevent re-renders
 6. **User resize** — `GridResizeOverlay` provides drag handles on gridlines for manual cell sizing

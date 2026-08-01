@@ -4,11 +4,14 @@ import { cleanup, render } from '@testing-library/react';
 import PlotArea from './PlotArea';
 import { GridCellModel, GridResultModel } from '../../../observable-plot-generator/gridModel';
 
+const mockReceivedOptions: any[] = [];
+
 jest.mock('../ObservablePlot', () => ({
   __esModule: true,
-  default: ({ plotId }: { plotId?: string }) => (
-    <div data-testid={`observable-plot-${plotId ?? 'unknown'}`} />
-  ),
+  default: ({ plotId, options }: { plotId?: string; options?: any }) => {
+    mockReceivedOptions.push(options);
+    return <div data-testid={`observable-plot-${plotId ?? 'unknown'}`} />;
+  },
 }));
 
 jest.mock('./renderers/PieSvgRenderer', () => ({
@@ -36,20 +39,27 @@ function buildGrid(cells: GridCellModel[]): GridResultModel {
   };
 }
 
-function renderArea(grid: GridResultModel) {
-  const ref = React.createRef<HTMLDivElement>();
-  return render(
+function area(grid: GridResultModel, brushDisabled?: boolean) {
+  return (
     <PlotArea
       grid={grid}
-      plotsTranslateRef={ref}
+      plotsTranslateRef={React.createRef<HTMLDivElement>()}
       plotTemplateColumns="100px"
       plotRowsSpec="100px"
       totalContentWidthPx={100}
-    />,
+      brushDisabled={brushDisabled}
+    />
   );
 }
 
+function renderArea(grid: GridResultModel) {
+  return render(area(grid));
+}
+
 describe('PlotArea cell dispatch', () => {
+  beforeEach(() => {
+    mockReceivedOptions.length = 0;
+  });
   afterEach(() => cleanup());
 
   it('renders ObservablePlot for plot cells', () => {
@@ -182,6 +192,26 @@ describe('PlotArea cell dispatch', () => {
     expect(container.querySelectorAll('svg').length).toBe(1);
     expect(container.querySelectorAll('circle').length).toBe(1);
     expect(getByText('$1,234')).toBeInTheDocument();
+  });
+
+  it('hands ObservablePlot the same options object when it re-renders for an unrelated reason', () => {
+    const grid = buildGrid([
+      {
+        id: 'plot-1',
+        position: { row: 0, col: 0 },
+        content: { kind: 'plot', options: { marks: [] } },
+      },
+    ]);
+
+    const { rerender } = render(area(grid));
+    const firstOptions = mockReceivedOptions[mockReceivedOptions.length - 1];
+
+    rerender(area(grid, true));
+
+    // ObservablePlot only skips a redraw when the reference is identical, so a fresh
+    // object here would re-run Plot.plot() and replace the SVG of every cell.
+    expect(mockReceivedOptions).toHaveLength(2);
+    expect(mockReceivedOptions[1]).toBe(firstOptions);
   });
 
   it('renders a placeholder div for empty cells', () => {

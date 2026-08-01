@@ -513,7 +513,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable, fetchDiscreteValueList]);
+    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, fetchDiscreteValueList, isFieldLive]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     // or with changed sibling constraints (Relevant mode).

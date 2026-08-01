@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { Field } from '../../../types';
@@ -207,7 +207,13 @@ const PlotCell: React.FC<PlotCellProps> = ({
   const xField = cell.metadata?.xField;
   const yField = cell.metadata?.yField;
 
-  const opts = suppressAxes(cell.content.options, true, true);
+  // ObservablePlot only skips work when `options` is reference-identical, and a rebuild
+  // means re-running Plot.plot() and replacing the SVG. Deriving a fresh object on every
+  // render would tie that cost to any re-render of PlotArea, whatever its cause.
+  const opts = useMemo(
+    () => suppressAxes(cell.content.options, true, true),
+    [cell.content.options],
+  );
 
   const handleCellBrushEnd = (brush: BrushResult) => {
     const el = plotElementsRef.current[cell.id];
