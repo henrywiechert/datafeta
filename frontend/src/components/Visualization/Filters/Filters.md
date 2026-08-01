@@ -74,7 +74,7 @@ FilterPanel
 | Aspect | Description |
 |--------|-------------|
 | Role | Multi-select checkbox list with client-side filtering |
-| Features | Search/regex filter, All/None + Invert selection, Query Regex for backend |
+| Features | Search/regex filter, All/None + Invert selection, compact LIKE preview for sampled lists |
 | Optimization | Memoized `CheckboxItem` for performant large lists |
 
 **Special handling**:

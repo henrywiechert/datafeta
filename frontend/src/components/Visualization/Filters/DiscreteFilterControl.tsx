@@ -376,30 +376,46 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
       {isPatternMode && (
         <Box className={styles.patternPanel}>
-          <TextField
-            size="small"
-            variant="outlined"
-            label="Pattern"
-            placeholder="%value%"
-            value={pattern}
-            onChange={(e) => updatePatternConfig({ pattern: e.target.value })}
-            fullWidth
-            helperText="Uses SQL LIKE syntax. Examples: %mid%, prefix%, %suffix"
-          />
+          <Box className={styles.patternInputRow}>
+            <TextField
+              className={styles.patternField}
+              size="small"
+              variant="outlined"
+              placeholder="SQL LIKE… e.g. %mid%"
+              value={pattern}
+              onChange={(e) => updatePatternConfig({ pattern: e.target.value })}
+              fullWidth
+              inputProps={{ 'aria-label': 'Pattern' }}
+              title="SQL LIKE pattern applied as the filter. Examples: %mid%, prefix%, %suffix"
+            />
+            {metadata.isPartial && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => onRefetchValues(pattern.trim() || undefined)}
+                disabled={isUpdating}
+                className={styles.patternPreviewBtn}
+              >
+                {isUpdating ? <CircularProgress size={12} /> : 'Preview'}
+              </Button>
+            )}
+          </Box>
           <Box className={styles.patternToggleRow}>
             <Button
               size="small"
               variant={patternOperator === 'like' ? 'contained' : 'text'}
               onClick={() => updatePatternConfig({ patternOperator: 'like' })}
+              className={styles.patternOptionBtn}
             >
-              Case-Sensitive
+              Case-sensitive
             </Button>
             <Button
               size="small"
               variant={patternOperator === 'ilike' ? 'contained' : 'text'}
               onClick={() => updatePatternConfig({ patternOperator: 'ilike' })}
+              className={styles.patternOptionBtn}
             >
-              Case-Insensitive
+              Case-insensitive
             </Button>
           </Box>
           <FormControlLabel
@@ -413,42 +429,32 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
             }
             label={isInversePattern ? 'Exclude matches' : 'Keep matches'}
           />
-          {metadata.isPartial && (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => onRefetchValues(pattern.trim() || undefined)}
-              disabled={isUpdating}
-            >
-              Preview Matching Values
-            </Button>
-          )}
         </Box>
       )}
       
-      {/* Query Regex - for backend filtering (only visible when partial or applied) */}
+      {/* Pattern preview - backend LIKE to reload the checkbox sample (selection mode only) */}
       {!isPatternMode && (metadata.isPartial || metadata.appliedRegexQuery) && (
-        <Box sx={{ mb: 1 }}>
-          <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
-            Pattern Preview (SQL LIKE filter):
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box className={styles.previewBox}>
+          <Box className={styles.previewRow}>
             <TextField
+              className={styles.previewField}
               size="small"
               variant="outlined"
-              placeholder="Enter pattern..."
+              placeholder="LIKE preview… e.g. %acme%"
               value={queryRegex}
               onChange={(e) => setQueryRegex(e.target.value)}
               fullWidth
               disabled={isUpdating}
+              title="Load checkbox values matching a SQL LIKE pattern"
             />
             <Button
               size="small"
-              variant="contained"
+              variant="text"
               onClick={handleQueryRegexUpdate}
               disabled={isUpdating || !queryRegex.trim()}
+              className={styles.previewUpdate}
             >
-              {isUpdating ? <CircularProgress size={16} /> : 'Update'}
+              {isUpdating ? <CircularProgress size={12} /> : 'Update'}
             </Button>
           </Box>
         </Box>
