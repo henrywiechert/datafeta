@@ -156,12 +156,31 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { p: 1, width: 260 } }}
+        PaperProps={{
+          sx: {
+            p: 0.75,
+            width: 220,
+            borderRadius: 1,
+          },
+        }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           {showLabelsEnabled && onLabelsEnabledChange && (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-              <Typography variant="body2">Show labels</Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+                minHeight: 28,
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+              >
+                Show labels
+              </Typography>
               <Switch
                 size="small"
                 checked={labelsEnabled}
@@ -172,7 +191,10 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
 
           {showDataLabelMode && onDataLabelModeChange && (
             <Box>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{ mb: 0.25, fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+              >
                 Mode
               </Typography>
               <ToggleButtonGroup
@@ -180,13 +202,15 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                 size="small"
                 value={dataLabelMode}
                 onChange={handleLabelModeChange}
+                fullWidth
                 sx={{
-                  height: 26,
+                  height: 24,
                   '& .MuiToggleButton-root': {
-                    py: 0.25,
-                    px: 1,
+                    py: 0,
+                    px: 0.75,
                     fontSize: '0.7rem',
                     textTransform: 'none',
+                    lineHeight: 1.2,
                   },
                 }}
               >
@@ -200,8 +224,18 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
           )}
 
           {onLabelFontSizeChange && (
-            <Box>
-              <Typography variant="body2" sx={{ mb: 0.5 }}>
+            <Box
+              sx={{
+                px: 0.5,
+                py: 0.25,
+                borderRadius: 1,
+                backgroundColor: '#f9f9f9',
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+              >
                 Font size: {labelFontSize}px
               </Typography>
               <Slider
@@ -215,13 +249,22 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                   { value: FONT_SIZE_MIN, label: `${FONT_SIZE_MIN}` },
                   { value: FONT_SIZE_MAX, label: `${FONT_SIZE_MAX}` },
                 ]}
-                sx={{ mx: 0.5 }}
+                sx={{
+                  mt: 0.25,
+                  mb: 0.5,
+                  mx: 0.5,
+                  width: 'calc(100% - 8px)',
+                  '& .MuiSlider-markLabel': {
+                    fontSize: '0.65rem',
+                    top: 20,
+                  },
+                }}
               />
             </Box>
           )}
 
           {!showLabelsEnabled && !showDataLabelMode && !onLabelFontSizeChange && (
-            <Typography variant="caption" sx={{ color: '#666' }}>
+            <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
               Label options (coming soon)
             </Typography>
           )}

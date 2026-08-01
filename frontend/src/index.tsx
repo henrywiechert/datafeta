@@ -1,9 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { ThemeProvider } from '@mui/material/styles';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import denseTheme from './theme';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import { DataSourceProvider } from './contexts/DataSourceContext';
 import { AppConfigProvider } from './contexts/AppConfigContext';
@@ -16,20 +18,23 @@ const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 // Provider hierarchy:
-// 1. AppConfigProvider  - app-wide configuration
-// 2. DataSourceProvider - session-scoped metadata (databases, tables, fields)
-// 3. ConnectionProvider - connection state (depends on DataSourceContext;
+// 1. ThemeProvider     - dense MUI chrome (menus/dialogs)
+// 2. AppConfigProvider  - app-wide configuration
+// 3. DataSourceProvider - session-scoped metadata (databases, tables, fields)
+// 4. ConnectionProvider - connection state (depends on DataSourceContext;
 //    signals query-state reset via resetBus to the per-sheet VisualizationProvider
 //    created inside VisualizationPage with key={activeSheet?.id}).
 root.render(
   <React.StrictMode>
-    <AppConfigProvider>
-      <DataSourceProvider>
-        <ConnectionProvider>
-          <App />
-        </ConnectionProvider>
-      </DataSourceProvider>
-    </AppConfigProvider>
+    <ThemeProvider theme={denseTheme}>
+      <AppConfigProvider>
+        <DataSourceProvider>
+          <ConnectionProvider>
+            <App />
+          </ConnectionProvider>
+        </DataSourceProvider>
+      </AppConfigProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
 

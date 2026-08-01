@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useCallback } from 'react';
-import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider, TextField, Typography } from '@mui/material';
+import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider, TextField } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PublicIcon from '@mui/icons-material/Public';
@@ -36,6 +36,26 @@ interface FilterFieldChipProps {
   isDisabled?: boolean;
   onToggleDisabled?: () => void;
 }
+
+const compactMeasureFieldSx = {
+  '& .MuiInputBase-root': {
+    minHeight: 0,
+    height: 20,
+  },
+  '& .MuiInputBase-input': {
+    fontSize: '0.75rem',
+    lineHeight: 1.2,
+    height: 'auto',
+    py: 0,
+    px: 0,
+  },
+  '& .MuiInput-underline:before': {
+    borderBottomColor: 'rgba(0,0,0,0.2)',
+  },
+  '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
+    borderBottomColor: 'rgba(0,0,0,0.35)',
+  },
+} as const;
 
 const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   field,
@@ -226,35 +246,45 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     if (filterType === 'measure') {
       const min = filterConfig && filterConfig.type === 'measure' ? filterConfig.min : null;
       const max = filterConfig && filterConfig.type === 'measure' ? filterConfig.max : null;
+
       return (
-        <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="caption" color="text.secondary">
-            Filter aggregated values (HAVING)
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box className={styles.measureFilter} title="Filter aggregated values (HAVING)">
+          <Box className={styles.measureInputGroup}>
+            <Box component="label" className={styles.measureRowLabel}>
+              Min
+            </Box>
             <TextField
-              label="Min"
+              aria-label="Min value"
               type="number"
               size="small"
+              variant="standard"
               value={min ?? ''}
               onChange={(e) => {
                 const v = e.target.value === '' ? null : Number(e.target.value);
                 handleMeasureChange(Number.isNaN(v as number) ? null : v, max);
               }}
               inputProps={{ step: 'any' }}
-              sx={{ flex: 1 }}
+              className={styles.measureInput}
+              sx={compactMeasureFieldSx}
             />
+          </Box>
+          <Box className={styles.measureInputGroup}>
+            <Box component="label" className={styles.measureRowLabel}>
+              Max
+            </Box>
             <TextField
-              label="Max"
+              aria-label="Max value"
               type="number"
               size="small"
+              variant="standard"
               value={max ?? ''}
               onChange={(e) => {
                 const v = e.target.value === '' ? null : Number(e.target.value);
                 handleMeasureChange(min, Number.isNaN(v as number) ? null : v);
               }}
               inputProps={{ step: 'any' }}
-              sx={{ flex: 1 }}
+              className={styles.measureInput}
+              sx={compactMeasureFieldSx}
             />
           </Box>
         </Box>
