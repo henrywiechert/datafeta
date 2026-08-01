@@ -69,13 +69,25 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
     }
   };
 
+  const handlePopoverClose = (
+    _event: object,
+    reason: 'backdropClick' | 'escapeKeyDown',
+  ) => {
+    if (reason === 'escapeKeyDown') {
+      onClose();
+      return;
+    }
+    // Click outside: commit like Enter (previous blur-to-save behavior)
+    handleConfirm();
+  };
+
   if (!field) return null;
 
   return (
     <Popover
       open={open}
       anchorEl={anchorEl}
-      onClose={onClose}
+      onClose={handlePopoverClose}
       anchorOrigin={{
         vertical: 'bottom',
         horizontal: 'left',
@@ -85,6 +97,9 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
         horizontal: 'left',
       }}
       disablePortal
+      disableAutoFocus
+      disableEnforceFocus
+      disableRestoreFocus
       slotProps={{
         paper: {
           sx: {
@@ -93,6 +108,7 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
             maxWidth: 'calc(100vw - 32px)',
             borderRadius: 1,
           },
+          onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
         },
       }}
     >
@@ -116,6 +132,8 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            userSelect: 'text',
+            cursor: 'text',
           }}
           title={field.columnName}
         >
@@ -140,7 +158,6 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
         value={alias}
         onChange={(e) => setAlias(e.target.value)}
         onKeyDown={handleKeyDown}
-        onBlur={handleConfirm}
         inputProps={{ 'aria-label': 'Display name' }}
         sx={{
           '& .MuiInputBase-root': {
