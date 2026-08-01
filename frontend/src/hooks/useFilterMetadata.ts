@@ -11,6 +11,20 @@ interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
 }
 
+/** Above this many distinct values the picker samples instead of listing them all. */
+const MAX_LISTABLE_DISTINCT_VALUES = 5000;
+const SAMPLE_SIZE = 100;
+
+interface DiscreteValueListResult {
+    /** Distinct count under the same regex and sibling constraints as `values`. */
+    count: number;
+    values: any[];
+    /** True when `values` is a random sample rather than the complete list. */
+    sampled: boolean;
+    /** True when sibling filters narrowed the list (Relevant mode). */
+    constrained: boolean;
+}
+
 export interface FilterValueListFetchOptions {
     /**
      * Sibling configs constraining the distinct list (Relevant mode), supplied by
@@ -121,6 +135,74 @@ export function useFilterMetadata({
         return convertFilterConfigsToFilters(cascadingConfigs);
     }, []);
 
+    /**
+     * Count the distinct values of a discrete field and load them, sampling instead of
+     * listing when the column is too large. Shared by the cold-start fetch and every
+     * refetch (Query Regex, All/Relevant) so both apply the same threshold, the same
+     * sibling constraints, and the same in-flight liveness checks.
+     *
+     * Returns null when the field was removed while the requests were in flight; the
+     * caller should then drop its abort controller and dispatch nothing.
+     */
+    const fetchDiscreteValueList = useCallback(async (
+        field: Field,
+        regexPattern: string | undefined,
+        options: FilterValueListFetchOptions | undefined,
+        signal: AbortSignal,
+    ): Promise<DiscreteValueListResult | null> => {
+        const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
+        const siblingFilters = resolveSiblingApiFilters(field.id, options);
+
+        const count = await apiService.getDistinctValuesCount(
+            field.columnName,
+            selectedTable,
+            dbParam,
+            regexPattern,
+            field.dateTimePart,
+            field.dateTimeMode,
+            unionTablesForApi,  // Pass union tables for _source_table handling
+            virtualColumns,  // Pass virtual columns for expression support
+            virtualTable,  // Pass virtual table for JOIN support
+            signal,
+            field.sourceTable,  // Pass source table for multi-table support
+            siblingFilters,  // Constrain the count the same way as the value list
+        );
+
+        if (!isFieldLive(field.id)) return null;
+
+        // Too many values to enumerate — show a random sample and let the user narrow
+        // the list with a pattern instead.
+        const sampled = count > MAX_LISTABLE_DISTINCT_VALUES;
+        const values = await apiService.getDistinctValues(
+            field.columnName,
+            selectedTable,
+            dbParam,
+            field.dateTimePart,
+            field.dateTimeMode,
+            regexPattern,
+            sampled ? SAMPLE_SIZE : undefined,
+            sampled ? true : undefined,  // use random sampling
+            unionTablesForApi,  // Pass union tables
+            virtualColumns,  // Pass virtual columns
+            virtualTable,  // Pass virtual table for JOIN support
+            signal,
+            siblingFilters,  // Constrain to values relevant under other filters
+        );
+
+        if (!isFieldLive(field.id)) return null;
+
+        return { count, values, sampled, constrained: siblingFilters.length > 0 };
+    }, [
+        selectedTable,
+        selectedDatabase,
+        connectionDetails?.type,
+        unionTablesForApi,
+        virtualColumns,
+        virtualTable,
+        resolveSiblingApiFilters,
+        isFieldLive,
+    ]);
+
     // Cleanup: abort all pending filter metadata fetches on unmount
     useEffect(() => {
         // Capture current controllers map reference to avoid eslint warning about ref changing
@@ -217,76 +299,17 @@ export function useFilterMetadata({
 
         try {
             if (filterType === 'discrete') {
-                // Sibling constraints for Relevant mode (empty in All mode)
-                const siblingFilters = resolveSiblingApiFilters(field.id, options);
-
-                // First, get the count of distinct values
-                const count = await apiService.getDistinctValuesCount(
-                    field.columnName,
-                    selectedTable,
-                    dbParam,
+                const result = await fetchDiscreteValueList(
+                    field,
                     undefined, // no regex filter initially
-                    field.dateTimePart,
-                    field.dateTimeMode,
-                    unionTablesForApi,  // Pass union tables for _source_table handling
-                    virtualColumns,  // Pass virtual columns for expression support
-                    virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal,  // Pass the abort signal
-                    field.sourceTable,  // Pass source table for multi-table support
-                    siblingFilters  // Constrain the count the same way as the value list
+                    options,
+                    abortController.signal,
                 );
-
-                if (!isFieldLive(field.id)) {
+                if (!result) {
                     filterMetadataAbortControllers.current.delete(field.id);
                     return;
                 }
-
-                let values: any[];
-                let isPartial = false;
-                let warningMessage: string | undefined;
-                
-                if (count <= 5000) {
-                    // Fetch all values
-                    values = await apiService.getDistinctValues(
-                        field.columnName,
-                        selectedTable,
-                        dbParam,
-                        field.dateTimePart,
-                        field.dateTimeMode,
-                        undefined, // no regex filter
-                        undefined, // no limit
-                        undefined, // no random sampling
-                        unionTablesForApi,  // Pass union tables
-                        virtualColumns,  // Pass virtual columns
-                        virtualTable,  // Pass virtual table for JOIN support
-                        abortController.signal,  // Pass the abort signal
-                        siblingFilters  // Constrain to values relevant under other filters
-                    );
-                } else {
-                    // Too many values - fetch only 100 random samples
-                    values = await apiService.getDistinctValues(
-                        field.columnName,
-                        selectedTable,
-                        dbParam,
-                        field.dateTimePart,
-                        field.dateTimeMode,
-                        undefined, // no regex filter
-                        100, // limit to 100
-                        true, // use random sampling
-                        unionTablesForApi,  // Pass union tables
-                        virtualColumns,  // Pass virtual columns
-                        virtualTable,  // Pass virtual table for JOIN support
-                        abortController.signal,  // Pass the abort signal
-                        siblingFilters  // Constrain to values relevant under other filters
-                    );
-                    isPartial = true;
-                    warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
-                }
-
-                if (!isFieldLive(field.id)) {
-                    filterMetadataAbortControllers.current.delete(field.id);
-                    return;
-                }
+                const { count, values, sampled, constrained } = result;
 
                 const metadata: FilterMetadata = {
                     fieldId: field.id,
@@ -296,9 +319,11 @@ export function useFilterMetadata({
                     availableValues: values,
                     totalCount: count,
                     originalTotalCount: count, // Store the original count for later reference
-                    isPartial,
-                    warningMessage,
-                    constrainedByOtherFilters: siblingFilters.length > 0,
+                    isPartial: sampled,
+                    warningMessage: sampled
+                        ? `This field has ${count.toLocaleString()} unique values. Showing ${SAMPLE_SIZE} random samples. Use Query Regex to filter.`
+                        : undefined,
+                    constrainedByOtherFilters: constrained,
                 };
 
                 dispatch({
@@ -326,7 +351,7 @@ export function useFilterMetadata({
                                 // When the distinct list is complete, tag cardinality so query
                                 // building can omit IN (...) when all values remain selected.
                                 // A sibling-constrained list is not the full cardinality.
-                                totalAvailableCount: isPartial || siblingFilters.length > 0
+                                totalAvailableCount: sampled || constrained
                                     ? undefined
                                     : values.length,
                                 dateTimePart: field.dateTimePart,
@@ -344,7 +369,7 @@ export function useFilterMetadata({
                     // Only valid against the full value list, never a Relevant-constrained one.
                     if (
                         existing.type === 'discrete'
-                        && siblingFilters.length === 0
+                        && !constrained
                         && existing.selectedValues.length === 0
                         && existing.excludedValues
                         && existing.excludedValues.length > 0
@@ -488,7 +513,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable, resolveSiblingApiFilters, isFieldLive]);
+    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable, fetchDiscreteValueList]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     // or with changed sibling constraints (Relevant mode).
@@ -499,9 +524,6 @@ export function useFilterMetadata({
     ) => {
         const field = filterFields.find(f => f.id === fieldId);
         if (!field || !selectedTable) return;
-        
-        const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
-        const siblingFilters = resolveSiblingApiFilters(fieldId, options);
         
         // Cancel any existing fetch for this field
         const existingController = filterMetadataAbortControllers.current.get(fieldId);
@@ -526,90 +548,30 @@ export function useFilterMetadata({
         }
         
         try {
-            // Get count with regex filter
-            const count = await apiService.getDistinctValuesCount(
-                field.columnName,
-                selectedTable,
-                dbParam,
+            const result = await fetchDiscreteValueList(
+                field,
                 regexPattern,
-                field.dateTimePart,
-                field.dateTimeMode,
-                unionTablesForApi,  // Pass union tables for _source_table handling
-                virtualColumns,  // Pass virtual columns for expression support
-                virtualTable,  // Pass virtual table for JOIN support
-                abortController.signal,  // Pass the abort signal
-                field.sourceTable,  // Pass source table for multi-table support
-                siblingFilters  // Constrain the count the same way as the value list
+                options,
+                abortController.signal,
             );
-
-            if (!isFieldLive(fieldId)) {
+            if (!result) {
                 filterMetadataAbortControllers.current.delete(fieldId);
                 return;
             }
+            const { count, values, sampled, constrained } = result;
 
-            let values: any[];
-            let isPartial = false;
-            let warningMessage: string | undefined;
-            let appliedRegexQuery: string | undefined = regexPattern;
-            
             // Preserve the original total count (without regex filter) to determine if field is inherently large
             const originalTotalCount = currentMetadata && currentMetadata.type === 'discrete' 
                 ? (currentMetadata.originalTotalCount || currentMetadata.totalCount)
                 : count;
-            
-            if (count <= 5000) {
-                // Fetch all values with the regex filter
-                values = await apiService.getDistinctValues(
-                    field.columnName,
-                    selectedTable,
-                    dbParam,
-                    field.dateTimePart,
-                    field.dateTimeMode,
-                    regexPattern,
-                    undefined, // no limit
-                    undefined, // no random sampling
-                    unionTablesForApi,  // Pass union tables
-                    virtualColumns,  // Pass virtual columns
-                    virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal,  // Pass the abort signal
-                    siblingFilters  // Constrain to values relevant under other filters
-                );
-                
-                // Keep isPartial=true if this field originally had >5000 values
-                // This ensures the Query Regex field stays visible even if filter returns 0-5000 results
-                isPartial = (originalTotalCount || 0) > 5000;
-                
-                if (regexPattern) {
-                    if (count === 0) {
-                        warningMessage = `No values match your query pattern. Try a different pattern.`;
-                    } else {
-                        warningMessage = `Filtered to ${count.toLocaleString()} values matching your query.`;
-                    }
-                }
-            } else {
-                // Still too many - fetch 100 random values matching the regex query
-                values = await apiService.getDistinctValues(
-                    field.columnName,
-                    selectedTable,
-                    dbParam,
-                    field.dateTimePart,
-                    field.dateTimeMode,
-                    regexPattern,
-                    100, // Limit to 100 random samples
-                    true, // use random sampling
-                    unionTablesForApi,  // Pass union tables
-                    virtualColumns,  // Pass virtual columns
-                    virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal,  // Pass the abort signal
-                    siblingFilters  // Constrain to values relevant under other filters
-                );
-                isPartial = true;
-                warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;
-            }
 
-            if (!isFieldLive(fieldId)) {
-                filterMetadataAbortControllers.current.delete(fieldId);
-                return;
+            let warningMessage: string | undefined;
+            if (sampled) {
+                warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing ${SAMPLE_SIZE} random samples matching your pattern. Refine further to see all values.`;
+            } else if (regexPattern) {
+                warningMessage = count === 0
+                    ? `No values match your query pattern. Try a different pattern.`
+                    : `Filtered to ${count.toLocaleString()} values matching your query.`;
             }
 
             const metadata: FilterMetadata = {
@@ -620,10 +582,13 @@ export function useFilterMetadata({
                 availableValues: values,
                 totalCount: count,
                 originalTotalCount, // Preserve the original total
-                isPartial,
+                // Keep isPartial=true if this field originally had more values than we can
+                // list, so the Query Regex field stays visible even when the pattern
+                // narrows the result to a listable size.
+                isPartial: sampled || (originalTotalCount || 0) > MAX_LISTABLE_DISTINCT_VALUES,
                 warningMessage,
-                appliedRegexQuery,
-                constrainedByOtherFilters: siblingFilters.length > 0,
+                appliedRegexQuery: regexPattern,
+                constrainedByOtherFilters: constrained,
             };
             
             dispatch({
@@ -631,10 +596,9 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata }
             });
 
-            // Update selected values:
-            // - If count is 0: clear selections
-            // - If count <=5000 (and >0): select all new values
-            // - If count >5000: keep existing selections (partial results)
+            // Update selected values: select everything the pattern matched, or clear the
+            // selection when nothing matched. A sampled result leaves the existing
+            // selection alone, since the values shown are only a sample of the matches.
             // Only Query Regex asks for this. An All/Relevant list refresh must leave
             // the selection untouched — it changes which values are visible, not which
             // ones are picked.
@@ -647,7 +611,7 @@ export function useFilterMetadata({
                 if (preservePatternMode) {
                     // Previewing sampled values for a pattern filter should not rewrite the
                     // persisted filter config into a selection list.
-                } else if (count <= 5000) {
+                } else if (!sampled) {
                     // Select all matching values (an empty result clears the selection).
                     // valueListMode is the picker's view state and survives the rewrite.
                     dispatch({
@@ -669,7 +633,6 @@ export function useFilterMetadata({
                         }
                     });
                 }
-                // If count > 5000, don't update selectedValues (keep existing 100 selected)
             }
             
             // Clean up the abort controller after successful refetch
@@ -708,7 +671,7 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [filterFields, filterMetadata, filterConfigurations, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable, resolveSiblingApiFilters, isFieldLive]);
+    }, [filterFields, filterMetadata, filterConfigurations, selectedTable, dispatch, fetchDiscreteValueList, isFieldLive]);
 
     // Fetch filter metadata when new filter fields are added
     // Also re-fetch when the selected table/database changes to handle config loading scenarios
