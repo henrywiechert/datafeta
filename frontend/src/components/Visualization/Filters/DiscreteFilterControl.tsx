@@ -191,11 +191,27 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     };
   }, [metadata.availableValues, selectedKeysSet, listFilterTerm, useRegex, sortValues]);
 
-  // Combined list for Select All / Deselect All operations
+  // Combined list for master select/deselect (Excel-style header checkbox)
   const allVisibleValues = useMemo(
     () => [...pinnedValues, ...unpinnedValues],
     [pinnedValues, unpinnedValues]
   );
+
+  const visibleSelectionState = useMemo(() => {
+    if (allVisibleValues.length === 0) {
+      return { allSelected: false, someSelected: false };
+    }
+    let selectedCount = 0;
+    for (const value of allVisibleValues) {
+      if (selectedKeysSet.has(filterValueKey(value))) {
+        selectedCount += 1;
+      }
+    }
+    return {
+      allSelected: selectedCount === allVisibleValues.length,
+      someSelected: selectedCount > 0 && selectedCount < allVisibleValues.length,
+    };
+  }, [allVisibleValues, selectedKeysSet]);
 
   // Memoize the toggle handler to prevent unnecessary re-renders of child components
   const handleToggle = useCallback((value: any) => {
@@ -210,15 +226,29 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     }
   }, [selectedValues, selectedKeysSet, onChange, normalizeValueForSelection]);
 
-  const handleSelectAll = () => {
+  const handleToggleSelectAll = useCallback(() => {
+    if (visibleSelectionState.allSelected) {
+      const visibleKeySet = new Set(allVisibleValues.map(filterValueKey));
+      onChange(selectedValues.filter((v) => !visibleKeySet.has(filterValueKey(v))));
+      return;
+    }
     onChange(allVisibleValues.map(normalizeValueForSelection));
-  };
+  }, [
+    visibleSelectionState.allSelected,
+    allVisibleValues,
+    selectedValues,
+    onChange,
+    normalizeValueForSelection,
+  ]);
 
-  const handleDeselectAll = () => {
+  const handleInvertSelection = useCallback(() => {
     const visibleKeySet = new Set(allVisibleValues.map(filterValueKey));
-    const newSelected = selectedValues.filter((v) => !visibleKeySet.has(filterValueKey(v)));
-    onChange(newSelected);
-  };
+    const kept = selectedValues.filter((v) => !visibleKeySet.has(filterValueKey(v)));
+    const newlySelected = allVisibleValues
+      .filter((v) => !selectedKeysSet.has(filterValueKey(v)))
+      .map(normalizeValueForSelection);
+    onChange([...kept, ...newlySelected]);
+  }, [allVisibleValues, selectedValues, selectedKeysSet, onChange, normalizeValueForSelection]);
 
   const updatePatternConfig = useCallback((updates: Partial<{
     matchMode: DiscreteFilterMatchMode;
@@ -447,35 +477,50 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
           </Box>
         )}
 
-        {/* Select/Deselect All buttons */}
+        {/* Master select + invert + regex */}
         <Box className={styles.buttonGroup}>
-        <Box className={styles.leftButtons}>
-          <Button 
-            size="small" 
-            onClick={handleSelectAll}
+          <Box className={styles.selectActions}>
+            <label className={styles.selectAllItem}>
+              <input
+                type="checkbox"
+                className={styles.nativeCheckbox}
+                checked={visibleSelectionState.allSelected}
+                ref={(el) => {
+                  if (el) {
+                    el.indeterminate = visibleSelectionState.someSelected;
+                  }
+                }}
+                onChange={handleToggleSelectAll}
+                disabled={allVisibleValues.length === 0}
+                aria-label={
+                  visibleSelectionState.allSelected ? 'Select none' : 'Select all'
+                }
+              />
+              <span className={styles.selectAllLabel}>
+                {visibleSelectionState.allSelected ? 'None' : 'All'}
+              </span>
+            </label>
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleInvertSelection}
+              disabled={allVisibleValues.length === 0}
+              className={styles.invertButton}
+            >
+              Invert
+            </Button>
+          </Box>
+          <Button
+            size="small"
             variant="text"
+            color="primary"
+            className={`${styles.regexToggle} ${styles.regexRight} ${useRegex ? styles.toggleActive : ''}`}
+            aria-pressed={useRegex}
+            onClick={() => setUseRegex(!useRegex)}
           >
-            Select All
-          </Button>
-          <Button 
-            size="small" 
-            onClick={handleDeselectAll}
-            variant="text"
-          >
-            Deselect All
+            Regex
           </Button>
         </Box>
-        <Button
-          size="small"
-          variant="text"
-          color="primary"
-          className={`${styles.regexToggle} ${styles.regexRight} ${useRegex ? styles.toggleActive : ''}`}
-          aria-pressed={useRegex}
-          onClick={() => setUseRegex(!useRegex)}
-        >
-          Regex
-        </Button>
-      </Box>
 
       {/* Checkbox list: selected values pinned on top */}
       <Box className={styles.checkboxList}>

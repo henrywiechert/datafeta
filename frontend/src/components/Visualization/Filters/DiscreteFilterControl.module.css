@@ -81,11 +81,38 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin: 6px 0 8px 0;
+  margin: 4px 0;
+  padding: 0 4px;
 }
 
-.leftButtons > button {
-  margin-right: 4px;
+.selectAllItem {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  margin: 0;
+  padding: 2px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.selectActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selectAllLabel {
+  font-size: 11px;
+  line-height: 1.15;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.invertButton {
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  min-width: auto !important;
+  text-transform: none !important;
 }
 
 .buttonGroup button {
