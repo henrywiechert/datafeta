@@ -128,6 +128,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       },
     },
     chartCaption: '# Chart Title',
+    showChartCaption: false,
   };
 }
 

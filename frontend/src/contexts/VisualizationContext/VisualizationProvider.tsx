@@ -140,6 +140,11 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       ),
       filterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.filterConfigurations),
       appliedFilterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.appliedFilterConfigurations),
+      // Older sheets had no showChartCaption flag and always showed the title.
+      showChartCaption:
+        initialStateProp && !('showChartCaption' in initialStateProp)
+          ? true
+          : (merged.showChartCaption ?? false),
     };
   }, [initialStateProp]);
 

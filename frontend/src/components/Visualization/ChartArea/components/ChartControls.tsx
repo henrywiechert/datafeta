@@ -15,6 +15,7 @@ import HeightIcon from '@mui/icons-material/Height';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import TableRowsIcon from '@mui/icons-material/TableRows';
+import TitleIcon from '@mui/icons-material/Title';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
@@ -54,6 +55,8 @@ interface ChartControlsProps {
   hasActiveZoomFilters?: boolean;
   showTableRows?: boolean;
   onToggleTableRows?: (show: boolean) => void;
+  showChartCaption?: boolean;
+  onToggleChartCaption?: (show: boolean) => void;
   /** When in table view, overrides the dataset status with exact table totals. */
   datasetStatusOverride?: { rows: number; cols: number } | null;
 }
@@ -85,6 +88,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   hasActiveZoomFilters = false,
   showTableRows = false,
   onToggleTableRows,
+  showChartCaption = false,
+  onToggleChartCaption,
   datasetStatusOverride,
 }) => {
   const controlsRef = useRef<HTMLDivElement | null>(null);
@@ -265,6 +270,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               }}
             >
               <TableRowsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {onToggleChartCaption && (
+          <Tooltip title={showChartCaption ? 'Hide chart title' : 'Show chart title'}>
+            <IconButton
+              onClick={() => onToggleChartCaption(!showChartCaption)}
+              size="small"
+              color={showChartCaption ? 'primary' : 'default'}
+              aria-pressed={showChartCaption}
+              aria-label={showChartCaption ? 'Hide chart title' : 'Show chart title'}
+              sx={{
+                backgroundColor: showChartCaption ? 'primary.50' : 'transparent',
+                '&:hover': {
+                  backgroundColor: showChartCaption ? 'primary.100' : 'action.hover',
+                },
+              }}
+            >
+              <TitleIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         )}

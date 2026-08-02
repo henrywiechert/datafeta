@@ -156,8 +156,9 @@ export const initialState: VisualizationState = {
       wrapModeByDepth: [],
     },
   },
-  // Chart area caption
+  // Chart area caption (hidden by default — toggle via chart controls)
   chartCaption: '## Chart Title',
+  showChartCaption: false,
   // Statistical overlays (all start disabled)
   overlays: DEFAULT_OVERLAYS,
   // Per-chart-type parameters (density KDE, line/area, distribution, table)

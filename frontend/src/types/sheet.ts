@@ -123,6 +123,8 @@ export interface VisualizationStateSnapshot {
   facetBackgroundOpacity?: number;
   // Chart area caption (markdown)
   chartCaption?: string;
+  /** When false, the chart title/caption is hidden. Defaults to false for new sheets. */
+  showChartCaption?: boolean;
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
   manualShape?: string;

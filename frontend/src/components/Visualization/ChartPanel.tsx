@@ -7,6 +7,7 @@ import ChartArea from './ChartArea';
 import ChartCaption from './ChartCaption';
 import { Field, DragSource } from '../../types';
 import { useSelectionStore } from '../../stores/selectionStore';
+import { useVisualizationContext } from '../../contexts/VisualizationContext';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
@@ -43,6 +44,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   axisDropFieldIdsRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { state } = useVisualizationContext();
   
   // Get clearSelection action (stable reference, never causes re-render)
   const clearSelection = useSelectionStore((s: any) => s.clearSelection);
@@ -133,7 +135,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         mb: 1,
         mt: 1
       }} />
-      <ChartCaption />
+      {state.showChartCaption && <ChartCaption />}
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ChartArea axisDropFieldIdsRef={axisDropFieldIdsRef} />
       </Box>

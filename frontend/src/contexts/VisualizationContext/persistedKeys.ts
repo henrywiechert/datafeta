@@ -49,6 +49,8 @@ export const PERSISTED_STATE_KEYS = [
   'chartTypeParams',
   'shapeField',
   'manualShape',
+  'chartCaption',
+  'showChartCaption',
 ] as const;
 
 export type PersistedStateKey = (typeof PERSISTED_STATE_KEYS)[number];
