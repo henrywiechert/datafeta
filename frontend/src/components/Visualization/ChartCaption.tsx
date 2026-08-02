@@ -9,6 +9,7 @@ import { useVisualizationContext } from '../../contexts/VisualizationContext';
  * Chart area caption.
  *
  * - Renders markdown content persisted in VisualizationState.chartCaption.
+ * - Visibility is controlled by VisualizationState.showChartCaption (toolbar toggle).
  * - Double-click opens an editor dialog where the user can write multi-line markdown.
  * - Height adapts to content, min ~32px, max 150px with scrollbar.
  */

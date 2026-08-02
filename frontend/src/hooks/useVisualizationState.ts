@@ -220,6 +220,7 @@ export function useVisualizationState() {
             axisLabelStyles: state.axisLabelStyles,
             facetLabelStyles: state.facetLabelStyles,
             chartCaption: state.chartCaption,
+            showChartCaption: state.showChartCaption,
         };
         pendingSnapshotRef.current = snapshot;
         if (isTestEnv) {
@@ -275,6 +276,7 @@ export function useVisualizationState() {
         state.axisLabelStyles,
         state.facetLabelStyles,
         state.chartCaption,
+        state.showChartCaption,
         updateActiveSheetState,
         isTestEnv,
     ]);

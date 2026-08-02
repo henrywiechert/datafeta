@@ -95,6 +95,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     categoryTickStyles,
     axisLabelStyles,
     facetLabelStyles,
+    showChartCaption,
   } = state;
 
   // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
@@ -606,6 +607,11 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
                 }
               }
               dispatch({ type: 'SET_SHOW_TABLE_ROWS', payload: show });
+            }}
+            showChartCaption={showChartCaption}
+            onToggleChartCaption={(show) => {
+              recordUndoPoint();
+              dispatch({ type: 'SET_SHOW_CHART_CAPTION', payload: show });
             }}
           />
 

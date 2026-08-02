@@ -12,6 +12,8 @@ export function captionReducer(
   switch (action.type) {
     case 'SET_CHART_CAPTION':
       return { ...state, chartCaption: action.payload };
+    case 'SET_SHOW_CHART_CAPTION':
+      return { ...state, showChartCaption: action.payload };
     default:
       return null;
   }

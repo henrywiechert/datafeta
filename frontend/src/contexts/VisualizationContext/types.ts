@@ -173,6 +173,8 @@ export interface VisualizationState {
   facetLabelStyles: FacetLabelStyles;
   // Chart area caption (markdown)
   chartCaption: string;
+  /** When false, the chart title/caption is hidden to free vertical space. */
+  showChartCaption: boolean;
   // Statistical overlays (regression, moving average, Bollinger bands)
   overlays: OverlayConfig[];
   // Chart-type-specific parameters, keyed by chart-type id. New per-chart-type
@@ -346,8 +348,9 @@ export type VisualizationAction =
   // Table axis-measure value band sizing
   | { type: 'SET_MEASURE_BAND_COL_WIDTH'; payload: { bandIndex: number; widthPx: number | null } }
   | { type: 'SET_MEASURE_BAND_ROW_HEIGHT'; payload: { bandIndex: number; heightPx: number | null } }
-  // Chart caption action
+  // Chart caption actions
   | { type: 'SET_CHART_CAPTION'; payload: string }
+  | { type: 'SET_SHOW_CHART_CAPTION'; payload: boolean }
   // Overlay actions
   | { type: 'SET_OVERLAYS'; payload: OverlayConfig[] }
   | { type: 'TOGGLE_OVERLAY'; payload: { type: OverlayType; enabled: boolean } }
