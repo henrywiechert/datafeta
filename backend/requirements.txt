@@ -17,6 +17,8 @@ attrs==26.1.0
     # via
     #   jsonschema
     #   referencing
+backports-zstd==1.6.0
+    # via clickhouse-connect
 bleach==6.3.0
     # via kaggle
 certifi==2026.4.22
@@ -31,9 +33,9 @@ click==8.4.2
     # via
     #   huggingface-hub
     #   uvicorn
-clickhouse-connect==1.5.0
+clickhouse-connect==1.6.0
     # via -r requirements.in
-duckdb==1.5.4
+duckdb==1.5.5
     # via -r requirements.in
 fastapi==0.139.2
     # via -r requirements.in
@@ -93,7 +95,7 @@ packaging==26.2
     #   huggingface-hub
     #   jupytext
     #   kaggle
-pandas==3.0.4
+pandas==3.0.5
     # via -r requirements.in
 platformdirs==4.9.6
     # via jupyter-core
@@ -181,5 +183,3 @@ webencodings==0.5.1
     # via bleach
 websockets==16.0
     # via uvicorn
-zstandard==0.25.0
-    # via clickhouse-connect
