@@ -37,7 +37,7 @@ clickhouse-connect==1.6.0
     # via -r requirements.in
 duckdb==1.5.5
     # via -r requirements.in
-fastapi==0.139.2
+fastapi==0.141.1
     # via -r requirements.in
 fastjsonschema==2.21.2
     # via nbformat
@@ -173,7 +173,7 @@ urllib3==2.7.0
     #   clickhouse-connect
     #   kaggle
     #   requests
-uvicorn[standard]==0.51.0
+uvicorn[standard]==0.52.1
     # via -r requirements.in
 uvloop==0.22.1
     # via uvicorn
