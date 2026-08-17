@@ -173,7 +173,7 @@ urllib3==2.7.0
     #   clickhouse-connect
     #   kaggle
     #   requests
-uvicorn[standard]==0.52.1
+uvicorn[standard]==0.52.3
     # via -r requirements.in
 uvloop==0.22.1
     # via uvicorn
