@@ -1,7 +1,7 @@
 fastapi>=0.141.1
 uvicorn[standard]>=0.52.1
 pandas>=3.0.5
-clickhouse-connect>=1.6.0
+clickhouse-connect>=1.7.1
 python-multipart
 pypika==0.51.1
 duckdb>=1.5.5
