@@ -1,5 +1,5 @@
 fastapi>=0.141.1
-uvicorn[standard]>=0.52.1
+uvicorn[standard]>=0.52.3
 pandas>=3.0.5
 clickhouse-connect>=1.6.0
 python-multipart
