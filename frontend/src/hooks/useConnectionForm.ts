@@ -337,7 +337,6 @@ export function useConnectionForm(): UseConnectionFormReturn {
         details.port = Number(clickHouse.port) || 8123;
         details.user = clickHouse.user;
         details.password = clickHouse.password;
-        details.database = clickHouse.database;
       }
     }
 

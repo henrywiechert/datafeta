@@ -86,16 +86,6 @@ export function ClickHouseConnectionForm({
           </div>
         </div>
 
-        <div className={styles.formField}>
-          <label className={styles.label}>Database</label>
-          <input
-            className={styles.input}
-            type="text"
-            value={state.database}
-            onChange={(e) => onUpdate({ database: e.target.value })}
-            disabled={fieldsDisabled}
-          />
-        </div>
       </div>
     </>
   );
