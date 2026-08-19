@@ -1,13 +1,15 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * useChartActions – toolbar and keyboard-driven actions that mutate
- * visualisation state (undo / redo, axis swap, domain toggles, refresh, reset).
+ * visualisation state (undo / redo, axis swap, domain toggles, refresh, reset,
+ * optimization settings, band thickness, chart caption).
  */
 
 import { useCallback } from 'react';
 import { columnCacheManager } from '../../../../services/columnCacheManager';
 import { filterTierManager } from '../../../../services/filterTierManager';
 import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
+import { QueryOptimizationSettings } from '../../../../types';
 
 interface UseChartActionsProps {
   dispatch: (action: any) => void;
@@ -105,6 +107,32 @@ export function useChartActions({
     dispatch({ type: 'FORCE_QUERY_REFRESH' });
   }, [dispatch, selectedDatabase, selectedTable]);
 
+  // Optimization settings are applied immediately without an undo point:
+  // they are a performance hint, not user-authored chart configuration.
+  const handleUpdateOptimizationSettings = useCallback(
+    (settings: QueryOptimizationSettings) => {
+      dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
+      dispatch({ type: 'FORCE_QUERY_REFRESH' });
+    },
+    [dispatch],
+  );
+
+  const handleBandThicknessScaleChange = useCallback(
+    (scale: number) => {
+      recordUndoPoint();
+      dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
+    },
+    [recordUndoPoint, dispatch],
+  );
+
+  const handleToggleChartCaption = useCallback(
+    (show: boolean) => {
+      recordUndoPoint();
+      dispatch({ type: 'SET_SHOW_CHART_CAPTION', payload: show });
+    },
+    [recordUndoPoint, dispatch],
+  );
+
   return {
     handleResetWorkspace,
     handleSwapAxis,
@@ -113,5 +141,8 @@ export function useChartActions({
     handleIndependentXAxisToggle,
     handleIndependentYAxisToggle,
     handleForceRefresh,
+    handleUpdateOptimizationSettings,
+    handleBandThicknessScaleChange,
+    handleToggleChartCaption,
   };
 }

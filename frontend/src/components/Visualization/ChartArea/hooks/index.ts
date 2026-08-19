@@ -18,3 +18,5 @@ export * from './useRenderingTracking';
 export * from './useSeriesHighlight'; 
 export * from './useTableRowsQuery';
 export * from './useTableRowsFilterActions';
+export * from './useTableRowsToggle';
+export * from './useChartControlsProps';

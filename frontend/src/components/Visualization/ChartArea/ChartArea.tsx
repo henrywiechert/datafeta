@@ -1,12 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext, useChannels } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
-import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useSheetCacheSave } from '../../../hooks/useSheetCacheCoordinator';
 import {
@@ -22,10 +20,10 @@ import { useTablePageSize } from '../../../hooks/useTablePageSize';
 import { useGanttZoom } from './hooks/useGanttZoom';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
-import { useChartActions } from './hooks/useChartActions';
 import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { useSeriesHighlight } from './hooks/useSeriesHighlight';
+import { useChartControlsProps } from './hooks/useChartControlsProps';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import { useAppConfig } from '../../../contexts/AppConfigContext';
 import HeatmapSizeBar from './components/HeatmapSizeBar';
@@ -35,7 +33,6 @@ import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
-import { collectEncodingFields } from '../../../utils/tableColumns';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
@@ -63,12 +60,11 @@ interface ChartAreaProps {
 
 const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   // -- Contexts ----------------------------------------------------------------
-  const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } =
+  const { state, dispatch, startOperation, completeOperation } =
     useVisualizationContext();
-  const { undo, completeUndo, redo, completeRedo, discardLastAction, canUndo, canRedo } = useUndoRedo();
-  const recordUndoPoint = useRecordUndoPoint();
-  const { dataSource, clearSessionFilters } = useDataSource();
-  const { resetWorkspace, activeSheet, updateActiveSheetPanelLayout } = useSheetContext();
+  const { discardLastAction } = useUndoRedo();
+  const { dataSource } = useDataSource();
+  const { activeSheet, updateActiveSheetPanelLayout } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const channels = useChannels();
 
@@ -95,7 +91,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     categoryTickStyles,
     axisLabelStyles,
     facetLabelStyles,
-    showChartCaption,
   } = state;
 
   // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
@@ -291,28 +286,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     dispatch,
   });
 
-  const {
-    handleResetWorkspace,
-    handleSwapAxis,
-    handleUndo,
-    handleRedo,
-    handleIndependentXAxisToggle,
-    handleIndependentYAxisToggle,
-    handleForceRefresh,
-  } = useChartActions({
-    dispatch,
-    getUndoableSnapshot,
-    undo,
-    completeUndo,
-    redo,
-    completeRedo,
-    resetWorkspace,
-    clearSessionFilters,
-    bandThicknessScale: channels.size.bandThicknessScale,
-    selectedTable,
-    selectedDatabase,
-  });
-
   const { brushDisabled, handleBrushEnd, handleZoomOut, handleZoomReset, hasActiveZoomFilters } = useBrushZoom({
     dispatch,
     filterFields: state.filterFields,
@@ -346,6 +319,21 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   const { appConfig } = useAppConfig();
   const debugUiEnabled = appConfig.debugUiEnabled;
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
+
+  // ChartControls prop assembly — state-mutating toolbar handlers live in
+  // useChartActions / useTableRowsToggle, wired together inside this hook.
+  const chartControlsProps = useChartControlsProps({
+    isDebugOpen,
+    onToggleDebug: toggleDebugView,
+    debugUiEnabled,
+    isFullscreen,
+    onToggleFullscreen: toggleFullscreen,
+    isFullscreenSupported,
+    onZoomOut: handleZoomOut,
+    onZoomReset: handleZoomReset,
+    hasActiveZoomFilters,
+    tableRowsData,
+  });
 
   // -- Series highlight (legend click → dim non-matching marks) ----------------
   const [highlightedCategoryValues, setHighlightedCategoryValues] = useState<any[] | null>(null);
@@ -548,72 +536,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
             globalChartType={globalChartType}
           />
 
-          <ChartControls
-            isDebugOpen={isDebugOpen}
-            onToggleDebug={toggleDebugView}
-            debugUiEnabled={debugUiEnabled}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-            isFullscreenSupported={isFullscreenSupported}
-            onSwapAxis={handleSwapAxis}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onResetWorkspace={handleResetWorkspace}
-            independentXAxis={!!independentDomains?.x}
-            onToggleIndependentXAxis={handleIndependentXAxisToggle}
-            independentYAxis={!!independentDomains?.y}
-            onToggleIndependentYAxis={handleIndependentYAxisToggle}
-            optimizationSettings={optimizationSettings}
-            onUpdateOptimizationSettings={(settings) => {
-              dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
-              dispatch({ type: 'FORCE_QUERY_REFRESH' });
-            }}
-            onForceRefresh={handleForceRefresh}
-            bandThicknessScale={channels.size.bandThicknessScale}
-            onBandThicknessScaleChange={(scale) => {
-              recordUndoPoint();
-              dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
-            }}
-            onZoomOut={handleZoomOut}
-            onZoomReset={handleZoomReset}
-            hasActiveZoomFilters={hasActiveZoomFilters}
-            showTableRows={showTableRows}
-            datasetStatusOverride={
-              showTableRows
-                ? {
-                    rows: tableRowsData.totalRows,
-                    cols: tableRowsData.columns.length || tableColumnFields.length,
-                  }
-                : undefined
-            }
-            onToggleTableRows={(show) => {
-              recordUndoPoint();
-              // Option C: seed the table view's column list once from the current
-              // encodings when entering the view with an empty list. Afterwards
-              // the list is user-owned and never re-seeded.
-              if (show && tableColumnFields.length === 0) {
-                const seed = collectEncodingFields(
-                  xAxisFields,
-                  yAxisFields,
-                  channels.color.field,
-                  channels.size.field,
-                  channels.label.fields,
-                  channels.tooltip.fields,
-                ).map((f) => ({ ...f, id: uuidv4() }));
-                if (seed.length > 0) {
-                  dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: seed });
-                }
-              }
-              dispatch({ type: 'SET_SHOW_TABLE_ROWS', payload: show });
-            }}
-            showChartCaption={showChartCaption}
-            onToggleChartCaption={(show) => {
-              recordUndoPoint();
-              dispatch({ type: 'SET_SHOW_CHART_CAPTION', payload: show });
-            }}
-          />
+          <ChartControls {...chartControlsProps} />
 
           {globalChartType === 'heatmap' && !showTableRows && (
             <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />

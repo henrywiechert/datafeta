@@ -117,6 +117,9 @@ ChartArea/
 | `useChartGeneration` | fields, colors, sizes, queryResult, overrides | `grid`, `chartInfo`, `facetLimitWarning` | `ChartArea` |
 | `useDebugView` | (none) | `isDebugOpen`, `debugHeight`, `toggleDebugView` | `ChartArea` |
 | `useFullscreen` | elementRef | `isFullscreen`, `toggleFullscreen` | `ChartArea` |
+| `useChartActions` | dispatch, undo/redo fns, resetWorkspace, table selection | toolbar handlers (undo/redo, swap, domain toggles, refresh, optimization settings, band thickness, caption) | `useChartControlsProps` |
+| `useTableRowsToggle` | (context) | `handleToggleTableRows` (seeds table columns once from encodings) | `useChartControlsProps` |
+| `useChartControlsProps` | debug/fullscreen/zoom state, tableRowsData | memo-ready `ChartControlsProps` object | `ChartArea` |
 
 ---
 
