@@ -28,7 +28,7 @@ const DevSqlViewerControl =
     ? React.lazy(() => import('../../../../devtools/DevSqlViewerControl'))
     : null;
 
-interface ChartControlsProps {
+export interface ChartControlsProps {
   isDebugOpen: boolean;
   onToggleDebug: () => void;
   debugUiEnabled?: boolean;
@@ -680,4 +680,4 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   );
 };
 
-export default ChartControls; 
+export default React.memo(ChartControls); 
