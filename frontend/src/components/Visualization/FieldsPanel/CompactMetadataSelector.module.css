@@ -5,12 +5,51 @@
   gap: 4px;
   border-bottom: 1px solid #e0e0e0;
   background-color: #f8f8f8;
+  flex-shrink: 0;
 }
 
 .headerRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  margin: -4px -6px 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.headerRow:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 6px;
+}
+
+.collapsedHint {
+  font-size: 0.65rem;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.expandButton {
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .field {

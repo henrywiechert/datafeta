@@ -1,6 +1,8 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Collapse, Typography, IconButton } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
@@ -68,6 +70,8 @@ interface FieldsPanelProps {
   onRemoveVirtualColumn?: (index: number) => void;
 }
 
+const FIELDS_EXPANDED_KEY = 'fieldsPanel.fields.expanded';
+
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
   availableFields,
   fieldsSearch,
@@ -124,6 +128,14 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [useRegex, setUseRegex] = useState(false);
+  const [fieldsExpanded, setFieldsExpanded] = useState(() => {
+    const stored = localStorage.getItem(FIELDS_EXPANDED_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem(FIELDS_EXPANDED_KEY, String(fieldsExpanded));
+  }, [fieldsExpanded]);
   
   // State for bin config dialog
   const [binDialogOpen, setBinDialogOpen] = useState(false);
@@ -319,9 +331,13 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         isSwitchingDatabase={isSwitchingDatabase}
       />
       
+      <div className={`${styles.fieldsSection} ${fieldsExpanded ? '' : styles.fieldsSectionCollapsed}`}>
       {/* Fields search below metadata */}
       <div className={styles.header}>
-        <Box className={styles.headerTitleRow}>
+        <Box
+          className={styles.headerTitleRow}
+          onClick={() => setFieldsExpanded((current) => !current)}
+        >
           <Typography
               variant="subtitle2"
               fontWeight="bold"
@@ -331,26 +347,44 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           >
               Fields
           </Typography>
-          <Button
-            size="small"
-            variant="text"
-            color="primary"
-            className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
-            sx={{ fontSize: '0.68rem', minHeight: 22, lineHeight: 1.1 }}
-            aria-pressed={useRegex}
-            onClick={() => setUseRegex((current) => !current)}
-          >
-            Regex
-          </Button>
+          <Box className={styles.headerActions} onClick={(e) => e.stopPropagation()}>
+            {fieldsExpanded && (
+              <Button
+                size="small"
+                variant="text"
+                color="primary"
+                className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
+                sx={{ fontSize: '0.68rem', minHeight: 22, lineHeight: 1.1 }}
+                aria-pressed={useRegex}
+                onClick={() => setUseRegex((current) => !current)}
+              >
+                Regex
+              </Button>
+            )}
+            <IconButton
+              size="small"
+              className={styles.expandButton}
+              aria-expanded={fieldsExpanded}
+              aria-controls="fields-panel-content"
+              aria-label={fieldsExpanded ? 'Collapse fields' : 'Expand fields'}
+              onClick={() => setFieldsExpanded((current) => !current)}
+            >
+              {fieldsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
         </Box>
-        <FieldsSearch
-          value={fieldsSearch}
-          onChange={onFieldsSearchChange}
-          error={useRegex && !!regexError}
-          helperText={useRegex ? regexError || '' : ''}
-        />
+        {fieldsExpanded && (
+          <FieldsSearch
+            value={fieldsSearch}
+            onChange={onFieldsSearchChange}
+            error={useRegex && !!regexError}
+            helperText={useRegex ? regexError || '' : ''}
+          />
+        )}
       </div>
-      <div 
+      <Collapse in={fieldsExpanded} timeout={200} className={styles.fieldsCollapse}>
+      <div
+        id="fields-panel-content"
         className={`${styles.fieldsList} ${isDragOver ? styles.dragOver : styles.normal}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -381,6 +415,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           onUpdate={onFieldUpdate}
           onCreateBins={onAddVirtualColumn ? handleCreateBins : undefined}
         />
+      </div>
+      </Collapse>
       </div>
       
       {/* Bin Config Dialog */}

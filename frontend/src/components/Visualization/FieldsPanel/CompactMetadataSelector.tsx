@@ -1,10 +1,12 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip } from '@mui/material';
+import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
@@ -120,6 +122,8 @@ interface CompactMetadataSelectorProps {
   isSwitchingDatabase?: boolean;
 }
 
+const DATA_SOURCE_EXPANDED_KEY = 'fieldsPanel.dataSource.expanded';
+
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   connectionType,
   selectedDatabase,
@@ -152,6 +156,24 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   isSwitchingDatabase,
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
+  const [expanded, setExpanded] = React.useState(() => {
+    const stored = localStorage.getItem(DATA_SOURCE_EXPANDED_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem(DATA_SOURCE_EXPANDED_KEY, String(expanded));
+  }, [expanded]);
+
+  const extraTableCount = joinedTables.length + unionTables.length;
+  const collapsedHint = selectedTable
+    ? `${selectedDatabase ? `${selectedDatabase}.` : ''}${selectedTable}${extraTableCount > 0 ? ` +${extraTableCount}` : ''}`
+    : '';
+
+  const handleToggleExpanded = React.useCallback(() => {
+    setExpanded((current) => !current);
+  }, []);
+
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
     [databases]
@@ -277,18 +299,25 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 
   return (
     <div className={styles.metadataSelector}>
-      <Box className={styles.headerRow}>
-        <Typography 
-          variant="subtitle2"
-          fontWeight="bold"
-          align="left"
-          fontSize="0.85rem"
-          gutterBottom
-          sx={{ marginBottom: 0.2 }}
-        >
-          Data Source
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <Box className={styles.headerRow} onClick={handleToggleExpanded}>
+        <Box className={styles.headerTitle}>
+          <Typography 
+            variant="subtitle2"
+            fontWeight="bold"
+            align="left"
+            fontSize="0.85rem"
+            gutterBottom
+            sx={{ marginBottom: 0.2, flexShrink: 0 }}
+          >
+            Data Source
+          </Typography>
+          {!expanded && collapsedHint && (
+            <Typography component="span" variant="caption" className={styles.collapsedHint}>
+              {collapsedHint}
+            </Typography>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }} onClick={(e) => e.stopPropagation()}>
           {connectionType === 'csv' && onAddFiles && (
             <>
               <input
@@ -334,8 +363,22 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               </IconButton>
             </span>
           </Tooltip>
+          <IconButton
+            size="small"
+            className={styles.expandButton}
+            aria-expanded={expanded}
+            aria-controls="data-source-content"
+            aria-label={expanded ? 'Collapse data source' : 'Expand data source'}
+            onClick={handleToggleExpanded}
+            sx={{ width: 20, height: 20 }}
+          >
+            {expanded ? <ExpandLessIcon fontSize="inherit" /> : <ExpandMoreIcon fontSize="inherit" />}
+          </IconButton>
         </Box>
       </Box>
+
+      <Collapse in={expanded} timeout={200}>
+        <div id="data-source-content" className={styles.content}>
 
       {connectionType === 'clickhouse' ? (
         <>
@@ -515,6 +558,8 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           {metadataError}
         </Typography>
       )}
+        </div>
+      </Collapse>
     </div>
   );
 };
