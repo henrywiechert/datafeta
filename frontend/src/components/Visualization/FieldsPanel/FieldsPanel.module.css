@@ -11,6 +11,34 @@
   z-index: 1;
 }
 
+.fieldsSection {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fieldsSectionCollapsed {
+  flex: 0 0 auto;
+  min-height: unset;
+  overflow: visible;
+}
+
+.fieldsCollapse {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fieldsSection:not(.fieldsSectionCollapsed) .fieldsCollapse :global(.MuiCollapse-wrapper),
+.fieldsSection:not(.fieldsSectionCollapsed) .fieldsCollapse :global(.MuiCollapse-wrapperInner) {
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .header {
     padding: 10px 10px 6px 10px;
     border-bottom: 1px solid #e0e0e0;
@@ -22,10 +50,30 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  margin: -4px -6px 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.headerTitleRow:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.expandButton {
+  padding: 2px;
 }
 
 .regexToggle {
-  margin-left: auto;
   white-space: nowrap;
   font-size: 11px;
   padding: 1px 6px;
