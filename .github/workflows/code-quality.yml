@@ -25,6 +25,8 @@ jobs:
         pip install pip-tools
 
     - name: Verify compiled backend requirements are up to date
+      env:
+        CUSTOM_COMPILE_COMMAND: pip-compile --output-file=requirements.txt requirements.in
       run: |
         cd backend
         pip-compile --output-file=requirements.txt requirements.in
