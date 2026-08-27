@@ -1,8 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
 import {
   compactAutocompleteClassName,
@@ -140,34 +141,42 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             noOptionsText="No matches"
           />
         </Box>
-        <Box sx={actionColumnSx} aria-hidden />
-      </Box>
-
-      {onDbSwitchEnabledChange && (
-        <Tooltip
-          title={
-            dbSwitchDisabled && dbSwitchDisabledReason
-              ? dbSwitchDisabledReason
-              : 'Change database without clearing table selection. Requires identical table names in the new database.'
-          }
-        >
-          <Box component="span" sx={{ display: 'inline-flex', width: '100%' }}>
-            <FormControlLabel
-              sx={{ ml: 0, mr: 0, '& .MuiFormControlLabel-label': { fontSize: '0.72rem' } }}
-              control={
-                <Checkbox
-                  size="small"
-                  checked={dbSwitchEnabled}
-                  onChange={(e) => onDbSwitchEnabledChange(e.target.checked)}
-                  disabled={dbSwitchDisabled || isSwitchingDatabase}
-                  sx={{ py: 0.25 }}
-                />
+        <Box sx={actionColumnSx}>
+          {isSwitchingDatabase ? (
+            <CircularProgress size={14} />
+          ) : onDbSwitchEnabledChange ? (
+            <Tooltip
+              title={
+                dbSwitchDisabled && dbSwitchDisabledReason
+                  ? dbSwitchDisabledReason
+                  : dbSwitchEnabled
+                    ? 'On: changing the database keeps current tables. Requires identical table names.'
+                    : 'Keep current tables when changing database (same table names required).'
               }
-              label="DB switch"
-            />
-          </Box>
-        </Tooltip>
-      )}
+              placement="right"
+            >
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => onDbSwitchEnabledChange(!dbSwitchEnabled)}
+                  disabled={dbSwitchDisabled}
+                  aria-pressed={dbSwitchEnabled}
+                  aria-label="Keep tables when changing database"
+                  color={dbSwitchEnabled ? 'primary' : 'default'}
+                  sx={{
+                    width: 26,
+                    height: 26,
+                    p: 0.25,
+                    bgcolor: dbSwitchEnabled ? 'action.selected' : undefined,
+                  }}
+                >
+                  <SwapHorizIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Box>
+      </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
@@ -205,7 +214,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           />
         </Box>
         <Box sx={actionColumnSx}>
-          <Tooltip title={dbSwitchEnabled ? 'Disabled in DB switch mode' : canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+          <Tooltip title={dbSwitchEnabled ? 'Disabled while keeping tables on database change' : canAdd ? 'Add table' : 'Select DB and table'} placement="right">
             <span>
               <IconButton
                 size="small"

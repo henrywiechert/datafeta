@@ -65,20 +65,22 @@ Behavior: connect with new file; preserve viz state; validate columns against ne
 
 ### B. In-app — `CompactMetadataSelector`
 
-Add a checkbox adjacent to the Database dropdown (ClickHouse only):
+Add a toggle icon on the Database dropdown row (ClickHouse only), in the action slot aligned with the Table `+` button:
 
 | Property | Value |
 |----------|-------|
-| **Label** | `DB switch` |
-| **Tooltip** | `Change database without clearing table selection. Requires identical table names in the new database.` |
-| **Default** | unchecked |
+| **Control** | Icon button (`SwapHoriz`), pressed when on |
+| **Accessible name** | `Keep tables when changing database` |
+| **Tooltip (off)** | `Keep current tables when changing database (same table names required).` |
+| **Tooltip (on)** | `On: changing the database keeps current tables. Requires identical table names.` |
+| **Default** | off |
 | **Persistence** | session only (not saved in config); resets on disconnect |
 
-**When unchecked:** current `handleDatabaseSelect` behavior (clear table, joins, fields cache).
+**When off:** changing the database dropdown stages a DB for adding / UNION (does not clear the primary).
 
-**When checked:** call `switchDatabasePreserveTables(newDatabase)` instead.
+**When on:** call `switchDatabasePreserveTables(newDatabase)` instead; table add / pattern add are disabled.
 
-**Visual feedback while switching:** show loading on metadata selector; disable database/table dropdowns until refetch completes.
+**Visual feedback while switching:** spinner in the DB-row action slot; disable database/table dropdowns until refetch completes.
 
 ---
 
@@ -130,9 +132,9 @@ Single shared function used by load-time restore and in-app picker.
 |------|----------|
 | Primary table missing in new DB | **Block** — error dialog, do not proceed |
 | Joined table missing | **Warn** in validation summary; joins may fail at query time |
-| Cross-database union (tables from multiple DBs) | **Disable** “DB switch” checkbox; show tooltip: `Not supported for cross-database unions` |
-| User toggles checkbox mid-switch | Ignore until current operation completes |
-| Disconnect / reconnect | Checkbox resets; normal restore flow |
+| Cross-database union (tables from multiple DBs) | **Disable** keep-tables toggle; show tooltip: `Not supported for cross-database unions` |
+| User toggles keep-tables mid-switch | Ignore until current operation completes |
+| Disconnect / reconnect | Toggle resets; normal restore flow |
 
 ---
 
@@ -162,11 +164,9 @@ Also collect table names from `joinedTables` for the join-missing check.
 
 ### Summary dialog
 
+Shown only when the check finds missing columns or joined tables. A successful check is silent.
+
 **Title:** `Schema check`
-
-**All clear:**
-
-> All 14 referenced columns found. 4 sheets ready.
 
 **Issues found:**
 
@@ -216,10 +216,10 @@ No change to `SavedConfiguration` schema required for v1.
 
 | Phase | Deliverable |
 |-------|-------------|
-| **1** | `switchDatabasePreserveTables` + in-app checkbox |
+| **1** | `switchDatabasePreserveTables` + in-app keep-tables toggle |
 | **2** | Load-time checkbox in `ConnectionRestoreDialog` |
 | **3** | All-sheets validation summary dialog |
-| **4** | Cross-DB union detection (disable checkbox) + user docs update |
+| **4** | Cross-DB union detection (disable keep-tables toggle) + user docs update |
 
 ---
 

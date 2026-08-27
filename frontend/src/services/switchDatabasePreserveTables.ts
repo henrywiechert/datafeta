@@ -92,15 +92,13 @@ export async function switchDatabasePreserveTables(
   setIsLoadingMetadata(true);
   setMetadataError(null);
 
+  let didUpdateConnectionDatabase = false;
+
   try {
     setSelectedDatabase(newDatabase);
     if (rewrittenUnions.length > 0) {
       setUnionTables(rewrittenUnions);
     }
-    onUpdateConnectionDatabase?.(newDatabase);
-
-    setTables([]);
-    setAvailableFields([]);
 
     const tablesResponse = await apiService.listTables(newDatabase);
     const tables = tablesResponse.tables || [];
@@ -110,15 +108,18 @@ export async function switchDatabasePreserveTables(
     const tableNames = tables.map((t) => t.name);
     if (!tableNames.includes(selectedTable)) {
       setSelectedDatabase(oldDatabase);
-      setTables([]);
       if (rewrittenUnions.length > 0) {
         setUnionTables(unionTables);
       }
-      onUpdateConnectionDatabase?.(oldDatabase);
       throw new DatabaseSwitchError(
         `Table "${selectedTable}" not found in database "${newDatabase}".`,
       );
     }
+
+    // Keep current tables/fields until the new schema is in place so auto-fetch
+    // effects and axis chips are not wiped mid-switch.
+    onUpdateConnectionDatabase?.(newDatabase);
+    didUpdateConnectionDatabase = true;
 
     let allFields: Field[] = [];
 
@@ -175,6 +176,13 @@ export async function switchDatabasePreserveTables(
       virtualColumns,
     );
   } catch (err) {
+    if (didUpdateConnectionDatabase) {
+      setSelectedDatabase(oldDatabase);
+      onUpdateConnectionDatabase?.(oldDatabase);
+      if (rewrittenUnions.length > 0) {
+        setUnionTables(unionTables);
+      }
+    }
     if (err instanceof DatabaseSwitchError) {
       throw err;
     }

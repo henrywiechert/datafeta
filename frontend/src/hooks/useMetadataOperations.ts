@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, VirtualColumnDefinition, ForeignKeyRelationship, Sheet } from '../types';
+import { ConnectionDetails, Field, VirtualColumnDefinition, ForeignKeyRelationship, Sheet } from '../types';
 import { apiService } from '../apiService';
 import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
 import { processColumnsResponse } from '../utils/fieldUtils';
@@ -9,10 +9,6 @@ import {
     DatabaseSwitchError,
 } from '../services/switchDatabasePreserveTables';
 import { SchemaCheckResult } from '../utils/schemaValidation';
-
-interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
-}
 
 interface DataSourceState {
     databases: any[];
@@ -92,6 +88,16 @@ export function useMetadataOperations({
     const columnsFetchedForRef = useRef<string | null>(null);
     const prevTablesLengthRef = useRef(dataSource.tables.length);
     const prevFieldsLengthRef = useRef(dataSource.availableFields.length);
+    const xAxisFieldsRef = useRef(xAxisFields);
+    const yAxisFieldsRef = useRef(yAxisFields);
+    xAxisFieldsRef.current = xAxisFields;
+    yAxisFieldsRef.current = yAxisFields;
+
+    // Re-init metadata when the connection itself changes — not when only the
+    // ClickHouse database field is updated during a keep-tables switch.
+    const connectionIdentity = connectionDetails
+        ? `${connectionDetails.type}|${connectionDetails.host ?? ''}|${connectionDetails.port ?? ''}|${connectionDetails.connection_string ?? ''}|${connectionDetails.file_path ?? ''}`
+        : '';
 
     const fetchDatabases = useCallback(async (): Promise<any[]> => {
         dataSourceSetters.setIsLoadingMetadata(true);
@@ -180,7 +186,11 @@ export function useMetadataOperations({
             // Mark axis fields that are not present in new schema as invalid
             // Include both real columns AND virtual columns in the valid names
             const validNames = buildValidColumnNames(allFields, virtualColumns);
-            const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
+            const { patchedX, patchedY } = validateAxisFields(
+                xAxisFieldsRef.current,
+                yAxisFieldsRef.current,
+                validNames,
+            );
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
@@ -206,8 +216,6 @@ export function useMetadataOperations({
         dataSource.selectedDatabase,
         dataSource.fieldDisplayAliases,
         measureGroupFields,
-        xAxisFields,
-        yAxisFields,
         virtualColumns,
         connectionDetails?.type,
         dataSourceSetters,
@@ -285,7 +293,11 @@ export function useMetadataOperations({
                 
                 // Mark axis fields that are not present in new schema as invalid
                 const validNames = buildValidColumnNames(allFields, virtualColumns);
-                const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
+                const { patchedX, patchedY } = validateAxisFields(
+                    xAxisFieldsRef.current,
+                    yAxisFieldsRef.current,
+                    validNames,
+                );
                 dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
                 dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
                 
@@ -318,7 +330,11 @@ export function useMetadataOperations({
 
             // Mark axis fields that are not present in new schema as invalid
             const validNames = buildValidColumnNames(allFields, virtualColumns);
-            const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
+            const { patchedX, patchedY } = validateAxisFields(
+                xAxisFieldsRef.current,
+                yAxisFieldsRef.current,
+                validNames,
+            );
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
@@ -340,8 +356,6 @@ export function useMetadataOperations({
         dataSource.unionTables,
         dataSource.customRelationships,
         measureGroupFields,
-        xAxisFields, 
-        yAxisFields, 
         virtualColumns,
         connectionDetails?.type, 
         dataSourceSetters,
@@ -459,7 +473,7 @@ export function useMetadataOperations({
         // Columns fetch will trigger once selectedTable is set (CSV/Kaggle auto-selection handled in fetchTables)
         // REASON: only re-fetch when the connection itself changes; dataSource setters/state are intentionally omitted to avoid refetch loops on every metadata mutation.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [connectionDetails]);
+    }, [connectionIdentity]);
     
     useEffect(() => {
         const prevFieldsLength = prevFieldsLengthRef.current;
@@ -478,6 +492,7 @@ export function useMetadataOperations({
         }
 
         if (isManualRefreshRunningRef.current) return;
+        if (isSwitchingDatabaseRef.current) return;
 
         // Fetch columns when table is selected (either from initial load or user selection)
         if (dataSource.selectedTable && !dataSource.isLoadingMetadata) {
@@ -515,6 +530,7 @@ export function useMetadataOperations({
         }
 
         if (isManualRefreshRunningRef.current) return;
+        if (isSwitchingDatabaseRef.current) return;
 
         // Fetch tables when database is selected (either from initial load or user selection)
         if (dataSource.selectedDatabase && !dataSource.isLoadingMetadata) {
@@ -553,6 +569,7 @@ export function useMetadataOperations({
 
     // Fetch merged columns when joined or union tables change, or custom relationships change
     useEffect(() => {
+        if (isSwitchingDatabaseRef.current) return;
         if (dataSource.selectedTable) {
             fetchMergedColumns();
         }
@@ -653,8 +670,8 @@ export function useMetadataOperations({
                 customRelationships: dataSource.customRelationships,
                 fieldDisplayAliases: dataSource.fieldDisplayAliases,
                 measureGroupFields,
-                xAxisFields,
-                yAxisFields,
+                xAxisFields: xAxisFieldsRef.current,
+                yAxisFields: yAxisFieldsRef.current,
                 virtualColumns,
                 sheets,
                 sessionFilterFields,
@@ -687,8 +704,6 @@ export function useMetadataOperations({
         dataSource.customRelationships,
         dataSource.fieldDisplayAliases,
         measureGroupFields,
-        xAxisFields,
-        yAxisFields,
         virtualColumns,
         sheets,
         sessionFilterFields,
