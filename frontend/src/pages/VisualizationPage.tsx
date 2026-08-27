@@ -281,6 +281,7 @@ const VisualizationPageContent = () => {
     const [isSwitchingDatabase, setIsSwitchingDatabase] = React.useState(false);
 
     const showSchemaCheck = React.useCallback((result: SchemaCheckResult) => {
+        if (result.allClear) return;
         setSchemaCheckResult(result);
         setSchemaCheckOpen(true);
     }, []);

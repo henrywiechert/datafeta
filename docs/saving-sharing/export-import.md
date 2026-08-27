@@ -30,9 +30,9 @@ When reconnecting to a saved configuration, you can keep all sheet layouts and t
 - **ClickHouse:** check **Same schema — swap database only**, change the database if needed, then connect. Table names must exist in the new database.
 - **CSV / file:** check **Same schema — swap file only**, pick the new file, then connect. Column headers must match.
 
-After connecting, a **Schema check** dialog summarizes whether all referenced columns were found across your sheets.
+After connecting, a **Schema check** dialog appears only if referenced columns (or joined tables) are missing in the new source.
 
-While exploring, enable **DB switch** in the ClickHouse data-source picker to change the database without clearing your table selection.
+While exploring, turn on the keep-tables toggle (swap icon next to the ClickHouse database picker) to change the database without clearing your table selection.
 
 ---
 

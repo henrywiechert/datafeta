@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useMemo, useState } from 'react';
 import { useMetadataOperations } from './useMetadataOperations';
 import { apiService } from '../apiService';
@@ -123,5 +123,101 @@ describe('useMetadataOperations', () => {
     // Extra settle window — still must not grow.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(mockApi.listTables).toHaveBeenCalledTimes(callsAfterError);
+  });
+
+  it('keeps axis fields when an in-flight column fetch completes after axes are set', async () => {
+    let resolveColumns: (value: { columns: Array<{ name: string; data_type: string }> }) => void = () => {};
+    mockApi.listColumns.mockImplementation(
+      () => new Promise((resolve) => {
+        resolveColumns = resolve;
+      }),
+    );
+
+    const regionField = {
+      id: 'field-region',
+      columnName: 'region',
+      type: 'dimension' as const,
+      flavour: 'discrete' as const,
+      dataType: 'string' as const,
+    };
+
+    const { result, rerender } = renderHook(
+      ({ xAxisFields }) => {
+        const [dataSource, setDataSource] = useState<DataSourceState>({
+          databases: [{ name: 'analytics' }],
+          tables: [{ name: 'orders' }],
+          selectedDatabase: 'analytics',
+          selectedTable: 'orders',
+          availableFields: [regionField],
+          isLoadingMetadata: false,
+          metadataError: null,
+          joinedTables: [],
+          unionTables: [],
+          virtualTable: null,
+          fieldDisplayAliases: {},
+          customRelationships: null,
+        });
+
+        const dataSourceSetters = useMemo(
+          () => ({
+            setDatabases: (databases: any[]) =>
+              setDataSource((prev) => ({ ...prev, databases })),
+            setTables: (tables: any[]) =>
+              setDataSource((prev) => ({ ...prev, tables })),
+            setSelectedDatabase: (selectedDatabase: string) =>
+              setDataSource((prev) => ({ ...prev, selectedDatabase })),
+            setSelectedTable: (selectedTable: string) =>
+              setDataSource((prev) => ({ ...prev, selectedTable })),
+            setAvailableFields: (availableFields: any[]) =>
+              setDataSource((prev) => ({ ...prev, availableFields })),
+            setIsLoadingMetadata: (isLoadingMetadata: boolean) =>
+              setDataSource((prev) => ({ ...prev, isLoadingMetadata })),
+            setMetadataError: (metadataError: string | null) =>
+              setDataSource((prev) => ({ ...prev, metadataError })),
+            setSuggestedJoinableTables: jest.fn(),
+            setSuggestedUnionableTables: jest.fn(),
+            setVirtualTable: (virtualTable: any) =>
+              setDataSource((prev) => ({ ...prev, virtualTable })),
+            setMeasureGroupFields: jest.fn(),
+            setUnionTables: (unionTables: Array<{ database: string; table_name: string }>) =>
+              setDataSource((prev) => ({ ...prev, unionTables })),
+            setTablesForDatabase: jest.fn(),
+          }),
+          [],
+        );
+
+        return useMetadataOperations({
+          connectionDetails,
+          dataSource,
+          dataSourceSetters,
+          xAxisFields,
+          yAxisFields: [],
+          measureGroupFields: [],
+          virtualColumns: [],
+          dispatch,
+        });
+      },
+      { initialProps: { xAxisFields: [] as typeof regionField[] } },
+    );
+
+    let pending: Promise<void> = Promise.resolve();
+    await act(async () => {
+      pending = result.current.fetchColumns();
+    });
+    rerender({ xAxisFields: [regionField] });
+    await act(async () => {
+      resolveColumns({
+        columns: [
+          { name: 'region', data_type: 'String' },
+          { name: 'amount', data_type: 'Float64' },
+        ],
+      });
+      await pending;
+    });
+
+    const axisCalls = dispatch.mock.calls.filter((call) => call[0]?.type === 'SET_X_AXIS_FIELDS');
+    expect(axisCalls.length).toBeGreaterThan(0);
+    const lastPayload = axisCalls[axisCalls.length - 1][0].payload;
+    expect(lastPayload.map((field: { columnName: string }) => field.columnName)).toEqual(['region']);
   });
 });
