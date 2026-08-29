@@ -22,6 +22,7 @@ import {
 import { apiService } from './apiService';
 import { SavedConfiguration, SavedConnectionMetadata } from './types';
 import { rewriteUnionTablesForDatabase } from './utils/schemaValidation';
+import { resolveSnapshotDatabaseOverride } from './utils/snapshotDatabaseOverride';
 import { schemaCheckBus } from './services/schemaCheckBus';
 import { useAppConfig } from './contexts/AppConfigContext';
 import './App.css';
@@ -109,6 +110,7 @@ function AppContent() {
   const [pendingConfig, setPendingConfig] = useState<SavedConfiguration | null>(null);
   const [showConnectionRestore, setShowConnectionRestore] = useState(false);
   const [connectionMetadata, setConnectionMetadata] = useState<SavedConnectionMetadata | null>(null);
+  const [databaseOverride, setDatabaseOverride] = useState<string | null>(null);
   
   // State for snapshot gallery
   const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
@@ -127,6 +129,7 @@ function AppContent() {
     }
     if (snapshotId && !snapshotLoadedRef.current) {
       snapshotLoadedRef.current = true;
+      const databaseParam = searchParams.get('database');
       console.log('Loading snapshot from URL:', snapshotId);
       
       // Load the snapshot asynchronously
@@ -135,7 +138,16 @@ function AppContent() {
           const snapshot = await apiService.loadSnapshot(snapshotId);
           if (snapshot.configuration) {
             setLoadedSnapshotId(snapshotId);
-            handleLoadConfiguration(snapshot.configuration);
+            const overrideResult = resolveSnapshotDatabaseOverride(
+              snapshot.configuration,
+              databaseParam,
+            );
+            if (!overrideResult.applied && overrideResult.reason) {
+              alert(overrideResult.reason);
+            }
+            handleLoadConfiguration(snapshot.configuration, {
+              databaseOverride: overrideResult.applied ? overrideResult.database : undefined,
+            });
           }
         } catch (err) {
           console.error('Failed to load snapshot from URL:', err);
@@ -249,7 +261,7 @@ function AppContent() {
 
   const handleLoadConfiguration = async (
     rawConfig: any,
-    options?: { preserveConnection?: boolean },
+    options?: { preserveConnection?: boolean; databaseOverride?: string },
   ) => {
     try {
       // Check if currently connected - warn user before proceeding
@@ -272,6 +284,7 @@ function AppContent() {
       
       // Validate the configuration
       const config = validateConfiguration(rawConfig);
+      setDatabaseOverride(options?.databaseOverride ?? null);
       
       // If there's connection metadata, show the connection restore dialog
       if (config.connection && !options?.preserveConnection) {
@@ -377,11 +390,13 @@ function AppContent() {
     setShowConnectionRestore(false);
     setPendingConfig(null);
     setConnectionMetadata(null);
+    setDatabaseOverride(null);
   };
 
   const handleConnectionRestoreSkip = () => {
     if (pendingConfig) {
       setShowConnectionRestore(false);
+      setDatabaseOverride(null);
       restoreConfigurationState(pendingConfig);
     }
   };
@@ -519,6 +534,7 @@ function AppContent() {
       
       setPendingConfig(null);
       setConnectionMetadata(null);
+      setDatabaseOverride(null);
     } catch (error) {
       console.error('Failed to restore configuration state:', error);
       alert('Failed to restore configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -700,6 +716,7 @@ function AppContent() {
       <ConnectionRestoreDialog
         open={showConnectionRestore}
         connectionMetadata={connectionMetadata}
+        databaseOverride={databaseOverride}
         onConnect={handleConnectionRestore}
         onCancel={handleConnectionRestoreCancel}
         onSkip={handleConnectionRestoreSkip}

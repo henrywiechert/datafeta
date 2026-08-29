@@ -36,6 +36,8 @@ export interface ConnectionRestoreOptions {
 interface ConnectionRestoreDialogProps {
   open: boolean;
   connectionMetadata: SavedConnectionMetadata | null;
+  /** When set (ClickHouse URL `?database=`), prefill DB and lock same-schema swap on. */
+  databaseOverride?: string | null;
   onConnect: (
     password: string,
     files?: File[],
@@ -53,6 +55,7 @@ interface ConnectionRestoreDialogProps {
 export default function ConnectionRestoreDialog({
   open,
   connectionMetadata,
+  databaseOverride = null,
   onConnect,
   onCancel,
   onSkip,
@@ -88,16 +91,18 @@ export default function ConnectionRestoreDialog({
       setHiveFolderName(null);
       setHiveFileStructure([]);
 
-      // Initialize ClickHouse fields from metadata
+      // Initialize ClickHouse fields from metadata (URL database override wins when present)
       if (connectionMetadata.type === 'clickhouse') {
         setHost(connectionMetadata.host || '');
         setPort(connectionMetadata.port?.toString() || '');
         setUser(connectionMetadata.user || '');
-        setDatabase(connectionMetadata.database || '');
+        setDatabase(databaseOverride || connectionMetadata.database || '');
       }
-      setSwapSameSchema(false);
+      setSwapSameSchema(Boolean(databaseOverride));
     }
-  }, [open, connectionMetadata]);
+  }, [open, connectionMetadata, databaseOverride]);
+
+  const swapLockedByUrl = Boolean(databaseOverride);
 
   const isClickHouse = connectionMetadata?.type === 'clickhouse';
   const isCsv = connectionMetadata?.type === 'csv';
@@ -319,7 +324,7 @@ export default function ConnectionRestoreDialog({
                   <Checkbox
                     checked={swapSameSchema}
                     onChange={(e) => setSwapSameSchema(e.target.checked)}
-                    disabled={isConnecting}
+                    disabled={isConnecting || swapLockedByUrl}
                   />
                 }
                 label={
@@ -327,6 +332,9 @@ export default function ConnectionRestoreDialog({
                     <Typography variant="body2">Same schema — swap database only</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Keep saved table selections and sheet layouts. Tables and columns must exist in the new database.
+                      {swapLockedByUrl
+                        ? ' Enabled by the database URL parameter.'
+                        : ''}
                     </Typography>
                   </Box>
                 }
