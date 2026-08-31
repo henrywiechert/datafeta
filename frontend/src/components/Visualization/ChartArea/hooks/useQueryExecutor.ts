@@ -391,7 +391,6 @@ export const useQueryExecutor = ({
       sizeField,
       xAxisFields,
       yAxisFields,
-      availableFields,
       measureGroupMembers,
       filterConfigurations,
       appliedFilterConfigurations,
@@ -419,4 +418,3 @@ export const useQueryExecutor = ({
     queryInProgressRef,
   };
 };
-
