@@ -2,9 +2,11 @@
 import * as Plot from '@observablehq/plot';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
-import { DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
+import { DEFAULT_AREA_FILL_OPACITY, DEFAULT_CHART_COLOR, BAND_PADDING, SIZE_DEFAULTS_BY_CHART_TYPE } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { createSizeScale } from '../utils/sizeUtils';
 
 export type Orientation = 'vertical' | 'horizontal';
 
@@ -70,6 +72,18 @@ export interface BarBuildParams {
    * The original measure Field, used to enrich tooltip labels with aggregation info.
    */
   measureField?: Field;
+  /**
+   * Mark drawn on the bar layout (band category axis, zero-based measure axis).
+   * `'dot'` / `'line'` / `'area'` keep that layout when the user overrides the
+   * auto-detected bar chart. Defaults to `'bar'`.
+   */
+  markStyle?: BarLayoutMarkStyle;
+  /** Size encoding for `'dot'` (radius) and `'line'`/`'area'` (stroke). Ignored for bars. */
+  sizeField?: Field;
+  sizeRange?: [number, number];
+  manualSize?: number;
+  /** Fill opacity for `'area'` marks. */
+  areaFillOpacity?: number;
 }
 
 export const ORIENTATION = {
@@ -247,6 +261,97 @@ export function sortCategoriesByValue(
   return sorted;
 }
 
+function applyStackIfNeeded(
+  orientation: Orientation,
+  config: any,
+  colorColumn?: string,
+): any {
+  if (!colorColumn) return config;
+  return orientation === 'vertical' ? Plot.stackY(config) : Plot.stackX(config);
+}
+
+function createBarLayoutMarks(params: {
+  markStyle: BarLayoutMarkStyle;
+  orientation: Orientation;
+  markData: any[];
+  baseConfig: any;
+  colorColumn?: string;
+  sizeField?: Field;
+  sizeColumn?: string;
+  sizeRange?: [number, number];
+  manualSize?: number;
+  areaFillOpacity: number;
+}): Plot.Markish[] {
+  const {
+    markStyle,
+    orientation,
+    markData,
+    baseConfig,
+    colorColumn,
+    sizeField,
+    sizeColumn,
+    sizeRange,
+    manualSize,
+    areaFillOpacity,
+  } = params;
+  const O = ORIENTATION[orientation];
+
+  if (markStyle === 'dot') {
+    const sizeScale = createSizeScale(
+      markData,
+      sizeField ?? null,
+      sizeRange ?? [4, 20],
+      manualSize ?? SIZE_DEFAULTS_BY_CHART_TYPE.scatter,
+    );
+    const dotConfig: any = {
+      ...baseConfig,
+      r: sizeField
+        ? (d: any) => sizeScale.getSizeForValue(d?.[sizeColumn!])
+        : sizeScale.getDefaultSize(),
+    };
+    return [Plot.dot(markData, applyStackIfNeeded(orientation, dotConfig, colorColumn))];
+  }
+
+  if (markStyle === 'line' || markStyle === 'area') {
+    const sizeScale = createSizeScale(
+      markData,
+      sizeField ?? null,
+      sizeRange ?? [1, 8],
+      manualSize ?? SIZE_DEFAULTS_BY_CHART_TYPE.line,
+    );
+    const strokeWidth = sizeField
+      ? (d: any) => sizeScale.getSizeForValue(d?.[sizeColumn!])
+      : sizeScale.getDefaultSize();
+    const { fill: _fill, ...lineBase } = baseConfig;
+    const lineConfig: any = {
+      ...lineBase,
+      stroke: baseConfig.fill,
+      strokeWidth,
+      curve: 'linear',
+    };
+    const marks: Plot.Markish[] = [];
+    if (markStyle === 'area') {
+      const areaConfig: any = {
+        ...baseConfig,
+        fillOpacity: areaFillOpacity,
+      };
+      marks.push(
+        orientation === 'vertical'
+          ? Plot.areaY(markData, areaConfig)
+          : Plot.areaX(markData, areaConfig),
+      );
+    }
+    marks.push(
+      orientation === 'vertical'
+        ? Plot.lineY(markData, lineConfig)
+        : Plot.lineX(markData, lineConfig),
+    );
+    return marks;
+  }
+
+  return [O.bar(markData, baseConfig)];
+}
+
 // ---------- Builder ---------------------------------------------------------
 export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const {
@@ -267,6 +372,11 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     facetFields,
     labels,
     measureField,
+    markStyle = 'bar',
+    sizeField,
+    sizeRange,
+    manualSize,
+    areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
   } = params;
 
   // Use provided labels or fall back to column names
@@ -279,12 +389,13 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     ? new Map((colorScale.domain as any[]).map((value, idx) => [value, idx]))
     : null;
 
-  // Compute domain, accounting for stacking when there's no category but there is color
+  // Compute domain, accounting for stacking when there's no category but there is color.
+  // Line/area marks plot individual values, so they skip the stacked-total domain.
+  const useStackedTotalDomain = !categoryColumn && !!colorColumn && (markStyle === 'bar' || markStyle === 'dot');
   let domain: [number, number];
   if (valueDomainOverride) {
     domain = valueDomainOverride;
-  } else if (!categoryColumn && colorColumn) {
-    // Stacked bar: domain should be the sum of all segments
+  } else if (useStackedTotalDomain) {
     const values = data
       .map(r => r[measureName])
       .filter(v => typeof v === 'number' && isFinite(v));
@@ -299,7 +410,6 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
       domain = [lower, 0];
     }
   } else {
-    // Regular bar: use individual values
     domain = computeValueDomain(data, measureName, { zeroBaseline });
   }
 
@@ -368,7 +478,26 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
       })
     : data;
 
-  const barMark = O.bar(markData, baseConfig);
+  const sizeColumn = sizeField ? getResultColumnName({
+    ...sizeField,
+    aggregation: sizeField.aggregation || (sizeField.type === 'measure' ? 'sum' : undefined),
+  } as any) : undefined;
+  if (sizeField && sizeColumn && !channels[sizeColumn] && markStyle !== 'bar') {
+    channels[sizeColumn] = { value: sizeColumn, label: sizeField.columnName };
+  }
+
+  const valueMarks = createBarLayoutMarks({
+    markStyle,
+    orientation,
+    markData,
+    baseConfig,
+    colorColumn,
+    sizeField,
+    sizeColumn,
+    sizeRange,
+    manualSize,
+    areaFillOpacity,
+  });
 
   const axisCategory = {
     label: categoryLabel || ' ',
@@ -393,7 +522,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   // This allows resize handles to work - when user resizes, the container changes,
   // and Observable Plot re-renders proportionally (band scale naturally scales).
   const plot: Plot.PlotOptions = {
-    marks: [barMark],
+    marks: valueMarks,
     // Size is handled by layout system, not here - enables resize handles
     [O.category]: axisCategory,
     [O.measure]: axisMeasure,
@@ -440,7 +569,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     getFields: createTooltipFieldsGetter(
       mainFields,
       colorField,
-      undefined, // No size field in bar charts
+      markStyle !== 'bar' ? sizeField : undefined,
       tooltipFields.length > 0 ? tooltipFields : undefined,
       undefined, // No excludeColumns
       facetFields

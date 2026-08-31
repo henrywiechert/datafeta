@@ -7,6 +7,7 @@
 import * as Plot from '@observablehq/plot';
 import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
+import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 
 /**
  * Domain types for shared scales
@@ -49,6 +50,11 @@ export interface ChartContext {
   densityParams?: DensityParams;
   xTickFormat?: (d: any) => string;
   yTickFormat?: (d: any) => string;
+  /**
+   * Optional bar-layout mark override. Keeps the bar axes/domains while
+   * drawing bar, dot, line, or area marks at each measure value.
+   */
+  markStyle?: BarLayoutMarkStyle;
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   detectDefaultChartTypeForPair,
   detectDefaultUserChartType,
   mapUserChartTypeToCellChartType,
+  resolveBarLayoutMarkStyle,
 } from './chartTypeResolver';
 
 function dim(columnName: string, flavour: 'discrete' | 'continuous' = 'discrete'): Field {
@@ -149,5 +150,16 @@ describe('per-pair auto-detection sanity', () => {
     // Per-pair detection (no color awareness) still returns 'dot' as before;
     // the heatmap rule lives in detectDefaultUserChartType, not here.
     expect(detectDefaultChartTypeForPair(dim('region'), dim('product'))).toBe('dot');
+  });
+});
+
+describe('resolveBarLayoutMarkStyle', () => {
+  test('maps scatter/dot to dots and line/area to path marks', () => {
+    expect(resolveBarLayoutMarkStyle('scatter')).toBe('dot');
+    expect(resolveBarLayoutMarkStyle('dot')).toBe('dot');
+    expect(resolveBarLayoutMarkStyle('line')).toBe('line');
+    expect(resolveBarLayoutMarkStyle('line', 'area')).toBe('area');
+    expect(resolveBarLayoutMarkStyle('bar')).toBe('bar');
+    expect(resolveBarLayoutMarkStyle(null)).toBe('bar');
   });
 });
