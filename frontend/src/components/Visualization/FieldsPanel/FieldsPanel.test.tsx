@@ -103,4 +103,19 @@ describe('FieldsPanel collapsible sections', () => {
     expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByPlaceholderText('Search Table')).toBeVisible();
   });
+
+  it('opens the ClickHouse pattern picker from the header without collapsing Data Source', () => {
+    renderPanel({
+      connectionType: 'clickhouse',
+      selectedDatabase: 'analytics',
+      selectedTable: 'orders',
+      databases: [{ name: 'analytics' }],
+      tables: [{ name: 'orders' }],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add by pattern' }));
+
+    expect(screen.getByRole('dialog', { name: 'Add Tables By Pattern' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
+  });
 });
