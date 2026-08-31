@@ -68,7 +68,6 @@ export function getTabId(): string {
     tabId = generateTabId();
     storage?.setItem(TAB_ID_KEY, tabId);
     inMemoryTabId = tabId; // also keep in-memory for storage-less environments
-    console.debug('[tabSession] Created new tab ID:', tabId);
   }
 
   return tabId;
