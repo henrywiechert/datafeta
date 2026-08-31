@@ -1,10 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import ClickHousePatternDialog from './ClickHousePatternDialog';
 import {
   compactAutocompleteClassName,
   compactAutocompleteListboxProps,
@@ -28,7 +27,6 @@ interface TableAddPickerProps {
   unionTables: UnionTableRef[];
 
   onAdd: (payload: AddTablePayload) => void;
-  onApplyPatternSelection?: (tables: UnionTableRef[]) => void;
   /** DB switch mode — change database without clearing primary table */
   dbSwitchEnabled?: boolean;
   onDbSwitchEnabledChange?: (enabled: boolean) => void;
@@ -48,7 +46,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   primaryTable,
   unionTables,
   onAdd,
-  onApplyPatternSelection,
   dbSwitchEnabled = false,
   onDbSwitchEnabledChange,
   onDatabaseSwitch,
@@ -58,7 +55,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
 }) => {
   const [stagedDatabase, setStagedDatabase] = React.useState<string>(primaryDatabase || '');
   const [stagedTable, setStagedTable] = React.useState<string>('');
-  const [isPatternDialogOpen, setIsPatternDialogOpen] = React.useState(false);
 
   // Keep staged DB in sync with primary DB when primary changes (but do not auto-pick a table)
   React.useEffect(() => {
@@ -167,7 +163,13 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
                     width: 26,
                     height: 26,
                     p: 0.25,
-                    bgcolor: dbSwitchEnabled ? 'action.selected' : undefined,
+                    border: '1px solid',
+                    borderColor: dbSwitchEnabled ? 'primary.dark' : 'transparent',
+                    bgcolor: dbSwitchEnabled ? 'primary.main' : undefined,
+                    color: dbSwitchEnabled ? 'primary.contrastText' : undefined,
+                    '&:hover': {
+                      bgcolor: dbSwitchEnabled ? 'primary.dark' : undefined,
+                    },
                   }}
                 >
                   <SwapHorizIcon sx={{ fontSize: 18 }} />
@@ -230,27 +232,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          size="small"
-          onClick={() => setIsPatternDialogOpen(true)}
-          disabled={dbSwitchEnabled}
-          sx={{ minWidth: 0, px: 0.75, textTransform: 'none', fontSize: '0.72rem' }}
-        >
-          Add by pattern
-        </Button>
-      </Box>
-
-      {onApplyPatternSelection ? (
-        <ClickHousePatternDialog
-          open={isPatternDialogOpen}
-          primaryDatabase={primaryDatabase}
-          primaryTable={primaryTable}
-          unionTables={unionTables}
-          onClose={() => setIsPatternDialogOpen(false)}
-          onApply={onApplyPatternSelection}
-        />
-      ) : null}
     </Box>
   );
 };

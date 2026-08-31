@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
+import { Box, Button, CircularProgress, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
@@ -9,6 +9,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
+import ClickHousePatternDialog from './ClickHousePatternDialog';
 import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import styles from './CompactMetadataSelector.module.css';
@@ -156,6 +157,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   isSwitchingDatabase,
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
+  const [isPatternDialogOpen, setIsPatternDialogOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(() => {
     const stored = localStorage.getItem(DATA_SOURCE_EXPANDED_KEY);
     return stored === null ? true : stored === 'true';
@@ -350,6 +352,24 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               </Tooltip>
             </>
           )}
+          {connectionType === 'clickhouse' && (
+            <Button
+              size="small"
+              onClick={() => setIsPatternDialogOpen(true)}
+              disabled={dbSwitchEnabled}
+              sx={{
+                minWidth: 0,
+                minHeight: 20,
+                px: 0.5,
+                py: 0,
+                textTransform: 'none',
+                fontSize: '0.68rem',
+                lineHeight: 1.2,
+              }}
+            >
+              Add by pattern
+            </Button>
+          )}
           <Tooltip title="Refresh metadata" placement="left">
             <span>
               <IconButton
@@ -390,7 +410,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             primaryTable={selectedTable}
             unionTables={unionTables}
             onAdd={handleAddTable}
-            onApplyPatternSelection={handleApplyPatternSelection}
             dbSwitchEnabled={dbSwitchEnabled}
             onDbSwitchEnabledChange={onDbSwitchEnabledChange}
             onDatabaseSwitch={onDatabaseSwitch}
@@ -560,6 +579,17 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
       )}
         </div>
       </Collapse>
+
+      {connectionType === 'clickhouse' && (
+        <ClickHousePatternDialog
+          open={isPatternDialogOpen}
+          primaryDatabase={selectedDatabase}
+          primaryTable={selectedTable}
+          unionTables={unionTables}
+          onClose={() => setIsPatternDialogOpen(false)}
+          onApply={handleApplyPatternSelection}
+        />
+      )}
     </div>
   );
 };
