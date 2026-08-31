@@ -39,6 +39,11 @@ const DEFAULT_LIMITS = {
   max_tables_per_database: 20,
 } as const;
 
+const compactPatternFieldSx = {
+  '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+  '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 },
+} as const;
+
 function ClickHousePatternDialog({
   open,
   primaryDatabase,
@@ -127,18 +132,35 @@ function ClickHousePatternDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{ sx: { maxWidth: 520 } }}
+    >
       <DialogTitle>Add Tables By Pattern</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 0.5 }}>
+        <Stack spacing={1}>
           <FormControl>
             <RadioGroup
               row
               value={patternMode}
               onChange={(event) => setPatternMode(event.target.value as PatternMode)}
+              sx={{ gap: 1 }}
             >
-              <FormControlLabel value="regex" control={<Radio size="small" />} label="Regex" />
-              <FormControlLabel value="wildcard" control={<Radio size="small" />} label="Wildcard" />
+              <FormControlLabel
+                value="regex"
+                control={<Radio size="small" />}
+                label="Regex"
+                sx={{ mx: 0, '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }}
+              />
+              <FormControlLabel
+                value="wildcard"
+                control={<Radio size="small" />}
+                label="Wildcard"
+                sx={{ mx: 0, '& .MuiFormControlLabel-label': { fontSize: '0.75rem' } }}
+              />
             </RadioGroup>
           </FormControl>
 
@@ -148,6 +170,8 @@ function ClickHousePatternDialog({
             onChange={(event) => setDatabasePattern(event.target.value)}
             placeholder={patternMode === 'regex' ? '^sales_202[45]$' : 'sales_*'}
             size="small"
+            variant="standard"
+            sx={compactPatternFieldSx}
             fullWidth
           />
 
@@ -157,6 +181,8 @@ function ClickHousePatternDialog({
             onChange={(event) => setTablePattern(event.target.value)}
             placeholder={patternMode === 'regex' ? '^orders(_daily)?$' : 'orders*'}
             size="small"
+            variant="standard"
+            sx={compactPatternFieldSx}
             fullWidth
           />
 
@@ -189,14 +215,14 @@ function ClickHousePatternDialog({
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 1,
-              minHeight: 180,
-              maxHeight: 320,
+              minHeight: 120,
+              maxHeight: 240,
               overflowY: 'auto',
-              p: 1.5,
+              p: 1,
             }}
           >
             {isLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                 <CircularProgress size={20} />
               </Box>
             ) : null}
@@ -225,8 +251,13 @@ function ClickHousePatternDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleApply} variant="contained" disabled={!preview || preview.resolved_tables.length === 0}>
+        <Button size="small" onClick={onClose}>Cancel</Button>
+        <Button
+          size="small"
+          onClick={handleApply}
+          variant="outlined"
+          disabled={!preview || preview.resolved_tables.length === 0}
+        >
           Apply Matches
         </Button>
       </DialogActions>
