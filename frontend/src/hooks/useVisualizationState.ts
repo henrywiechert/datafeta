@@ -37,7 +37,6 @@ export function useVisualizationState() {
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
         setVirtualTable,
-        setMeasureGroupFields,
         setUnionTables,
         addVirtualColumn,
         updateVirtualColumn,
@@ -60,8 +59,7 @@ export function useVisualizationState() {
         setMetadataError,
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
-        setVirtualTable,
-        setMeasureGroupFields
+        setVirtualTable
     };
 
     // Initialize sub-hooks
@@ -95,7 +93,6 @@ export function useVisualizationState() {
         dataSourceSetters,
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
-        measureGroupFields: state.measureGroupFields,
         virtualColumns: dataSource.virtualColumns,
         dispatch,
         sheets: sheetState.sheets,
@@ -216,7 +213,7 @@ export function useVisualizationState() {
             chartTypeParams: state.chartTypeParams,
             selectedChartType: state.globalChartType ?? 'auto',
             optimizationSettings: state.optimizationSettings,
-            measureGroupFields: state.measureGroupFields,
+            measureGroup: state.measureGroup,
             axisLabelStyles: state.axisLabelStyles,
             facetLabelStyles: state.facetLabelStyles,
             chartCaption: state.chartCaption,
@@ -272,7 +269,7 @@ export function useVisualizationState() {
         state.globalChartType,
         state.chartTypeParams,
         state.optimizationSettings,
-        state.measureGroupFields,
+        state.measureGroup,
         state.axisLabelStyles,
         state.facetLabelStyles,
         state.chartCaption,

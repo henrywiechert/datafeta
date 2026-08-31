@@ -59,6 +59,7 @@ export interface SavedDataSourceSelection {
   joinedTables?: TableJoinDefinition[];
   virtualColumns?: VirtualColumnDefinition[];
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
+  /** @deprecated The measure group is per-sheet (stored in each sheet's visualizationState). */
   measureGroupFields?: Field[];
   fieldDisplayAliases?: Record<string, string>;
   customRelationships?: ForeignKeyRelationship[];

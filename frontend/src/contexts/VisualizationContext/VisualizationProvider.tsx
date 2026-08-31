@@ -7,6 +7,7 @@ import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
 import { PERSISTED_STATE_KEYS } from './persistedKeys';
 import { DistributionVariant, LineVariant } from '../../types';
+import { createMeasureGroup, migrateLegacyMeasureGroup } from '../../utils/syntheticFields';
 import { resetBus } from '../../services/resetBus';
 
 /**
@@ -130,8 +131,18 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     // Normalize saved filter config maps (some older snapshots were keyed by columnName instead of fieldId).
     // The query layer uses Object.values(filterConfigurations) so charts can still render correctly,
     // but the UI expects filterConfigurations[field.id].
+    const legacySource = initialStateProp as
+      | (Partial<VisualizationState> & { measureGroupFields?: Field[] })
+      | undefined;
     return {
       ...merged,
+      // Migrate legacy flat measureGroupFields into the MeasureGroup entity,
+      // keeping field ids so per-member overrides survive.
+      measureGroup:
+        legacySource?.measureGroup
+        ?? (legacySource?.measureGroupFields?.length
+          ? migrateLegacyMeasureGroup(legacySource.measureGroupFields)
+          : createMeasureGroup()),
       // Migrate legacy flat chart-type params (lineVariant, distributionVariant, …)
       // into the grouped chartTypeParams container, filling defaults.
       chartTypeParams: resolveChartTypeParams(

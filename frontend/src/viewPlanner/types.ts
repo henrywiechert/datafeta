@@ -133,7 +133,8 @@ export interface BuildViewSpecInput {
   facetBackgroundField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
-  measureGroupFields?: Field[];
+  /** Members of the sheet's measure group (member Field.id keys per-member overrides). */
+  measureGroupMembers?: Field[];
   measureValuesSourceFields?: Field[];
   additionalColorFields?: Field[];
   additionalSizeFields?: Field[];

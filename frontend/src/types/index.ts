@@ -68,6 +68,7 @@ export type {
   PieVariant,
   DragSource,
   Field,
+  MeasureGroup,
   DataLabelMode,
   UserChartType,
   DensityParams,

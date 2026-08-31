@@ -382,7 +382,7 @@ describe('golden ViewSpec / QueryDescription / RenderPlan semantics', () => {
       yAxisFields: [measureValues],
       colorField: measureNames,
       sizeField: null,
-      measureGroupFields: [revenue, cost],
+      measureGroupMembers: [revenue, cost],
       measureValuesSourceFields: [revenue, cost],
       fieldOverrides: {
         [cost.id]: { chartType: 'line', manualColor: '#123456' },

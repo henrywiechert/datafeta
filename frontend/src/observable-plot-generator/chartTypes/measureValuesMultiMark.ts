@@ -10,7 +10,7 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY } from '../../config/chartLayoutConfig';
 import { Field, FieldOverrideState, LineVariant, UserChartType } from '../../types';
-import { MEASURE_NAMES_FIELD } from '../../utils/syntheticFields';
+import { MEASURE_NAMES_FIELD, getMeasureMemberLabel } from '../../utils/syntheticFields';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -346,7 +346,8 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
   } else {
     // Fallback: assign colors from default palette
     for (let i = 0; i < measureValuesSourceFields.length; i++) {
-      colorLookup[measureValuesSourceFields[i].columnName] = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+      const label = getMeasureMemberLabel(measureValuesSourceFields[i], measureValuesSourceFields);
+      colorLookup[label] = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
     }
   }
 
@@ -355,7 +356,8 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
 
   for (let i = 0; i < measureValuesSourceFields.length; i++) {
     const measureField = measureValuesSourceFields[i];
-    const measureName = measureField.columnName;
+    // MeasureNames rows carry the member label (aggregation-qualified for duplicate columns)
+    const measureName = getMeasureMemberLabel(measureField, measureValuesSourceFields);
     
     // Filter data to only rows for this measure
     const filteredData = data.filter(row => row[measureNamesColumn] === measureName);

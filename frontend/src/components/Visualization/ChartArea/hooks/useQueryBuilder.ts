@@ -31,7 +31,7 @@ export interface UseQueryBuilderProps {
   additionalColorFields: Field[];
   additionalSizeFields: Field[];
   additionalLabelFields: Field[];
-  measureGroupFields?: Field[];
+  measureGroupMembers?: Field[];
   measureValuesSourceFields?: Field[];
   fieldOverrides?: Record<string, import('../../../../types').FieldOverrideState>;
   independentDomains?: { x?: boolean; y?: boolean };
@@ -72,7 +72,7 @@ export const useQueryBuilder = ({
   additionalColorFields,
   additionalSizeFields,
   additionalLabelFields,
-  measureGroupFields = [],
+  measureGroupMembers = [],
   measureValuesSourceFields = [],
   fieldOverrides = {},
   independentDomains,
@@ -143,7 +143,7 @@ export const useQueryBuilder = ({
       facetBackgroundField,
       labelFields,
       tooltipFields,
-      measureGroupFields,
+      measureGroupMembers,
       measureValuesSourceFields,
       additionalColorFields,
       additionalSizeFields,
@@ -163,7 +163,7 @@ export const useQueryBuilder = ({
     facetBackgroundField,
     labelFields,
     tooltipFields,
-    measureGroupFields,
+    measureGroupMembers,
     measureValuesSourceFields,
     additionalColorFields,
     additionalSizeFields,

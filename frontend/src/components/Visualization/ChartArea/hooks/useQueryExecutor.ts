@@ -51,7 +51,7 @@ export interface UseQueryExecutorProps {
   virtualTable: VirtualTableDefinition | null;
   virtualColumns: VirtualColumnDefinition[];
   availableFields: Field[];
-  measureGroupMeasures?: string[];
+  measureGroupMembers?: Field[];
   optimizationHints: OptimizationHints | null;
   optimizationSettings?: QueryOptimizationSettings;
   distributionVariant?: DistributionVariant;
@@ -71,7 +71,7 @@ export interface UseQueryExecutorProps {
 
 export interface UseQueryExecutorReturn {
   /** Execute a query with the given description */
-  executeQuery: (queryDesc: QueryDescription, useUnpivot?: boolean) => Promise<void>;
+  executeQuery: (queryDesc: QueryDescription, useUnpivot?: boolean, unpivotMembers?: Field[]) => Promise<void>;
   /** Last query decision from the decision engine */
   lastQueryDecision: QueryDecision | null;
   /** Whether a query is currently in progress */
@@ -99,7 +99,7 @@ export const useQueryExecutor = ({
   virtualTable,
   virtualColumns,
   availableFields,
-  measureGroupMeasures,
+  measureGroupMembers,
   optimizationHints,
   optimizationSettings,
   distributionVariant = 'tick-strip',
@@ -121,7 +121,8 @@ export const useQueryExecutor = ({
   }, [optimizationSettings?.sizeThreshold]);
 
   const executeQuery = useCallback(
-    async (queryDesc: QueryDescription, useUnpivot: boolean = false) => {
+    // unpivotMembers overrides the prop for the auto-populate case (state not yet committed)
+    async (queryDesc: QueryDescription, useUnpivot: boolean = false, unpivotMembers?: Field[]) => {
       const startTime = Date.now();
 
       try {
@@ -146,7 +147,6 @@ export const useQueryExecutor = ({
           result = await buildUnpivotedQuery({
             xFields: xAxisFields,
             yFields: yAxisFields,
-            availableFields,
             selectedTable: selectedTable!,
             selectedDatabase: selectedDatabase || undefined,
             filterConfigurations,
@@ -159,7 +159,7 @@ export const useQueryExecutor = ({
             virtualTable,
             virtualColumns,
             optimizationHints,
-            measureGroupMeasureNames: measureGroupMeasures,
+            measureGroupMembers: unpivotMembers ?? measureGroupMembers ?? [],
             signal: queryAbortControllerRef.current.signal,
           });
         } else {
@@ -392,7 +392,7 @@ export const useQueryExecutor = ({
       xAxisFields,
       yAxisFields,
       availableFields,
-      measureGroupMeasures,
+      measureGroupMembers,
       filterConfigurations,
       appliedFilterConfigurations,
       labelFields,

@@ -30,6 +30,7 @@ import FieldOverrideRow from './FieldOverrideRow';
 import LineColorModeControl from './LineColorModeControl';
 import { shouldShowLineColorModeControl } from '../../../utils/lineColorEncoding';
 import { resolveColorChannel } from '../../../utils/colorChannel';
+import { getMeasureMemberLabel } from '../../../utils/syntheticFields';
 
 interface AreaFillOpacityControlProps {
   value: number;
@@ -179,7 +180,9 @@ const FieldOverridesPanel: React.FC = () => {
     () => {
       const fieldRows = targets.map((t) => ({
         id: t.field.id,
-        label: t.field.columnName,
+        label: t.isMeasureValuesMember
+          ? getMeasureMemberLabel(t.field, measureValuesSourceFields as Field[])
+          : t.field.columnName,
         axis: t.axis as 'x' | 'y',
         field: t.field as Field,
       }));
@@ -188,7 +191,7 @@ const FieldOverridesPanel: React.FC = () => {
         ...fieldRows,
       ];
     },
-    [targets]
+    [targets, measureValuesSourceFields]
   );
 
   const autoSelectedType = useMemo(() => {

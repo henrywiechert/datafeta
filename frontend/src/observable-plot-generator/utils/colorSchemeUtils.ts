@@ -6,7 +6,7 @@
 import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../../config/colorSchemes';
 import { ColorChannel, Field, FieldOverrideState } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { isMeasureNamesField } from '../../utils/syntheticFields';
+import { isMeasureNamesField, getMeasureMemberLabel } from '../../utils/syntheticFields';
 
 export type ColorScaleKind = 'categorical' | 'continuous' | 'seriesGradient';
 
@@ -474,12 +474,12 @@ export function applyMeasureNameColorOverrides(
     return colorScale;
   }
 
-  // Build a map from measure name to override color
+  // Build a map from member label (the MeasureNames value) to override color
   const overrideColorMap = new Map<string, string>();
   for (const sourceField of measureValuesSourceFields) {
     const override = fieldOverrides[sourceField.id];
     if (override?.manualColor) {
-      overrideColorMap.set(sourceField.columnName, override.manualColor);
+      overrideColorMap.set(getMeasureMemberLabel(sourceField, measureValuesSourceFields), override.manualColor);
     }
   }
 

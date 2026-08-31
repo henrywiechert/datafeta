@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant, LineColorMode, DensityParams } from '../../types/field';
+import { Field, FieldOverrideState, MeasureGroup, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant, LineColorMode, DensityParams } from '../../types/field';
 import { QueryResult } from '../../types/query';
 import { FilterConfig, FilterMetadata } from '../../types/filter';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
@@ -159,10 +159,9 @@ export interface VisualizationState {
   queryVersion: number;
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
-  // Measure group fields (per-sheet scope)
-  // Note: DataSourceContext also has measureGroupFields for session-scoped synthetic
-  // field generation. See DataSourceContext.tsx for details on this duplication.
-  measureGroupFields: Field[];
+  // Measure group (per-sheet, Tableau-like single group); member Field.id is the
+  // stable key for per-member Field Overrides.
+  measureGroup: MeasureGroup;
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: { min: number; max: number } | null;
   // Axis label styling
@@ -324,9 +323,16 @@ export type VisualizationAction =
   // MeasureNames/MeasureValues source tracking actions
   | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] }
   // Measure group actions (per-sheet scope)
-  | { type: 'SET_MEASURE_GROUP_FIELDS'; payload: Field[] }
-  | { type: 'ADD_MEASURE_TO_GROUP'; payload: Field }
-  | { type: 'REMOVE_MEASURES_FROM_GROUP'; payload: string[] }
+  | { type: 'SET_MEASURE_GROUP_MEMBERS'; payload: Field[] }
+  | { type: 'ADD_MEASURE_GROUP_MEMBER'; payload: Field }
+  | { type: 'UPDATE_MEASURE_GROUP_MEMBER'; payload: Field }
+  | { type: 'REMOVE_MEASURE_GROUP_MEMBERS'; payload: string[] }
+  // Fill an empty group (MeasureValues dropped on an axis with no members yet).
+  // Does not bump queryVersion: dispatched from the query-execution effect.
+  | { type: 'POPULATE_MEASURE_GROUP'; payload: Field[] }
+  // Drop members whose column no longer exists after a schema change.
+  | { type: 'PRUNE_MEASURE_GROUP_MEMBERS'; payload: { validMeasureNames: string[] } }
+  | { type: 'RENAME_MEASURE_GROUP'; payload: string }
   | { type: 'CLEAR_MEASURE_GROUP' }
   // Cache restore action (used when switching sheets with cached data)
   | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult }

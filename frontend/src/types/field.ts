@@ -64,6 +64,18 @@ export interface Field {
   displayAlias?: string; // Optional custom display name
 }
 
+/**
+ * Per-sheet measure group (Tableau's Measure Values card).
+ * Each member is a Field instance; the member's `id` is the stable key used
+ * for per-member Field Overrides. The same column may appear multiple times
+ * with different aggregations.
+ */
+export interface MeasureGroup {
+  id: string;
+  name: string;
+  members: Field[];
+}
+
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
 export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'density' | 'pie' | 'table-refactor' | 'heatmap';

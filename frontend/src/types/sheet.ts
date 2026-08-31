@@ -4,7 +4,7 @@
  * Multi-sheet workspace and visualization state
  */
 
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant } from './field';
+import { Field, FieldOverrideState, MeasureGroup, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant } from './field';
 import { FilterConfig } from './filter';
 import { VirtualColumnDefinition } from './virtualColumn';
 
@@ -114,7 +114,9 @@ export interface VisualizationStateSnapshot {
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   tooltipFields?: Field[];
   optimizationSettings?: QueryOptimizationSettings;
+  /** @deprecated Persisted in older sheets; now stored as `measureGroup`. Kept for backward-compatible load/migration. */
   measureGroupFields?: Field[];
+  measureGroup?: MeasureGroup;
   axisLabelStyles?: AxisLabelStyles;
   facetLabelStyles?: FacetLabelStyles;
   // Facet background encoding

@@ -27,13 +27,6 @@ export interface DataSourceState {
   isLoadingMetadata: boolean;
   metadataError: string | null;
 
-  // ----- MEASURE-GROUP slice -----
-  // Session-scoped measure groups used to rebuild availableFields with
-  // synthetic MeasureNames/MeasureValues fields. VisualizationContext owns the
-  // per-sheet selection; this lives here only because availableFields is
-  // session-scoped.
-  measureGroupFields: Field[];
-
   // ----- MULTI-TABLE slice -----
   joinedTables: string[];
   suggestedJoinableTables: string[];
@@ -69,7 +62,6 @@ export const initialDataSourceState: DataSourceState = {
   tablesCache: {},
   isLoadingMetadata: false,
   metadataError: null,
-  measureGroupFields: [],
   joinedTables: [],
   suggestedJoinableTables: [],
   unionTables: [],
@@ -101,11 +93,6 @@ export type DataSourceAction =
   | { type: 'SET_IS_LOADING_METADATA'; payload: boolean }
   | { type: 'SET_METADATA_ERROR'; payload: string | null }
   | { type: 'RESET_METADATA' }
-  // ----- MEASURE-GROUP -----
-  | { type: 'SET_MEASURE_GROUP_FIELDS'; payload: Field[] }
-  | { type: 'ADD_MEASURE_TO_GROUP'; payload: Field }
-  | { type: 'REMOVE_MEASURES_FROM_GROUP'; payload: string[] }
-  | { type: 'CLEAR_MEASURE_GROUP' }
   // ----- MULTI-TABLE -----
   | { type: 'SET_JOINED_TABLES'; payload: string[] }
   | { type: 'SET_SUGGESTED_JOINABLE_TABLES'; payload: string[] }

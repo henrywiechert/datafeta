@@ -98,23 +98,26 @@ Manages data source selection (shared across all sheets):
 - Multi-table support: JOIN mode and UNION mode
 - Virtual table definitions
 - Tables cache for cross-database operations
-- Session-scoped filters; Hive partition loading; measure groups; field aliases
+- Session-scoped filters; Hive partition loading; field aliases
 
 **Structure:**
 ```
 DataSourceContext/
 ├── index.ts                  # Re-exports
 ├── types.ts                  # DataSourceState, DataSourceAction union
-├── reducer.ts                # Single reducer with 5 slice sections
+├── reducer.ts                # Single reducer with slice sections
 ├── DataSourceProvider.tsx    # Provider; useReducer + useCallback setters
 ├── useDataSource.ts          # Facade hook (preserves legacy API)
 └── hooks.ts                  # Focused slice hooks (prefer in new code):
                               #   useDataSourceMetadata
-                              #   useDataSourceMeasureGroup
                               #   useDataSourceMultiTable
                               #   useDataSourceSessionFilters
                               #   useDataSourceHivePartitions
 ```
+
+**Note:** The measure group is per-sheet state in VisualizationContext
+(`state.measureGroup`); synthetic MeasureNames/MeasureValues fields are generated
+whenever the schema has any measure, independent of group membership.
 
 **Key insight:** Data source is shared because all sheets query the same connected database. Only the visualization configuration varies per sheet. The reducer-backed setters are referentially stable, so the memoized context value only changes when state changes.
 

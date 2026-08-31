@@ -66,6 +66,8 @@ export function collectReferencedColumnNames(
     addFields(columns, vs.filterFields);
     addFields(columns, vs.labelFields);
     addFields(columns, vs.tooltipFields);
+    // New entity plus legacy key for not-yet-migrated snapshots
+    addFields(columns, vs.measureGroup?.members);
     addFields(columns, vs.measureGroupFields);
     addColumnName(columns, vs.colorField);
     addColumnName(columns, vs.sizeField);

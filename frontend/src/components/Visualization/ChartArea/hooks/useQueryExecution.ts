@@ -20,7 +20,7 @@ import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, Vir
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
-import { getMeasureFieldsForUnpivot } from '../../../../utils/syntheticFields';
+import { createMembersFromAllMeasures } from '../../../../utils/syntheticFields';
 import { duckdbService } from '../../../../services/duckdbService';
 import { QueryDecision } from '../../../../services/queryDecisionEngine';
 import { useQueryBuilder } from './useQueryBuilder';
@@ -147,7 +147,7 @@ export const useQueryExecution = ({
         facetBackgroundField,
         labelFields,
         tooltipFields,
-        measureGroupFields: vizState.measureGroupFields,
+        measureGroup: vizState.measureGroup,
       }),
       // Note: We only check query-affecting config for cache validation
     });
@@ -197,7 +197,7 @@ export const useQueryExecution = ({
     additionalColorFields,
     additionalSizeFields,
     additionalLabelFields,
-    measureGroupFields: vizState.measureGroupFields,
+    measureGroupMembers: vizState.measureGroup.members,
     measureValuesSourceFields: vizState.measureValuesSourceFields,
     fieldOverrides: vizState.fieldOverrides,
     independentDomains: vizState.independentDomains,
@@ -224,7 +224,7 @@ export const useQueryExecution = ({
     virtualTable,
     virtualColumns,
     availableFields: dataSource.availableFields,
-    measureGroupMeasures: vizState.measureGroupFields.map(field => field.columnName),
+    measureGroupMembers: vizState.measureGroup.members,
     optimizationHints,
     optimizationSettings,
     distributionVariant: vizState.chartTypeParams.distribution.variant,
@@ -259,14 +259,18 @@ export const useQueryExecution = ({
     lastExecutedVersionRef.current = queryVersion;
 
     if (needsUnpivot) {
-      const sourceMeasures = getMeasureFieldsForUnpivot(
-        dataSource.availableFields,
-        vizState.measureGroupFields.map(field => field.columnName)
-      );
-      dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: sourceMeasures });
+      // Tableau semantics: dropping MeasureValues with an empty group pulls in all measures.
+      // Members (not availableFields lookups) are the override identity, so pass them through.
+      const members = vizState.measureGroup.members.length > 0
+        ? vizState.measureGroup.members
+        : createMembersFromAllMeasures(dataSource.availableFields);
+      if (vizState.measureGroup.members.length === 0 && members.length > 0) {
+        dispatch({ type: 'POPULATE_MEASURE_GROUP', payload: members });
+      }
+      dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: members });
 
       // Execute unpivot query
-      executeQuery(null as any, true);
+      executeQuery(null as any, true, members);
     } else {
       // Clear source measures when not using unpivot
       dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: [] });

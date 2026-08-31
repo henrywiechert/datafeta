@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FilterConfig, FieldOverrideState, UserChartType, DistributionVariant, LineVariant, LineColorMode } from '../types';
+import { Field, FilterConfig, FieldOverrideState, MeasureGroup, UserChartType, DistributionVariant, LineVariant, LineColorMode } from '../types';
 
 export interface QueryAffectingConfig {
   xAxisFields: Field[];
@@ -11,7 +11,7 @@ export interface QueryAffectingConfig {
   facetBackgroundField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
-  measureGroupFields?: Field[];
+  measureGroup?: MeasureGroup | null;
 }
 
 export interface ChartAffectingConfig extends QueryAffectingConfig {
@@ -57,7 +57,7 @@ export function createQueryAffectingConfig(config: QueryAffectingConfig): QueryA
     facetBackgroundField: config.facetBackgroundField ?? null,
     labelFields: config.labelFields ?? [],
     tooltipFields: config.tooltipFields ?? [],
-    measureGroupFields: config.measureGroupFields ?? [],
+    measureGroup: config.measureGroup ?? null,
   };
 }
 

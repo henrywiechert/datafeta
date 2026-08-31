@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, SheetPanelLayout, Field, FilterConfig } from '../types';
 import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
+import { createMeasureGroup } from '../utils/syntheticFields';
 
 const STORAGE_KEY = 'data-slicer-sheets';
 
@@ -65,7 +66,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       roundingThresholdBalanced: 500,
       roundingThresholdAggressive: 200,
     },
-    measureGroupFields: [],
+    measureGroup: createMeasureGroup(),
     axisLabelStyles: {
       xAxis: {
         fontSize: 10,

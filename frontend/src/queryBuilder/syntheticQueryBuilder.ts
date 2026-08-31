@@ -4,7 +4,7 @@ import { buildAggregatedQuery, buildRawQuery } from './queryBuilder';
 import { 
   isMeasureNamesField, 
   isMeasureValuesField, 
-  getMeasureFieldsForUnpivot,
+  getMeasureMemberLabel,
   isSyntheticField,
   MEASURE_NAMES_FIELD,
   MEASURE_VALUES_FIELD 
@@ -36,14 +36,13 @@ function detectSyntheticFieldUsage(fields: Field[]): {
  * Build and execute query for synthetic MeasureNames/MeasureValues fields
  * 
  * Strategy:
- * 1. Get list of measures to include (filtered by MeasureNames if applicable)
- * 2. Build a single query with all measures as separate columns
- * 3. Return result - the visualization layer will handle MeasureNames/MeasureValues mapping
+ * 1. Take the measure group members (each with its own aggregation)
+ * 2. Build a single wide query with all members as separate columns
+ * 3. Unpivot the result into MeasureNames/MeasureValues long form
  */
 export async function buildUnpivotedQuery({
   xFields,
   yFields,
-  availableFields,
   selectedTable,
   selectedDatabase,
   filterConfigurations,
@@ -56,12 +55,11 @@ export async function buildUnpivotedQuery({
   virtualTable = null,
   virtualColumns = [],
   optimizationHints = undefined,
-  measureGroupMeasureNames,
+  measureGroupMembers,
   signal,
 }: {
   xFields: Field[];
   yFields: Field[];
-  availableFields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations: Record<string, FilterConfig>;
@@ -74,7 +72,7 @@ export async function buildUnpivotedQuery({
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   optimizationHints?: any;
-  measureGroupMeasureNames?: string[];
+  measureGroupMembers: Field[];
   signal?: AbortSignal;
 }): Promise<QueryResult> {
   // Detect synthetic field usage - include all fields that should be in the query
@@ -90,7 +88,7 @@ export async function buildUnpivotedQuery({
   if (shapeField && !isSyntheticField(shapeField)) {
     allFields.push(shapeField);
   }
-  const { hasMeasureNames, hasMeasureValues, measureValuesField } = detectSyntheticFieldUsage(allFields);
+  const { hasMeasureNames, hasMeasureValues } = detectSyntheticFieldUsage(allFields);
 
   if (!hasMeasureValues && !hasMeasureNames) {
     throw new Error('Neither MeasureValues nor MeasureNames field found in query fields');
@@ -117,7 +115,7 @@ export async function buildUnpivotedQuery({
   }
 
   // Get actual measure fields to include
-  const measureFields = getMeasureFieldsForUnpivot(availableFields, measureGroupMeasureNames);
+  const measureFields = measureGroupMembers;
 
   if (measureFields.length === 0) {
     // No measures - return empty result
@@ -147,11 +145,10 @@ export async function buildUnpivotedQuery({
     }
   }
   
-  // Add all measure fields with the aggregation from MeasureValues
-  const aggregation = measureValuesField?.aggregation || 'sum';
+  // Add all group members with their OWN aggregation (per-member, Tableau-style)
   const measureFieldsForUnpivot = measureFields.map((measureField) => ({
     ...measureField,
-    aggregation: aggregation,
+    aggregation: measureField.aggregation || ('sum' as const),
   }));
   for (const measureField of measureFieldsForUnpivot) {
     fieldsForQuery.push(measureField);
@@ -246,8 +243,13 @@ export async function buildUnpivotedQuery({
  *   { species: 'Adelie', MeasureNames: "culmen_length_mm", SUM(MeasureValues): 100 },
  *   { species: 'Adelie', MeasureNames: "culmen_depth_mm", SUM(MeasureValues): 50 }
  * ]
+ *
+ * MeasureNames values are member labels: plain column names, aggregation-qualified
+ * when the same column appears more than once in the group.
+ *
+ * Exported for tests.
  */
-function transformMeasuresToRows(
+export function transformMeasuresToRows(
   result: QueryResult,
   measureFields: Field[],
   originalFields: Field[],
@@ -272,18 +274,18 @@ function transformMeasuresToRows(
   // For a measure with aggregation, it's: AGG(columnName)
   const measureValuesColumnName = `${aggregation.toUpperCase()}(${MEASURE_VALUES_FIELD})`;
   
-  // Get measure column names (with aggregation aliases)
+  // Get measure column names (with aggregation aliases) and MeasureNames labels
   const measureColumnNames = measureFields.map((field) => {
     const expected = getResultColumnName(field);
     const col = result.columns.find(c => c.name === expected);
     return col ? col.name : expected;
   });
+  const measureLabels = measureFields.map((field) => getMeasureMemberLabel(field, measureFields));
 
   // Transform each row
   for (const row of result.rows) {
     // For each measure, create a new row
     for (let i = 0; i < measureFields.length; i++) {
-      const measureField = measureFields[i];
       const measureColumnName = measureColumnNames[i];
       const measureValue = row[measureColumnName];
 
@@ -315,7 +317,7 @@ function transformMeasuresToRows(
       }
 
       // Add synthetic columns with proper names
-      newRow[MEASURE_NAMES_FIELD] = measureField.columnName;
+      newRow[MEASURE_NAMES_FIELD] = measureLabels[i];
       newRow[measureValuesColumnName] = measureValue;
 
       transformedRows.push(newRow);

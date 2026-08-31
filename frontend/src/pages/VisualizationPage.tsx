@@ -235,7 +235,6 @@ const VisualizationPageContent = () => {
         suggestedJoinableTables, 
         joinedTables,
         tablesCache,
-        measureGroupFields,
         loadedPartitions,
         isLoadingPartition,
         sessionFilterFields,
@@ -248,8 +247,7 @@ const VisualizationPageContent = () => {
         addUnionTable: addUnionTableBase,
         removeUnionTable: removeUnionTableBase,
         setTablesForDatabase,
-        setMetadataError,
-        setMeasureGroupFields
+        setMetadataError
     } = dataSourceContext;
     // Wrap joined table toggle
     // Note: fetchMergedColumns will trigger automatically via useEffect in useMetadataOperations
@@ -362,13 +360,9 @@ const VisualizationPageContent = () => {
 
     const handleRemoveFromMeasureGroup = React.useCallback((fieldIds: string[]) => {
         if (fieldIds.length === 0) return;
-        const idSet = new Set(fieldIds);
-        const remaining = measureGroupFields.filter((field) => !idSet.has(field.id));
-        if (remaining.length !== measureGroupFields.length) {
-            setMeasureGroupFields(remaining);
-            dispatch({ type: 'FORCE_QUERY_REFRESH' });
-        }
-    }, [measureGroupFields, setMeasureGroupFields, dispatch]);
+        // Reducer bumps queryVersion when members actually change
+        dispatch({ type: 'REMOVE_MEASURE_GROUP_MEMBERS', payload: fieldIds });
+    }, [dispatch]);
     
     // Handler to load tables for a specific database (for cross-database union)
     const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {

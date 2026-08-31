@@ -37,11 +37,6 @@ export interface DataSourceContextType {
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
   resetMetadata: () => void;
-  // ----- MEASURE-GROUP -----
-  setMeasureGroupFields: (fields: Field[]) => void;
-  addMeasureToGroup: (field: Field) => void;
-  removeMeasureFromGroup: (fieldIds: string[]) => void;
-  clearMeasureGroup: () => void;
   // ----- MULTI-TABLE -----
   setJoinedTables: (tables: string[]) => void;
   setSuggestedJoinableTables: (tables: string[]) => void;
@@ -131,21 +126,6 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     [],
   );
   const resetMetadata = useCallback(() => dispatch({ type: 'RESET_METADATA' }), []);
-
-  // ----- MEASURE-GROUP -----
-  const setMeasureGroupFields = useCallback(
-    (fields: Field[]) => dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: fields }),
-    [],
-  );
-  const addMeasureToGroup = useCallback(
-    (field: Field) => dispatch({ type: 'ADD_MEASURE_TO_GROUP', payload: field }),
-    [],
-  );
-  const removeMeasureFromGroup = useCallback(
-    (fieldIds: string[]) => dispatch({ type: 'REMOVE_MEASURES_FROM_GROUP', payload: fieldIds }),
-    [],
-  );
-  const clearMeasureGroup = useCallback(() => dispatch({ type: 'CLEAR_MEASURE_GROUP' }), []);
 
   // ----- MULTI-TABLE -----
   const setJoinedTables = useCallback(
@@ -363,10 +343,6 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       setIsLoadingMetadata,
       setMetadataError,
       resetMetadata,
-      setMeasureGroupFields,
-      addMeasureToGroup,
-      removeMeasureFromGroup,
-      clearMeasureGroup,
       setJoinedTables,
       setSuggestedJoinableTables,
       setUnionTables,
@@ -410,10 +386,6 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       setIsLoadingMetadata,
       setMetadataError,
       resetMetadata,
-      setMeasureGroupFields,
-      addMeasureToGroup,
-      removeMeasureFromGroup,
-      clearMeasureGroup,
       setJoinedTables,
       setSuggestedJoinableTables,
       setUnionTables,
