@@ -5,7 +5,7 @@ import {
   getFieldDisplayNameWithDateTime,
   getDateTimePartTooltip as getDateTimeTooltip 
 } from '../datetime';
-import { generateSyntheticFieldsForGroup } from './syntheticFields';
+import { generateSyntheticFields } from './syntheticFields';
 
 const DISCRETE_AGGREGATIONS: Aggregation[] = ['min', 'max', 'count', 'count_distinct'];
 
@@ -303,41 +303,34 @@ export function columnsToFields(columns: Column[], options: CreateFieldOptions =
 export interface ProcessedFieldsResult {
     /** All fields (real + synthetic) */
     allFields: Field[];
-    /** Filtered measure group fields (only those that exist in the new schema) */
-    nextMeasureGroupFields: Field[];
+    /** Column names of measures present in the new schema (for measure group pruning) */
+    validMeasureNames: string[];
 }
 
 /**
- * Process columns into a complete field set with measure group filtering and synthetic fields.
- * This encapsulates the common pattern used after fetching columns.
+ * Process columns into a complete field set with synthetic fields.
+ * The MeasureNames/MeasureValues pair exists whenever the schema has any measure;
+ * the per-sheet measure group does not affect generation.
  * 
  * @param columns - Raw columns from backend
- * @param measureGroupFields - Current measure group fields (to be filtered)
  * @param options - Field creation options
  */
 export function processColumnsResponse(
     columns: Column[],
-    measureGroupFields: Field[],
     options: CreateFieldOptions = {}
 ): ProcessedFieldsResult {
     // Convert columns to fields
     const fields = columnsToFields(columns, options);
-    
-    // Filter measure group to only include fields that exist in new schema
-    const measureNameSet = new Set(
-        fields.filter(field => field.type === 'measure').map(field => field.columnName)
-    );
-    const nextMeasureGroupFields = (measureGroupFields || [])
-        .filter((field) => measureNameSet.has(field.columnName));
-    
+
+    const validMeasureNames = fields
+        .filter(field => field.type === 'measure')
+        .map(field => field.columnName);
+
     // Generate synthetic fields for measure values/names
-    const syntheticFields = generateSyntheticFieldsForGroup(
-        fields,
-        nextMeasureGroupFields.map(field => field.columnName)
-    );
-    
+    const syntheticFields = generateSyntheticFields(fields);
+
     return {
         allFields: [...fields, ...syntheticFields],
-        nextMeasureGroupFields,
+        validMeasureNames,
     };
 }

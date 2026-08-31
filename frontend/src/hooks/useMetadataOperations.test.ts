@@ -81,7 +81,6 @@ describe('useMetadataOperations', () => {
           setSuggestedUnionableTables: jest.fn(),
           setVirtualTable: (virtualTable: any) =>
             setDataSource((prev) => ({ ...prev, virtualTable })),
-          setMeasureGroupFields: jest.fn(),
           setUnionTables: (unionTables: Array<{ database: string; table_name: string }>) =>
             setDataSource((prev) => ({ ...prev, unionTables })),
           setTablesForDatabase: jest.fn(),
@@ -95,7 +94,6 @@ describe('useMetadataOperations', () => {
         dataSourceSetters,
         xAxisFields: [],
         yAxisFields: [],
-        measureGroupFields: [],
         virtualColumns: [],
         dispatch,
       });
@@ -178,7 +176,6 @@ describe('useMetadataOperations', () => {
             setSuggestedUnionableTables: jest.fn(),
             setVirtualTable: (virtualTable: any) =>
               setDataSource((prev) => ({ ...prev, virtualTable })),
-            setMeasureGroupFields: jest.fn(),
             setUnionTables: (unionTables: Array<{ database: string; table_name: string }>) =>
               setDataSource((prev) => ({ ...prev, unionTables })),
             setTablesForDatabase: jest.fn(),
@@ -192,7 +189,6 @@ describe('useMetadataOperations', () => {
           dataSourceSetters,
           xAxisFields,
           yAxisFields: [],
-          measureGroupFields: [],
           virtualColumns: [],
           dispatch,
         });

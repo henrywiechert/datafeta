@@ -5,6 +5,7 @@ import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../../observable-plot-generator/utils/shapeUtils';
 import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
 import { DEFAULT_DENSITY_PARAMS } from '../../types';
+import { createMeasureGroup } from '../../utils/syntheticFields';
 
 // Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
 // isLoadingMetadata, metadataError) is now stored in DataSourceContext, not here.
@@ -84,8 +85,8 @@ export const initialState: VisualizationState = {
   queryVersion: 0,
   // MeasureNames/MeasureValues source tracking defaults
   measureValuesSourceFields: [],
-  // Measure group fields (per-sheet scope)
-  measureGroupFields: [],
+  // Measure group (per-sheet scope)
+  measureGroup: createMeasureGroup(),
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: null,
   // Axis label styling defaults

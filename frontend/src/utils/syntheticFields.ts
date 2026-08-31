@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { v4 as uuidv4 } from 'uuid';
-import { Field, FieldOverrideState } from '../types';
+import { Field, FieldOverrideState, MeasureGroup } from '../types';
+import { getResultColumnNameForDateTime } from '../datetime/datetimeUtils';
 
 /**
  * Constants for synthetic field names
@@ -8,6 +9,38 @@ import { Field, FieldOverrideState } from '../types';
 export const MEASURE_NAMES_FIELD = 'MeasureNames';
 export const MEASURE_VALUES_FIELD = 'MeasureValues';
 export const DEFAULT_MEASURE_GROUP_ID = '__all_measures__';
+export const DEFAULT_MEASURE_GROUP_NAME = 'Measure Group';
+
+export function createMeasureGroup(members: Field[] = [], name: string = DEFAULT_MEASURE_GROUP_NAME): MeasureGroup {
+  return { id: uuidv4(), name, members };
+}
+
+/** Wrap a legacy flat measureGroupFields array, keeping field ids so per-member overrides survive. */
+export function migrateLegacyMeasureGroup(legacyFields: Field[] | undefined): MeasureGroup {
+  return createMeasureGroup(legacyFields ? [...legacyFields] : []);
+}
+
+/**
+ * Result-column identity of a group member (e.g. "SUM(sales)").
+ * Two members with the same identity would collide in the wide query,
+ * so exact duplicates are rejected on add/update.
+ */
+export function getMeasureMemberIdentity(member: Field): string {
+  return getResultColumnNameForDateTime({ ...member, aggregation: member.aggregation || 'sum' });
+}
+
+/**
+ * Label used as the MeasureNames value for a group member.
+ * Plain column name unless the column appears more than once in the group
+ * (then aggregation-qualified, Tableau-style) or a displayAlias is set.
+ */
+export function getMeasureMemberLabel(member: Field, members: Field[]): string {
+  if (member.displayAlias) return member.displayAlias;
+  const duplicated = members.some(
+    (other) => other.id !== member.id && other.columnName === member.columnName
+  );
+  return duplicated ? getMeasureMemberIdentity(member) : member.columnName;
+}
 
 /**
  * Check if a field is synthetic (MeasureNames or MeasureValues)
@@ -38,45 +71,22 @@ export function canGenerateSyntheticFields(availableFields: Field[]): boolean {
 }
 
 /**
- * Get all actual measure fields (excluding synthetic MeasureValues)
- * Optionally filter by measure names if a filter is provided
+ * Create fresh member instances (new ids) for all non-synthetic measures.
+ * Used to auto-populate an empty measure group when MeasureValues is placed on an axis.
  */
-export function getMeasureFieldsForUnpivot(
-  availableFields: Field[],
-  measureNames?: string[]
-): Field[] {
-  const measures = availableFields.filter(
-    field => field.type === 'measure' && !field.isSynthetic
-  );
-
-  if (measureNames) {
-    return measures.filter(measure => measureNames.includes(measure.columnName));
-  }
-
-  return measures;
+export function createMembersFromAllMeasures(availableFields: Field[]): Field[] {
+  return availableFields
+    .filter(field => field.type === 'measure' && !field.isSynthetic)
+    .map(field => ({ ...field, id: uuidv4(), axis: undefined }));
 }
 
 /**
- * Generate synthetic MeasureNames and MeasureValues fields
- * Returns an array with both fields if measures exist, otherwise empty array
- * When measureNames is empty or undefined, generates synthetic fields using ALL measures
+ * Generate synthetic MeasureNames and MeasureValues fields.
+ * Returns an array with both fields if any measure exists, otherwise empty array.
+ * Membership of the (per-sheet) measure group does not affect generation.
  */
-export function generateSyntheticFieldsForGroup(
-  baseFields: Field[],
-  measureNames?: string[]
-): Field[] {
-  const hasMeasures = canGenerateSyntheticFields(baseFields);
-  if (!hasMeasures) {
-    return [];
-  }
-
-  // When no specific measures are provided, use ALL measures
-  // This ensures MeasureNames/MeasureValues are always available in the field list
-  const effectiveMeasureNames = (!measureNames || measureNames.length === 0)
-    ? getMeasureNames(baseFields)
-    : measureNames;
-
-  if (effectiveMeasureNames.length === 0) {
+export function generateSyntheticFields(baseFields: Field[]): Field[] {
+  if (!canGenerateSyntheticFields(baseFields)) {
     return [];
   }
 
@@ -117,12 +127,6 @@ export function generateSyntheticFieldsForGroup(
   return syntheticFields;
 }
 
-// Backwards-compatible helper (uses all measures in a default group).
-export function generateSyntheticFields(availableFields: Field[]): Field[] {
-  const measureNames = getMeasureNames(availableFields);
-  return generateSyntheticFieldsForGroup(availableFields, measureNames);
-}
-
 /**
  * Get the names of all measures (for use in MeasureNames dimension values)
  */
@@ -143,9 +147,9 @@ export function hasSyntheticFieldUsage(fields: Field[]): boolean {
  * Build a mapping from MeasureNames string values to their field overrides.
  * This allows chart generators to apply per-measure colors/styles when rendering unpivoted data.
  * 
- * @param measureValuesSourceFields - Source measures contributing to MeasureValues
- * @param fieldOverrides - Per-field overrides keyed by field ID
- * @returns Map from measure column name (string) to its override
+ * @param measureValuesSourceFields - Group members contributing to MeasureValues
+ * @param fieldOverrides - Per-field overrides keyed by member ID
+ * @returns Map from member label (the MeasureNames value) to its override
  */
 export function buildMeasureNamesOverrideMap(
   measureValuesSourceFields: Field[],
@@ -156,8 +160,7 @@ export function buildMeasureNamesOverrideMap(
   for (const sourceField of measureValuesSourceFields) {
     const override = fieldOverrides[sourceField.id];
     if (override) {
-      // Map the measure's column name (which will appear in MeasureNames column) to its override
-      overrideMap.set(sourceField.columnName, override);
+      overrideMap.set(getMeasureMemberLabel(sourceField, measureValuesSourceFields), override);
     }
   }
   
@@ -184,9 +187,9 @@ export function getMeasureNameColor(
  * Build an explicit color mapping from MeasureNames values to colors.
  * This creates a domain/range pair for Observable Plot categorical color scales.
  * 
- * @param measureValuesSourceFields - Source measures contributing to MeasureValues
- * @param fieldOverrides - Per-field overrides keyed by field ID
- * @returns Object with domain (measure names) and range (colors), or null if no overrides
+ * @param measureValuesSourceFields - Group members contributing to MeasureValues
+ * @param fieldOverrides - Per-field overrides keyed by member ID
+ * @returns Object with domain (member labels) and range (colors), or null if no overrides
  */
 export function buildMeasureNamesColorScale(
   measureValuesSourceFields: Field[],
@@ -197,7 +200,7 @@ export function buildMeasureNamesColorScale(
   let hasOverrides = false;
   
   for (const sourceField of measureValuesSourceFields) {
-    domain.push(sourceField.columnName);
+    domain.push(getMeasureMemberLabel(sourceField, measureValuesSourceFields));
     const override = fieldOverrides[sourceField.id];
     if (override?.manualColor) {
       range.push(override.manualColor);

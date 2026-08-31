@@ -6,7 +6,7 @@
 // call site.
 //
 // All hooks read from the same underlying context — they do NOT subscribe
-// independently. A consumer of `useDataSourceMeasureGroup` still re-renders
+// independently. A consumer of `useDataSourceMultiTable` still re-renders
 // when any DataSource state changes. The win is narrower typing,
 // discoverability, and a cleaner migration path to per-slice contexts later
 // if/when that becomes warranted.
@@ -35,20 +35,6 @@ export function useDataSourceMetadata() {
       setIsLoadingMetadata: c.setIsLoadingMetadata,
       setMetadataError: c.setMetadataError,
       resetMetadata: c.resetMetadata,
-    }),
-    [c],
-  );
-}
-
-export function useDataSourceMeasureGroup() {
-  const c = useDataSource();
-  return useMemo(
-    () => ({
-      measureGroupFields: c.dataSource.measureGroupFields,
-      setMeasureGroupFields: c.setMeasureGroupFields,
-      addMeasureToGroup: c.addMeasureToGroup,
-      removeMeasureFromGroup: c.removeMeasureFromGroup,
-      clearMeasureGroup: c.clearMeasureGroup,
     }),
     [c],
   );

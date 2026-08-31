@@ -30,7 +30,7 @@ describe('createQueryAffectingConfig', () => {
     expect(config.facetBackgroundField).toBeNull();
     expect(config.labelFields).toEqual([]);
     expect(config.tooltipFields).toEqual([]);
-    expect(config.measureGroupFields).toEqual([]);
+    expect(config.measureGroup).toBeNull();
   });
 });
 
@@ -161,11 +161,11 @@ describe('createRawQueryFieldsForCache', () => {
       colorField: null,
       sizeField: null,
       facetBackgroundField,
-      measureGroupFields: [measureGroupField],
+      measureGroup: { id: 'group-1', name: 'Measure Group', members: [measureGroupField] },
     });
 
     expect(config.facetBackgroundField?.columnName).toBe('segment');
-    expect(config.measureGroupFields).toHaveLength(1);
+    expect(config.measureGroup?.members).toHaveLength(1);
     expect(config.appliedFilterConfigurations).toBe(filters);
   });
 });

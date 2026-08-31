@@ -1,7 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import {
-  generateSyntheticFieldsForGroup,
-  getMeasureFieldsForUnpivot,
+  generateSyntheticFields,
+  createMembersFromAllMeasures,
+  getMeasureMemberIdentity,
+  getMeasureMemberLabel,
+  migrateLegacyMeasureGroup,
 } from './syntheticFields';
 import { Field } from '../types';
 
@@ -15,59 +18,75 @@ const buildField = (overrides: Partial<Field>): Field => ({
 });
 
 describe('syntheticFields', () => {
-  it('generates synthetic fields for an active group', () => {
+  it('generates synthetic fields whenever measures exist', () => {
     const baseFields = [
       buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
       buildField({ id: 'm2', columnName: 'Profit', type: 'measure' }),
+      buildField({ id: 'd1', columnName: 'Region', type: 'dimension', flavour: 'discrete' }),
     ];
 
-    const synthetic = generateSyntheticFieldsForGroup(baseFields, ['Revenue', 'Profit']);
+    const synthetic = generateSyntheticFields(baseFields);
 
     expect(synthetic).toHaveLength(2);
     expect(synthetic[0].syntheticType).toBe('MeasureNames');
     expect(synthetic[1].syntheticType).toBe('MeasureValues');
   });
 
-  it('generates synthetic fields using all measures when no group specified', () => {
+  it('generates no synthetic fields without measures', () => {
     const baseFields = [
-      buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
-      buildField({ id: 'm2', columnName: 'Profit', type: 'measure' }),
-      buildField({ id: 'd1', columnName: 'Region', type: 'dimension', flavour: 'discrete' }),
+      buildField({ id: 'd1', columnName: 'Region', type: 'dimension', flavour: 'discrete', dataType: 'string' }),
     ];
 
-    // When measureNames is undefined or empty, should still generate synthetic fields
-    const syntheticUndefined = generateSyntheticFieldsForGroup(baseFields, undefined);
-    const syntheticEmpty = generateSyntheticFieldsForGroup(baseFields, []);
-
-    expect(syntheticUndefined).toHaveLength(2);
-    expect(syntheticUndefined[0].syntheticType).toBe('MeasureNames');
-    expect(syntheticUndefined[1].syntheticType).toBe('MeasureValues');
-
-    expect(syntheticEmpty).toHaveLength(2);
-    expect(syntheticEmpty[0].syntheticType).toBe('MeasureNames');
-    expect(syntheticEmpty[1].syntheticType).toBe('MeasureValues');
+    expect(generateSyntheticFields(baseFields)).toHaveLength(0);
   });
 
-  it('filters unpivot measures by group selection', () => {
+  it('creates fresh member instances for all measures', () => {
     const fields = [
       buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
       buildField({ id: 'm2', columnName: 'Profit', type: 'measure' }),
       buildField({ id: 'd1', columnName: 'Region', type: 'dimension', flavour: 'discrete' }),
     ];
 
-    const selected = getMeasureFieldsForUnpivot(fields, ['Profit']);
+    const members = createMembersFromAllMeasures(fields);
 
-    expect(selected.map((f) => f.columnName)).toEqual(['Profit']);
+    expect(members.map((m) => m.columnName)).toEqual(['Revenue', 'Profit']);
+    expect(members.map((m) => m.id)).not.toContain('m1');
+    expect(members.map((m) => m.id)).not.toContain('m2');
   });
 
-  it('returns no measures when group selection is empty', () => {
-    const fields = [
-      buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
-      buildField({ id: 'm2', columnName: 'Profit', type: 'measure' }),
+  it('computes aggregation-qualified member identities', () => {
+    const member = buildField({ id: 'm1', columnName: 'Sales', aggregation: 'avg' });
+    expect(getMeasureMemberIdentity(member)).toBe('AVG(Sales)');
+    // Missing aggregation defaults to sum
+    expect(getMeasureMemberIdentity(buildField({ id: 'm2', columnName: 'Sales', aggregation: undefined }))).toBe('SUM(Sales)');
+  });
+
+  it('labels members plainly unless the column is duplicated in the group', () => {
+    const sumSales = buildField({ id: 'a', columnName: 'Sales', aggregation: 'sum' });
+    const avgSales = buildField({ id: 'b', columnName: 'Sales', aggregation: 'avg' });
+    const profit = buildField({ id: 'c', columnName: 'Profit', aggregation: 'sum' });
+
+    expect(getMeasureMemberLabel(profit, [sumSales, avgSales, profit])).toBe('Profit');
+    expect(getMeasureMemberLabel(sumSales, [sumSales, avgSales, profit])).toBe('SUM(Sales)');
+    expect(getMeasureMemberLabel(avgSales, [sumSales, avgSales, profit])).toBe('AVG(Sales)');
+  });
+
+  it('prefers displayAlias for member labels', () => {
+    const aliased = buildField({ id: 'a', columnName: 'Sales', aggregation: 'sum', displayAlias: 'Total Sales' });
+    const avgSales = buildField({ id: 'b', columnName: 'Sales', aggregation: 'avg' });
+    expect(getMeasureMemberLabel(aliased, [aliased, avgSales])).toBe('Total Sales');
+  });
+
+  it('migrates a legacy flat field list keeping field ids', () => {
+    const legacy = [
+      buildField({ id: 'legacy-1', columnName: 'Revenue' }),
+      buildField({ id: 'legacy-2', columnName: 'Profit' }),
     ];
 
-    const selected = getMeasureFieldsForUnpivot(fields, []);
+    const group = migrateLegacyMeasureGroup(legacy);
 
-    expect(selected).toHaveLength(0);
+    expect(group.members.map((m) => m.id)).toEqual(['legacy-1', 'legacy-2']);
+    expect(group.id).toBeTruthy();
+    expect(group.name).toBeTruthy();
   });
 });

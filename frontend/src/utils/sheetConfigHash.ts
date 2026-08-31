@@ -115,7 +115,7 @@ export function computeQueryConfigHash(config: QueryAffectingConfig): string {
     fieldToHashKey(config.facetBackgroundField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
-    fieldsToHashKey(config.measureGroupFields || []),
+    fieldsToHashKey(config.measureGroup?.members || []),
   ];
   
   // Simple hash: join and create a short fingerprint
@@ -139,7 +139,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     fieldToHashKey(config.facetBackgroundField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
-    fieldsToHashKey(config.measureGroupFields || []),
+    fieldsToHashKey(config.measureGroup?.members || []),
   ];
   
   // Add chart-specific parts

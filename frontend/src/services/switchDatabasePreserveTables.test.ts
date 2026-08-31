@@ -31,7 +31,7 @@ function makeSetters() {
     setVirtualTable: jest.fn(),
     setIsLoadingMetadata: jest.fn(),
     setMetadataError: jest.fn(),
-    setMeasureGroupFields: jest.fn(),
+    pruneMeasureGroupMembers: jest.fn(),
     patchAxisFields: jest.fn(),
     onUpdateConnectionDatabase: jest.fn(),
   };
@@ -62,7 +62,6 @@ describe('switchDatabasePreserveTables', () => {
       unionTables: [],
       customRelationships: null,
       fieldDisplayAliases: {},
-      measureGroupFields: [],
       xAxisFields,
       yAxisFields,
       virtualColumns: [],

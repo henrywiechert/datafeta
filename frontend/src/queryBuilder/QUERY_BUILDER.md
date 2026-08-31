@@ -82,16 +82,19 @@ Used when no aggregation is needed (scatter plots with two measures).
 ```
 
 ### 3. Unpivoted Query (`buildUnpivotedQuery`)
-Used when MeasureValues synthetic field is present. Transforms multiple measure columns into rows.
+Used when MeasureValues synthetic field is present. Transforms the measure-group
+members (each with its own aggregation; duplicates of a column allowed across
+aggregations) into rows.
 
 ```typescript
 // Input: X=[species (dim)], Y=[MeasureValues], Color=[MeasureNames]
-// Available measures: culmen_length_mm, culmen_depth_mm
+// Group members: SUM(culmen_length_mm), SUM(culmen_depth_mm)
 
-// Step 1: Query with all measures as columns
+// Step 1: Query with all members as columns
 // SELECT species, SUM(culmen_length_mm), SUM(culmen_depth_mm) FROM penguins GROUP BY species
 
-// Step 2: Transform result (wide → long)
+// Step 2: Transform result (wide → long); MeasureNames carries the member label
+// (plain column name, or "AGG(col)" when the column appears twice in the group)
 // Before: { species: 'Adelie', SUM(culmen_length_mm): 100, SUM(culmen_depth_mm): 50 }
 // After:  [
 //   { species: 'Adelie', MeasureNames: 'culmen_length_mm', SUM(MeasureValues): 100 },
@@ -136,7 +139,7 @@ Used when MeasureValues synthetic field is present. Transforms multiple measure 
 |--------|-------|
 | `../types` | `Field`, `QueryDescription`, `FilterConfig`, etc. |
 | `../utils/fieldUtils` | `getResultColumnName()` |
-| `../utils/syntheticFields` | `isMeasureValuesField()`, `getMeasureFieldsForUnpivot()` |
+| `../utils/syntheticFields` | `isMeasureValuesField()`, `getMeasureMemberLabel()` |
 | `../apiService` | `executeQueryArrow()` (only in syntheticQueryBuilder) |
 
 ## Query Decision Logic

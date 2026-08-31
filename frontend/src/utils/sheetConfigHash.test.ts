@@ -13,7 +13,7 @@ function baseQueryConfig(): QueryAffectingConfig {
     facetBackgroundField: null,
     labelFields: [],
     tooltipFields: [],
-    measureGroupFields: [],
+    measureGroup: null,
   };
 }
 

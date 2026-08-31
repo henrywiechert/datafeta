@@ -1,20 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field } from '../../types';
-import { generateSyntheticFieldsForGroup } from '../../utils/syntheticFields';
 import { DataSourceAction, DataSourceState, initialDataSourceState } from './types';
-
-const getBaseFields = (fields: Field[]) => fields.filter((field) => !field.isSynthetic);
-
-const rebuildAvailableFieldsForGroup = (
-  fields: Field[],
-  measureGroupFields: Field[],
-) => {
-  const baseFields = getBaseFields(fields);
-  if (baseFields.length === 0) return fields;
-  const measureNames = measureGroupFields.map((field) => field.columnName);
-  const syntheticFields = generateSyntheticFieldsForGroup(baseFields, measureNames);
-  return [...baseFields, ...syntheticFields];
-};
 
 export function dataSourceReducer(
   state: DataSourceState,
@@ -85,7 +70,6 @@ export function dataSourceReducer(
         availableFields: [],
         isLoadingMetadata: false,
         metadataError: null,
-        measureGroupFields: [],
         joinedTables: [],
         suggestedJoinableTables: [],
         unionTables: [],
@@ -100,49 +84,6 @@ export function dataSourceReducer(
         loadedPartitions: new Set(),
         isLoadingPartition: false,
         partitionLoadError: null,
-      };
-
-    // ============================================================
-    // MEASURE-GROUP slice
-    // ============================================================
-    case 'SET_MEASURE_GROUP_FIELDS':
-      return {
-        ...state,
-        measureGroupFields: action.payload,
-        availableFields: rebuildAvailableFieldsForGroup(state.availableFields, action.payload),
-      };
-
-    case 'ADD_MEASURE_TO_GROUP': {
-      if (
-        state.measureGroupFields.some(
-          (item) => item.columnName === action.payload.columnName,
-        )
-      ) {
-        return state;
-      }
-      const nextFields = [...state.measureGroupFields, action.payload];
-      return {
-        ...state,
-        measureGroupFields: nextFields,
-        availableFields: rebuildAvailableFieldsForGroup(state.availableFields, nextFields),
-      };
-    }
-
-    case 'REMOVE_MEASURES_FROM_GROUP': {
-      const idSet = new Set(action.payload);
-      const nextFields = state.measureGroupFields.filter((item) => !idSet.has(item.id));
-      return {
-        ...state,
-        measureGroupFields: nextFields,
-        availableFields: rebuildAvailableFieldsForGroup(state.availableFields, nextFields),
-      };
-    }
-
-    case 'CLEAR_MEASURE_GROUP':
-      return {
-        ...state,
-        measureGroupFields: [],
-        availableFields: rebuildAvailableFieldsForGroup(state.availableFields, []),
       };
 
     // ============================================================

@@ -26,7 +26,6 @@ export interface SwitchDatabasePreserveTablesParams {
   unionTables: UnionTableRef[];
   customRelationships: ForeignKeyRelationship[] | null;
   fieldDisplayAliases: Record<string, string>;
-  measureGroupFields: Field[];
   xAxisFields: Field[];
   yAxisFields: Field[];
   virtualColumns: VirtualColumnDefinition[];
@@ -40,7 +39,7 @@ export interface SwitchDatabasePreserveTablesParams {
   setVirtualTable: (virtualTable: unknown | null) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
-  setMeasureGroupFields: (fields: Field[]) => void;
+  pruneMeasureGroupMembers: (validMeasureNames: string[]) => void;
   patchAxisFields: (x: Field[], y: Field[]) => void;
   onUpdateConnectionDatabase?: (database: string) => void;
 }
@@ -56,7 +55,6 @@ export async function switchDatabasePreserveTables(
     unionTables,
     customRelationships,
     fieldDisplayAliases,
-    measureGroupFields,
     xAxisFields,
     yAxisFields,
     virtualColumns,
@@ -70,7 +68,7 @@ export async function switchDatabasePreserveTables(
     setVirtualTable,
     setIsLoadingMetadata,
     setMetadataError,
-    setMeasureGroupFields,
+    pruneMeasureGroupMembers,
     patchAxisFields,
     onUpdateConnectionDatabase,
   } = params;
@@ -125,11 +123,11 @@ export async function switchDatabasePreserveTables(
 
     if (joinedTables.length === 0 && rewrittenUnions.length === 0) {
       const response = await apiService.listColumns(selectedTable, newDatabase);
-      const processed = processColumnsResponse(response.columns, measureGroupFields, {
+      const processed = processColumnsResponse(response.columns, {
         fieldDisplayAliases,
       });
       allFields = processed.allFields;
-      setMeasureGroupFields(processed.nextMeasureGroupFields);
+      pruneMeasureGroupMembers(processed.validMeasureNames);
       setAvailableFields(allFields);
       setVirtualTable(null);
     } else if (rewrittenUnions.length > 0) {
@@ -140,11 +138,11 @@ export async function switchDatabasePreserveTables(
         rewrittenUnions,
         false,
       );
-      const processed = processColumnsResponse(response.columns, measureGroupFields, {
+      const processed = processColumnsResponse(response.columns, {
         includeTableName: true,
       });
       allFields = processed.allFields;
-      setMeasureGroupFields(processed.nextMeasureGroupFields);
+      pruneMeasureGroupMembers(processed.validMeasureNames);
       setAvailableFields(allFields);
       setVirtualTable(response.virtual_table);
     } else {
@@ -156,9 +154,9 @@ export async function switchDatabasePreserveTables(
         false,
         customRelationships ?? undefined,
       );
-      const processed = processColumnsResponse(response.columns, measureGroupFields);
+      const processed = processColumnsResponse(response.columns);
       allFields = processed.allFields;
-      setMeasureGroupFields(processed.nextMeasureGroupFields);
+      pruneMeasureGroupMembers(processed.validMeasureNames);
       setAvailableFields(allFields);
       setVirtualTable(response.virtual_table);
     }

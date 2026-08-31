@@ -7,7 +7,6 @@ export type { DataSourceState, VirtualColumnPreference } from './types';
 // Focused slice hooks — prefer these in new code.
 export {
   useDataSourceMetadata,
-  useDataSourceMeasureGroup,
   useDataSourceMultiTable,
   useDataSourceSessionFilters,
   useDataSourceHivePartitions,

@@ -1,10 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useMemo, useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
+import EditIcon from '@mui/icons-material/Edit';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertySection } from '../Properties';
-import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Field } from '../../../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../../../utils/syntheticFields';
@@ -13,51 +13,30 @@ import FieldChip from '../FieldChip';
 import filterDropZoneStyles from '../Filters/FilterDropZone.module.css';
 
 const MeasureGroupsPanel: React.FC = () => {
-  const { dataSource } = useDataSource();
   const { state, dispatch } = useVisualizationContext();
   const [isOver, setIsOver] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
 
-  // measureGroupFields now comes from VisualizationContext (per-sheet scope)
-  const measureGroupFields = state.measureGroupFields;
-  const { availableFields } = dataSource;
-
-  const measureFields = useMemo(
-    () => availableFields.filter((field) => field.type === 'measure' && !field.isSynthetic),
-    [availableFields]
-  );
-
-  const measureFieldMap = useMemo(() => {
-    const map = new Map<string, Field>();
-    measureFields.forEach((field) => map.set(field.columnName, field));
-    return map;
-  }, [measureFields]);
-
-  const orderedMeasureFields = useMemo(() => measureGroupFields, [measureGroupFields]);
+  const { measureGroup } = state;
+  const members = measureGroup.members;
 
   const handleFieldUpdate = (updated: Field | Field[]) => {
     const updatedFields = Array.isArray(updated) ? updated : [updated];
-    const updatedMap = new Map(updatedFields.map((field) => [field.id, field]));
-    const nextFields = measureGroupFields.map((field) =>
-      updatedMap.has(field.id) ? updatedMap.get(field.id)! : field
-    );
-    if (nextFields.some((field, index) => field !== measureGroupFields[index])) {
-      dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextFields });
-    }
+    updatedFields.forEach((field) => {
+      dispatch({ type: 'UPDATE_MEASURE_GROUP_MEMBER', payload: field });
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     try {
       const parsed = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
       if (!parsed) return;
-      let fields: Field[] = parsed.fields;
+      const fields: Field[] = parsed.fields;
 
       if (!fields || fields.length === 0) {
         return;
       }
-
-      const existingNames = new Set(measureGroupFields.map((field) => field.columnName));
-      const nextFields = [...measureGroupFields];
-      let didChange = false;
 
       fields.forEach((field) => {
         if (isMeasureNamesField(field) || isMeasureValuesField(field)) {
@@ -66,34 +45,34 @@ const MeasureGroupsPanel: React.FC = () => {
         if (field.type !== 'measure') {
           return;
         }
-        const sourceField = measureFieldMap.get(field.columnName);
-        if (!sourceField) {
-          return;
-        }
-        if (!existingNames.has(sourceField.columnName)) {
-          nextFields.push({
-            ...sourceField,
-            id: uuidv4(),
-            axis: undefined,
-          });
-          existingNames.add(sourceField.columnName);
-          didChange = true;
-        }
+        // Fresh instance id: the member id is the stable key for per-member overrides.
+        // Same column with a different aggregation is a distinct member (Tableau-style);
+        // exact duplicates are rejected by the reducer.
+        dispatch({
+          type: 'ADD_MEASURE_GROUP_MEMBER',
+          payload: { ...field, id: uuidv4(), axis: undefined },
+        });
       });
-
-      if (didChange) {
-        dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextFields });
-      }
     } catch (error) {
       console.error('Error parsing drag data:', error);
     }
   };
 
   const handleClear = () => {
-    if (measureGroupFields.length === 0) {
+    if (members.length === 0) {
       return;
     }
     dispatch({ type: 'CLEAR_MEASURE_GROUP' });
+  };
+
+  const startEditingName = () => {
+    setNameDraft(measureGroup.name);
+    setIsEditingName(true);
+  };
+
+  const commitName = () => {
+    setIsEditingName(false);
+    dispatch({ type: 'RENAME_MEASURE_GROUP', payload: nameDraft });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -110,18 +89,44 @@ const MeasureGroupsPanel: React.FC = () => {
 
   return (
     <PropertySection
-      title="Measure Group"
+      title={measureGroup.name}
       icon={<CategoryIcon fontSize="small" />}
       defaultExpanded={false}
       storageKey="measureGroupPanel.expanded"
       headerActions={
-        measureGroupFields.length > 0 ? (
+        members.length > 0 ? (
           <Button size="small" onClick={handleClear} sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.75rem' }}>
             Clear
           </Button>
         ) : null
       }
     >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        {isEditingName ? (
+          <TextField
+            size="small"
+            variant="standard"
+            value={nameDraft}
+            autoFocus
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitName();
+              if (e.key === 'Escape') setIsEditingName(false);
+            }}
+            inputProps={{ 'aria-label': 'Measure group name' }}
+          />
+        ) : (
+          <>
+            <Typography variant="caption" color="text.secondary">
+              {measureGroup.name}
+            </Typography>
+            <IconButton size="small" onClick={startEditingName} aria-label="Rename measure group">
+              <EditIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </>
+        )}
+      </Box>
       <Box
         className={`${filterDropZoneStyles.dropZone} ${isOver ? filterDropZoneStyles.isOver : ''}`}
         onDragOver={handleDragOver}
@@ -131,21 +136,21 @@ const MeasureGroupsPanel: React.FC = () => {
           handleDrop(e);
         }}
       >
-        {orderedMeasureFields.length === 0 ? (
+        {members.length === 0 ? (
           <Typography variant="body2" className={filterDropZoneStyles.placeholder}>
             Measures
           </Typography>
         ) : (
           <Box className={filterDropZoneStyles.fieldsList}>
-            {orderedMeasureFields.map((field) => (
+            {members.map((field) => (
               <FieldChip
                 key={field.id}
                 field={field}
                 source="MEASURE_GROUP"
                 onUpdate={handleFieldUpdate}
-                allFields={orderedMeasureFields}
+                allFields={members}
                 onRemoveFromZone={(fieldIds) => {
-                  dispatch({ type: 'REMOVE_MEASURES_FROM_GROUP', payload: fieldIds });
+                  dispatch({ type: 'REMOVE_MEASURE_GROUP_MEMBERS', payload: fieldIds });
                 }}
               />
             ))}

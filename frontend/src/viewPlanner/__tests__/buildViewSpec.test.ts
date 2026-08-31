@@ -73,7 +73,7 @@ describe('buildViewSpec', () => {
       yAxisFields: [measureValues],
       colorField: null,
       sizeField: null,
-      measureGroupFields: [revenue, cost],
+      measureGroupMembers: [revenue, cost],
       measureValuesSourceFields: [revenue, cost],
       fieldOverrides: {
         [cost.id]: { chartType: 'line', manualColor: '#123456' },
@@ -132,7 +132,7 @@ describe('buildViewSpec', () => {
       yAxisFields: [measureValues],
       colorField: null,
       sizeField: null,
-      measureGroupFields: [revenue, cost],
+      measureGroupMembers: [revenue, cost],
       measureValuesSourceFields: [revenue, cost],
       independentDomains: { x: true },
     });
@@ -164,7 +164,7 @@ describe('buildViewSpec', () => {
       yAxisFields: [measureValues],
       colorField: null,
       sizeField: null,
-      measureGroupFields: [revenue, target],
+      measureGroupMembers: [revenue, target],
       measureValuesSourceFields: [revenue, target],
       fieldOverrides: {
         [target.id]: { chartType: 'gantt' },

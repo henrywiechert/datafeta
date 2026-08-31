@@ -267,12 +267,15 @@ function buildMeasureGroupCompatibility(args: {
 }
 
 function buildMeasureGroupSpec(input: BuildViewSpecInput): MeasureGroupSpec[] {
-  const fields = dedupeFieldsById(input.measureGroupFields || []);
-  const sourceFields = input.measureValuesSourceFields?.length
-    ? input.measureValuesSourceFields
-    : fields;
+  // measureValuesSourceFields fallback covers the transient state before an
+  // empty group is auto-populated at query time.
+  const fields = dedupeFieldsById(
+    input.measureGroupMembers?.length
+      ? input.measureGroupMembers
+      : input.measureValuesSourceFields || []
+  );
 
-  if (fields.length === 0 && sourceFields.length === 0) {
+  if (fields.length === 0) {
     return [];
   }
 
@@ -290,7 +293,7 @@ function buildMeasureGroupSpec(input: BuildViewSpecInput): MeasureGroupSpec[] {
     ? 'independent'
     : 'shared';
 
-  const members: MarkFamilyMemberSpec[] = sourceFields.map((field) => {
+  const members: MarkFamilyMemberSpec[] = fields.map((field) => {
     const override = input.fieldOverrides?.[field.id];
     return {
       field,

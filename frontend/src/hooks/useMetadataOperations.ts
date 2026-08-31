@@ -36,7 +36,6 @@ interface DataSourceSetters {
     setSuggestedJoinableTables: (tables: string[]) => void;
     setSuggestedUnionableTables: (tables: string[]) => void;
     setVirtualTable: (table: any) => void;
-    setMeasureGroupFields: (fields: Field[]) => void;
     setUnionTables: (tables: Array<{ database: string; table_name: string }>) => void;
     setTablesForDatabase: (database: string, tables: any[]) => void;
 }
@@ -47,7 +46,6 @@ interface UseMetadataOperationsParams {
     dataSourceSetters: DataSourceSetters;
     xAxisFields: Field[];
     yAxisFields: Field[];
-    measureGroupFields: Field[]; // Now from VisualizationContext
     virtualColumns: VirtualColumnDefinition[]; // For axis field validation
     dispatch: React.Dispatch<any>;
     sheets?: Sheet[];
@@ -72,7 +70,6 @@ export function useMetadataOperations({
     dataSourceSetters,
     xAxisFields,
     yAxisFields,
-    measureGroupFields,
     virtualColumns,
     dispatch,
     sheets = [],
@@ -173,14 +170,13 @@ export function useMetadataOperations({
             const response = await apiService.listColumns(dataSource.selectedTable, dbParam);
             
             // Process columns into fields with synthetic fields
-            const { allFields, nextMeasureGroupFields } = processColumnsResponse(
+            const { allFields, validMeasureNames } = processColumnsResponse(
                 response.columns,
-                measureGroupFields,
                 { fieldDisplayAliases: dataSource.fieldDisplayAliases }
             );
 
             // Update state
-            dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
+            dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
             dataSourceSetters.setAvailableFields(allFields);
 
             // Mark axis fields that are not present in new schema as invalid
@@ -215,7 +211,6 @@ export function useMetadataOperations({
         dataSource.selectedTable,
         dataSource.selectedDatabase,
         dataSource.fieldDisplayAliases,
-        measureGroupFields,
         virtualColumns,
         connectionDetails?.type,
         dataSourceSetters,
@@ -280,14 +275,13 @@ export function useMetadataOperations({
                 );
                 
                 // Process columns into fields (include tableName for UNION mode)
-                const { allFields, nextMeasureGroupFields } = processColumnsResponse(
+                const { allFields, validMeasureNames } = processColumnsResponse(
                     response.columns,
-                    measureGroupFields,
                     { includeTableName: true }
                 );
 
                 // Update state
-                dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
+                dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
                 dataSourceSetters.setAvailableFields(allFields);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 
@@ -318,13 +312,12 @@ export function useMetadataOperations({
             );
             
             // Process columns into fields
-            const { allFields, nextMeasureGroupFields } = processColumnsResponse(
-                response.columns,
-                measureGroupFields
+            const { allFields, validMeasureNames } = processColumnsResponse(
+                response.columns
             );
 
             // Update state
-            dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
+            dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
             dataSourceSetters.setAvailableFields(allFields);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
@@ -355,7 +348,6 @@ export function useMetadataOperations({
         dataSource.joinedTables,
         dataSource.unionTables,
         dataSource.customRelationships,
-        measureGroupFields,
         virtualColumns,
         connectionDetails?.type, 
         dataSourceSetters,
@@ -669,7 +661,6 @@ export function useMetadataOperations({
                 unionTables: dataSource.unionTables,
                 customRelationships: dataSource.customRelationships,
                 fieldDisplayAliases: dataSource.fieldDisplayAliases,
-                measureGroupFields,
                 xAxisFields: xAxisFieldsRef.current,
                 yAxisFields: yAxisFieldsRef.current,
                 virtualColumns,
@@ -683,7 +674,9 @@ export function useMetadataOperations({
                 setVirtualTable: dataSourceSetters.setVirtualTable,
                 setIsLoadingMetadata: dataSourceSetters.setIsLoadingMetadata,
                 setMetadataError: dataSourceSetters.setMetadataError,
-                setMeasureGroupFields: dataSourceSetters.setMeasureGroupFields,
+                pruneMeasureGroupMembers: (validMeasureNames) => {
+                    dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
+                },
                 patchAxisFields: (patchedX, patchedY) => {
                     dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
                     dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
@@ -703,7 +696,6 @@ export function useMetadataOperations({
         dataSource.unionTables,
         dataSource.customRelationships,
         dataSource.fieldDisplayAliases,
-        measureGroupFields,
         virtualColumns,
         sheets,
         sessionFilterFields,
