@@ -1,10 +1,30 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { DistributionVariant, Field, UserChartType } from '../../types/field';
+import { DistributionVariant, Field, LineVariant, UserChartType } from '../../types/field';
 import { analyzeFields } from '../analysis/fieldAnalysis';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
 export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'density' | 'pie' | 'heatmap';
+
+/**
+ * Marks that can be drawn on the auto-detected bar layout (band category axis,
+ * zero-based measure axis) without switching to a cartesian line/scatter path.
+ */
+export type BarLayoutMarkStyle = 'bar' | 'dot' | 'line' | 'area';
+
+/**
+ * Map a user/cell chart-type override onto a bar-layout mark.
+ * Scatter → dots at bar values; line/area → a path through those values.
+ * Other types keep the default bar mark.
+ */
+export function resolveBarLayoutMarkStyle(
+  chartType: UserChartType | CellChartType | null | undefined,
+  lineVariant: LineVariant = 'line',
+): BarLayoutMarkStyle {
+  if (chartType === 'scatter' || chartType === 'dot') return 'dot';
+  if (chartType === 'line') return lineVariant === 'area' ? 'area' : 'line';
+  return 'bar';
+}
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field

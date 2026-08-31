@@ -13,7 +13,7 @@ import { ganttChart } from './ganttChart';
 import { buildCdfOptions } from './cdfChart';
 import { buildDensityOptions } from './densityChart';
 import { buildHeatmapOptions } from './heatmapChart';
-import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
+import { CellChartType, ChartTypeOverrides, resolveBarLayoutMarkStyle, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
@@ -91,6 +91,11 @@ function createBar(
     valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipFields: ctx.tooltipFields,
     manualColor: colorField ? undefined : (ctx.color.manual || undefined),
+    markStyle: ctx.markStyle,
+    sizeField: ctx.sizeField,
+    sizeRange: ctx.sizeRange,
+    manualSize: ctx.manualSize,
+    areaFillOpacity: ctx.areaFillOpacity,
     labels: {
       measure: getFieldDisplayName(measure),
       category: categoryDimension ? getFieldDisplayName(categoryDimension) : undefined,
@@ -100,7 +105,30 @@ function createBar(
 
 // ---------- Chart Type Handlers ---------------------------------------------
 
+function tryBarLayoutForDiscreteCategory(
+  data: any[],
+  xf: Field,
+  yf: Field,
+  ctx: ChartContext,
+  markStyle: NonNullable<ChartContext['markStyle']>,
+): Plot.PlotOptions | null {
+  const xfDiscrete = xf.type === 'dimension' && xf.flavour === 'discrete';
+  const yfDiscrete = yf.type === 'dimension' && yf.flavour === 'discrete';
+  if (xf.type === 'measure' && yfDiscrete) {
+    return createBar(data, xf, yf, 'horizontal', { ...ctx, markStyle });
+  }
+  if (yf.type === 'measure' && xfDiscrete) {
+    return createBar(data, yf, xf, 'vertical', { ...ctx, markStyle });
+  }
+  return null;
+}
+
 function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  // Measure vs discrete category: keep bar layout (band + zero baseline) and
+  // draw a single dot at each bar's measure value.
+  const barLayout = tryBarLayoutForDiscreteCategory(data, xf, yf, ctx, 'dot');
+  if (barLayout) return barLayout;
+
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   
   // Apply shared domains: measures use numeric domains, discrete dimensions use categorical domains
@@ -154,6 +182,10 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
 }
 
 function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  const lineMark = ctx.lineVariant === 'area' ? 'area' : 'line';
+  const barLayout = tryBarLayoutForDiscreteCategory(data, xf, yf, ctx, lineMark);
+  if (barLayout) return barLayout;
+
   // measure vs continuous dimension – ensure dimension on one axis
   if (xf.type === 'measure' && yf.type === 'dimension') {
     // Prefer vertical line when measure is on X and dimension on Y
@@ -706,6 +738,7 @@ export function generatePairChartOptions(
     lineColorMode,
     xTickFormat,
     yTickFormat,
+    markStyle: resolveBarLayoutMarkStyle(overrides?.global, lineVariant),
   };
 
   if (!xField && !yField) {

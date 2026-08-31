@@ -7,6 +7,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
+import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -45,7 +46,12 @@ export function createBarCellGenerator(
   labelCfg?: LabelConfig,
   manualColor?: string,
   tooltipFields?: Field[],
-  categoryTickFormat?: (d: any) => string
+  categoryTickFormat?: (d: any) => string,
+  markStyle: BarLayoutMarkStyle = 'bar',
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number,
+  areaFillOpacity?: number,
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition, facetCellContext): CellResult => {
     // Combine row and column facet fields for tooltip display
@@ -115,7 +121,12 @@ export function createBarCellGenerator(
           tooltipFields,
           allFacetFields,
           categoryField,
-          categoryTickFormat
+          categoryTickFormat,
+          markStyle,
+          sizeField,
+          sizeRange,
+          manualSize,
+          areaFillOpacity,
         );
         title = resolveMeasureAlias(f);
       } else {
@@ -236,7 +247,12 @@ function buildMeasureBarOptions(
   tooltipFields: Field[] | undefined,
   facetFields?: Field[],
   categoryField?: Field | null,
-  categoryTickFormat?: (d: any) => string
+  categoryTickFormat?: (d: any) => string,
+  markStyle: BarLayoutMarkStyle = 'bar',
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number,
+  areaFillOpacity?: number,
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measureField);
   const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
@@ -272,6 +288,11 @@ function buildMeasureBarOptions(
     manualColor: colorField ? undefined : manualColor,
     facetFields: facetFields,
     measureField: measureField,
+    markStyle,
+    sizeField,
+    sizeRange,
+    manualSize,
+    areaFillOpacity,
     labels: {
       measure: getFieldDisplayName(measureField),
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,

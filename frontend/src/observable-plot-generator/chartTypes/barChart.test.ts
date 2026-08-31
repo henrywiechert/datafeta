@@ -11,6 +11,12 @@ jest.mock('@observablehq/plot', () => ({
   ruleY: (vals: any, opts: any) => ({ type: 'ruleY', vals, opts }),
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
+  lineX: (data: any[], opts: any) => ({ type: 'lineX', data, opts }),
+  lineY: (data: any[], opts: any) => ({ type: 'lineY', data, opts }),
+  areaX: (data: any[], opts: any) => ({ type: 'areaX', data, opts }),
+  areaY: (data: any[], opts: any) => ({ type: 'areaY', data, opts }),
+  stackX: (opts: any) => opts,
+  stackY: (opts: any) => opts,
 }));
 
 // Minimal mock Field objects
@@ -341,5 +347,137 @@ describe('barChart refactored implementation', () => {
     expect(colorTooltipField.sourceField).toBe(colorField);
     expect(colorTooltipField.sourceField.flavour).toBe('discrete');
     expect(colorTooltipField.rawValue).toBe('X');
+  });
+
+  test('scatter override on vertical bars draws dots at bar heights', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 10 },
+          { category: 'B', 'SUM(value)': 20 },
+        ],
+        columns: [],
+        row_count: 2,
+      } as any,
+      xFields: [dim('category')],
+      yFields: [meas('value', 'sum')],
+      color: color(),
+      sizeField: undefined,
+      globalChartType: 'scatter',
+    };
+
+    const opts = barChart(ctx);
+    const valueMark = opts.marks?.[0] as any;
+    expect(valueMark.type).toBe('dot');
+    expect(valueMark.opts.y).toBe('SUM(value)');
+    expect(valueMark.opts.x).toBe('__category');
+    expect(opts.x?.type).toBe('band');
+    expect(opts.x?.domain).toEqual(['A', 'B']);
+    expect((opts.y?.domain as [number, number])[0]).toBe(0);
+    expect(valueMark.data).toHaveLength(2);
+  });
+
+  test('scatter override on horizontal bars draws dots at bar lengths', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 5 },
+          { category: 'B', 'SUM(value)': 15 },
+        ],
+        columns: [],
+        row_count: 2,
+      } as any,
+      xFields: [meas('value', 'sum')],
+      yFields: [dim('category')],
+      color: color(),
+      sizeField: undefined,
+      globalChartType: 'scatter',
+    };
+
+    const opts = barChart(ctx);
+    const valueMark = opts.marks?.[0] as any;
+    expect(valueMark.type).toBe('dot');
+    expect(valueMark.opts.x).toBe('SUM(value)');
+    expect(valueMark.opts.y).toBe('__category');
+    expect(opts.y?.type).toBe('band');
+    expect(opts.y?.domain).toEqual(['A', 'B']);
+    expect((opts.x?.domain as [number, number])[0]).toBe(0);
+  });
+
+  test('scatter override on stacked bars still uses stack transform for dots', () => {
+    const data = [
+      { 'SUM(value)': 10, category: 'A', segment: 'X' },
+      { 'SUM(value)': 5, category: 'A', segment: 'Y' },
+    ];
+
+    const opts = buildBarOptions({
+      data,
+      measureName: 'SUM(value)',
+      orientation: 'vertical',
+      categoryColumn: 'category',
+      categoriesDomain: ['A'],
+      colorColumn: 'segment',
+      colorScale: null,
+      markStyle: 'dot',
+    });
+
+    const valueMark = opts.marks?.[0] as any;
+    expect(valueMark.type).toBe('dot');
+    expect(valueMark.opts.y).toBe('SUM(value)');
+    expect(valueMark.opts.z).toBe('segment');
+    expect(opts.x?.domain).toEqual(['A']);
+    expect((opts.y?.domain as [number, number])[0]).toBe(0);
+  });
+
+  test('line override on vertical bars draws a line through bar values', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 10 },
+          { category: 'B', 'SUM(value)': 20 },
+        ],
+        columns: [],
+        row_count: 2,
+      } as any,
+      xFields: [dim('category')],
+      yFields: [meas('value', 'sum')],
+      color: color(),
+      sizeField: undefined,
+      globalChartType: 'line',
+    };
+
+    const opts = barChart(ctx);
+    const valueMark = opts.marks?.[0] as any;
+    expect(valueMark.type).toBe('lineY');
+    expect(valueMark.opts.y).toBe('SUM(value)');
+    expect(valueMark.opts.x).toBe('__category');
+    expect(opts.x?.type).toBe('band');
+    expect(opts.x?.domain).toEqual(['A', 'B']);
+    expect((opts.y?.domain as [number, number])[0]).toBe(0);
+  });
+
+  test('area override on horizontal bars draws area then line', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 5 },
+          { category: 'B', 'SUM(value)': 15 },
+        ],
+        columns: [],
+        row_count: 2,
+      } as any,
+      xFields: [meas('value', 'sum')],
+      yFields: [dim('category')],
+      color: color(),
+      sizeField: undefined,
+      globalChartType: 'line',
+      lineVariant: 'area',
+    };
+
+    const opts = barChart(ctx);
+    expect((opts.marks?.[0] as any).type).toBe('areaX');
+    expect((opts.marks?.[1] as any).type).toBe('lineX');
+    expect(opts.y?.type).toBe('band');
+    expect((opts.x?.domain as [number, number])[0]).toBe(0);
   });
 });

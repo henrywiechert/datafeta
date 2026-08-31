@@ -2,6 +2,7 @@
 import { ChartGenerationContext, LabelConfig, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
+import { resolveBarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
@@ -158,6 +159,11 @@ export function barUnified(
       // When there's no color field, use the global/effective manualColor as the bar fill
       manualColor: colorField ? undefined : effectiveManualColor,
       measureField: measure,
+      markStyle: resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant),
+      sizeField,
+      sizeRange: context.sizeRange,
+      manualSize: effectiveManualSize,
+      areaFillOpacity: context.areaFillOpacity,
       labels: {
         measure: getFieldDisplayName(measure),
         category: hasCategories && categoryDims.length === 1 

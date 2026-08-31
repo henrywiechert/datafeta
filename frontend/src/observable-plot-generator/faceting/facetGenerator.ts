@@ -9,6 +9,7 @@ import { SharedDomains } from './facetDomains';
 import { buildLabelConfig, buildCartesianPlotsConfig } from '../utils/configBuilder';
 import { coordinateFacetedGrid, CellGenerator, CellResult, FacetCellContext } from './facetCoordinator';
 import { resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue } from '../chartTypes/barCore';
+import { resolveBarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { createBarCellGenerator } from './barFacetGenerator';
 import { generateCartesianPlots } from '../grid/coreGridGenerator';
@@ -160,7 +161,12 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       labelCfg,
       effectiveManualColor,
       context.tooltipFields,
-      tickFormat
+      tickFormat,
+      resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant),
+      sizeField,
+      context.sizeRange,
+      effectiveManualSize,
+      context.areaFillOpacity,
     );
     
     // Use the coordinator for chart-type-agnostic faceting
