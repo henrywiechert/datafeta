@@ -978,3 +978,75 @@ class TestVirtualColumnExpressionBuilder:
         assert 'CAST' in sql
         assert 'DOUBLE' in sql
 
+
+
+class TestLinkColumnExpressions:
+    """URL-building expressions for link columns.
+
+    String literals are masked before the safety scan, so URL content that
+    merely contains a DDL/DML keyword substring (``?sort=created_at``,
+    ``/updates``) is accepted while real injection attempts still fail.
+    """
+
+    def setup_method(self):
+        self.table = Table('cells')
+        self.table_map = {'cells': self.table}
+        self.builder = VirtualColumnExpressionBuilder(self.table_map, self.table)
+
+    @pytest.mark.parametrize('expression', [
+        "CONCAT('https://jira.corp/browse/', ticket_id)",
+        "CONCAT('https://tool/api/v2/report?sort=created_at&id=', cell_id)",
+        "CONCAT('https://ncm/cells/', cell_id, '/updates')",
+        "CONCAT('https://kb/articles/rf--tuning/', cell_id)",
+        "CONCAT('https://host/x/', cell_id, '__', site_id)",
+        "CONCAT('https://g/d/x?q=a;b=c&t=', cell_id)",
+    ])
+    def test_url_expressions_are_accepted(self, expression):
+        """URLs whose literal content contains keywords/comment tokens are allowed."""
+        vc = VirtualColumnDefinition(name='cell_link', expression=expression, output_type='text')
+        term = self.builder.register_virtual_column(vc)
+        assert isinstance(term, Term)
+
+    @pytest.mark.parametrize('expression', [
+        "1; DROP TABLE users",
+        "cell_id -- comment",
+        "cell_id /* comment */ + 1",
+        "DELETE FROM t",
+        "cell_id.__class__",
+        "CREATE TABLE x",
+        "CONCAT('a','b'); DROP TABLE t",
+        "CONCAT('ok') -- trailing",
+    ])
+    def test_injection_attempts_still_rejected(self, expression):
+        """Keywords and comment tokens outside string literals remain forbidden."""
+        vc = VirtualColumnDefinition(name='bad', expression=expression)
+        with pytest.raises(QueryGenerationError):
+            self.builder.register_virtual_column(vc)
+
+    def test_url_literal_is_not_mangled_and_source_fields_exclude_it(self):
+        """Dots/slashes inside the URL are neither treated as column refs nor rewritten."""
+        vc = VirtualColumnDefinition(
+            name='cell_link',
+            expression="CONCAT('https://ncm.corp.example.com/cell/', cell_id)",
+            output_type='text',
+        )
+        term = self.builder.register_virtual_column(vc)
+
+        sql = term.get_sql(quote_char='"')
+        assert 'https://ncm.corp.example.com/cell/' in sql
+        assert self.builder.get_source_fields('cell_link') == ['cell_id']
+
+    def test_link_flag_does_not_affect_generated_sql(self):
+        """`link` is presentation-only and must not change the emitted expression."""
+        plain = VirtualColumnExpressionBuilder(self.table_map, self.table)
+        linked = VirtualColumnExpressionBuilder(self.table_map, self.table)
+        expression = "CONCAT('https://ncm/cell/', cell_id)"
+
+        a = plain.register_virtual_column(
+            VirtualColumnDefinition(name='u', expression=expression, output_type='text')
+        )
+        b = linked.register_virtual_column(
+            VirtualColumnDefinition(name='u', expression=expression, output_type='text', link=True)
+        )
+
+        assert a.get_sql(quote_char='"') == b.get_sql(quote_char='"')

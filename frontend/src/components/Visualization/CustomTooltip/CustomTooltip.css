@@ -365,3 +365,48 @@ line.chart-mark--highlighted {
 }
 
 
+
+/* ---------------------------------------------------------------------------
+   Link columns
+   --------------------------------------------------------------------------- */
+
+/* Long URLs must not blow out the tooltip width. */
+.custom-tooltip__value--link {
+  max-width: 320px;
+  overflow: hidden;
+}
+
+.custom-tooltip__link,
+.custom-tooltip__link-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
+.custom-tooltip__link-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-tooltip__link {
+  color: #7db8ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.custom-tooltip__link:hover {
+  color: #a9d2ff;
+}
+
+/* Unpinned affordance: styled as a link but not yet clickable, because the
+   tooltip only receives pointer events once pinned. */
+.custom-tooltip__link-hint {
+  color: #7db8ff;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  opacity: 0.85;
+}

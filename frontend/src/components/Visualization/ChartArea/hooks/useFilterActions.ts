@@ -14,21 +14,45 @@ import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 import { toDatePartInteger } from '../utils/dateTimeConversion';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
-import type { DateTimePart, Field } from '../../../../types';
+import type { DateTimePart, Field, VirtualColumnDefinition } from '../../../../types';
 import type { LegendFilterAction } from '../../Legend/LegendPanel';
 import type { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 
 interface UseFilterActionsProps {
   /** Chart grid produced by useChartGeneration – used for tooltip callback injection. */
   grid: GridResultModel | null;
+  /**
+   * Virtual columns whose value is a URL. Injected into each cell's tooltip
+   * config so a pinned tooltip can render them as links.
+   */
+  virtualColumns?: VirtualColumnDefinition[];
 }
 
 export function useFilterActions({
   grid,
+  virtualColumns,
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
   const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
   const recordUndoPoint = useRecordUndoPoint();
+
+  // Names of virtual columns whose value is a URL.
+  // Joined into a string first so the identity only changes when the set of
+  // link columns actually changes — this value feeds the grid rebuild below,
+  // and an unstable identity would redraw every chart on each render.
+  const linkColumnsKey = useMemo(
+    () =>
+      (virtualColumns ?? [])
+        .filter(vc => vc.link)
+        .map(vc => vc.name)
+        .sort()
+        .join('\u0000'),
+    [virtualColumns],
+  );
+  const linkColumns = useMemo(
+    () => (linkColumnsKey ? linkColumnsKey.split('\u0000') : []),
+    [linkColumnsKey],
+  );
 
   // `handleTooltipFilterAction` is injected into every plot cell's options below, so a
   // new identity rebuilds the grid and makes Observable Plot redraw the SVG. Its inputs
@@ -174,11 +198,10 @@ export function useFilterActions({
     [dispatch, recordUndoPoint],
   );
 
-  // ── Inject tooltip filter callback into each cell ────────────────────
-  // For plot cells the callback lives on `options.__customTooltip`; for pie
-  // cells it lives on the cell's `tooltipConfig`. Cells without a custom
-  // tooltip enabled are returned unchanged so memoization downstream stays
-  // stable.
+  // ── Inject tooltip filter callback + link columns into each cell ─────
+  // For plot cells these live on `options.__customTooltip`; for pie cells they
+  // live on the cell's `tooltipConfig`. Cells without a custom tooltip enabled
+  // are returned unchanged so memoization downstream stays stable.
   const gridWithTooltipAction = useMemo<GridResultModel | null>(() => {
     if (!grid) return grid;
     let mutated = false;
@@ -193,7 +216,7 @@ export function useFilterActions({
             ...cell.content,
             options: {
               ...cell.content.options,
-              __customTooltip: { ...ct, onFilterAction: handleTooltipFilterAction },
+              __customTooltip: { ...ct, onFilterAction: handleTooltipFilterAction, linkColumns },
             } as any,
           },
         };
@@ -206,14 +229,14 @@ export function useFilterActions({
           ...cell,
           content: {
             ...cell.content,
-            tooltipConfig: { ...ct, onFilterAction: handleTooltipFilterAction },
+            tooltipConfig: { ...ct, onFilterAction: handleTooltipFilterAction, linkColumns },
           },
         };
       }
       return cell;
     });
     return mutated ? { ...grid, cells } : grid;
-  }, [grid, handleTooltipFilterAction]);
+  }, [grid, handleTooltipFilterAction, linkColumns]);
 
   return { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction };
 }

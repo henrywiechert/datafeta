@@ -120,6 +120,13 @@ class VirtualColumnDefinition(BaseModel):
     expression: str = Field(..., description="SQL expression to calculate the column")
     output_type: Optional[str] = Field(None, description="Expected SQL data type (e.g., 'DOUBLE', 'VARCHAR', 'INTEGER')")
     description: Optional[str] = Field(None, description="Human-readable description of the column")
+    link: Optional[bool] = Field(
+        None,
+        description=(
+            "Presentation-only flag: when true the column's value is treated as a URL "
+            "and rendered as a clickable link in pinned tooltips. Never used in SQL."
+        ),
+    )
     
     @field_validator('name')
     @classmethod

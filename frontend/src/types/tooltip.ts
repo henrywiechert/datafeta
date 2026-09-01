@@ -98,4 +98,10 @@ export interface CustomTooltipConfig {
    * Injected post-hoc by ChartArea after chart generation.
    */
   onFilterAction?: (action: TooltipFilterAction, field: TooltipField) => void;
+  /**
+   * Column names whose values are URLs and should render as clickable links
+   * in a pinned tooltip. Injected post-hoc by ChartArea after chart generation,
+   * alongside `onFilterAction`.
+   */
+  linkColumns?: string[];
 }

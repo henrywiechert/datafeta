@@ -388,31 +388,46 @@ class VirtualColumnExpressionBuilder:
     def _validate_expression_safety(self, expression: str) -> None:
         """
         Validate that expression doesn't contain dangerous SQL.
-        
+
+        String literals are masked out before the keyword scan.  Literals are
+        wrapped by pypika's ``ValueWrapper`` into properly quoted parameters and
+        so are never an injection vector; scanning them only produced false
+        positives on legitimate content such as URLs (``?sort=created_at``
+        contains "CREATE", ``/updates`` contains "UPDATE").
+
         Args:
             expression: Expression to validate
-            
+
         Raises:
             ValueError: If expression contains forbidden keywords
         """
-        # Convert to uppercase for checking
-        expr_upper = expression.upper()
-        
-        # Forbidden keywords (DDL/DML)
+        # Mask single-quoted string literals so their contents are not scanned.
+        # Same literal pattern used by _extract_column_references.
+        expr_scanned = re.sub(r"'(?:''|[^'])*'", "''", expression)
+        expr_upper = expr_scanned.upper()
+
+        # Forbidden keywords (DDL/DML). Matched on word boundaries so that
+        # identifiers merely containing a keyword (e.g. `created_at`, `updated`)
+        # are not rejected.
         forbidden_keywords = [
-            'DROP', 'DELETE', 'INSERT', 'UPDATE', 'TRUNCATE', 
+            'DROP', 'DELETE', 'INSERT', 'UPDATE', 'TRUNCATE',
             'CREATE', 'ALTER', 'GRANT', 'REVOKE',
             'EXEC', 'EXECUTE', 'DECLARE', 'CURSOR',
-            '--', '/*', '*/',  # SQL comments
-            ';',  # Statement separator
         ]
-        
+
         for keyword in forbidden_keywords:
-            if keyword in expr_upper:
+            if re.search(rf'\b{keyword}\b', expr_upper):
                 raise ValueError(f"Forbidden keyword in expression: {keyword}")
-        
+
+        # Structural tokens: SQL comments and statement separators. These stay
+        # substring matches (no word boundary applies) but are still only
+        # checked outside string literals.
+        for token in ('--', '/*', '*/', ';'):
+            if token in expr_scanned:
+                raise ValueError(f"Forbidden keyword in expression: {token}")
+
         # Check for suspicious patterns
-        if '__' in expression:  # Python special methods
+        if '__' in expr_scanned:  # Python special methods
             raise ValueError("Expression cannot contain '__'")
     
     def _extract_column_references(self, expression: str) -> List[str]:

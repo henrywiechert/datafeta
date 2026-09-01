@@ -18,6 +18,8 @@ import {
   Paper,
   Divider,
   Autocomplete,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import FunctionsIcon from '@mui/icons-material/Functions';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -44,6 +46,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
   const [expression, setExpression] = useState('');
   const [outputType, setOutputType] = useState<'numeric' | 'text' | 'datetime' | ''>('');
   const [description, setDescription] = useState('');
+  const [link, setLink] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [columnSearch, setColumnSearch] = useState('');
 
@@ -55,11 +58,13 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
         setExpression(column.expression);
         setOutputType(column.output_type || '');
         setDescription(column.description || '');
+        setLink(column.link ?? false);
       } else {
         setName('');
         setExpression('');
         setOutputType('');
         setDescription('');
+        setLink(false);
       }
       setErrors({});
       setColumnSearch('');
@@ -72,6 +77,23 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     const search = columnSearch.toLowerCase();
     return availableColumns.filter(col => col.toLowerCase().includes(search));
   }, [availableColumns, columnSearch]);
+
+  /**
+   * Advisory hint for link columns — not a blocking error.
+   *
+   * The URL is produced per row at query time, so it cannot be validated when
+   * the column is defined. This only catches the common authoring mistake of
+   * omitting the scheme, and stays silent when the expression has no string
+   * literal at all (e.g. the URL comes straight out of a column).
+   */
+  const linkHint = useMemo(() => {
+    if (!link || !expression.trim()) return null;
+    const literals = expression.match(/'(?:''|[^'])*'/g);
+    if (!literals || literals.length === 0) return null;
+    const hasHttpLiteral = literals.some(lit => /^'https?:\/\//i.test(lit));
+    if (hasHttpLiteral) return null;
+    return 'No literal starting with http:// or https:// found. Values that are not absolute http(s) URLs render as plain text.';
+  }, [link, expression]);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -89,11 +111,15 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     if (!expression.trim()) {
       newErrors.expression = 'Expression is required';
     } else {
-      // Basic validation - check for dangerous keywords
+      // Basic validation - check for dangerous keywords.
+      // Mirrors the backend's _validate_expression_safety: string literals are
+      // masked out and keywords match on word boundaries, so legitimate content
+      // such as a URL ('.../report?sort=created_at') is not rejected.
       const dangerousKeywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'TRUNCATE', 'ALTER', 'CREATE'];
-      const upperExpr = expression.toUpperCase();
+      const scanned = expression.replace(/'(?:''|[^'])*'/g, "''");
+      const upperExpr = scanned.toUpperCase();
       for (const keyword of dangerousKeywords) {
-        if (upperExpr.includes(keyword)) {
+        if (new RegExp(`\\b${keyword}\\b`).test(upperExpr)) {
           newErrors.expression = `Expression cannot contain dangerous keyword: ${keyword}`;
           break;
         }
@@ -126,6 +152,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
         expression: expression.trim(),
         output_type: outputType || undefined,
         description: description.trim() || undefined,
+        link: link || undefined,
       };
       onSave(virtualColumn);
     }
@@ -158,6 +185,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     { label: 'Absolute value', value: 'ABS(delta)', type: 'numeric' },
     { label: 'Upper case', value: 'UPPER(status)', type: 'text' },
     { label: 'Split segment', value: 'SPLIT(process_name, ":", -1)', type: 'text' },
+    { label: 'Link URL', value: 'CONCAT(\'https://host/cell/\', cell_id)', type: 'text' },
   ];
 
   return (
@@ -256,6 +284,31 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
               <MenuItem value="datetime">DateTime</MenuItem>
             </Select>
           </FormControl>
+
+          {/* Render as link */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={link}
+                  onChange={(e) => setLink(e.target.checked)}
+                />
+              }
+              label="Value is a URL — render as a clickable link"
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4, mt: -0.5 }}>
+              Display-only, never sent to SQL. Build the URL in the expression, e.g.{' '}
+              <Box component="span" sx={{ fontFamily: 'monospace' }}>
+                CONCAT('https://host/cell/', cell_id)
+              </Box>
+              . Links open from a pinned tooltip; only http(s) URLs are clickable.
+            </Typography>
+            {linkHint && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                <Typography variant="caption">{linkHint}</Typography>
+              </Alert>
+            )}
+          </Box>
 
           {/* Description */}
           <TextField

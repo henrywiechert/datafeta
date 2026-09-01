@@ -59,8 +59,27 @@ interface CustomTooltipProps {
   fields: TooltipField[];     // Array of label-value pairs to display
   visible: boolean;           // Whether tooltip should render
   colorHex?: string;          // Optional color bar on left edge
+  linkColumns?: string[];     // Column names whose values render as links
 }
 ```
+
+---
+
+### **Link Columns**
+
+A field whose `sourceField.columnName` is listed in `linkColumns` renders its
+value as a clickable link. `linkColumns` is injected per cell by
+`useFilterActions`, alongside `onFilterAction`, from the virtual columns marked
+`link: true`.
+
+Links are **pinned-only**: `.custom-tooltip` is `pointer-events: none` and only
+`.custom-tooltip--pinned` re-enables them, so an anchor on hover would be
+unclickable. On hover the value gets link styling as an affordance instead.
+
+Every value is validated at render by `utils/linkColumnUrl.ts` — absolute
+`http(s)` URLs only, `target="_blank"` + `rel="noopener noreferrer"` — and the
+link is suppressed when `extraCount > 0`, since the cell then aggregates several
+distinct values. Anything that fails validation degrades to plain text.
 
 ---
 
@@ -128,6 +147,10 @@ Values: Normal, light gray (#e0e0e0)
 | `.custom-tooltip__value` | Normal value styling with word-wrap |
 | `.custom-tooltip__header` | Optional header with color swatch |
 | `.custom-tooltip__color-swatch` | Small color indicator box |
+| `.custom-tooltip__value--link` | Value cell of a link column (width-capped) |
+| `.custom-tooltip__link` | Clickable anchor, rendered only while pinned |
+| `.custom-tooltip__link-hint` | Unpinned link affordance (dotted underline, not clickable) |
+| `.custom-tooltip__link-text` | Ellipsised link text |
 | `.chart-mark--highlighted` | Applied to hovered chart marks (brightness filter) |
 
 ---

@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TooltipField, TooltipFilterAction, PinnedTooltipComparison } from '../../../types';
+import { sanitizeLinkHref } from '../../../utils/linkColumnUrl';
 import './CustomTooltip.css';
 
 // Re-export for backward compatibility
@@ -18,6 +19,8 @@ interface CustomTooltipProps {
   onFilterAction?: (action: TooltipFilterAction, field: TooltipField) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+  /** Column names whose values are URLs; rendered as links while pinned. */
+  linkColumns?: string[];
 }
 
 function formatPercentDifference(value: number | undefined): string | null {
@@ -50,6 +53,14 @@ const FilterVisibleIcon: React.FC = () => (
   </svg>
 );
 
+/** Inline SVG external-link icon – 11×11 */
+const ExternalLinkIcon: React.FC = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />
+    <path d="M19 19H5V5h6V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-6h-2v6z" />
+  </svg>
+);
+
 /** Inline SVG close icon – 16×16 */
 const CloseIconSvg: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -76,6 +87,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   onFilterAction,
   autoExpandPinnedComparison = false,
   onAutoExpandPinnedComparisonChange,
+  linkColumns,
 }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number; anchor: string }>({ 
@@ -145,6 +157,36 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   /** Whether a field row should show filter action buttons */
   const isFilterable = (field: TooltipField) =>
     pinned && onFilterAction && field.sourceField?.flavour === 'discrete' && field.rawValue != null;
+
+  const linkColumnSet = useMemo(() => new Set(linkColumns ?? []), [linkColumns]);
+
+  /**
+   * Whether a field row is a link column whose value is a usable http(s) URL.
+   * Values that fail validation degrade to plain text.
+   */
+  const isLinkRow = (field: TooltipField): boolean => {
+    const columnName = field.sourceField?.columnName;
+    if (!columnName || !linkColumnSet.has(columnName)) return false;
+    return sanitizeLinkHref(field.rawValue ?? field.value) !== undefined;
+  };
+
+  /**
+   * Resolve a field's value to a safe href, or undefined to render plain text.
+   *
+   * Returns a value only while pinned: the tooltip is `pointer-events: none`
+   * on hover and only `.custom-tooltip--pinned` re-enables them, so an anchor
+   * rendered on hover would be unclickable. On hover the row still gets the
+   * link styling as an affordance (see `isLinkRow`), it just is not an <a>.
+   *
+   * Also suppressed when `extraCount` is set: the cell aggregates several
+   * distinct values, so the one displayed is not an unambiguous target.
+   */
+  const resolveHref = (field: TooltipField): string | undefined => {
+    if (!isLinkRow(field)) return undefined;
+    if (!pinned) return undefined;
+    if (field.extraCount != null && field.extraCount > 0) return undefined;
+    return sanitizeLinkHref(field.rawValue ?? field.value);
+  };
 
   const stopTooltipControlPropagation = (event: React.SyntheticEvent) => {
     event.stopPropagation();
@@ -230,11 +272,36 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
         </button>
       )}
 
-      {fields.map((field, idx) => (
+      {fields.map((field, idx) => {
+        const href = resolveHref(field);
+        const linkStyled = isLinkRow(field);
+        const displayValue = field.formattedValue !== undefined ? field.formattedValue : field.value;
+        return (
         <div key={idx} className="custom-tooltip__row">
           <span className="custom-tooltip__label">{field.label}:</span>
-          <span className="custom-tooltip__value">
-            {field.formattedValue !== undefined ? field.formattedValue : field.value}
+          <span className={`custom-tooltip__value${linkStyled ? ' custom-tooltip__value--link' : ''}`}>
+            {href ? (
+              <a
+                className="custom-tooltip__link"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={href}
+                onMouseDown={stopTooltipControlPropagation}
+                onClick={stopTooltipControlPropagation}
+              >
+                <span className="custom-tooltip__link-text">{displayValue}</span>
+                <ExternalLinkIcon />
+              </a>
+            ) : linkStyled ? (
+              // Pin the tooltip to make this clickable — see resolveHref.
+              <span className="custom-tooltip__link-hint" title="Pin the tooltip to open this link">
+                <span className="custom-tooltip__link-text">{displayValue}</span>
+                <ExternalLinkIcon />
+              </span>
+            ) : (
+              displayValue
+            )}
             {field.extraCount != null && field.extraCount > 0 && (
               <span className="custom-tooltip__extra-count" title={`${field.extraCount} more value${field.extraCount === 1 ? '' : 's'} exist for this cell`}>
                 {' '}(+{field.extraCount} more)
@@ -274,7 +341,8 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
             </span>
           )}
         </div>
-      ))}
+        );
+      })}
 
       {(showComparisonToggle || showComparisonPanel) && (
         <div className="custom-tooltip__comparison">
