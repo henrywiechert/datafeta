@@ -78,6 +78,38 @@ export function collectReferencedColumnNames(
   return columns;
 }
 
+export interface SchemaCheckReadiness {
+  selectedTable: string;
+  /** Count of REAL columns fetched from the backend — virtual columns must not count. */
+  realFieldCount: number;
+  isLoadingMetadata: boolean;
+  hasJoinsOrUnions: boolean;
+  hasVirtualTable: boolean;
+}
+
+/**
+ * True once the fetched schema has settled enough to judge a restored snapshot.
+ *
+ * The after-load check runs exactly once, so firing it mid-fetch permanently
+ * reports a healthy sheet as broken. Virtual columns are excluded from the field
+ * count on purpose: a snapshot restores them in the same batch as the table, so
+ * they are present before any real column has been fetched.
+ */
+export function isSchemaCheckReady({
+  selectedTable,
+  realFieldCount,
+  isLoadingMetadata,
+  hasJoinsOrUnions,
+  hasVirtualTable,
+}: SchemaCheckReadiness): boolean {
+  if (!selectedTable || realFieldCount === 0) return false;
+  if (isLoadingMetadata) return false;
+  // Joins/unions land their merged field set together with virtualTable; without
+  // it the fields on hand are only the primary table's.
+  if (hasJoinsOrUnions && !hasVirtualTable) return false;
+  return true;
+}
+
 export function validateSheetSchema(
   sheets: Sheet[],
   availableFields: Field[],
