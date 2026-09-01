@@ -57,8 +57,9 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
   });
 
   // Line charts compute their dependent-axis domain from per-cell data which
-  // may differ across facets. Harmonize so all facets share the same scale.
-  harmonizeLineChartDomains(allPlots);
+  // may differ across facets. Harmonize so all facets share the same scale -
+  // scoped to a single grid row/column for axes marked independent per facet.
+  harmonizeLineChartDomains(allPlots, context.independentDomains);
 
   // Compute final grid layout
   const gridLayout = computeGridLayout(

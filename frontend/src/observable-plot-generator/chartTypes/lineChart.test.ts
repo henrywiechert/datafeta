@@ -168,12 +168,18 @@ describe('buildLineOptions – dependent-axis domain always recomputed from data
 });
 
 describe('harmonizeLineChartDomains', () => {
-  function makeMockPlot(axis: 'x' | 'y', column: string, domain: [number, number]) {
+  function makeMockPlot(
+    axis: 'x' | 'y',
+    column: string,
+    domain: [number, number],
+    position?: { row: number; col: number },
+  ) {
     return {
       options: {
         [axis]: { label: column, domain },
         __lineChartDomainInfo: { axis, column, domain },
       } as any,
+      position,
     };
   }
 
@@ -239,6 +245,66 @@ describe('harmonizeLineChartDomains', () => {
     expect((plots[1].options.y as any).domain).toEqual([5, 200]);
     expect((plots[2].options.y as any).domain).toEqual([0, 50]);
     expect((plots[3].options.y as any).domain).toEqual([0, 50]);
+  });
+
+  test('scopes Y harmonization to each grid row when Y is independent', () => {
+    const plots = [
+      makeMockPlot('y', 'AVG(y)', [10, 100], { row: 0, col: 0 }),
+      makeMockPlot('y', 'AVG(y)', [20, 150], { row: 0, col: 1 }),
+      makeMockPlot('y', 'AVG(y)', [0, 5], { row: 1, col: 0 }),
+      makeMockPlot('y', 'AVG(y)', [1, 8], { row: 1, col: 1 }),
+    ];
+
+    harmonizeLineChartDomains(plots, { y: true });
+
+    // Cells in a row share a domain (they share one axis in the left gutter)...
+    expect((plots[0].options.y as any).domain).toEqual([10, 150]);
+    expect((plots[1].options.y as any).domain).toEqual([10, 150]);
+    // ...but the small-valued row keeps its own scale instead of being
+    // stretched to the grid-wide [0, 150].
+    expect((plots[2].options.y as any).domain).toEqual([0, 8]);
+    expect((plots[3].options.y as any).domain).toEqual([0, 8]);
+  });
+
+  test('scopes X harmonization to each grid column when X is independent', () => {
+    const plots = [
+      makeMockPlot('x', 'AVG(x)', [10, 100], { row: 0, col: 0 }),
+      makeMockPlot('x', 'AVG(x)', [0, 5], { row: 0, col: 1 }),
+      makeMockPlot('x', 'AVG(x)', [20, 150], { row: 1, col: 0 }),
+      makeMockPlot('x', 'AVG(x)', [1, 8], { row: 1, col: 1 }),
+    ];
+
+    harmonizeLineChartDomains(plots, { x: true });
+
+    expect((plots[0].options.x as any).domain).toEqual([10, 150]);
+    expect((plots[2].options.x as any).domain).toEqual([10, 150]);
+    expect((plots[1].options.x as any).domain).toEqual([0, 8]);
+    expect((plots[3].options.x as any).domain).toEqual([0, 8]);
+  });
+
+  test('does not partition an axis that is not marked independent', () => {
+    const plots = [
+      makeMockPlot('y', 'AVG(y)', [10, 100], { row: 0, col: 0 }),
+      makeMockPlot('y', 'AVG(y)', [0, 5], { row: 1, col: 0 }),
+    ];
+
+    // Independent X must not loosen the shared Y scale.
+    harmonizeLineChartDomains(plots, { x: true });
+
+    expect((plots[0].options.y as any).domain).toEqual([0, 100]);
+    expect((plots[1].options.y as any).domain).toEqual([0, 100]);
+  });
+
+  test('falls back to grid-wide harmonization when plots carry no position', () => {
+    const plots = [
+      makeMockPlot('y', 'AVG(y)', [10, 100]),
+      makeMockPlot('y', 'AVG(y)', [0, 5]),
+    ];
+
+    harmonizeLineChartDomains(plots, { y: true });
+
+    expect((plots[0].options.y as any).domain).toEqual([0, 100]);
+    expect((plots[1].options.y as any).domain).toEqual([0, 100]);
   });
 });
 
