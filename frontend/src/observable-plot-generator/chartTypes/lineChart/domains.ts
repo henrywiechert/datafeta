@@ -87,10 +87,24 @@ export function attachLineDomainMetadata(params: {
  * by buildLineOptions as __lineChartDomainInfo) and replaces them with the
  * union across all cells grouped by axis + column.
  *
+ * When an axis is configured as independent per facet, the union is scoped to a
+ * single grid track instead of the whole grid: rows for an independent Y, columns
+ * for an independent X. That matches the axis gutters, which render one Y axis per
+ * grid row (YAxes) and one X axis per grid column (XAxes) sampled from the first
+ * cell of that track - so every cell sharing a gutter must share its domain, but
+ * cells in different tracks are free to differ.
+ *
+ * Note this is how line charts reach independent domains at all: buildLineOptions
+ * deliberately discards the caller-supplied domain and recomputes it from the
+ * post-binning data (see the comment there), so the per-row/per-column domains
+ * from facetDomainContext never reach it. Partitioning here restores the intent
+ * without giving up the anti-inflation recompute.
+ *
  * Safe to call on mixed plot arrays - non-line-chart plots are ignored.
  */
 export function harmonizeLineChartDomains(
-  plots: Array<{ options: Plot.PlotOptions }>
+  plots: Array<{ options: Plot.PlotOptions; position?: { row: number; col: number } }>,
+  independentDomains?: { x?: boolean; y?: boolean }
 ): void {
   type Entry = { options: any; domain: [number, number] };
   const groups = new Map<string, Entry[]>();
@@ -98,7 +112,7 @@ export function harmonizeLineChartDomains(
   for (const plot of plots) {
     const info = (plot.options as any)?.__lineChartDomainInfo;
     if (!info?.domain) continue;
-    const key = `${info.axis}:${info.column}`;
+    const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
     let group = groups.get(key);
     if (!group) {
       group = [];
@@ -122,4 +136,19 @@ export function harmonizeLineChartDomains(
       info.domain = shared;
     }
   });
+}
+
+/**
+ * Grouping suffix that confines harmonization to one grid track when the plotted
+ * axis is independent per facet. Returns a constant (grid-wide group) when the
+ * axis is shared, or when the caller supplied no position to partition by.
+ */
+function facetTrackKey(
+  axis: 'x' | 'y',
+  position?: { row: number; col: number },
+  independentDomains?: { x?: boolean; y?: boolean }
+): string {
+  if (!position || !independentDomains?.[axis]) return 'all';
+  // One Y axis per grid row, one X axis per grid column.
+  return axis === 'y' ? `r${position.row}` : `c${position.col}`;
 }

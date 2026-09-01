@@ -116,6 +116,30 @@ function createRecordingCellGenerator(): CellGenerator {
   });
 }
 
+/**
+ * Mimics buildLineOptions: ignores the supplied domain and recomputes the Y
+ * domain from the cell's own rows, leaving harmonization to the coordinator.
+ */
+function createLineLikeCellGenerator(): CellGenerator {
+  return (cellData) => {
+    const values = cellData.map((row: any) => row['SUM(value)']);
+    const domain: [number, number] = [Math.min(...values), Math.max(...values)];
+    return {
+      columns: 1,
+      rows: 1,
+      plots: [{
+        id: 'cell',
+        title: 'Cell',
+        position: { row: 0, col: 0 },
+        options: {
+          y: { label: 'SUM(value)', domain },
+          __lineChartDomainInfo: { axis: 'y', column: 'SUM(value)', domain },
+        } as any,
+      }],
+    };
+  };
+}
+
 describe('coordinateFacetedGrid', () => {
   it('handles empty facet directions with one implicit row or column', () => {
     const result = coordinateFacetedGrid({
@@ -186,6 +210,39 @@ describe('coordinateFacetedGrid', () => {
 
     expect(new Set(xDomainsByColumn.values()).size).toBe(2);
     expect(new Set(yDomainsByRow.values()).size).toBe(2);
+  });
+
+  it('harmonizes line chart domains grid-wide when Y is shared', () => {
+    const result = coordinateFacetedGrid({
+      context: buildContext(),
+      plan: buildPlan(),
+      cellGenerator: createLineLikeCellGenerator(),
+    });
+
+    const domains = result.plots.map((plot) => (plot.options as any).y.domain);
+    expect(domains).toHaveLength(4);
+    domains.forEach((domain) => expect(domain).toEqual([10, 120]));
+  });
+
+  it('harmonizes line chart domains per row when Y is independent', () => {
+    const result = coordinateFacetedGrid({
+      context: buildContext({ independentDomains: { x: false, y: true } }),
+      plan: buildPlan(),
+      cellGenerator: createLineLikeCellGenerator(),
+    });
+
+    const domainsByRow = new Map<number, any[]>();
+    for (const plot of result.plots) {
+      domainsByRow.set(plot.position.row, (plot.options as any).y.domain);
+    }
+
+    // Each facet row uses the full height of its own data instead of being
+    // flattened into the grid-wide [10, 120].
+    expect(domainsByRow.get(0)).toEqual([10, 12]);
+    expect(domainsByRow.get(1)).toEqual([110, 120]);
+    // ...and cells sharing a row still share the axis drawn in the gutter.
+    const row0 = result.plots.filter((plot) => plot.position.row === 0);
+    expect(new Set(row0.map((plot) => JSON.stringify((plot.options as any).y.domain))).size).toBe(1);
   });
 
   it('preserves global color scales and explicit category domains in every cell', () => {
