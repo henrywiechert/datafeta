@@ -24,4 +24,14 @@ export interface VirtualColumnDefinition {
   output_type?: 'numeric' | 'text' | 'datetime';  // Output data type
   description?: string;            // User-friendly description
   binConfig?: BinnedFieldDefinition; // Present if this is a binned field (for edit/display)
+  /**
+   * Presentation-only: when true the column's value is treated as a URL and
+   * rendered as a clickable link in pinned tooltips.
+   *
+   * Deliberately NOT part of the SQL expression or the query fingerprint —
+   * toggling it re-renders rather than refetches. The URL itself is built in
+   * `expression` (e.g. CONCAT('https://host/x/', id)), so it is a real grouped
+   * column value like any other.
+   */
+  link?: boolean;
 }

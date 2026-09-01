@@ -139,6 +139,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
           pinned={tooltip.pinned}
           onUnpin={unpinTooltip}
           onFilterAction={options.__customTooltip?.onFilterAction}
+          linkColumns={options.__customTooltip?.linkColumns}
           autoExpandPinnedComparison={autoExpandPinnedComparison}
           onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
         />,

@@ -166,8 +166,47 @@ interface VirtualColumnDefinition {
   expression: string;                        // SQL expression
   output_type?: 'numeric' | 'text' | 'datetime';  // Data type hint
   description?: string;                      // User documentation
+  link?: boolean;                            // Value is a URL — render as a link
 }
 ```
+
+## Link Columns
+
+Setting `link: true` marks the column's value as a URL, rendered as a clickable
+anchor in a **pinned** tooltip.
+
+The URL itself is built in `expression` like any other string, so the column is
+a normal grouped value — same cardinality, no extra SELECT column, no change to
+aggregation:
+
+```sql
+CONCAT('https://ncm.corp/cell/', cell_id)
+```
+
+`link` is **presentation-only**: it is never used in SQL, and it is excluded
+from the query fingerprint (`useQueryFingerprint` hashes only `name|expression`),
+so toggling it re-renders rather than refetches.
+
+### Why pinned only
+
+`.custom-tooltip` is `pointer-events: none`; only `.custom-tooltip--pinned`
+re-enables them. An anchor rendered on hover would be unclickable, so on hover
+the value gets link *styling* (dotted underline + icon) as an affordance and
+becomes a real `<a>` once the tooltip is pinned.
+
+### Render-time validation
+
+Values come from the database and configurations are shared, so every value is
+validated on every render by `utils/linkColumnUrl.ts`:
+
+- absolute `http:` / `https:` URLs only — `javascript:`, `data:`, `vbscript:`,
+  `file:`, relative paths and malformed values render as plain text
+- anchors get `target="_blank"` and `rel="noopener noreferrer"`
+- the link is suppressed when `TooltipField.extraCount > 0`: the cell aggregates
+  several distinct values, so the displayed one is not an unambiguous target
+
+Escaping inside the URL is the author's responsibility — SQL builds the whole
+string, so a value containing spaces or slashes is not encoded automatically.
 
 ## Component Props
 
@@ -266,6 +305,18 @@ Blocked keywords:
 - `TRUNCATE`
 - `ALTER`
 - `CREATE`
+
+### String literals are not scanned
+
+Both validators mask single-quoted string literals before scanning, and match
+keywords on word boundaries. Literals are wrapped by pypika's `ValueWrapper`
+into properly quoted parameters and so are never an injection vector; scanning
+them only produced false positives on legitimate content — a URL such as
+`'.../report?sort=created_at'` contains "CREATE", and `'/updates'` contains
+"UPDATE".
+
+Comment tokens (`--`, `/*`, `*/`), the statement separator (`;`) and `__` are
+likewise only rejected *outside* string literals.
 
 ## Design Notes
 

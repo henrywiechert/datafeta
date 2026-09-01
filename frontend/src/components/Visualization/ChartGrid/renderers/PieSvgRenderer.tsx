@@ -170,6 +170,7 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
           pinned={tooltip.pinned}
           onUnpin={unpinTooltip}
           onFilterAction={tooltipConfig?.onFilterAction}
+          linkColumns={tooltipConfig?.linkColumns}
         />,
         portalTarget
       )}

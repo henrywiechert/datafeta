@@ -269,7 +269,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     yAxisFields,
   ]);
 
-  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({ grid });
+  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({ grid, virtualColumns });
   const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction);
 
   const handleHeatmapSizeToolbarChange = useCallback((toolbarState: HeatmapSizeToolbarState | null) => {
