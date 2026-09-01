@@ -27,7 +27,7 @@ import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import SchemaCheckDialog from '../components/SchemaCheckDialog';
 import { schemaCheckBus } from '../services/schemaCheckBus';
-import { hasCrossDatabaseUnion, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
+import { hasCrossDatabaseUnion, isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
 import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
 import { apiService } from '../apiService';
 
@@ -317,10 +317,22 @@ const VisualizationPageContent = () => {
         pendingLoadSchemaCheckRef.current = schemaCheckBus.consumePendingAfterLoad();
     }
 
-    // Schema check after config load with swap-same-schema option
+    // Schema check after config load with swap-same-schema option.
+    // Readiness is gated on the RAW dataSource fields, not dataSourceAvailableFields:
+    // the latter also contains virtual columns, which a snapshot restores in the same
+    // batch as the table — enough to pass a length check while every real column is
+    // still in flight.
+    const realAvailableFields = dataSourceContext.dataSource.availableFields;
+    const virtualTable = dataSourceContext.dataSource.virtualTable;
     React.useEffect(() => {
         if (!pendingLoadSchemaCheckRef.current) return;
-        if (!selectedTable || dataSourceAvailableFields.length === 0) return;
+        if (!isSchemaCheckReady({
+            selectedTable,
+            realFieldCount: realAvailableFields.length,
+            isLoadingMetadata,
+            hasJoinsOrUnions: joinedTables.length > 0 || unionTables.length > 0,
+            hasVirtualTable: !!virtualTable,
+        })) return;
 
         pendingLoadSchemaCheckRef.current = false;
 
@@ -349,6 +361,10 @@ const VisualizationPageContent = () => {
         selectedTable,
         selectedDatabase,
         dataSourceAvailableFields,
+        realAvailableFields,
+        isLoadingMetadata,
+        virtualTable,
+        unionTables,
         tables,
         connectionDetails?.type,
         sheetState.sheets,

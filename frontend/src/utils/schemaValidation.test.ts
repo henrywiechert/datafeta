@@ -2,6 +2,7 @@
 import {
   collectReferencedColumnNames,
   hasCrossDatabaseUnion,
+  isSchemaCheckReady,
   rewriteUnionTablesForDatabase,
   validateSheetSchema,
 } from './schemaValidation';
@@ -105,5 +106,38 @@ describe('schemaValidation', () => {
     );
     expect(result.allClear).toBe(true);
     expect(result.missingColumns).toEqual([]);
+  });
+});
+
+describe('isSchemaCheckReady', () => {
+  const ready = {
+    selectedTable: 'events',
+    realFieldCount: 12,
+    isLoadingMetadata: false,
+    hasJoinsOrUnions: false,
+    hasVirtualTable: false,
+  };
+
+  test('ready once real columns are fetched', () => {
+    expect(isSchemaCheckReady(ready)).toBe(true);
+  });
+
+  test('not ready before any real column arrives (virtual columns must not count)', () => {
+    expect(isSchemaCheckReady({ ...ready, realFieldCount: 0 })).toBe(false);
+  });
+
+  test('not ready while metadata is still loading', () => {
+    expect(isSchemaCheckReady({ ...ready, isLoadingMetadata: true })).toBe(false);
+  });
+
+  test('not ready without a table', () => {
+    expect(isSchemaCheckReady({ ...ready, selectedTable: '' })).toBe(false);
+  });
+
+  test('with joins/unions, waits for the merged virtual table', () => {
+    expect(isSchemaCheckReady({ ...ready, hasJoinsOrUnions: true })).toBe(false);
+    expect(
+      isSchemaCheckReady({ ...ready, hasJoinsOrUnions: true, hasVirtualTable: true }),
+    ).toBe(true);
   });
 });
