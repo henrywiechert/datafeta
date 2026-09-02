@@ -83,7 +83,10 @@ class TableMergeService:
                             ],
                             alias=None,
                             enforce_unique_keys=enforce,
-                            dedup_key_columns=list(rel.to_columns) if enforce else None
+                            dedup_key_columns=list(rel.to_columns) if enforce else None,
+                            # Only one_to_one constrains the primary (from) side;
+                            # many_to_one's "many" side is expected to repeat keys.
+                            enforce_unique_primary_keys=rel.relationship_type == 'one_to_one'
                         )
                         break
                 
@@ -106,7 +109,10 @@ class TableMergeService:
                             ],
                             alias=None,
                             enforce_unique_keys=enforce,
-                            dedup_key_columns=list(rel.from_columns) if enforce else None
+                            dedup_key_columns=list(rel.from_columns) if enforce else None,
+                            # Only one_to_one constrains the primary (to) side;
+                            # one_to_many's "many" side is expected to repeat keys.
+                            enforce_unique_primary_keys=rel.relationship_type == 'one_to_one'
                         )
                         break
             

@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Pydantic models related to data sources and connections."""
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import List, Dict, Any, Optional, Literal
 
 # --- Data Source Primitives --- #
@@ -64,6 +64,29 @@ class ForeignKeyRelationship(BaseModel):
     to_columns: List[str]
     relationship_type: Literal['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'] = 'one_to_many'
 
+    @model_validator(mode='after')
+    def _validate_column_pairs(self) -> 'ForeignKeyRelationship':
+        """Reject key mappings that cannot be paired up column by column.
+
+        from_columns / to_columns are zipped positionally when building the ON
+        clause, and zip() silently truncates: an unbalanced mapping would join
+        mismatched columns and drop the trailing key entirely.
+        """
+        if not self.from_columns or not self.to_columns:
+            raise ValueError(
+                f"Relationship {self.from_table} -> {self.to_table} must specify at "
+                f"least one column on each side."
+            )
+        if len(self.from_columns) != len(self.to_columns):
+            raise ValueError(
+                f"Relationship {self.from_table} -> {self.to_table} has "
+                f"{len(self.from_columns)} from_columns "
+                f"({', '.join(self.from_columns)}) but {len(self.to_columns)} "
+                f"to_columns ({', '.join(self.to_columns)}); each key column must "
+                f"be paired with exactly one column on the other side."
+            )
+        return self
+
 class TableJoinDefinition(BaseModel):
     """Defines how a table should be joined to the primary table."""
     table_name: str
@@ -72,6 +95,11 @@ class TableJoinDefinition(BaseModel):
     alias: Optional[str] = None  # Optional table alias
     enforce_unique_keys: bool = False  # When True, wrap joined table in dedup subquery
     dedup_key_columns: Optional[List[str]] = None  # Key columns to deduplicate on
+    # When True, the *primary* table is deduplicated on its join keys as well.
+    # Only valid for one_to_one, where both sides must be unique; for
+    # many_to_one / one_to_many the "many" side is legitimately non-unique on
+    # the key and deduplicating it would drop exactly the rows being queried.
+    enforce_unique_primary_keys: bool = False
 
 class UnionTableDefinition(BaseModel):
     """Defines a table to be combined with UNION ALL (flexible schema with NULL fill)."""

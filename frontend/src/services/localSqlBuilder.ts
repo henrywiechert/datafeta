@@ -257,6 +257,53 @@ export function buildAggregateSql(args: {
 }
 
 /**
+ * Keep the min/max rows for every preserved field plus a random sample, in a
+ * single pass over the base query.
+ *
+ * A CTE is inlined at each reference rather than materialised, so ranking once
+ * avoids re-running the base query per branch. And because every returned row
+ * comes from the same ranked set, an extreme can no longer also appear in the
+ * sample — the previous UNION ALL of separate CTEs returned both copies, which
+ * duplicated the endpoints whenever the base fit inside the budget.
+ */
+function buildPreserveExtremesSql(baseSql: string, fields: string[], maxRows: number): string {
+  const rankExprs: string[] = [];
+  const rankNames: string[] = [];
+  const keep: string[] = [];
+
+  const addRank = (name: string, orderSql: string, predicate: (col: string) => string) => {
+    const quoted = quoteIdent(name);
+    rankNames.push(quoted);
+    rankExprs.push(`row_number() OVER (ORDER BY ${orderSql}) AS ${quoted}`);
+    keep.push(predicate(quoted));
+  };
+
+  fields.forEach((field, idx) => {
+    const qf = quoteIdent(field);
+    addRank(`__rb_min_${idx}`, `${qf} ASC`, col => `${col} = 1`);
+    addRank(`__rb_max_${idx}`, `${qf} DESC`, col => `${col} = 1`);
+  });
+
+  // Extremes are kept on top of the sample, so reserve their slots to stay
+  // within maxRows.
+  const sampleLimit = Math.max(1, maxRows - fields.length * 2);
+  addRank('__rb_sample', 'random()', col => `${col} <= ${sampleLimit}`);
+
+  return `
+SELECT * EXCLUDE (${rankNames.join(', ')}) FROM (
+  SELECT
+    *,
+    ${rankExprs.join(',\n    ')}
+  FROM (
+    ${baseSql}
+  ) AS base
+) AS ranked
+WHERE ${keep.join('\n   OR ')}
+ORDER BY ${quoteIdent(fields[0])} ASC
+  `.trim();
+}
+
+/**
  * Apply line chart budget for aggregated queries with too many result rows.
  * Uses random sampling with preserved min/max for stable axis scales.
  * 
@@ -281,40 +328,7 @@ export function applyLineBudgetSql(
     return `SELECT * FROM (\n  ${baseSql}\n) AS base ORDER BY random() LIMIT ${maxRows}`;
   }
   
-  // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
-  // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues
-  const extremeCtes: string[] = [];
-  const extremeNames: string[] = [];
-  
-  continuousFields.forEach((field, idx) => {
-    const qf = quoteIdent(field);
-    const minName = `min_${idx}`;
-    const maxName = `max_${idx}`;
-    extremeNames.push(minName, maxName);
-    extremeCtes.push(`${minName} AS (SELECT * FROM base ORDER BY ${qf} ASC LIMIT 1)`);
-    extremeCtes.push(`${maxName} AS (SELECT * FROM base ORDER BY ${qf} DESC LIMIT 1)`);
-  });
-  
-  // Reserve rows for extremes (2 per field: min and max)
-  const reservedForExtremes = continuousFields.length * 2;
-  const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
-
-  // Build final UNION ALL at query level (not inside CTE)
-  const finalSelects = [
-    ...extremeNames.map(name => `SELECT * FROM ${name}`),
-    'SELECT * FROM sample'
-  ];
-
-  return `
-WITH base AS (
-  ${baseSql}
-),
-${extremeCtes.join(',\n')},
-sample AS (
-  SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
-)
-${finalSelects.join('\nUNION ALL\n')}
-  `.trim();
+  return buildPreserveExtremesSql(baseSql, continuousFields, maxRows);
 }
 
 export function applyPointBudgetSql(
@@ -337,39 +351,7 @@ export function applyPointBudgetSql(
 
   // Handle preserve_extremes strategy for scatter plots
   if (strategy === 'preserve_extremes' && preserveFields && preserveFields.length > 0) {
-    // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
-    // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues
-    const extremeCtes: string[] = [];
-    const extremeNames: string[] = [];
-    
-    preserveFields.forEach((field, idx) => {
-      const qf = quoteIdent(field);
-      const minName = `min_${idx}`;
-      const maxName = `max_${idx}`;
-      extremeNames.push(minName, maxName);
-      extremeCtes.push(`${minName} AS (SELECT * FROM base ORDER BY ${qf} ASC LIMIT 1)`);
-      extremeCtes.push(`${maxName} AS (SELECT * FROM base ORDER BY ${qf} DESC LIMIT 1)`);
-    });
-    
-    const reservedForExtremes = preserveFields.length * 2;
-    const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
-
-    // Build final UNION ALL at query level (not inside CTE)
-    const finalSelects = [
-      ...extremeNames.map(name => `SELECT * FROM ${name}`),
-      'SELECT * FROM sample'
-    ];
-
-    return `
-WITH base AS (
-  ${baseSql}
-),
-${extremeCtes.join(',\n')},
-sample AS (
-  SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
-)
-${finalSelects.join('\nUNION ALL\n')}
-    `.trim();
+    return buildPreserveExtremesSql(baseSql, preserveFields, maxRows);
   }
 
   // Stratified sampling with discrete color/category field

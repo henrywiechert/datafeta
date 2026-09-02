@@ -19,6 +19,7 @@ export interface TableJoinDefinition {
   alias?: string;
   enforce_unique_keys?: boolean;
   dedup_key_columns?: string[];
+  enforce_unique_primary_keys?: boolean;
 }
 
 export interface UnionTableDefinition {

@@ -8,7 +8,7 @@ conditional logic.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 
 class SqlDialect(ABC):
@@ -200,6 +200,35 @@ class SqlDialect(ABC):
             Wrapped value or original value
         """
         return value
+
+    def star_except_keyword(self) -> str:
+        """
+        Keyword introducing a star-exclusion list.
+
+        Returns 'EXCEPT' for ClickHouse, 'EXCLUDE' for DuckDB (where EXCEPT is
+        the set operator).
+        """
+        return 'EXCEPT'
+
+    def star_except(self, columns: List[str]) -> str:
+        """
+        Build a `*` projection that drops the given columns.
+
+        Used to project everything a subquery produces while hiding helper
+        columns (window-function ranks, row counters) added by a wrapper.
+
+        Args:
+            columns: Unquoted column names to exclude
+
+        Returns:
+            '*' if columns is empty, otherwise '* EXCEPT ("a", "b")'
+        """
+        if not columns:
+            return '*'
+        quoted = ', '.join(
+            f"{self.quote_char}{c}{self.quote_char}" for c in columns
+        )
+        return f"* {self.star_except_keyword()} ({quoted})"
 
     def table_ref(self, table_name: str, database: Optional[str] = None) -> str:
         """

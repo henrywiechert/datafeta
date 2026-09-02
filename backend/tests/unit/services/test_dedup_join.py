@@ -10,14 +10,15 @@ Covers:
 import pytest
 from unittest.mock import Mock, patch
 
+from pydantic import ValidationError
 from pypika import Query, Table
 
-from backend.dialects import get_dialect
 from backend.models.data_source import (
     ForeignKeyRelationship,
     TableJoinDefinition,
     VirtualTableDefinition,
 )
+from backend.dialects import get_dialect
 from backend.models.query import QueryDescription
 from backend.services.table_merge_service import TableMergeService
 from backend.services.query_components.table_context_builder import (
@@ -321,3 +322,120 @@ class TestCheckCompositeKeyUniqueness:
         assert result['total_rows'] == 500
         assert result['unique_keys'] == 490
         assert result['duplicate_rows'] == 10
+
+
+# ── Primary-side dedup is one_to_one only ─────────────────────────────────
+
+class TestPrimarySideDedup:
+    """Only one_to_one constrains the primary side.
+
+    For many_to_one / one_to_many the primary table sits on the "many" side and
+    legitimately repeats the join key; deduplicating it drops every row whose
+    key occurs more than once — i.e. the rows being queried.
+    """
+
+    def _make_service(self):
+        mock_connector = Mock()
+        with patch('backend.services.table_merge_service.TableMergeService.__init__', return_value=None):
+            service = TableMergeService()
+        service.connector = mock_connector
+        return service
+
+    def _query_desc(self, enforce_primary: bool) -> QueryDescription:
+        return QueryDescription(
+            target_table='dlFdSchedData',
+            target_database=None,
+            dimensions=[],
+            measures=[],
+            virtual_table=VirtualTableDefinition(
+                primary_table='dlFdSchedData',
+                mode='join',
+                joined_tables=[
+                    TableJoinDefinition(
+                        table_name='voipStateData',
+                        join_type='LEFT',
+                        on_conditions=[
+                            'dlFdSchedData.slot = voipStateData.slot',
+                            'dlFdSchedData.sfn = voipStateData.sfn',
+                        ],
+                        enforce_unique_keys=True,
+                        dedup_key_columns=['slot', 'sfn'],
+                        enforce_unique_primary_keys=enforce_primary,
+                    )
+                ],
+            ),
+        )
+
+    def _sql(self, qd: QueryDescription) -> str:
+        ctx = TableContextBuilder().build(qd, get_dialect('duckdb'), fallback_table_name='dlFdSchedData')
+        return ctx.query.select(ctx.primary_table.star).get_sql()
+
+    def test_many_to_one_leaves_primary_untouched(self):
+        sql = self._sql(self._query_desc(enforce_primary=False))
+        # Joined side is still deduplicated, primary side is not.
+        assert sql.count('HAVING count()=1') == 1
+        assert 'FROM "dlFdSchedData"' in sql
+        assert 'FROM (SELECT * FROM "dlFdSchedData"' not in sql
+
+    def test_one_to_one_dedups_both_sides(self):
+        sql = self._sql(self._query_desc(enforce_primary=True))
+        assert sql.count('HAVING count()=1') == 2
+        assert 'FROM (SELECT * FROM "dlFdSchedData"' in sql
+
+    def test_suggest_joins_sets_primary_flag_for_one_to_one_only(self):
+        service = self._make_service()
+
+        def suggest(relationship_type, primary):
+            rels = [
+                ForeignKeyRelationship(
+                    from_table='dlFdSchedData',
+                    from_columns=['slot'],
+                    to_table='voipStateData',
+                    to_columns=['slot'],
+                    relationship_type=relationship_type,
+                ),
+            ]
+            return service.suggest_joins('db', primary, relationships=rels)[0]
+
+        # Case 1: primary is the from_table.
+        assert suggest('one_to_one', 'dlFdSchedData').enforce_unique_primary_keys is True
+        assert suggest('many_to_one', 'dlFdSchedData').enforce_unique_primary_keys is False
+        # Case 2: primary is the to_table.
+        assert suggest('one_to_one', 'voipStateData').enforce_unique_primary_keys is True
+        assert suggest('one_to_many', 'voipStateData').enforce_unique_primary_keys is False
+
+
+# ── Key column pairing validation ─────────────────────────────────────────
+
+class TestRelationshipColumnPairing:
+    """from_columns / to_columns are zipped positionally, so lengths must match."""
+
+    def test_unbalanced_columns_rejected(self):
+        with pytest.raises(ValidationError, match='to_columns'):
+            ForeignKeyRelationship(
+                from_table='dlFdSchedData',
+                from_columns=['physCellId', 'lcrId', 'rnti', 'emCoreId', 'slot', 'sfn', 'hfnTickCount'],
+                to_table='voipStateData',
+                to_columns=['physCellId', 'lcrId', 'rnti', 'slot', 'sfn', 'hfnTickCount'],
+                relationship_type='many_to_one',
+            )
+
+    def test_empty_columns_rejected(self):
+        with pytest.raises(ValidationError, match='at least one column'):
+            ForeignKeyRelationship(
+                from_table='a',
+                from_columns=[],
+                to_table='b',
+                to_columns=[],
+                relationship_type='many_to_one',
+            )
+
+    def test_balanced_composite_key_accepted(self):
+        rel = ForeignKeyRelationship(
+            from_table='dlFdSchedData',
+            from_columns=['physCellId', 'lcrId', 'rnti', 'slot', 'sfn', 'hfnTickCount'],
+            to_table='voipStateData',
+            to_columns=['physCellId', 'lcrId', 'rnti', 'slot', 'sfn', 'hfnTickCount'],
+            relationship_type='many_to_one',
+        )
+        assert len(rel.from_columns) == len(rel.to_columns) == 6

@@ -44,6 +44,17 @@ interface ColumnInfo {
   data_type: string;
 }
 
+/**
+ * Key columns are paired positionally when the ON clause is built, so an
+ * unbalanced mapping would join mismatched columns and drop the surplus ones.
+ * Only flagged once both sides have a selection — a half-filled row is merely
+ * incomplete and is dropped on save.
+ */
+const hasColumnCountMismatch = (r: ForeignKeyRelationship): boolean =>
+  r.from_columns.length > 0 &&
+  r.to_columns.length > 0 &&
+  r.from_columns.length !== r.to_columns.length;
+
 const RELATIONSHIP_TYPES = [
   { value: 'one_to_one', label: 'One-to-One' },
   { value: 'one_to_many', label: 'One-to-Many' },
@@ -159,6 +170,10 @@ const RelationshipEditor: React.FC<RelationshipEditorProps> = ({
     handleUpdateRelationship(index, { [field]: value });
   };
 
+  const mismatchedCount = manualMode
+    ? relationships.filter(hasColumnCountMismatch).length
+    : 0;
+
   const handleSave = () => {
     if (manualMode) {
       // Filter out incomplete relationships
@@ -253,8 +268,13 @@ const RelationshipEditor: React.FC<RelationshipEditorProps> = ({
         )}
       </DialogContent>
       <DialogActions>
+        {mismatchedCount > 0 && (
+          <Typography variant="caption" color="error" sx={{ mr: 'auto', ml: 1 }}>
+            Pair up the key columns before saving.
+          </Typography>
+        )}
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
+        <Button onClick={handleSave} variant="contained" disabled={mismatchedCount > 0}>
           Save
         </Button>
       </DialogActions>
@@ -293,6 +313,7 @@ const RelationshipRow: React.FC<RelationshipRowProps> = ({
 }) => {
   const fromColumns = columnsCache[relationship.from_table] || [];
   const toColumns = columnsCache[relationship.to_table] || [];
+  const columnCountMismatch = hasColumnCountMismatch(relationship);
 
   // Cardinality check state
   const [uniquenessResult, setUniquenessResult] = useState<{
@@ -452,6 +473,14 @@ const RelationshipRow: React.FC<RelationshipRowProps> = ({
           </Select>
         </FormControl>
       </Box>
+
+      {columnCountMismatch && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {relationship.from_columns.length} From Columns vs {relationship.to_columns.length} To
+          Columns. Key columns are matched in order, so each side must list the same number of
+          columns.
+        </Alert>
+      )}
 
       {/* Relationship type */}
       <FormControl size="small" sx={{ mt: 1, minWidth: 160 }}>
