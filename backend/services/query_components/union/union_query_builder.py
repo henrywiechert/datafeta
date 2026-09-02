@@ -22,6 +22,9 @@ from backend.services.query_components.union.null_column_builder import (
     build_null_only_query,
     rebuild_select_with_nulls,
 )
+from backend.services.query_components.union.filter_scoping import (
+    scope_filters_to_union_branch,
+)
 from backend.services.query_components.union.virtual_column_checker import (
     get_virtual_column_source_fields,
     can_compute_virtual_column,
@@ -65,6 +68,48 @@ class UnionQueryBuilder:
         except Exception as e:
             self._logger.warning(f"Could not fetch columns for {database}.{table_name}: {e}. Assuming all fields exist.")
             return {}
+
+    def _scope_filters_for_branch(
+        self,
+        single_desc: QueryDescription,
+        database: str,
+        table_name: str,
+        table_columns: Dict[str, str],
+        vc_source_map: Dict[str, Any],
+    ) -> bool:
+        """Restrict a branch's filters to the fields its table actually has.
+
+        Mutates `single_desc.filters`.  Returns False when the branch cannot
+        contribute any row and should be left out of the UNION — see
+        `filter_scoping` for why that is now limited to NULL-excluding filters.
+        """
+        scoped = scope_filters_to_union_branch(
+            single_desc.filters,
+            table_columns,
+            {m.alias for m in (single_desc.measures or []) if m.alias},
+            lambda name: (
+                name in vc_source_map
+                and can_compute_virtual_column(name, vc_source_map, table_columns)
+            ),
+        )
+
+        if scoped.blocking_fields:
+            self._logger.info(
+                "Skipping table %s.%s — filter on %s excludes NULLs and the field is absent "
+                "here; all rows would be filtered out anyway",
+                database, table_name, scoped.blocking_fields,
+            )
+            return False
+
+        if scoped.ignored_fields:
+            self._logger.info(
+                "Table %s.%s: filter(s) on %s not applied — field absent from this table, so "
+                "the filter only scopes the tables that have it",
+                database, table_name, scoped.ignored_fields,
+            )
+
+        single_desc.filters = scoped.kept
+        return True
 
     def _parse_table_references(
         self, 
@@ -232,6 +277,7 @@ class UnionQueryBuilder:
         each sub-table independently and stitch the results together.
         """
         union_queries: List[str] = []
+        vc_source_map = get_virtual_column_source_fields(query_desc.virtual_columns, self._logger)
 
         for database, table_name in table_refs:
             if hasattr(query_desc, "model_copy"):
@@ -260,6 +306,17 @@ class UnionQueryBuilder:
                     pf for pf in single_desc.cdf_partition_fields
                     if pf not in ("_source_database", "_source_table")
                 ]
+
+            # Filters can only be evaluated by the tables that have the field; the
+            # others keep their rows (see filter_scoping).
+            if not self._scope_filters_for_branch(
+                single_desc,
+                database,
+                table_name,
+                self._get_table_columns(database, table_name),
+                vc_source_map,
+            ):
+                continue
 
             single_sql, _ = self._translate_single_table(
                 single_desc,
@@ -344,6 +401,7 @@ class UnionQueryBuilder:
     ) -> Tuple[str, List[Dict]]:
         """Handle box-plot summary queries across UNION ALL tables."""
         union_queries: List[str] = []
+        vc_source_map = get_virtual_column_source_fields(query_desc.virtual_columns, self._logger)
 
         for database, table_name in table_refs:
             if hasattr(query_desc, "model_copy"):
@@ -368,6 +426,17 @@ class UnionQueryBuilder:
             ]
             if single_desc.box_plot_color_field in ("_source_database", "_source_table"):
                 single_desc.box_plot_color_field = None
+
+            # Filters can only be evaluated by the tables that have the field; the
+            # others keep their rows (see filter_scoping).
+            if not self._scope_filters_for_branch(
+                single_desc,
+                database,
+                table_name,
+                self._get_table_columns(database, table_name),
+                vc_source_map,
+            ):
+                continue
 
             single_sql, _ = self._translate_single_table(
                 single_desc,
@@ -598,30 +667,13 @@ class UnionQueryBuilder:
             single_table_desc.limit = None
             single_table_desc.offset = None
 
-            # If the query has filters on fields that do not exist in this table, this table must
-            # contribute an empty result set (those rows would have NULLs for the missing field
-            # in the aligned UNION schema, and thus fail the filter predicates).
-            #
-            # Without this guard, ClickHouse/DuckDB will error with UNKNOWN_IDENTIFIER.
-            if table_columns:
-                missing_filter_fields = [
-                    f.field for f in single_table_desc.filters
-                    if f.field not in table_columns
-                    and not (f.field in vc_source_map and can_compute_virtual_column(f.field, vc_source_map, table_columns))
-                ]
-                if missing_filter_fields:
-                    # A missing filter field means every row from this table would have NULL
-                    # for that column, which would be rejected by the filter predicate anyway
-                    # (e.g. IS NOT NULL, =, etc.).  Rather than emitting a WHERE 1=0 placeholder
-                    # — which causes NO_COMMON_TYPE errors in ClickHouse when the NULL cast type
-                    # for a datetime-part alias (e.g. utc_second_timeline) doesn't match the
-                    # real expression type (DateTime64) in sibling branches — just skip the table.
-                    self._logger.info(
-                        "Skipping table %s.%s — filter field(s) %s absent; all rows would be "
-                        "filtered out anyway",
-                        database, table_name, missing_filter_fields,
-                    )
-                    continue
+            # Filters on fields this table does not have cannot be referenced here
+            # (ClickHouse/DuckDB would error with UNKNOWN_IDENTIFIER); they are scoped
+            # to the tables that do carry the field instead of dropping this one.
+            if not self._scope_filters_for_branch(
+                single_table_desc, database, table_name, table_columns, vc_source_map
+            ):
+                continue
 
             # Skip tables that have no measures when measures are requested
             # This prevents tables without the requested fields from polluting results with NULL rows
