@@ -5,11 +5,17 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from backend.dialects import SqlDialect
     from backend.models.query import Dimension, QueryDescription
+
+
+# Prefix for the helper rank columns added by preserve_extremes. They are
+# projected away again, so the prefix only needs to not collide with real
+# output column names.
+RANK_COLUMN_PREFIX = "__rb_"
 
 
 def _dimension_output_name(dim: "Dimension") -> str:
@@ -188,9 +194,17 @@ def _apply_preserve_extremes(
 ) -> str | None:
     """
     Apply preserve_extremes sampling strategy.
-    
+
     Preserves min/max rows for stable axis scales in scatter plots.
-    
+
+    The base query is evaluated exactly once: rows are ranked by every preserve
+    column (ascending and descending) and by a random ordering in a single
+    window pass, then the extremes and the random sample are selected from that
+    one ranked set. A CTE/subquery is inlined at each reference rather than
+    materialised, so ranking in one pass avoids re-running the (potentially
+    join-heavy) base query per branch, and selecting from a single ranked set
+    means an extreme row can never also come back as part of the sample.
+
     Returns:
         SQL string with extremes preserved, or None if no continuous fields found.
     """
@@ -211,30 +225,35 @@ def _apply_preserve_extremes(
 
     rand_func = f"{dialect.random_func_name()}()"
 
-    extreme_ctes = []
-    extreme_names = []
+    rank_exprs: List[str] = []
+    rank_names: List[str] = []
+    keep_predicates: List[str] = []
+
+    def add_rank(name: str, order_sql: str, predicate_tmpl: str) -> None:
+        quoted_name = f"{quote_char}{name}{quote_char}"
+        rank_names.append(name)
+        rank_exprs.append(f"row_number() OVER (ORDER BY {order_sql}) AS {quoted_name}")
+        keep_predicates.append(predicate_tmpl.format(col=quoted_name))
 
     for idx, qf in enumerate(quoted_columns):
-        min_name = f"min_{idx}"
-        max_name = f"max_{idx}"
-        extreme_names.extend([min_name, max_name])
-        extreme_ctes.append(f"{min_name} AS (SELECT * FROM base ORDER BY {qf} ASC LIMIT 1)")
-        extreme_ctes.append(f"{max_name} AS (SELECT * FROM base ORDER BY {qf} DESC LIMIT 1)")
+        add_rank(f"{RANK_COLUMN_PREFIX}min_{idx}", f"{qf} ASC", "{col} = 1")
+        add_rank(f"{RANK_COLUMN_PREFIX}max_{idx}", f"{qf} DESC", "{col} = 1")
 
-    reserved_for_extremes = len(quoted_columns) * 2
-    sample_limit = max(1, max_rows - reserved_for_extremes)
+    # Extremes are kept on top of the sample, so reserve their slots to stay
+    # within max_rows.
+    sample_limit = max(1, max_rows - len(quoted_columns) * 2)
+    add_rank(f"{RANK_COLUMN_PREFIX}sample", rand_func, "{col} <= " + str(sample_limit))
 
-    final_selects = [f"SELECT * FROM {name}" for name in extreme_names]
-    final_selects.append("SELECT * FROM sample")
+    ranked_select = ",\n    ".join(rank_exprs)
+    keep_clause = "\n   OR ".join(keep_predicates)
 
-    extreme_ctes_str = ",\n".join(extreme_ctes)
-    final_union = "\nUNION ALL\n".join(final_selects)
-
-    return f"""WITH base AS (
+    return f"""SELECT {dialect.star_except(rank_names)} FROM (
+  SELECT
+    *,
+    {ranked_select}
+  FROM (
 {base_sql}
-),
-{extreme_ctes_str},
-sample AS (
-SELECT * FROM base ORDER BY {rand_func} LIMIT {sample_limit}
-)
-{final_union}""".strip()
+  ) AS base
+) AS ranked
+WHERE {keep_clause}
+ORDER BY {quoted_columns[0]} ASC""".strip()

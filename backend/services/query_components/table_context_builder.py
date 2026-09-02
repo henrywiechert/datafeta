@@ -95,11 +95,13 @@ class TableContextBuilder:
             query_desc.target_database
         )
         
-        # Check if primary table needs dedup (one_to_one relationships require
-        # both sides to have unique keys — collect primary-side key columns)
+        # Check if primary table needs dedup. Only one_to_one requires both sides
+        # to have unique keys; for many_to_one / one_to_many the primary side may
+        # legitimately repeat the key, and deduplicating it would drop every row
+        # whose key is not unique.
         primary_dedup_columns: List[str] = []
         for join_def in query_desc.virtual_table.joined_tables:
-            if join_def.enforce_unique_keys and join_def.dedup_key_columns:
+            if getattr(join_def, 'enforce_unique_primary_keys', False):
                 for condition in join_def.on_conditions:
                     parts = condition.split('=')
                     if len(parts) != 2:

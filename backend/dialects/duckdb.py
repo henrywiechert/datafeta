@@ -33,6 +33,10 @@ class DuckDbDialect(SqlDialect):
     def random_func_name(self) -> str:
         return 'random'
 
+    def star_except_keyword(self) -> str:
+        # DuckDB spells the star modifier EXCLUDE; EXCEPT is the set operator.
+        return 'EXCLUDE'
+
     def to_string_expr(self, expr: str) -> str:
         return f"CAST({expr} AS VARCHAR)"
 
