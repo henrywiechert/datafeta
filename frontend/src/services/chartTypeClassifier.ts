@@ -156,11 +156,81 @@ export function classifyChartType(
 }
 
 /**
+ * Synthetic provenance columns injected by the union / virtual-table wrapper.
+ *
+ * They are always present so charts keep working when a union is removed, which
+ * means on a single table they carry exactly one distinct value. Partitioning by
+ * a single-valued column makes stratified sampling collapse into a plain global
+ * random sample -- redrawn on every query, so whole categories drop in and out
+ * of the chart. These columns are bookkeeping, never a visual encoding, so they
+ * are never a useful stratum. The union builder already strips them from
+ * `cdf_partition_fields` for the same reason.
+ */
+const SYNTHETIC_SOURCE_FIELDS = new Set(['_source_database', '_source_table']);
+
+function isUsableStratum(dim: {
+  field: string;
+  flavour?: string;
+  date_part?: string;
+  date_mode?: string;
+}): boolean {
+  if (SYNTHETIC_SOURCE_FIELDS.has(dim.field)) return false;
+  return dim.flavour === 'discrete' || !!(dim.date_part && dim.date_mode);
+}
+
+/** Last element matching a predicate, mirroring the renderer's `.slice(-1)[0]`. */
+function findLast<T>(items: T[], predicate: (item: T) => boolean): T | undefined {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (predicate(items[i])) return items[i];
+  }
+  return undefined;
+}
+
+/**
+ * The band ("category") axis of a distribution chart -- tick strip or box plot.
+ *
+ * This must match what actually gets rendered, or the sampling protects bands
+ * the chart never draws while the visible ones can be emptied out. chartRules
+ * takes the LAST discrete dimension -- the same convention bar charts use for
+ * their category -- from the axis OPPOSITE the continuous dimension
+ * (`yDiscreteDims.slice(-1)[0]` / `xDiscreteDims.slice(-1)[0]`), falling back to
+ * the continuous dimension's own axis when the opposite axis holds no dimensions
+ * at all. Checking opposite-then-same reproduces both of those branches.
+ *
+ * Returns undefined when the shape is not a distribution chart -- notably a
+ * scatter, which has continuous dimensions on both axes.
+ *
+ * Known divergence: when faceting supplies a `categoryAxisDescriptor`, that
+ * overrides the band axis at render time. It lives on the chart-generation
+ * context and is not derivable from the query description, so it cannot be
+ * honoured here.
+ */
+function findDistributionCategoryDim(dims: any[]): any | undefined {
+  const continuousAxes = new Set(
+    dims.filter(d => d.flavour === 'continuous' && (d.axis === 'x' || d.axis === 'y')).map(d => d.axis)
+  );
+  if (continuousAxes.size !== 1) return undefined;
+
+  const continuousAxis = continuousAxes.has('x') ? 'x' : 'y';
+  const oppositeAxis = continuousAxis === 'x' ? 'y' : 'x';
+
+  return (
+    findLast(dims, d => d.axis === oppositeAxis && isUsableStratum(d)) ||
+    findLast(dims, d => d.axis === continuousAxis && isUsableStratum(d))
+  );
+}
+
+/**
  * Find the best stratification field for budgeted sampling.
  * Priority:
  * 1. Discrete color field (best visual preservation)
- * 2. Discrete axis dimension or datetime-part selection
- * 
+ * 2. The rendered category axis of a distribution chart (tick strip / box plot)
+ * 3. Any discrete axis dimension or datetime-part selection
+ *
+ * Synthetic source columns are skipped entirely: returning undefined (and thus
+ * plain random sampling) is no worse than partitioning by a constant, and it
+ * lets a real category dimension win instead.
+ *
  * @param queryDesc - The query description
  * @param colorField - Optional color field
  * @param hasDiscreteColor - Whether color field is discrete
@@ -176,18 +246,24 @@ export function findStratifyField(
     return getResultColumnName(colorField);
   }
 
-  // Otherwise, find a discrete axis dimension or datetime-part
+  const dims = queryDesc.dimensions || [];
+
+  // Distribution charts: stratify by the band axis the renderer actually draws.
+  const categoryDim = findDistributionCategoryDim(dims);
+  if (categoryDim) {
+    return getDimensionOutputName(categoryDim);
+  }
+
+  // Non-distribution point charts only: no continuous axis dimension at all, or
+  // continuous on both axes (a scatter, where the strategy is preserve_extremes
+  // and this field goes unused). There is no band axis to mirror here, so the
+  // x-before-y order is the pre-existing arbitrary choice; the last match keeps
+  // it consistent with the renderer's category convention.
   const discreteAxisDim =
-    queryDesc.dimensions?.find(
-      d => d.axis === 'x' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))
-    ) ||
-    queryDesc.dimensions?.find(
-      d => d.axis === 'y' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))
-    ) ||
+    findLast(dims, d => d.axis === 'x' && isUsableStratum(d as any)) ||
+    findLast(dims, d => d.axis === 'y' && isUsableStratum(d as any)) ||
     // Fallback: any discrete-like dimension
-    queryDesc.dimensions?.find(
-      d => d.flavour === 'discrete' || (d.date_part && d.date_mode)
-    );
+    findLast(dims, d => isUsableStratum(d as any));
 
   return discreteAxisDim ? getDimensionOutputName(discreteAxisDim as any) : undefined;
 }

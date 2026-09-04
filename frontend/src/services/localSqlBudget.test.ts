@@ -49,3 +49,23 @@ describe('preserve-extremes budget SQL', () => {
     expect(sql).toContain('row_number() OVER (ORDER BY "k" DESC) AS "__rb_max_0"');
   });
 });
+
+describe('stratified budget SQL', () => {
+  const RAW = 'SELECT "cat" AS "cat", "v" AS "v" FROM "t"';
+
+  it('never floors the per-stratum target at zero', () => {
+    const sql = applyPointBudgetSql(RAW, {
+      maxRows: 5000, strategy: 'stratified', stratifyField: 'cat', minPerStratum: 0,
+    });
+
+    expect(sql).toContain('greatest(1, cast(5000 * cat_cnt / total_cnt as integer))');
+  });
+
+  it('keeps an explicit min-per-stratum when it is higher', () => {
+    const sql = applyPointBudgetSql(RAW, {
+      maxRows: 5000, strategy: 'stratified', stratifyField: 'cat', minPerStratum: 200,
+    });
+
+    expect(sql).toContain('greatest(200, cast(5000 * cat_cnt / total_cnt as integer))');
+  });
+});

@@ -199,3 +199,102 @@ class TestPreserveExtremesExecution:
 
         assert columns == ["k", "SUM(v)"]
         assert keys == list(range(100))
+
+
+def _tick_strip_sql() -> str:
+    """Multi-strip tick chart: a continuous value plus a discrete category."""
+    return 'SELECT "cat" "cat", "v" "v" FROM "t"'
+
+
+def _stratified_desc(max_rows: int, min_per_stratum: int = 0) -> QueryDescription:
+    return QueryDescription(
+        target_table="t",
+        dimensions=[
+            Dimension(field="v", flavour="continuous", axis="x"),
+            Dimension(field="cat", flavour="discrete", axis="y"),
+        ],
+        result_budget=ResultBudget(
+            max_rows=max_rows,
+            strategy="stratified",
+            stratify_field="cat",
+            min_per_stratum=min_per_stratum,
+        ),
+    )
+
+
+class TestStratifiedFloorsAtOneRow:
+    """A proportional target of 0 removes the category from the chart entirely."""
+
+    def test_duckdb_target_never_floors_at_zero(self):
+        sql = apply_result_budget(
+            _tick_strip_sql(), _stratified_desc(max_rows=5000), dialect=DuckDbDialect()
+        )
+
+        assert "greatest(1, cast(5000 * cat_cnt / total_cnt as integer))" in sql
+
+    def test_clickhouse_target_never_floors_at_zero(self):
+        from backend.dialects import ClickHouseDialect
+
+        sql = apply_result_budget(
+            "SELECT `cat` `cat`, `v` `v` FROM `db`.`t`",
+            _stratified_desc(max_rows=5000),
+            dialect=ClickHouseDialect(),
+        )
+
+        assert "greatest(1, intDiv(5000 * cat_cnt, total_cnt))" in sql
+
+    def test_explicit_min_per_stratum_still_wins(self):
+        sql = apply_result_budget(
+            _tick_strip_sql(),
+            _stratified_desc(max_rows=5000, min_per_stratum=200),
+            dialect=DuckDbDialect(),
+        )
+
+        assert "greatest(200, cast(5000 * cat_cnt / total_cnt as integer))" in sql
+
+    def test_every_category_survives_a_dominant_one(self):
+        """One category with 200k rows beside three with 3 rows: all 4 remain."""
+        duckdb = pytest.importorskip("duckdb")
+        con = duckdb.connect()
+        con.execute(
+            """
+            CREATE TABLE t AS
+            SELECT 'big' AS cat, i AS v FROM range(200000) tbl(i)
+            UNION ALL SELECT 'small_' || (i % 3), i FROM range(9) tbl2(i)
+            """
+        )
+
+        sql = apply_result_budget(
+            _tick_strip_sql(), _stratified_desc(max_rows=5000), dialect=DuckDbDialect()
+        )
+        columns = None
+        # Repeat: the sample is randomised, so a surviving category must survive
+        # every draw rather than getting lucky once.
+        for _ in range(5):
+            rows = con.execute(sql).fetchall()
+            columns = columns or [d[0] for d in con.description]
+            cats = {r[columns.index("cat")] for r in rows}
+            assert cats == {"big", "small_0", "small_1", "small_2"}
+
+
+class TestStrategyDowngrades:
+    """A requested strategy that cannot run must fall back to a global sample."""
+
+    def test_stratified_without_a_field_falls_back_to_random(self):
+        desc = _stratified_desc(max_rows=5000)
+        desc.result_budget.stratify_field = None
+
+        sql = apply_result_budget(_tick_strip_sql(), desc, dialect=DuckDbDialect())
+
+        assert "PARTITION BY" not in sql
+        assert "ORDER BY random()" in sql
+        assert "LIMIT 5000" in sql
+
+    def test_stratified_on_a_missing_column_falls_back_to_random(self):
+        desc = _stratified_desc(max_rows=5000)
+        desc.result_budget.stratify_field = "not_selected"
+
+        sql = apply_result_budget(_tick_strip_sql(), desc, dialect=DuckDbDialect())
+
+        assert "PARTITION BY" not in sql
+        assert "ORDER BY random()" in sql
