@@ -357,6 +357,9 @@ export function applyPointBudgetSql(
   // Stratified sampling with discrete color/category field
   if (stratifyField) {
     const strat = quoteIdent(stratifyField);
+    // Floor at one row per stratum -- see the backend applier: a proportional
+    // target of 0 drops the whole category out of the chart.
+    const floorPerStratum = Math.max(minPerStratum, 1);
     return `
 WITH base AS (
   ${baseSql}
@@ -370,7 +373,7 @@ ranked AS (
   FROM base
 )
 SELECT * FROM ranked
-WHERE rn <= greatest(${minPerStratum}, cast(${maxRows} * cat_cnt / total_cnt as integer))
+WHERE rn <= greatest(${floorPerStratum}, cast(${maxRows} * cat_cnt / total_cnt as integer))
     `.trim();
   }
 

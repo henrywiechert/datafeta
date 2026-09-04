@@ -163,12 +163,18 @@ def _apply_stratified_sampling(
         return None
 
     rand_func = f"{dialect.random_func_name()}()"
-    
+
+    # Floor at one row per stratum. The proportional target truncates to 0 for
+    # any category holding less than 1/max_rows of the rows, which removes the
+    # category from the chart entirely (a whole tick strip disappears) -- far
+    # more misleading than the handful of extra rows this costs.
+    floor_per = max(min_per, 1)
+
     # Integer truncation: ClickHouse uses intDiv, others use cast
     if dialect.name == "clickhouse":
-        target_expr = f"greatest({min_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
+        target_expr = f"greatest({floor_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
     else:
-        target_expr = f"greatest({min_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
+        target_expr = f"greatest({floor_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
 
     return f"""
 SELECT * FROM (
