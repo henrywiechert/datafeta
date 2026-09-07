@@ -196,14 +196,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     : ganttCategoryAxis === 'y'
       ? [...yFields].reverse().find((f) => f.type === 'dimension' && f.flavour === 'discrete')?.id
       : undefined;
+  // Discrete measures are excluded here too: they already went to faceting above.
   const xCandidates = xFields.filter(f => 
-    f.type === 'measure' || 
-    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    f.flavour === 'continuous' ||
     (ganttCategoryAxis === 'x' && f.id === ganttCategoryFieldId)
   );
   const yCandidates = yFields.filter(f => 
-    f.type === 'measure' || 
-    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    f.flavour === 'continuous' ||
     (ganttCategoryAxis === 'y' && f.id === ganttCategoryFieldId)
   );
   

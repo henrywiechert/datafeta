@@ -147,8 +147,10 @@ function fingerprint(spec: SymbolFingerprint): string {
   return `${spec.symbol}\x1f${spec.color}`;
 }
 
+// Discrete measures behave like discrete dimensions here: their aggregated
+// value becomes the header label instead of a continuous "Measure Values" band.
 function discreteHeaderFields(fields: Field[]): Field[] {
-  return fields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+  return fields.filter((f) => f.flavour === 'discrete');
 }
 
 function buildHeaderAxis(
@@ -480,7 +482,7 @@ function collectMeasureBandSources(
   fieldAliasLookup?: Record<string, string>,
 ): MeasureBandSource[] {
   return fields
-    .filter((field) => field.type === 'measure')
+    .filter((field) => field.type === 'measure' && field.flavour === 'continuous')
     .map((field) => ({
       field,
       column: getFieldColumnName(normalizeLabelFieldForResultColumn(field)),

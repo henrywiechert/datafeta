@@ -240,20 +240,16 @@ export function detectDefaultUserChartType(
   //    X/Y axis → the Tableau-style text/symbol table. Decided purely from the
   //    X/Y axes; a continuous measure on Color (or any other channel) does not
   //    flip this to a chart — it colours the table symbols downstream.
-  const hasAnyContinuous = [...xs, ...ys].some(
-    (f) => f.type === 'measure' || f.flavour === 'continuous'
-  );
+  const hasAnyContinuous = [...xs, ...ys].some((f) => f.flavour === 'continuous');
   if (!hasAnyContinuous) {
     return 'table-refactor';
   }
 
   // 2. Cartesian shape: continuous candidates on both axes → defer to per-pair.
-  const xCandidates = xs.filter(
-    (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
-  );
-  const yCandidates = ys.filter(
-    (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
-  );
+  // A discrete measure does NOT count as a continuous candidate (it facets, like
+  // a discrete dimension), regardless of type.
+  const xCandidates = xs.filter((f) => f.flavour === 'continuous');
+  const yCandidates = ys.filter((f) => f.flavour === 'continuous');
   if (xCandidates.length > 0 && yCandidates.length > 0) {
     const cellType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
     if (cellType === 'barX' || cellType === 'barY') return 'bar';

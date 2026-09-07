@@ -350,10 +350,12 @@ function buildSelectionSpecs(input: BuildViewSpecInput): SelectionSpec[] {
 }
 
 export function buildViewSpec(input: BuildViewSpecInput): ViewSpec {
+  // Discrete measures (Tableau-style "convert to discrete") behave like discrete
+  // dimensions here: they facet/header, they don't get a continuous in-pane axis.
   const xDiscrete = input.xAxisFields.filter((field) => field.flavour === 'discrete');
   const yDiscrete = input.yAxisFields.filter((field) => field.flavour === 'discrete');
-  const xInPane = input.xAxisFields.filter((field) => field.flavour === 'continuous' || field.type === 'measure');
-  const yInPane = input.yAxisFields.filter((field) => field.flavour === 'continuous' || field.type === 'measure');
+  const xInPane = input.xAxisFields.filter((field) => field.flavour === 'continuous');
+  const yInPane = input.yAxisFields.filter((field) => field.flavour === 'continuous');
   const queryFields = buildQueryFieldsFromViewInput(input);
   const measureGroups = buildMeasureGroupSpec(input);
   const grain = deriveGrain(input, queryFields);
