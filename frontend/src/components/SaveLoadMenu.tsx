@@ -1,34 +1,41 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useState } from 'react';
-import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, CircularProgress } from '@mui/material';
+import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, CircularProgress, Typography } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CloudIcon from '@mui/icons-material/Cloud';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import SaveAsIcon from '@mui/icons-material/SaveAs';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { SavedConfiguration } from '../types';
 
 interface SaveLoadMenuProps {
-  onSave: () => void;
+  /** Export the configuration to a local JSON file. */
+  onExportFile: () => void;
   onLoad: (config: SavedConfiguration) => void;
   onOpenGallery?: () => void;
-  onQuickSave?: () => Promise<void>;
+  /** Update the open snapshot in place (or prompt for a name if none is open). */
+  onSave?: () => Promise<void>;
+  /** Always create a new snapshot under a new name. */
+  onSaveAs?: () => void;
   serverStorageReadable?: boolean;
   serverStorageWritable?: boolean;
 }
 
 export default function SaveLoadMenu({
-  onSave,
+  onExportFile,
   onLoad,
   onOpenGallery,
-  onQuickSave,
+  onSave,
+  onSaveAs,
   serverStorageReadable = true,
   serverStorageWritable = true,
 }: SaveLoadMenuProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isQuickSaving, setIsQuickSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const open = Boolean(anchorEl);
+  const shortcutHint = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘S' : 'Ctrl+S';
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -44,20 +51,25 @@ export default function SaveLoadMenu({
     onOpenGallery?.();
   };
 
-  const handleQuickSave = async () => {
-    if (!onQuickSave) return;
-    setIsQuickSaving(true);
+  const handleSave = async () => {
+    if (!onSave) return;
+    setIsSaving(true);
     try {
-      await onQuickSave();
+      await onSave();
     } finally {
-      setIsQuickSaving(false);
+      setIsSaving(false);
       handleClose();
     }
   };
 
-  const handleSave = () => {
+  const handleSaveAs = () => {
     handleClose();
-    onSave();
+    onSaveAs?.();
+  };
+
+  const handleExportFile = () => {
+    handleClose();
+    onExportFile();
   };
 
   const handleLoadClick = () => {
@@ -84,7 +96,8 @@ export default function SaveLoadMenu({
 
   const hasServerStorage = Boolean(onOpenGallery);
   const canOpenGallery = hasServerStorage && serverStorageReadable;
-  const canQuickSave = hasServerStorage && serverStorageWritable && Boolean(onQuickSave);
+  const canSave = hasServerStorage && serverStorageWritable && Boolean(onSave);
+  const canSaveAs = hasServerStorage && serverStorageWritable && Boolean(onSaveAs);
 
   return (
     <>
@@ -113,30 +126,41 @@ export default function SaveLoadMenu({
         {/* Server Storage Section */}
         {hasServerStorage && (
           <>
+            {canSave && (
+              <MenuItem onClick={handleSave} disabled={isSaving}>
+                <ListItemIcon>
+                  {isSaving ? (
+                    <CircularProgress size={20} />
+                  ) : (
+                    <CloudUploadIcon fontSize="small" />
+                  )}
+                </ListItemIcon>
+                <ListItemText>Save</ListItemText>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                  {shortcutHint}
+                </Typography>
+              </MenuItem>
+            )}
+            {canSaveAs && (
+              <MenuItem onClick={handleSaveAs} disabled={isSaving}>
+                <ListItemIcon>
+                  <SaveAsIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Save As...</ListItemText>
+              </MenuItem>
+            )}
             <MenuItem onClick={handleOpenGallery} disabled={!canOpenGallery}>
               <ListItemIcon>
                 <CloudIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>Saved Configurations...</ListItemText>
             </MenuItem>
-            {canQuickSave && (
-              <MenuItem onClick={handleQuickSave} disabled={isQuickSaving}>
-                <ListItemIcon>
-                  {isQuickSaving ? (
-                    <CircularProgress size={20} />
-                  ) : (
-                    <CloudUploadIcon fontSize="small" />
-                  )}
-                </ListItemIcon>
-                <ListItemText>Quick Save to Server</ListItemText>
-              </MenuItem>
-            )}
             <Divider sx={{ my: 0.5 }} />
           </>
         )}
-        
+
         {/* File Export/Import Section */}
-        <MenuItem onClick={handleSave}>
+        <MenuItem onClick={handleExportFile}>
           <ListItemIcon>
             <FileDownloadIcon fontSize="small" />
           </ListItemIcon>

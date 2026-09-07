@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from '@mui/material';
+import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Typography, Snackbar, Alert } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
@@ -13,6 +13,7 @@ import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog, { ClickHouseOverrides, ConnectionRestoreOptions } from './components/ConnectionRestoreDialog';
 import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
+import SnapshotSaveAsDialog from './components/SnapshotSaveAsDialog';
 import { 
   exportConfiguration, 
   saveConfigFile, 
@@ -20,7 +21,8 @@ import {
   reconstructConnectionDetails 
 } from './services/configurationService';
 import { apiService } from './apiService';
-import { SavedConfiguration, SavedConnectionMetadata } from './types';
+import { SavedConfiguration, SavedConnectionMetadata, SnapshotMetadata } from './types';
+import { useCurrentSnapshot, CurrentSnapshotIdentity } from './hooks/useCurrentSnapshot';
 import { rewriteUnionTablesForDatabase } from './utils/schemaValidation';
 import { resolveSnapshotDatabaseOverride } from './utils/snapshotDatabaseOverride';
 import { schemaCheckBus } from './services/schemaCheckBus';
@@ -114,9 +116,15 @@ function AppContent() {
   
   // State for snapshot gallery
   const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
-  
-  // State for tracking loaded snapshot (for URL sharing)
-  const [, setLoadedSnapshotId] = useState<string | null>(null);
+  const [showSaveAs, setShowSaveAs] = useState(false);
+
+  // Identity of the snapshot open in the workspace, so "Save" can update it in
+  // place instead of making the user re-pick it in the gallery.
+  const currentSnapshot = useCurrentSnapshot();
+  const { clear: clearCurrentSnapshot } = currentSnapshot;
+
+  // Transient Save feedback (there is no app-wide toast host).
+  const [saveStatus, setSaveStatus] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
 
   // Load snapshot from URL parameter on mount
   const snapshotLoadedRef = React.useRef(false);
@@ -137,7 +145,6 @@ function AppContent() {
         try {
           const snapshot = await apiService.loadSnapshot(snapshotId);
           if (snapshot.configuration) {
-            setLoadedSnapshotId(snapshotId);
             const overrideResult = resolveSnapshotDatabaseOverride(
               snapshot.configuration,
               databaseParam,
@@ -147,6 +154,11 @@ function AppContent() {
             }
             handleLoadConfiguration(snapshot.configuration, {
               databaseOverride: overrideResult.applied ? overrideResult.database : undefined,
+              snapshotIdentity: {
+                id: snapshot.id,
+                name: snapshot.name,
+                folder: snapshot.folder ?? '',
+              },
             });
           }
         } catch (err) {
@@ -161,26 +173,29 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAppConfigLoading, appConfig.snapshots.enabled]);
 
-  // Warn user before accidental page reload when connected.
+  // Warn before an accidental page reload would lose work: either unsaved edits
+  // to the open configuration, or an active connection that would be dropped.
   // Skip in Electron — the desktop shell owns quit via the window close button.
   useEffect(() => {
     const isElectron = /Electron/i.test(navigator.userAgent);
     if (isElectron) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isConnected) {
+      if (currentSnapshot.isDirty || isConnected) {
         // Standard way to trigger the browser's "Leave site?" dialog
         e.preventDefault();
         // Chrome requires returnValue to be set (even if empty string)
         e.returnValue = '';
         // Some older browsers use the return value as the message
-        return 'You have an active connection. Are you sure you want to leave?';
+        return currentSnapshot.isDirty
+          ? 'You have unsaved changes to this configuration. Are you sure you want to leave?'
+          : 'You have an active connection. Are you sure you want to leave?';
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isConnected]);
+  }, [isConnected, currentSnapshot.isDirty]);
 
   // Reset workspace on page load if not connected
   // This prevents stale visualization state from persisting after page reload
@@ -191,9 +206,10 @@ function AppContent() {
       // On initial load, if not connected, reset the workspace to clear stale state
       if (!isConnected) {
         resetWorkspace();
+        clearCurrentSnapshot();
       }
     }
-  }, [isConnected, resetWorkspace]);
+  }, [isConnected, resetWorkspace, clearCurrentSnapshot]);
 
   // Helper to get current configuration
   const getCurrentConfiguration = (): SavedConfiguration => {
@@ -223,6 +239,41 @@ function AppContent() {
     );
   };
 
+  // getCurrentConfiguration closes over this render's state, so deferred
+  // callers (timeouts, event listeners) must go through a ref or they would
+  // read a stale configuration.
+  const getConfigRef = React.useRef(getCurrentConfiguration);
+  useEffect(() => {
+    getConfigRef.current = getCurrentConfiguration;
+  });
+
+  // Re-check for unsaved edits whenever anything the configuration captures
+  // changes. state.sheets only changes once per 300ms debounce, so this is
+  // event-driven rather than polling.
+  useEffect(() => {
+    currentSnapshot.recomputeDirty(getConfigRef.current());
+  // REASON: deps mirror the values getCurrentConfiguration reads; the function
+  // itself is recreated every render and would make this run continuously.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    state.sheets,
+    state.activeSheetId,
+    state.nextSheetNumber,
+    connectionDetails,
+    dataSource.selectedDatabase,
+    dataSource.selectedTable,
+    dataSource.unionTables,
+    dataSource.virtualTable,
+    dataSource.virtualColumns,
+    dataSource.virtualColumnFieldPreferences,
+    dataSource.fieldDisplayAliases,
+    dataSource.loadedPartitions,
+    dataSource.sessionFilterFields,
+    dataSource.sessionAppliedFilterConfigurations,
+    dataSource.customRelationships,
+    currentSnapshot.recomputeDirty,
+  ]);
+
   // Save/Load Configuration Handlers
   const handleSaveConfiguration = async () => {
     try {
@@ -236,32 +287,90 @@ function AppContent() {
     }
   };
 
-  // Quick save to server with auto-generated name
-  const handleQuickSave = async () => {
+  // Update the open snapshot in place. With nothing open there is no name to
+  // save under, so fall through to Save As rather than inventing one.
+  const handleSaveSnapshot = async () => {
+    if (!currentSnapshot.current) {
+      setShowSaveAs(true);
+      return;
+    }
     try {
       const config = getCurrentConfiguration();
-      const timestamp = new Date().toLocaleString();
-      const name = `Snapshot ${timestamp}`;
-      await apiService.saveSnapshot(name, config);
+      const meta = await apiService.overwriteSnapshot(currentSnapshot.current.id, config);
+      currentSnapshot.adopt(meta);
+      currentSnapshot.markSaved(config);
+      setSaveStatus({ severity: 'success', message: `Saved "${meta.name}"` });
     } catch (error) {
-      console.error('Failed to quick save:', error);
-      alert('Failed to save to server: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Failed to save snapshot:', error);
+      setSaveStatus({
+        severity: 'error',
+        message: 'Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      });
     }
   };
 
+  // Always creates a new snapshot, then continues working against that one.
+  const handleSaveAs = async (name: string, folder: string) => {
+    const config = getCurrentConfiguration();
+    const meta = await apiService.saveSnapshot(name, config, folder || undefined);
+    currentSnapshot.adopt(meta);
+    currentSnapshot.markSaved(config);
+    setSearchParams({ snapshot: meta.id });
+    setSaveStatus({ severity: 'success', message: `Saved "${meta.name}"` });
+  };
+
+  const canSaveToServer = appConfig.snapshots.enabled && appConfig.snapshots.writable;
+
+  // Ctrl/Cmd+S saves the open configuration. Registered here rather than
+  // alongside the undo/redo shortcuts in VisualizationPage because the save
+  // handlers live in this component and there is no context bridge between them.
+  const handleSaveRef = React.useRef(handleSaveSnapshot);
+  useEffect(() => {
+    handleSaveRef.current = handleSaveSnapshot;
+  });
+  useEffect(() => {
+    if (!canSaveToServer) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifierKey = isMac ? event.metaKey : event.ctrlKey;
+      if (!modifierKey || event.key.toLowerCase() !== 's' || event.shiftKey || event.altKey) return;
+
+      // Don't hijack the shortcut while the user is editing text.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      // Suppress the browser's "Save Page As" dialog.
+      event.preventDefault();
+      handleSaveRef.current();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canSaveToServer]);
+
   // Handle loading from snapshot gallery
-  const handleLoadFromGallery = (config: SavedConfiguration, snapshotId?: string) => {
-    if (snapshotId) {
-      setLoadedSnapshotId(snapshotId);
-      // Update URL with snapshot ID for sharing
-      setSearchParams({ snapshot: snapshotId });
-    }
-    handleLoadConfiguration(config);
+  const handleLoadFromGallery = (config: SavedConfiguration, meta?: SnapshotMetadata) => {
+    handleLoadConfiguration(config, {
+      snapshotIdentity: meta && { id: meta.id, name: meta.name, folder: meta.folder ?? '' },
+    });
   };
 
   const handleLoadConfiguration = async (
     rawConfig: any,
-    options?: { preserveConnection?: boolean; databaseOverride?: string },
+    options?: {
+      preserveConnection?: boolean;
+      databaseOverride?: string;
+      /**
+       * Set when the config came from a named server snapshot, so Save can
+       * update it in place. Omitted by file import and demo-dataset loads:
+       * those leave the workspace untitled on purpose — a demo snapshot is a
+       * shared template that Save must not overwrite for everyone.
+       */
+      snapshotIdentity?: CurrentSnapshotIdentity;
+    },
   ) => {
     try {
       // Check if currently connected - warn user before proceeding
@@ -285,6 +394,23 @@ function AppContent() {
       // Validate the configuration
       const config = validateConfiguration(rawConfig);
       setDatabaseOverride(options?.databaseOverride ?? null);
+
+      // Past the cancel guard, so the workspace really is being replaced: take
+      // on the new identity, or become untitled when there isn't one. The URL
+      // follows the identity so sharing and reloading stay in agreement — it
+      // must not move to a snapshot the user declined to load above.
+      if (options?.snapshotIdentity) {
+        currentSnapshot.adopt(options.snapshotIdentity);
+        // Skipped when already on this snapshot, which keeps a ?database=
+        // override intact on the shared-URL load path.
+        if (searchParams.get('snapshot') !== options.snapshotIdentity.id) {
+          setSearchParams({ snapshot: options.snapshotIdentity.id });
+        }
+      } else {
+        currentSnapshot.clear();
+        // Drop a stale ?snapshot= so a reload doesn't resurrect the old config.
+        if (searchParams.get('snapshot')) setSearchParams({});
+      }
       
       // If there's connection metadata, show the connection restore dialog
       if (config.connection && !options?.preserveConnection) {
@@ -535,6 +661,14 @@ function AppContent() {
       setPendingConfig(null);
       setConnectionMetadata(null);
       setDatabaseOverride(null);
+
+      // Capture the dirty baseline only once the restored state has settled.
+      // Visualization state reaches state.sheets via a 300ms debounce (see
+      // useVisualizationState), so measuring now would read the *previous*
+      // config and show a freshly loaded snapshot as already modified.
+      window.setTimeout(() => {
+        currentSnapshot.markSaved(getConfigRef.current());
+      }, 600);
     } catch (error) {
       console.error('Failed to restore configuration state:', error);
       alert('Failed to restore configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -640,11 +774,26 @@ function AppContent() {
           </IconButton>
         </Tooltip>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', pr: 2 }}>
+          {currentSnapshot.current && (
+            <Tooltip title={currentSnapshot.isDirty ? 'Unsaved changes' : 'Saved configuration'}>
+              <Typography
+                variant="caption"
+                noWrap
+                sx={{ maxWidth: 260, color: 'text.secondary' }}
+              >
+                {currentSnapshot.isDirty ? '• ' : ''}
+                {currentSnapshot.current.folder
+                  ? `${currentSnapshot.current.folder} / ${currentSnapshot.current.name}`
+                  : currentSnapshot.current.name}
+              </Typography>
+            </Tooltip>
+          )}
           <SaveLoadMenu
-            onSave={handleSaveConfiguration}
+            onExportFile={handleSaveConfiguration}
             onLoad={handleLoadConfiguration}
             onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
-            onQuickSave={appConfig.snapshots.writable ? handleQuickSave : undefined}
+            onSave={canSaveToServer ? handleSaveSnapshot : undefined}
+            onSaveAs={canSaveToServer ? () => setShowSaveAs(true) : undefined}
             serverStorageReadable={!appConfig.isDemoMode}
             serverStorageWritable={appConfig.snapshots.writable}
           />
@@ -728,8 +877,31 @@ function AppContent() {
         onClose={() => setShowSnapshotGallery(false)}
         onLoad={handleLoadFromGallery}
         getCurrentConfiguration={getCurrentConfiguration}
+        onSaveAsNew={handleSaveAs}
+        currentSnapshotId={currentSnapshot.current?.id}
         readOnly={!appConfig.snapshots.writable}
       />
+
+      <SnapshotSaveAsDialog
+        open={showSaveAs}
+        onClose={() => setShowSaveAs(false)}
+        onSave={handleSaveAs}
+        initialName={currentSnapshot.current?.name ?? ''}
+        initialFolder={currentSnapshot.current?.folder ?? ''}
+      />
+
+      <Snackbar
+        open={Boolean(saveStatus)}
+        autoHideDuration={2000}
+        onClose={() => setSaveStatus(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {saveStatus ? (
+          <Alert severity={saveStatus.severity} variant="filled" onClose={() => setSaveStatus(null)}>
+            {saveStatus.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </div>
   );
 }

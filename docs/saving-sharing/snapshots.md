@@ -6,21 +6,50 @@ Snapshots save the complete state of a visualization — data source connection,
 
 ## Saving a snapshot
 
-Click the **Save** (💾) icon next to the sheet tab, or press **Quick Save** in the toolbar.
+Snapshots behave like documents: you open one, work on it, and save it.
+
+All snapshot actions live in the **⋮** menu at the right-hand end of the bottom bar.
+
+### Save As…
+
+Creates a **new** snapshot.
 
 - Enter a **name** for the snapshot.
 - Optionally place it in a **folder** (type a new folder name or select an existing one).
 - Click **Save**.
 
-The snapshot is stored on the server and persists across browser sessions.
+The snapshot is stored on the server and persists across browser sessions. The workspace then
+continues working against the snapshot you just created.
+
+### Save
+
+Updates the snapshot you currently have open, in place — no name prompt, no picking it out of a
+list. Press `Cmd+S` / `Ctrl+S`, or choose **Save** from the **⋮** menu.
+
+The name of the open snapshot is shown in the bottom bar next to the **⋮** menu. A bullet (`•`)
+in front of the name means there are unsaved changes:
+
+```
+• Sales/Reports / Q3 Revenue     ⋮
+```
+
+If no snapshot is open — for example you just imported a file or loaded a demo dataset — **Save**
+prompts you for a name, exactly like **Save As…**. This is deliberate: loading a demo dataset
+leaves the workspace untitled so that saving cannot overwrite a shared demo configuration.
 
 ---
 
 ## Opening the Snapshot Gallery
 
-Click **Saved Configurations…** on the Connect page, or the gallery icon in the toolbar.
+Choose **Saved Configurations…** from the **⋮** menu, or click **Saved Configurations…** on the
+Connect page.
 
-The gallery shows all saved snapshots, organised by folder. Click any snapshot to load it.
+The gallery shows all saved snapshots, organised by folder. Click any snapshot to load it. The
+snapshot you currently have open is marked **Current**, and its folder is expanded for you.
+
+To overwrite a *different* snapshot with your current configuration, use the **Overwrite with
+current** (💾) icon on that snapshot's row and confirm. To update the snapshot you already have
+open, just use **Save**.
 
 ---
 
@@ -28,9 +57,9 @@ The gallery shows all saved snapshots, organised by folder. Click any snapshot t
 
 Snapshots can be grouped into folders for organisation.
 
-- To create a folder, type a new folder name when saving a snapshot.
+- To create a folder, type a new folder name in the **Folder** field when saving a snapshot.
 - In the gallery, click a folder to expand or collapse it.
-- Drag snapshots between folders in the gallery to reorganise them.
+- To move a snapshot, use the **Move to folder** icon on its row in the gallery.
 
 ---
 

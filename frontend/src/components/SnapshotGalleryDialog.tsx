@@ -8,6 +8,7 @@ import {
   Button,
   TextField,
   Box,
+  Chip,
   Typography,
   Alert,
   CircularProgress,
@@ -24,7 +25,6 @@ import {
   Collapse,
   MenuItem,
   Menu,
-  Autocomplete,
   Popover,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -54,6 +54,7 @@ import {
   formatSnapshotDate,
   isFolderEmpty,
 } from './SnapshotGalleryDialog/snapshotGalleryUtils';
+import SnapshotSaveAsDialog from './SnapshotSaveAsDialog';
 
 // Search highlight helper (kept local because it returns JSX)
 // ---------------------------------------------------------------------------
@@ -80,8 +81,15 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 interface SnapshotGalleryDialogProps {
   open: boolean;
   onClose: () => void;
-  onLoad: (configuration: SavedConfiguration, snapshotId?: string) => void;
+  onLoad: (configuration: SavedConfiguration, meta?: SnapshotMetadata) => void;
   getCurrentConfiguration: () => SavedConfiguration;
+  /**
+   * Save the current configuration as a new snapshot. Delegated upward so the
+   * workspace adopts the new snapshot, matching "Save As..." in the menu.
+   */
+  onSaveAsNew: (name: string, folder: string) => Promise<void>;
+  /** Id of the snapshot currently open in the workspace, marked as "Current". */
+  currentSnapshotId?: string;
   readOnly?: boolean;
 }
 
@@ -90,17 +98,17 @@ export default function SnapshotGalleryDialog({
   onClose,
   onLoad,
   getCurrentConfiguration,
+  onSaveAsNew,
+  currentSnapshotId,
   readOnly = false,
 }: SnapshotGalleryDialogProps) {
   const [snapshots, setSnapshots] = useState<SnapshotMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Save new snapshot
-  const [newSnapshotName, setNewSnapshotName] = useState('');
-  const [saveFolder, setSaveFolder] = useState('');
+  const [showSaveAs, setShowSaveAs] = useState(false);
 
   // Rename snapshot
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -128,10 +136,6 @@ export default function SnapshotGalleryDialog({
   // Share link (show for manual copy)
   const [shareLinkAnchorEl, setShareLinkAnchorEl] = useState<null | HTMLElement>(null);
   const [shareLinkSnapshotId, setShareLinkSnapshotId] = useState<string | null>(null);
-
-  // Inline "new folder" creation
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
 
   // ---- Derived data ----
 
@@ -167,8 +171,7 @@ export default function SnapshotGalleryDialog({
   useEffect(() => {
     if (open) {
       loadSnapshots();
-      setNewSnapshotName('');
-      setSaveFolder('');
+      setShowSaveAs(false);
       setEditingId(null);
       setDeletingId(null);
       setOverwritingId(null);
@@ -178,41 +181,40 @@ export default function SnapshotGalleryDialog({
       setMovingId(null);
       setMoveAnchorEl(null);
       setMoveNewFolderInput(null);
-      setCreatingFolder(false);
-      setNewFolderName('');
       setShareLinkAnchorEl(null);
       setShareLinkSnapshotId(null);
     }
   }, [open, loadSnapshots]);
 
+  // Reveal the open configuration when the gallery is shown, so the user does
+  // not have to hunt through folders for the row they are about to save over.
+  useEffect(() => {
+    if (!open || !currentSnapshotId) return;
+    const currentFolder = snapshots.find((s) => s.id === currentSnapshotId)?.folder;
+    if (!currentFolder) return;
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      expandFolderPath(currentFolder).forEach((path) => next.add(path));
+      return next;
+    });
+  }, [open, currentSnapshotId, snapshots]);
+
   // ---- Handlers ----
 
-  const handleSaveNew = async () => {
-    if (!newSnapshotName.trim()) {
-      setError('Please enter a name for the snapshot');
-      return;
-    }
-    setIsSaving(true);
+  // Errors propagate so SnapshotSaveAsDialog can show them and stay open.
+  const handleSaveNew = async (name: string, folder: string) => {
     setError(null);
     setSuccessMessage(null);
-    try {
-      const configuration = getCurrentConfiguration();
-      await apiService.saveSnapshot(newSnapshotName.trim(), configuration, saveFolder || undefined);
-      setNewSnapshotName('');
-      setSuccessMessage('Snapshot saved successfully');
-      if (saveFolder) {
-        setExpandedFolders((prev) => {
-          const next = new Set(prev);
-          expandFolderPath(saveFolder).forEach((path) => next.add(path));
-          return next;
-        });
-      }
-      await loadSnapshots();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save snapshot');
-    } finally {
-      setIsSaving(false);
+    await onSaveAsNew(name, folder);
+    setSuccessMessage('Snapshot saved successfully');
+    if (folder) {
+      setExpandedFolders((prev) => {
+        const next = new Set(prev);
+        expandFolderPath(folder).forEach((path) => next.add(path));
+        return next;
+      });
     }
+    await loadSnapshots();
   };
 
   const handleLoad = async (snapshotId: string) => {
@@ -220,7 +222,13 @@ export default function SnapshotGalleryDialog({
     setError(null);
     try {
       const snapshot = await apiService.loadSnapshot(snapshotId);
-      onLoad(snapshot.configuration as SavedConfiguration, snapshotId);
+      onLoad(snapshot.configuration as SavedConfiguration, {
+        id: snapshot.id,
+        name: snapshot.name,
+        folder: snapshot.folder ?? '',
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load snapshot');
@@ -354,17 +362,6 @@ export default function SnapshotGalleryDialog({
     await loadSnapshots();
   };
 
-  // ---- New folder handler ----
-
-  const handleConfirmNewFolder = () => {
-    const name = newFolderName.trim();
-    if (!name) return;
-    setSaveFolder(name);
-    setCreatingFolder(false);
-    setNewFolderName('');
-    setSuccessMessage(`Folder "${name}" selected — save a snapshot to create it`);
-  };
-
   // ---- Move handlers ----
 
   const handleOpenMove = (event: React.MouseEvent<HTMLElement>, snapshotId: string) => {
@@ -402,13 +399,16 @@ export default function SnapshotGalleryDialog({
 
   // ---- Render helpers ----
 
-  const renderSnapshotItem = (snapshot: SnapshotMetadata, depth: number, showFolder?: boolean) => (
+  const renderSnapshotItem = (snapshot: SnapshotMetadata, depth: number, showFolder?: boolean) => {
+    const isCurrent = snapshot.id === currentSnapshotId;
+    return (
     <ListItem
       key={snapshot.id}
       sx={{
         pl: depth * 3,
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: isCurrent ? 'primary.main' : 'divider',
+        bgcolor: isCurrent ? 'action.selected' : undefined,
         borderRadius: 1,
         mb: 0.5,
         '&:hover': { bgcolor: 'action.hover' },
@@ -445,7 +445,12 @@ export default function SnapshotGalleryDialog({
       ) : (
         <>
           <ListItemText
-            primary={isSearching ? highlightMatch(snapshot.name, searchQuery.trim()) : snapshot.name}
+            primary={
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                {isSearching ? highlightMatch(snapshot.name, searchQuery.trim()) : snapshot.name}
+                {isCurrent && <Chip label="Current" size="small" color="primary" variant="outlined" />}
+              </Box>
+            }
             secondary={
               showFolder
                 ? `${snapshot.folder || 'Root'} · ${formatSnapshotDate(snapshot.updatedAt)}`
@@ -480,7 +485,8 @@ export default function SnapshotGalleryDialog({
         </>
       )}
     </ListItem>
-  );
+    );
+  };
 
   const renderFolderNode = (node: FolderNode, depth: number) => {
     const isExpanded = expandedFolders.has(node.path);
@@ -570,43 +576,15 @@ export default function SnapshotGalleryDialog({
           {/* Save New Section */}
           {!readOnly && (
             <>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Save Current Configuration</Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                  <TextField
-                    size="small"
-                    fullWidth
-                    placeholder="Enter snapshot name..."
-                    value={newSnapshotName}
-                    onChange={(e) => setNewSnapshotName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !isSaving) handleSaveNew(); }}
-                    disabled={isSaving}
-                    InputProps={{
-                      endAdornment: isSaving ? (
-                        <InputAdornment position="end"><CircularProgress size={20} /></InputAdornment>
-                      ) : null,
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSaveNew}
-                    disabled={isSaving || !newSnapshotName.trim()}
-                  >
-                    Save
-                  </Button>
-                </Box>
-                <Autocomplete
-                  freeSolo
+              <Box sx={{ mb: 2 }}>
+                <Button
+                  variant="contained"
                   size="small"
-                  options={allFolderPaths}
-                  value={saveFolder}
-                  onChange={(_e, newValue) => setSaveFolder(newValue ?? '')}
-                  onInputChange={(_e, newInput) => setSaveFolder(newInput)}
-                  renderInput={(params) => (
-                    <TextField {...params} label="Save into folder" placeholder="Root (no folder)" />
-                  )}
-                />
+                  startIcon={<SaveIcon />}
+                  onClick={() => setShowSaveAs(true)}
+                >
+                  Save current configuration as new...
+                </Button>
               </Box>
 
               <Divider sx={{ mb: 2 }} />
@@ -621,16 +599,9 @@ export default function SnapshotGalleryDialog({
             <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage(null)}>{successMessage}</Alert>
           )}
 
-          {/* Snapshots List Header + Search + New Folder */}
+          {/* Snapshots List Header + Search */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>Saved Snapshots</Typography>
-            {!readOnly && (
-              <Tooltip title="New folder">
-                <IconButton size="small" onClick={() => { setCreatingFolder(true); setNewFolderName(''); }}>
-                  <CreateNewFolderIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
             {snapshots.length > 0 && (
               <TextField
                 size="small"
@@ -651,31 +622,6 @@ export default function SnapshotGalleryDialog({
               />
             )}
           </Box>
-
-          {/* Inline new folder input */}
-          {!readOnly && creatingFolder && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <FolderIcon color="action" sx={{ fontSize: 20 }} />
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Folder name..."
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmNewFolder();
-                  if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName(''); }
-                }}
-                autoFocus
-              />
-              <IconButton size="small" color="primary" onClick={handleConfirmNewFolder} disabled={!newFolderName.trim()}>
-                <CheckIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => { setCreatingFolder(false); setNewFolderName(''); }}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          )}
 
           {/* Content */}
           {isLoading && snapshots.length === 0 ? (
@@ -776,6 +722,12 @@ export default function SnapshotGalleryDialog({
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
+
+      <SnapshotSaveAsDialog
+        open={showSaveAs}
+        onClose={() => setShowSaveAs(false)}
+        onSave={handleSaveNew}
+      />
     </Dialog>
   );
 }
