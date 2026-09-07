@@ -157,27 +157,35 @@ export function formatISODateTime(components: DateTimeComponents): string {
 }
 
 /**
- * Get current datetime as components (in LOCAL timezone)
- * 
- * Returns datetime in the browser's local timezone to match what charts display.
+ * Split a Date into components (in LOCAL timezone)
+ *
+ * Takes the reference point as an argument so callers (presets, tests) can
+ * resolve a range against a specific instant instead of the wall clock.
  */
-export function getCurrentDateTime(): DateTimeComponents {
-  const now = new Date();
-  
+export function toDateTimeComponents(from: Date = new Date()): DateTimeComponents {
   // Get all components in LOCAL timezone (not UTC)
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
-  
+  const year = from.getFullYear();
+  const month = String(from.getMonth() + 1).padStart(2, '0');
+  const day = String(from.getDate()).padStart(2, '0');
+  const hours = String(from.getHours()).padStart(2, '0');
+  const minutes = String(from.getMinutes()).padStart(2, '0');
+  const seconds = String(from.getSeconds()).padStart(2, '0');
+  const milliseconds = String(from.getMilliseconds()).padStart(3, '0');
+
   return {
     date: `${year}-${month}-${day}`,
     time: `${hours}:${minutes}:${seconds}`,
     milliseconds,
   };
+}
+
+/**
+ * Get current datetime as components (in LOCAL timezone)
+ *
+ * Returns datetime in the browser's local timezone to match what charts display.
+ */
+export function getCurrentDateTime(): DateTimeComponents {
+  return toDateTimeComponents(new Date());
 }
 
 /**

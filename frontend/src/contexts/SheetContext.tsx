@@ -5,6 +5,7 @@ import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, Shee
 import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
 import { createMeasureGroup } from '../utils/syntheticFields';
+import { refreshRelativeDateTimeFilters } from '../services/relativeDateTimeFilters';
 
 const STORAGE_KEY = 'data-slicer-sheets';
 
@@ -395,6 +396,9 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.sheets && Array.isArray(parsed.sheets) && parsed.sheets.length > 0) {
+          // A tab reopened days later must re-resolve 'Last 7 Days' & co.
+          // against now, exactly as loading a snapshot does.
+          refreshRelativeDateTimeFilters({ sheets: parsed.sheets });
           dispatch({ type: 'LOAD_SHEETS', payload: parsed.sheets });
         }
       }

@@ -22,8 +22,9 @@ import {
   formatISODateTime,
   validateMilliseconds,
   DateTimeComponents,
+  getPresetsForField,
+  CUSTOM_PRESET_LABEL,
 } from '../../datetime';
-import { getPresetsForField } from '../../datetime';
 import styles from './DateTimeRangeFilter.module.css';
 
 interface DateTimeRangeFilterProps {
@@ -31,7 +32,13 @@ interface DateTimeRangeFilterProps {
   startDateTime: string | null;
   endDateTime: string | null;
   dateTimePart?: string; // For timeline parts (hour, day, month, etc.)
-  onChange: (startDateTime: string | null, endDateTime: string | null) => void;
+  /** Preset label the range came from, so a reopened/reloaded filter shows it. */
+  preset?: string;
+  onChange: (
+    startDateTime: string | null,
+    endDateTime: string | null,
+    preset?: string,
+  ) => void;
 }
 
 const compactFieldSx = {
@@ -95,6 +102,7 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
   startDateTime,
   endDateTime,
   dateTimePart,
+  preset,
   onChange,
 }) => {
   // Parse initial values from backend (no timezone conversion)
@@ -114,10 +122,15 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
     }
   );
 
-  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+  const [selectedPreset, setSelectedPreset] = useState<string>(preset || CUSTOM_PRESET_LABEL);
 
   // Get appropriate presets for this field type
   const presets = getPresetsForField(dateTimePart);
+
+  // Follow the persisted preset (snapshot load, undo/redo, chip re-mount).
+  useEffect(() => {
+    setSelectedPreset(preset || CUSTOM_PRESET_LABEL);
+  }, [preset]);
 
   // Sync internal state when external props change (e.g., zoom filter, undo/redo)
   // Intentionally omit startComponents/endComponents from deps to avoid feedback loops
@@ -152,43 +165,43 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
     if (startComponents.date && endComponents.date) {
       const start = formatISODateTime(startComponents);
       const end = formatISODateTime(endComponents);
-      onChange(start, end);
+      onChange(start, end, selectedPreset === CUSTOM_PRESET_LABEL ? undefined : selectedPreset);
     }
     // REASON: onChange may be a new closure each render; including it would fire onChange on every parent render, causing a feedback loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startComponents, endComponents]);
+  }, [startComponents, endComponents, selectedPreset]);
 
   const handleStartDateChange = (value: string) => {
     setStartComponents(prev => ({ ...prev, date: value }));
-    setSelectedPreset('custom');
+    setSelectedPreset(CUSTOM_PRESET_LABEL);
   };
 
   const handleStartTimeChange = (value: string) => {
     const { time, milliseconds } = fromTimeInputValue(value);
     setStartComponents(prev => ({ ...prev, time, milliseconds }));
-    setSelectedPreset('custom');
+    setSelectedPreset(CUSTOM_PRESET_LABEL);
   };
 
   const handleEndDateChange = (value: string) => {
     setEndComponents(prev => ({ ...prev, date: value }));
-    setSelectedPreset('custom');
+    setSelectedPreset(CUSTOM_PRESET_LABEL);
   };
 
   const handleEndTimeChange = (value: string) => {
     const { time, milliseconds } = fromTimeInputValue(value);
     setEndComponents(prev => ({ ...prev, time, milliseconds }));
-    setSelectedPreset('custom');
+    setSelectedPreset(CUSTOM_PRESET_LABEL);
   };
 
   const handlePresetChange = (presetLabel: string) => {
     setSelectedPreset(presetLabel);
 
-    if (presetLabel === 'custom') return;
+    if (presetLabel === CUSTOM_PRESET_LABEL) return;
 
-    const preset = presets.find(p => p.label === presetLabel);
-    if (!preset) return;
+    const presetDef = presets.find(p => p.label === presetLabel);
+    if (!presetDef) return;
 
-    const { start, end } = preset.getValue(new Date(), metadata.min, metadata.max);
+    const { start, end } = presetDef.getValue(new Date(), metadata.min, metadata.max);
 
     const startParsed = parseISODateTime(start);
     const endParsed = parseISODateTime(end);
@@ -247,7 +260,7 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
                 },
               }}
             >
-              <MenuItem dense value="custom">
+              <MenuItem dense value={CUSTOM_PRESET_LABEL}>
                 Custom range
               </MenuItem>
               {presets.map((preset) => (
