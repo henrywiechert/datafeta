@@ -12,6 +12,7 @@ import {
   ForeignKeyRelationship
 } from '../types';
 import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
+import { refreshRelativeDateTimeFilters } from './relativeDateTimeFilters';
 
 const CURRENT_VERSION = '1.0.0';
 const APP_NAME = 'data-slicer';
@@ -298,10 +299,15 @@ export function validateConfiguration(config: any): SavedConfiguration {
   // Add backward compatibility: generate fullTableName if missing
   if (config.dataSource && !config.dataSource.fullTableName) {
     const { selectedDatabase, selectedTable } = config.dataSource;
-    config.dataSource.fullTableName = selectedDatabase 
+    config.dataSource.fullTableName = selectedDatabase
       ? `${selectedDatabase}.${selectedTable}`
       : selectedTable;
   }
+
+  // Re-resolve relative datetime presets ('Last 7 Days', 'Today', …) against
+  // now, so an old snapshot filters the current window instead of the one it
+  // was saved in. Every load path funnels through here.
+  refreshRelativeDateTimeFilters(config);
 
   return config as SavedConfiguration;
 }

@@ -60,6 +60,13 @@ export interface DateTimeFilterConfig extends BaseFilterConfig {
   type: 'datetime';
   startDate: string | null;
   endDate: string | null;
+  /**
+   * Label of the preset the range came from (e.g. 'Last 7 Days'), or undefined
+   * for a hand-picked range. Relative presets are recalculated against the
+   * current time when a saved configuration is loaded, so "Last 7 Days" stays
+   * the last 7 days instead of freezing the week it was saved in.
+   */
+  preset?: string;
 }
 
 // Measure filter: filters on the aggregated value of a measure (→ HAVING clause).

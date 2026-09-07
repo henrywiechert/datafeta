@@ -11,7 +11,7 @@ All datetime logic is consolidated in `src/datetime/`:
 | `datetimeSemantics.ts` | Core datetime part/mode definitions, SQL mappings, UTC contract |
 | `dateTimeValueModel.ts` | Value detection and band scale normalization for charts |
 | `datetimeUtils.ts` | Field-level utilities (display names, validation, tooltips) |
-| `datetimePresets.ts` | Filter presets (Last 7 Days, This Month, etc.) |
+| `datetimePresets.ts` | Filter presets (Last 7 Days, This Month, etc.) + relative-preset resolution |
 | `datetimeFormatUtils.ts` | Parsing and formatting with millisecond precision |
 | `utcWarnings.ts` | Non-UTC timezone detection and warnings |
 | `index.ts` | Barrel export for all datetime functionality |
@@ -165,6 +165,25 @@ Use case: Time series, trends over time
 
 ---
 
+## Relative Presets Stay Relative
+
+`DateTimeFilterConfig.preset` stores the label a range came from ('Last 7 Days'),
+next to the resolved `startDate`/`endDate` the query needs. Every load path
+(`validateConfiguration()` for snapshots/file imports, `SheetProvider` for the
+localStorage restore) calls `refreshRelativeDateTimeFilters()`, which re-resolves
+those labels against the current time via `resolveRelativePreset()`. Without it a
+snapshot would freeze the window it was saved in and come back empty.
+
+`DateTimePreset.relative === false` marks a preset as *not* clock-anchored —
+'All Time' resolves against the column's min/max, so its stored range is kept.
+Hand-picked ranges carry no label (`CUSTOM_PRESET_LABEL`) and are restored as-is.
+
+Preset `getValue(now)` implementations must derive everything from the `now`
+argument (`toDateTimeComponents(now)`, `getStartOf(period, now)`) so a range can
+be resolved against an arbitrary instant, not just the wall clock.
+
+---
+
 ## External Connections
 
 | Consumer | Usage |
@@ -173,6 +192,7 @@ Use case: Time series, trends over time
 | Backend SQL builders | Uses same semantics via shared contract |
 | `observable-plot-generator/` | Uses `normalizeCategoryForChart()` for band axis labels |
 | Filter controls | May use `DATETIME_PARTS` for granularity selection |
+| `services/relativeDateTimeFilters.ts` | Uses `resolveRelativePreset()` to refresh saved filters on load |
 
 ---
 

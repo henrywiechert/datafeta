@@ -207,13 +207,20 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     });
   }, [field, onConfigChange]);
 
-  const handleDateTimeChange = useCallback((startDate: string | null, endDate: string | null) => {
+  const handleDateTimeChange = useCallback((
+    startDate: string | null,
+    endDate: string | null,
+    preset?: string,
+  ) => {
     onConfigChange({
       fieldId: field.id,
       columnName: field.columnName,
       type: 'datetime',
       startDate,
       endDate,
+      // Kept so relative ranges ('Last 7 Days') are recalculated on load
+      // instead of restoring the dates they resolved to when saved.
+      preset,
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
       isZoomFilter: filterConfig?.isZoomFilter,
@@ -334,6 +341,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     if (filterType === 'datetime' && filterMetadata.type === 'datetime') {
       const startDateTime = filterConfig && filterConfig.type === 'datetime' ? filterConfig.startDate : null;
       const endDateTime = filterConfig && filterConfig.type === 'datetime' ? filterConfig.endDate : null;
+      const preset = filterConfig && filterConfig.type === 'datetime' ? filterConfig.preset : undefined;
 
       return (
         <DateTimeRangeFilter
@@ -341,6 +349,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           startDateTime={startDateTime}
           endDateTime={endDateTime}
           dateTimePart={field.dateTimePart}
+          preset={preset}
           onChange={handleDateTimeChange}
         />
       );
@@ -410,6 +419,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     }
 
     if (filterConfig.type === 'datetime') {
+      if (filterConfig.preset) {
+        return `${field.columnName} (${filterConfig.preset})`;
+      }
       if (filterConfig.startDate || filterConfig.endDate) {
         return `${field.columnName} (filtered)`;
       }
