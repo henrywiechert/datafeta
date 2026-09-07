@@ -43,9 +43,10 @@ export function detectBarChartConfiguration(
   xFields: Field[],
   yFields: Field[]
 ): BarChartDetectionResult {
-  // Check if this is a bar/tick strip scenario
-  const xMeasure = xFields.find((f) => f.type === 'measure');
-  const yMeasure = yFields.find((f) => f.type === 'measure');
+  // Check if this is a bar/tick strip scenario. A discrete measure does not
+  // count as a continuous measure here — it facets like a discrete dimension.
+  const xMeasure = xFields.find((f) => f.type === 'measure' && f.flavour === 'continuous');
+  const yMeasure = yFields.find((f) => f.type === 'measure' && f.flavour === 'continuous');
   const xContinuousDim = xFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
   const yContinuousDim = yFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
 

@@ -323,12 +323,8 @@ const OverlaysSection: React.FC = () => {
     const yFields = yAxisFields as Field[];
     if (!xFields?.length && !yFields?.length) return undefined;
 
-    const xCandidates = xFields.filter(
-      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'),
-    );
-    const yCandidates = yFields.filter(
-      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'),
-    );
+    const xCandidates = xFields.filter((f) => f.flavour === 'continuous');
+    const yCandidates = yFields.filter((f) => f.flavour === 'continuous');
 
     if (xCandidates.length > 0 && yCandidates.length > 0) {
       const cellType: CellChartType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
