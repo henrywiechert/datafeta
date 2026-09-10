@@ -331,7 +331,7 @@ class CardinalityService:
         if virtual_columns:
             db_type = self.conn_details.type
             column_types = None
-            if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'}:
+            if db_type in {'duckdb', 'csv', 'file', 'sqlite', 'kaggle', 'hive_parquet', 'huggingface'}:
                 column_types = self._type_provider.get_types(None, resolved_table_name)
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,

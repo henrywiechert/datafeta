@@ -131,6 +131,7 @@ export function useMetadataOperations({
             if (
                 (
                     connectionDetails?.type === 'csv'
+                    || connectionDetails?.type === 'sqlite'
                     || connectionDetails?.type === 'kaggle'
                     || connectionDetails?.type === 'huggingface'
                 )
@@ -220,11 +221,17 @@ export function useMetadataOperations({
     // Fetch suggested joinable tables for the selected primary table
     const fetchSuggestedJoins = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        // Support JOIN for both ClickHouse and Kaggle
-        if (connectionDetails?.type !== 'clickhouse' && connectionDetails?.type !== 'kaggle') return;
+        // Support JOIN for ClickHouse, Kaggle and SQLite
+        if (
+            connectionDetails?.type !== 'clickhouse'
+            && connectionDetails?.type !== 'kaggle'
+            && connectionDetails?.type !== 'sqlite'
+        ) return;
         
-        // For Kaggle, use 'kaggle' as database name
-        const database = connectionDetails?.type === 'kaggle' ? 'kaggle' : dataSource.selectedDatabase;
+        // Kaggle and SQLite have no databases; the connector ignores the name
+        const database = connectionDetails?.type === 'clickhouse'
+            ? dataSource.selectedDatabase
+            : connectionDetails?.type;
         if (!database) return;
         
         try {
@@ -446,6 +453,7 @@ export function useMetadataOperations({
             }
         } else if (
             connectionDetails.type === 'csv'
+            || connectionDetails.type === 'sqlite'
             || connectionDetails.type === 'kaggle'
             || connectionDetails.type === 'huggingface'
         ) {
@@ -543,7 +551,14 @@ export function useMetadataOperations({
     // This enables transitive relationships: when you join table B, you can then see tables that join to B
     // Also re-fetches when customRelationships change (manual FK mode)
     useEffect(() => {
-        if (dataSource.selectedTable && (connectionDetails?.type === 'clickhouse' || connectionDetails?.type === 'kaggle')) {
+        if (
+            dataSource.selectedTable
+            && (
+                connectionDetails?.type === 'clickhouse'
+                || connectionDetails?.type === 'kaggle'
+                || connectionDetails?.type === 'sqlite'
+            )
+        ) {
             fetchSuggestedJoins();
         }
         // REASON: deliberately key on the inputs that change suggested-join results; fetchSuggestedJoins identity is unstable so excluding it prevents redundant fetches.

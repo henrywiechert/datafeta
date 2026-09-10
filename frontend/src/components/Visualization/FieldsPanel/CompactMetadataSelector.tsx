@@ -223,9 +223,13 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     onTableSelect('');
   }, [onTableSelect]);
 
-  // CSV/Hive Parquet multi-table: available tables for UNION (excludes primary and already-added)
+  // Sources whose tables are all in one uploaded artifact and can be UNIONed
+  // by name alone (no database qualifier).
+  const supportsFileStyleUnion = connectionType === 'csv' || connectionType === 'sqlite';
+
+  // CSV/SQLite/Hive Parquet multi-table: available tables for UNION (excludes primary and already-added)
   const csvUnionableOptions = React.useMemo(() => {
-    if (connectionType !== 'csv' && connectionType !== 'hive_parquet') return [];
+    if (connectionType !== 'csv' && connectionType !== 'sqlite' && connectionType !== 'hive_parquet') return [];
     return tableOptions.filter(
       (t) =>
         t !== selectedTable &&
@@ -250,9 +254,10 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 
   // Whether to show the UNION picker (multiple tables available)
   // For CSV: when multiple files are uploaded
+  // For SQLite: when the database file holds more than one table
   // For Hive Parquet: when multiple partitions are loaded
   const showUnionPicker = (
-    (connectionType === 'csv' && tables.length > 1 && !!selectedTable) ||
+    (supportsFileStyleUnion && tables.length > 1 && !!selectedTable) ||
     (connectionType === 'hive_parquet' && loadedPartitions.size > 1 && !!selectedTable)
   );
 
@@ -490,8 +495,8 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             />
           )}
 
-          {/* UNION picker for CSV only — Hive Parquet uses the main dropdown for adding */}
-          {connectionType === 'csv' && showUnionPicker && (
+          {/* UNION picker for CSV/SQLite — Hive Parquet uses the main dropdown for adding */}
+          {supportsFileStyleUnion && showUnionPicker && (
             <>
               <Box className={styles.field} sx={{ mt: 0.25 }}>
                 <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
@@ -562,8 +567,9 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         </>
       )}
       
-      {/* Show joinable tables selector (for ClickHouse and Kaggle) */}
-      {(connectionType === 'clickhouse' || connectionType === 'kaggle') && selectedTable && onToggleJoinedTable && (
+      {/* Show joinable tables selector (for ClickHouse, Kaggle and SQLite) */}
+      {(connectionType === 'clickhouse' || connectionType === 'kaggle' || connectionType === 'sqlite')
+        && selectedTable && onToggleJoinedTable && (
         <JoinTableSelector
           primaryTable={selectedTable}
           suggestedJoinableTables={suggestedJoinableTables}

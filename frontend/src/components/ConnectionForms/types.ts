@@ -7,7 +7,7 @@
 import { HuggingFaceDataset, HuggingFaceSplit, KaggleDataset, KaggleFile } from '../../types';
 
 // Connection type union
-export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+export type ConnectionType = 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
 
 // File form state (supports CSV and Parquet files)
 export interface CsvFormState {
@@ -23,6 +23,12 @@ export interface CsvFormState {
   sampleFullDataset: boolean;
   trimNumericWhitespace: boolean;
   showAdvancedOptions: boolean;
+}
+
+// SQLite form state (one database file holds every table)
+export interface SqliteFormState {
+  selectedFile: File | null;
+  fileName: string;
 }
 
 // ClickHouse form state
@@ -96,6 +102,11 @@ export const DEFAULT_CSV_STATE: CsvFormState = {
   showAdvancedOptions: false,
 };
 
+export const DEFAULT_SQLITE_STATE: SqliteFormState = {
+  selectedFile: null,
+  fileName: '',
+};
+
 export const DEFAULT_CLICKHOUSE_STATE: ClickHouseFormState = {
   connectionString: '',
   host: 'localhost',
@@ -145,6 +156,7 @@ export const DEFAULT_HIVE_PARQUET_STATE: HiveParquetFormState = {
 export interface ConnectionFormState {
   connectionType: ConnectionType;
   csv: CsvFormState;
+  sqlite: SqliteFormState;
   clickHouse: ClickHouseFormState;
   kaggle: KaggleFormState;
   huggingFace: HuggingFaceFormState;
@@ -155,11 +167,13 @@ export interface ConnectionFormState {
 export type ConnectionFormAction =
   | { type: 'SET_CONNECTION_TYPE'; payload: ConnectionType }
   | { type: 'UPDATE_CSV'; payload: Partial<CsvFormState> }
+  | { type: 'UPDATE_SQLITE'; payload: Partial<SqliteFormState> }
   | { type: 'UPDATE_CLICKHOUSE'; payload: Partial<ClickHouseFormState> }
   | { type: 'UPDATE_KAGGLE'; payload: Partial<KaggleFormState> }
   | { type: 'UPDATE_HUGGINGFACE'; payload: Partial<HuggingFaceFormState> }
   | { type: 'UPDATE_HIVE_PARQUET'; payload: Partial<HiveParquetFormState> }
   | { type: 'RESET_CSV' }
+  | { type: 'RESET_SQLITE' }
   | { type: 'RESET_CLICKHOUSE' }
   | { type: 'RESET_KAGGLE' }
   | { type: 'RESET_HUGGINGFACE' }

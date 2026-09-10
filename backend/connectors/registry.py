@@ -21,6 +21,7 @@ from backend.connectors.file_connector import FileConnector
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.huggingface_connector import HuggingFaceConnector
 from backend.connectors.kaggle_connector import KaggleConnector
+from backend.connectors.sqlite_connector import SqliteConnector
 from backend.dialects import ClickHouseDialect, DuckDbDialect
 from backend.exceptions import InvalidInputError
 
@@ -79,6 +80,13 @@ class CsvConfig(CsvParsingConfig):
     pass
 
 
+class SqliteConfig(BaseModel):
+    # SQLite connections require multipart upload of the database file; all
+    # schema information comes from the file itself, so there is nothing to
+    # configure at connect time.
+    pass
+
+
 def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
     if request is None:
         raise ValueError("Request is required to resolve upload_root_dir for Kaggle connector")
@@ -119,6 +127,27 @@ async def _build_csv_multipart_connect_args(service, cfg: BaseModel, uploaded_fi
         "file_paths": file_infos,
         **cfg.model_dump(exclude_none=True),
     }, temp_file_paths
+
+
+async def _build_sqlite_multipart_connect_args(service, cfg: BaseModel, uploaded_files, session_id: str):
+    if not uploaded_files:
+        raise InvalidInputError("A SQLite database file is required for type 'sqlite'")
+    if len(uploaded_files) > 1:
+        raise InvalidInputError(
+            "Only one SQLite database file can be uploaded per connection; "
+            "a single file already contains every table."
+        )
+
+    session_upload_dir = service._get_session_upload_dir(session_id)
+    uploaded_file = uploaded_files[0]
+    try:
+        temp_file_path = await service._save_and_validate_sqlite_upload(
+            uploaded_file, session_upload_dir
+        )
+    finally:
+        await uploaded_file.close()
+
+    return {"file_path": temp_file_path}, [temp_file_path]
 
 
 class ConnectorRegistry:
@@ -187,6 +216,24 @@ def get_connector_registry() -> ConnectorRegistry:
             factory=FileConnector,
             build_connect_args=None,
             build_multipart_connect_args=_build_csv_multipart_connect_args,
+        )
+    )
+
+    registry.register(
+        ConnectorSpec(
+            id="sqlite",
+            display_name="SQLite (DuckDB)",
+            dialect=duckdb_dialect,
+            capabilities=ConnectorCapabilities(
+                supports_json_connect=False,
+                supports_multipart_connect=True,
+                supports_databases=False,
+                supports_arrow=True,
+            ),
+            config_model=SqliteConfig,
+            factory=SqliteConnector,
+            build_connect_args=None,
+            build_multipart_connect_args=_build_sqlite_multipart_connect_args,
         )
     )
 

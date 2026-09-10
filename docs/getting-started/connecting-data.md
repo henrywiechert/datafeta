@@ -1,6 +1,6 @@
 # Connecting to a Data Source
 
-On the **Connect** page, choose one of the four data source types and fill in the connection details.
+On the **Connect** page, choose a data source type and fill in the connection details.
 
 ---
 
@@ -34,6 +34,24 @@ JSON files are automatically flattened on connect so nested structures become re
 - **Arrays of objects** → combined: `events__index`, `events__name`, `events__ts`, …
 
 The result is materialised as Parquet internally, so queries are fast regardless of the original file size. Large single-object files (such as Chrome Trace Format `.json` files) are fully supported.
+
+---
+
+## SQLite Database Files
+
+Upload a SQLite database file (`.sqlite`, `.sqlite3` or `.db`). One file holds a whole schema, so
+every table and view in it becomes queryable at once.
+
+**Steps:**
+
+1. Select **SQLite Database File** as the connection type.
+2. Click **Browse** and select the database file.
+3. Click **Connect**.
+4. On the visualization page, pick the primary table from the **Table** dropdown.
+
+The file is opened read-only and is never modified. Tables can be combined with **Union**, and
+because SQLite stores real foreign keys, joinable tables are suggested straight from the schema —
+see [Joining Tables](../advanced/joins.md).
 
 ---
 

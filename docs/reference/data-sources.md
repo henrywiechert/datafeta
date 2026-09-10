@@ -53,6 +53,36 @@ The flattened data is materialised as Parquet internally so all queries run at f
 
 ---
 
+## SQLite Database Files
+
+Upload a single SQLite database file; every table and view inside it becomes queryable.
+
+| Option | Notes |
+|---|---|
+| Supported extensions | `.sqlite`, `.sqlite3`, `.db` |
+| Files per connection | One — a single file already contains the whole schema |
+| Access mode | Read-only; the uploaded file is never modified |
+| Joins | Declared `FOREIGN KEY` constraints are used directly |
+
+**Joins:** Because SQLite records real foreign keys, joinable tables are suggested from the schema
+instead of from column-name heuristics. Databases created without FK constraints (a common export
+shape) fall back to the same naming heuristic used for CSV and Kaggle sources.
+
+**Column types:** SQLite columns are dynamically typed, so the *declared* type decides how a column
+is read:
+
+| Declaration | Read as |
+|---|---|
+| `TIMESTAMP`, `DATE`, `TIME` | Datetime column (usable on datetime axes and filters) |
+| Dates stored as `TEXT` or epoch `INTEGER` | Text / number — convert with a [virtual column](../advanced/virtual-columns.md) |
+| `BOOLEAN` | Number (`0` / `1`) |
+| No type at all (e.g. `CREATE TABLE t (note)`) | Text |
+
+**Requirements:** Queries run through DuckDB's `sqlite` extension. The server downloads it once and
+caches it; on a fully offline server, pre-populate the DuckDB extension cache.
+
+---
+
 ## ClickHouse
 
 | Option | Default | Notes |

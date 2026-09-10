@@ -106,6 +106,7 @@ export default function ConnectionRestoreDialog({
 
   const isClickHouse = connectionMetadata?.type === 'clickhouse';
   const isCsv = connectionMetadata?.type === 'csv';
+  const isSqlite = connectionMetadata?.type === 'sqlite';
   const isKaggle = connectionMetadata?.type === 'kaggle';
   const isHiveParquet = connectionMetadata?.type === 'hive_parquet';
 
@@ -129,6 +130,13 @@ export default function ConnectionRestoreDialog({
       // For CSV, we need a file
       if (isCsv && !file) {
         setError('Please select a CSV file');
+        setIsConnecting(false);
+        return;
+      }
+
+      // For SQLite, we need the database file
+      if (isSqlite && !file) {
+        setError('Please select a SQLite database file');
         setIsConnecting(false);
         return;
       }
@@ -412,6 +420,34 @@ export default function ConnectionRestoreDialog({
             </>
           )}
 
+          {isSqlite && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                SQLite Database
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Select the SQLite database file this configuration was built on.
+                Table and column names must match.
+              </Typography>
+
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                disabled={isConnecting}
+                color={file ? 'success' : 'primary'}
+              >
+                {file ? `Selected: ${file.name}` : 'Select Database File (.sqlite/.sqlite3/.db)'}
+                <input
+                  type="file"
+                  accept=".sqlite,.sqlite3,.db"
+                  hidden
+                  onChange={handleFileChange}
+                />
+              </Button>
+            </>
+          )}
+
           {isKaggle && (
             <>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -584,7 +620,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles)}
+          disabled={isConnecting || ((isCsv || isSqlite) && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles)}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}

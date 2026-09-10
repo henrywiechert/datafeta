@@ -8,7 +8,11 @@ from pydantic import BaseModel
 
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import InvalidInputError
-from backend.routers.connection import debug_list_sessions, list_connectors
+from backend.routers.connection import (
+    connect_to_datasource,
+    debug_list_sessions,
+    list_connectors,
+)
 
 
 class TestConnectEndpointLogic:
@@ -107,6 +111,67 @@ class TestConnectorsEndpointContract:
         monkeypatch.setenv("CONNECTOR_ALLOWLIST", "csv")
         payload = list_connectors()
         assert [connector["id"] for connector in payload["connectors"]] == ["csv"]
+
+
+class TestMultipartConnectAllowlist:
+    """POST /connect must gate on the connector the body asks for."""
+
+    @staticmethod
+    def _connect(connection_json: str):
+        return asyncio.run(
+            connect_to_datasource(
+                connection_details_json=connection_json,
+                uploaded_files=[],
+                state_manager=Mock(),
+                session_id="s1",
+                request=Mock(),
+            )
+        )
+
+    def test_rejects_type_missing_from_allowlist(self, monkeypatch):
+        import json
+
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "csv")
+
+        with pytest.raises(InvalidInputError) as exc_info:
+            self._connect(json.dumps({"type": "sqlite"}))
+
+        assert "sqlite connections are disabled" in str(exc_info.value)
+
+    def test_allows_allowlisted_type_even_when_csv_is_disabled(self, monkeypatch):
+        import json
+
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "sqlite")
+
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.connect_multipart = AsyncMock(
+                return_value={"message": "connected"}
+            )
+            result = self._connect(json.dumps({"type": "sqlite"}))
+
+        assert result == {"message": "connected"}
+
+    def test_still_rejects_csv_when_not_allowlisted(self, monkeypatch):
+        import json
+
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "sqlite")
+
+        with pytest.raises(InvalidInputError) as exc_info:
+            self._connect(json.dumps({"type": "csv"}))
+
+        assert "csv connections are disabled" in str(exc_info.value)
+
+    def test_malformed_body_is_left_to_the_service(self, monkeypatch):
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "csv")
+
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.connect_multipart = AsyncMock(
+                side_effect=InvalidInputError("Invalid connection details format")
+            )
+            with pytest.raises(InvalidInputError) as exc_info:
+                self._connect("not json")
+
+        assert "Invalid connection details format" in str(exc_info.value)
 
 
 class TestDisconnectEndpointLogic:

@@ -2,7 +2,7 @@
 """Unit tests for SQL dialect implementations."""
 import pytest
 
-from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect
+from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, get_dialect
 
 
 class TestClickHouseDialect:
@@ -222,3 +222,18 @@ class TestDialectInterface:
     def test_table_ref_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.table_ref('t'), str)
         assert isinstance(dialect.table_ref('t', database='d'), str)
+
+
+class TestGetDialectByConnectorType:
+    """get_dialect maps connector type strings onto dialect instances."""
+
+    @pytest.mark.parametrize("db_type", ["csv", "file", "sqlite", "kaggle", "hive_parquet", "duckdb"])
+    def test_duckdb_backed_connectors_resolve_to_duckdb_dialect(self, db_type):
+        assert get_dialect(db_type).name == "duckdb"
+
+    def test_clickhouse_resolves_to_clickhouse_dialect(self):
+        assert get_dialect("clickhouse").name == "clickhouse"
+
+    def test_unknown_type_raises(self):
+        with pytest.raises(ValueError, match="Unknown db_type"):
+            get_dialect("postgres")

@@ -22,6 +22,7 @@ Data Slicer is available in two ways:
 ### Data Source Support
 - **Database Connectivity**: Connect to various databases through configurable connectors
 - **File Support**: Upload and analyze CSV, Parquet, and JSON/NDJSON/JSONL files using the integrated DuckDB engine. Nested JSON objects are automatically flattened (structs → wide columns, arrays → long format with a positional index column) and materialised as Parquet for fast querying.
+- **SQLite Databases**: Upload a SQLite database file (`.sqlite`/`.sqlite3`/`.db`) and query every table and view in it. The file is attached read-only through DuckDB's `sqlite` extension (no data copy), and declared `FOREIGN KEY` constraints drive join suggestions instead of column-name heuristics.
 - **Kaggle Datasets**: Connect to public [Kaggle](https://www.kaggle.com/datasets) datasets by dataset reference (`owner/dataset-name`). Credentials (username + API key) are provided at connect time and never saved.
 - **HuggingFace Datasets**: Connect to public (or private) [HuggingFace](https://huggingface.co/datasets) datasets via the Dataset Viewer Parquet API. Datasets are queried as remote Parquet shards by DuckDB — no full download required. An optional access token supports gated/private datasets. Large splits are blocked at connect time via a configurable size limit (`HF_MAX_SPLIT_BYTES_MB`, default 500 MB).
 - **Hive Parquet**: Connect to locally-partitioned Parquet datasets in Hive-style directory layouts.

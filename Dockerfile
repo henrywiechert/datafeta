@@ -50,6 +50,10 @@ WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-populate the DuckDB extension cache so SQLite data sources work on
+# servers without outbound internet access at runtime.
+RUN python -c "import duckdb; con = duckdb.connect(); con.install_extension('sqlite'); con.load_extension('sqlite')"
+
 # Switch back to project root so backend package imports resolve correctly
 WORKDIR /app
 
