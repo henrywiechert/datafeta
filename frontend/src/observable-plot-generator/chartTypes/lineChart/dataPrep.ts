@@ -205,7 +205,7 @@ export function groupRowsByColorSeries(rows: any[], colorColumnName: string): Ma
 /**
  * Sort comparator using toComparable for a given column.
  */
-function compareByColumn(column: string) {
+export function compareByColumn(column: string) {
   return (a: any, b: any): number => {
     const av = toComparable(a[column]);
     const bv = toComparable(b[column]);
@@ -215,6 +215,15 @@ function compareByColumn(column: string) {
     if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv));
     return (av as number) - (bv as number);
   };
+}
+
+/** Assumes each group is ordered by the independent column, as produced by prepareLineData. */
+export function lastRowPerSeries(groups: Map<string, any[]>): any[] {
+  const out: any[] = [];
+  for (const rows of Array.from(groups.values())) {
+    if (rows.length > 0) out.push(rows[rows.length - 1]);
+  }
+  return out;
 }
 
 export function prepareLineData(params: {
@@ -260,6 +269,12 @@ export function prepareLineData(params: {
     console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
   }
 
+  // Series grouping is derived once from the (globally sorted) budgeted rows, so
+  // every group is already ordered by the independent column.
+  const seriesGroups = splitsSeries && colorColumnName
+    ? groupRowsByColorSeries(budgetedSorted, colorColumnName)
+    : undefined;
+
   // Dots are expensive at scale; cap dot density separately.
   // When there is a discrete color field (multiple series), sample per-series so
   // that the stride is independent of backend row order — otherwise a global
@@ -267,18 +282,15 @@ export function prepareLineData(params: {
   // Use the actual total dot count to decide whether sampling is needed at all;
   // if the data already fits within the budget, show every point.
   let dotData: any[];
-  if (splitsSeries && colorColumnName) {
+  if (seriesGroups) {
     if (budgetedSorted.length <= budget.maxDots) {
       // All points fit within budget — no need to sample
       dotData = budgetedSorted;
     } else {
-      const seriesGroups = groupRowsByColorSeries(budgetedSorted, colorColumnName);
-      const numSeries = seriesGroups.size || 1;
-      const perSeriesMax = Math.max(2, Math.floor(budget.maxDots / numSeries));
+      const perSeriesMax = Math.max(2, Math.floor(budget.maxDots / (seriesGroups.size || 1)));
       const perSeriesResult: any[] = [];
-      for (const [, arr] of Array.from(seriesGroups.entries())) {
-        const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
-        perSeriesResult.push(...sampleEvery(arrSorted, perSeriesMax));
+      for (const arr of Array.from(seriesGroups.values())) {
+        perSeriesResult.push(...sampleEvery(arr, perSeriesMax));
       }
       dotData = perSeriesResult;
     }
@@ -291,5 +303,6 @@ export function prepareLineData(params: {
     budgetedSorted,
     dotData,
     axisKind,
+    seriesGroups,
   };
 }

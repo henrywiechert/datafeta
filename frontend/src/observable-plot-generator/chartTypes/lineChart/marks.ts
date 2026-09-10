@@ -3,7 +3,6 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../../config/chartLayoutConfig';
 import type { Field, LineVariant } from '../../../types';
 import { resolveColorForRow, type ColorScaleInfo } from '../../utils/colorSchemeUtils';
-import { groupRowsByColorSeries } from './dataPrep';
 import type { LineMarkConfigs, LineOrientation } from './types';
 
 const DEFAULT_LINE_DOT_RADIUS = 2;
@@ -55,19 +54,17 @@ export function buildAreaMarks(params: {
   variant: LineVariant;
   orientation: LineOrientation;
   budgetedSorted: any[];
+  seriesGroups?: Map<string, any[]>;
   areaConfig: any;
   colorField?: Field;
   colorInfo: ColorScaleInfo | null;
-  colorColumnName?: string;
   manualColor?: string;
 }): any[] {
-  const { variant, orientation, budgetedSorted, areaConfig, colorField, colorInfo, colorColumnName, manualColor } = params;
+  const { variant, orientation, budgetedSorted, seriesGroups, areaConfig, colorField, colorInfo, manualColor } = params;
 
   if (variant !== 'area') return [];
 
-  if (colorField && (colorInfo?.kind === 'categorical' || colorInfo?.kind === 'seriesGradient') && colorColumnName) {
-    const seriesGroups = groupRowsByColorSeries(budgetedSorted, colorColumnName);
-
+  if (colorField && seriesGroups && (colorInfo?.kind === 'categorical' || colorInfo?.kind === 'seriesGradient')) {
     return Array.from(seriesGroups.values()).map((seriesRows) => {
       const seriesFill = resolveColorForRow(
         seriesRows[0],

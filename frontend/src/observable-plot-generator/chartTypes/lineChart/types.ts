@@ -49,6 +49,8 @@ export type PreparedLineData = {
   budgetedSorted: any[];
   dotData: any[];
   axisKind: XKind;
+  /** Rows grouped per color series, ordered by the independent column. Undefined when color does not split series. */
+  seriesGroups?: Map<string, any[]>;
 };
 
 export type LineMarkConfigs = {

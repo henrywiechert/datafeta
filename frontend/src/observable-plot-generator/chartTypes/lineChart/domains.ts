@@ -65,6 +65,13 @@ export function buildLineAxes(params: {
   };
 }
 
+export type LineDomainInfo = {
+  axis: 'x' | 'y';
+  column: string;
+  domain: [number, number];
+};
+
+/** Appends one entry; a plot may register both its dependent and independent axis. */
 export function attachLineDomainMetadata(params: {
   plotOptions: Plot.PlotOptions;
   axis: 'x' | 'y';
@@ -74,17 +81,15 @@ export function attachLineDomainMetadata(params: {
   const { plotOptions, axis, column, domain } = params;
   if (!domain) return;
 
-  (plotOptions as any).__lineChartDomainInfo = {
-    axis,
-    column,
-    domain,
-  };
+  const target = plotOptions as any;
+  const infos: LineDomainInfo[] = target.__lineChartDomainInfo ?? (target.__lineChartDomainInfo = []);
+  infos.push({ axis, column, domain });
 }
 
 /**
- * Harmonize line chart dependent-axis domains across multiple plots so faceted
- * grids share the same scale. Collects per-cell recomputed domains (attached
- * by buildLineOptions as __lineChartDomainInfo) and replaces them with the
+ * Harmonize line chart domains across multiple plots so faceted grids share the
+ * same scale. Collects per-cell recomputed domains (attached by buildLineOptions
+ * as __lineChartDomainInfo entries, one per axis) and replaces them with the
  * union across all cells grouped by axis + column.
  *
  * When an axis is configured as independent per facet, the union is scoped to a
@@ -106,19 +111,22 @@ export function harmonizeLineChartDomains(
   plots: Array<{ options: Plot.PlotOptions; position?: { row: number; col: number } }>,
   independentDomains?: { x?: boolean; y?: boolean }
 ): void {
-  type Entry = { options: any; domain: [number, number] };
+  type Entry = { options: any; domain: [number, number]; info: LineDomainInfo };
   const groups = new Map<string, Entry[]>();
 
   for (const plot of plots) {
-    const info = (plot.options as any)?.__lineChartDomainInfo;
-    if (!info?.domain) continue;
-    const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
-    let group = groups.get(key);
-    if (!group) {
-      group = [];
-      groups.set(key, group);
+    const infos: LineDomainInfo[] | undefined = (plot.options as any)?.__lineChartDomainInfo;
+    if (!infos) continue;
+    for (const info of infos) {
+      if (!info?.domain) continue;
+      const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
+      let group = groups.get(key);
+      if (!group) {
+        group = [];
+        groups.set(key, group);
+      }
+      group.push({ options: plot.options, domain: info.domain, info });
     }
-    group.push({ options: plot.options, domain: info.domain });
   }
 
   groups.forEach((group) => {
@@ -128,8 +136,7 @@ export function harmonizeLineChartDomains(
     const sharedMax = Math.max(...group.map((g: Entry) => g.domain[1]));
     const shared: [number, number] = [sharedMin, sharedMax];
 
-    for (const { options } of group) {
-      const info = options.__lineChartDomainInfo;
+    for (const { options, info } of group) {
       if (options[info.axis]) {
         options[info.axis].domain = shared;
       }
