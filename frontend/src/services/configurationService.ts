@@ -291,8 +291,8 @@ export function validateConfiguration(config: any): SavedConfiguration {
 
   // Validate connection metadata if present
   if (config.connection) {
-    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet'].includes(config.connection.type)) {
-      throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", "kaggle", "huggingface", or "hive_parquet"');
+    if (!config.connection.type || !['csv', 'sqlite', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet'].includes(config.connection.type)) {
+      throw new Error('Invalid configuration: connection.type must be "csv", "sqlite", "clickhouse", "kaggle", "huggingface", or "hive_parquet"');
     }
   }
 

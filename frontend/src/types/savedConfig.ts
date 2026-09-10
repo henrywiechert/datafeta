@@ -16,7 +16,7 @@ import { Sheet } from './sheet';
  * Excludes sensitive information like passwords.
  */
 export interface SavedConnectionMetadata {
-  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
   // CSV-specific fields
   file_path?: string;
   csv_delimiter?: string;

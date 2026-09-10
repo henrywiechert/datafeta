@@ -16,6 +16,7 @@ import { useAppConfig } from '../contexts/AppConfigContext';
 import { useConnectionForm } from '../hooks/useConnectionForm';
 import {
   CsvConnectionForm,
+  SqliteConnectionForm,
   ClickHouseConnectionForm,
   KaggleConnectionForm,
   HuggingFaceConnectionForm,
@@ -57,6 +58,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
   const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string; unavailable: boolean }>>(() => {
     const options: Array<{ value: ConnectionType; label: string }> = [
       { value: 'csv', label: 'File (CSV, Parquet, JSON)' },
+      { value: 'sqlite', label: 'SQLite Database File' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
       { value: 'kaggle', label: 'Kaggle Dataset' },
@@ -119,8 +121,11 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
     const details = form.buildConnectionDetails();
     try {
-      // Pass array of files for file-based connections
-      const files = form.csvState.selectedFiles.length > 0 ? form.csvState.selectedFiles : undefined;
+      // Pass array of files for file-based connections (SQLite uploads exactly one)
+      const selectedFiles = details.type === 'sqlite'
+        ? (form.sqliteState.selectedFile ? [form.sqliteState.selectedFile] : [])
+        : form.csvState.selectedFiles;
+      const files = selectedFiles.length > 0 ? selectedFiles : undefined;
       await connect(details, files);
       
       // For Hive Parquet connections, copy partition files to DataSourceContext for lazy loading
@@ -294,6 +299,14 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
               state={form.csvState}
               onUpdate={form.updateCsvState}
               onFileChange={form.handleFileChange}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
+
+          {form.connectionType === 'sqlite' && (
+            <SqliteConnectionForm
+              state={form.sqliteState}
+              onFileChange={form.handleSqliteFileChange}
               disabled={formDisabled || !currentConnectorEnabled}
             />
           )}

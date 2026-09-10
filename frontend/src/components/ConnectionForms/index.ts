@@ -8,6 +8,7 @@ export * from './types';
 
 // Components
 export { CsvConnectionForm } from './CsvConnectionForm';
+export { SqliteConnectionForm } from './SqliteConnectionForm';
 export { ClickHouseConnectionForm } from './ClickHouseConnectionForm';
 export { KaggleConnectionForm } from './KaggleConnectionForm';
 export { HuggingFaceConnectionForm } from './HuggingFaceConnectionForm';

@@ -8,7 +8,7 @@ import { buildCascadingFiltersForField } from '../utils/cascadingFilters';
 import { convertFilterConfigsToFilters } from '../queryBuilder/queryBuilder';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
+    type: 'clickhouse' | 'csv' | 'sqlite' | 'kaggle' | 'huggingface' | 'hive_parquet';
 }
 
 /**

@@ -15,6 +15,7 @@ from backend.models.data_source import ConnectionDetails
 from backend.connectors.base import BaseConnector
 from backend.connectors.file_handlers import FILE_HANDLER_REGISTRY
 from backend.connectors.registry import get_connector_registry
+from backend.connectors.sqlite_connector import validate_sqlite_file
 from backend.exceptions import (
     AppException,
     InvalidInputError,
@@ -32,6 +33,22 @@ MAX_FILE_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB per file
 
 # Supported file extensions
 ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet', '.json', '.ndjson', '.jsonl'}
+
+# SQLite database files are handled separately from the per-format file
+# handlers: one file holds many tables, so it has no single reader expression.
+ALLOWED_SQLITE_EXTENSIONS = {'.sqlite', '.sqlite3', '.db'}
+
+# Browsers report SQLite files inconsistently (often as a generic binary
+# stream, sometimes with no type at all), so the file header checked after
+# upload is what actually validates the content.
+ALLOWED_SQLITE_MIME_TYPES = {
+    "application/octet-stream",
+    "application/x-sqlite3",
+    "application/vnd.sqlite3",
+    "application/x-sqlite",
+    "application/db",
+    "",
+}
 
 # MIME types for CSV files
 ALLOWED_CSV_MIME_TYPES = {
@@ -149,6 +166,51 @@ class ConnectionService:
             raise
 
         logger.info(f"Saved uploaded file: {uploaded_file.filename} -> {temp_file_path}")
+        return temp_file_path
+
+    async def _save_and_validate_sqlite_upload(
+        self,
+        uploaded_file: UploadFile,
+        session_upload_dir: str,
+    ) -> str:
+        """
+        Validate, save, and content-check an uploaded SQLite database file.
+
+        Kept separate from _save_and_validate_uploaded_file because that path
+        validates through FILE_HANDLER_REGISTRY, which maps one file to exactly
+        one table - a SQLite file contains a whole schema instead.
+
+        Returns the temp file path on success. Cleans up the temp file and
+        re-raises on any validation or I/O error.
+        """
+        if not uploaded_file.filename:
+            raise InvalidInputError("Missing filename for uploaded file.")
+
+        file_ext = self._get_file_extension(uploaded_file.filename)
+        if file_ext not in ALLOWED_SQLITE_EXTENSIONS:
+            raise InvalidInputError(
+                f"Invalid file type: {file_ext}. "
+                f"Allowed: {', '.join(sorted(ALLOWED_SQLITE_EXTENSIONS))}"
+            )
+
+        if (uploaded_file.content_type or "") not in ALLOWED_SQLITE_MIME_TYPES:
+            raise InvalidInputError(
+                detail=f"Unsupported content type: {uploaded_file.content_type}",
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            )
+
+        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
+        os.close(fd)
+
+        try:
+            await self._save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES)
+            await run_in_threadpool(validate_sqlite_file, temp_file_path)
+        except Exception:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise
+
+        logger.info(f"Saved uploaded SQLite database: {uploaded_file.filename} -> {temp_file_path}")
         return temp_file_path
 
     @staticmethod

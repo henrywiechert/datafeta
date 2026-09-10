@@ -224,7 +224,7 @@ class DateTimeService:
         """
         # Migration-friendly: accept either a db_type string or a SqlDialect.
         normalized = db_type.name if hasattr(db_type, "name") else str(db_type).lower()
-        if normalized in {'csv', 'file', 'kaggle', 'hive_parquet'}:
+        if normalized in {'csv', 'file', 'sqlite', 'kaggle', 'hive_parquet'}:
             normalized = 'duckdb'
 
         # Parse text columns to datetime before applying datetime functions. This

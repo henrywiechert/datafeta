@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """API router for connection management operations."""
 
+import json
 import logging
 from typing import List, Optional
 
@@ -86,13 +87,22 @@ async def connect_to_datasource(
     
     Args:
         connection_details_json: JSON string with connection type and options
-        uploaded_files: List of files to upload (for 'csv' connection type)
+        uploaded_files: List of files to upload (for 'csv' and 'sqlite' connection types)
         
     Returns:
         Success message and list of file paths
     """
-    if not is_connector_allowed("csv"):
-        raise InvalidInputError("CSV/file connections are disabled", status_code=status.HTTP_403_FORBIDDEN)
+    # Gate on the requested connector type. A malformed body is left to the
+    # service, which raises the detailed 422.
+    try:
+        requested_type = json.loads(connection_details_json).get("type")
+    except (ValueError, AttributeError):
+        requested_type = None
+    if requested_type and not is_connector_allowed(requested_type):
+        raise InvalidInputError(
+            f"{requested_type} connections are disabled",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_multipart(connection_details_json, uploaded_files, session_id)
 

@@ -9,7 +9,7 @@ import { ColumnCasts } from './query';
 
 // Request body for /connect endpoint
 export interface ConnectionDetails {
-  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
   file_path?: string;
   connection_string?: string;
   host?: string;

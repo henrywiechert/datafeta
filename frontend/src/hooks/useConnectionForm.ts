@@ -14,12 +14,14 @@ import {
   ConnectionFormState,
   ConnectionFormAction,
   CsvFormState,
+  SqliteFormState,
   ClickHouseFormState,
   KaggleFormState,
   HuggingFaceFormState,
   HiveParquetFormState,
   ValidationResult,
   DEFAULT_CSV_STATE,
+  DEFAULT_SQLITE_STATE,
   DEFAULT_CLICKHOUSE_STATE,
   DEFAULT_KAGGLE_STATE,
   DEFAULT_HUGGINGFACE_STATE,
@@ -57,6 +59,7 @@ function appendCsvParsingDetails(details: ConnectionDetails, csv: CsvFormState):
 const initialState: ConnectionFormState = {
   connectionType: 'csv',
   csv: DEFAULT_CSV_STATE,
+  sqlite: DEFAULT_SQLITE_STATE,
   clickHouse: DEFAULT_CLICKHOUSE_STATE,
   kaggle: DEFAULT_KAGGLE_STATE,
   huggingFace: DEFAULT_HUGGINGFACE_STATE,
@@ -75,6 +78,9 @@ function connectionFormReducer(
     case 'UPDATE_CSV':
       return { ...state, csv: { ...state.csv, ...action.payload } };
 
+    case 'UPDATE_SQLITE':
+      return { ...state, sqlite: { ...state.sqlite, ...action.payload } };
+
     case 'UPDATE_CLICKHOUSE':
       return { ...state, clickHouse: { ...state.clickHouse, ...action.payload } };
 
@@ -89,6 +95,9 @@ function connectionFormReducer(
 
     case 'RESET_CSV':
       return { ...state, csv: DEFAULT_CSV_STATE };
+
+    case 'RESET_SQLITE':
+      return { ...state, sqlite: DEFAULT_SQLITE_STATE };
 
     case 'RESET_CLICKHOUSE':
       return { ...state, clickHouse: DEFAULT_CLICKHOUSE_STATE };
@@ -117,6 +126,10 @@ function connectionFormReducer(
         };
       } else if (type === 'csv') {
         newState.csv = csvStateFromDetails(details);
+      } else if (type === 'sqlite') {
+        // Nothing to restore: the schema lives in the file, which must be
+        // re-selected by the user for a new connection.
+        newState.sqlite = DEFAULT_SQLITE_STATE;
       } else if (type === 'kaggle') {
         newState.kaggle = {
           ...DEFAULT_KAGGLE_STATE,
@@ -155,6 +168,7 @@ export interface UseConnectionFormReturn {
 
   // Per-type state accessors
   csvState: CsvFormState;
+  sqliteState: SqliteFormState;
   clickHouseState: ClickHouseFormState;
   kaggleState: KaggleFormState;
   huggingFaceState: HuggingFaceFormState;
@@ -162,6 +176,7 @@ export interface UseConnectionFormReturn {
 
   // Per-type state setters (grouped updates)
   updateCsvState: (updates: Partial<CsvFormState>) => void;
+  updateSqliteState: (updates: Partial<SqliteFormState>) => void;
   updateClickHouseState: (updates: Partial<ClickHouseFormState>) => void;
   updateKaggleState: (updates: Partial<KaggleFormState>) => void;
   updateHuggingFaceState: (updates: Partial<HuggingFaceFormState>) => void;
@@ -183,6 +198,7 @@ export interface UseConnectionFormReturn {
 
   // File handling (supports multiple files)
   handleFileChange: (files: File[] | null) => void;
+  handleSqliteFileChange: (file: File | null) => void;
   handleHiveFolderSelect: (files: File[] | null) => void;
 
   // Sync with existing connection
@@ -203,6 +219,10 @@ export function useConnectionForm(): UseConnectionFormReturn {
   // Per-type state setters
   const updateCsvState = useCallback((updates: Partial<CsvFormState>) => {
     dispatch({ type: 'UPDATE_CSV', payload: updates });
+  }, []);
+
+  const updateSqliteState = useCallback((updates: Partial<SqliteFormState>) => {
+    dispatch({ type: 'UPDATE_SQLITE', payload: updates });
   }, []);
 
   const updateClickHouseState = useCallback((updates: Partial<ClickHouseFormState>) => {
@@ -233,6 +253,14 @@ export function useConnectionForm(): UseConnectionFormReturn {
     }
   }, [updateCsvState]);
 
+  // File handling for SQLite (a single database file)
+  const handleSqliteFileChange = useCallback((file: File | null) => {
+    updateSqliteState({
+      selectedFile: file,
+      fileName: file ? file.name : '',
+    });
+  }, [updateSqliteState]);
+
   // File handling for Hive Parquet folder selection
   const handleHiveFolderSelect = useCallback((files: File[] | null) => {
     if (files && files.length > 0) {
@@ -250,7 +278,14 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Validation
   const validateForm = useCallback((): ValidationResult => {
-    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+    const { connectionType, csv, sqlite, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+
+    if (connectionType === 'sqlite') {
+      if (!sqlite.selectedFile) {
+        return { isValid: false, errorMessage: 'Please select a SQLite database file (.sqlite, .sqlite3 or .db).' };
+      }
+      return { isValid: true, errorMessage: null };
+    }
 
     if (connectionType === 'csv') {
       if (!csv.selectedFiles || csv.selectedFiles.length === 0) {
@@ -564,11 +599,13 @@ export function useConnectionForm(): UseConnectionFormReturn {
     connectionType: state.connectionType,
     setConnectionType,
     csvState: state.csv,
+    sqliteState: state.sqlite,
     clickHouseState: state.clickHouse,
     kaggleState: state.kaggle,
     huggingFaceState: state.huggingFace,
     hiveParquetState: state.hiveParquet,
     updateCsvState,
+    updateSqliteState,
     updateClickHouseState,
     updateKaggleState,
     updateHuggingFaceState,
@@ -582,6 +619,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
     selectHuggingFaceDataset,
     loadHuggingFaceSplitsManual,
     handleFileChange,
+    handleSqliteFileChange,
     handleHiveFolderSelect,
     syncFromConnectionDetails,
   };

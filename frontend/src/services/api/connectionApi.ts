@@ -15,10 +15,11 @@ export const connectionApi = {
    * Connect to a data source
    * 
    * For file-based sources (CSV/Parquet), supports uploading multiple files.
-   * Each file becomes a separate queryable table.
+   * Each file becomes a separate queryable table. A SQLite upload is a single
+   * file whose tables are read from the database schema.
    * 
    * @param details - Connection configuration
-   * @param files - Array of files to upload (for 'csv' connection type)
+   * @param files - Array of files to upload (for 'csv' and 'sqlite' connection types)
    * @param signal - Optional AbortSignal for request cancellation
    */
   async connect(
@@ -29,7 +30,7 @@ export const connectionApi = {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
 
-    if (details.type === 'csv') {
+    if (details.type === 'csv' || details.type === 'sqlite') {
       const formData = new FormData();
       formData.append('connection_details_json', JSON.stringify(details));
       
@@ -39,7 +40,7 @@ export const connectionApi = {
           formData.append('uploaded_files', file, file.name);
         });
       } else {
-        throw new Error('At least one file must be provided for connection type csv.');
+        throw new Error(`At least one file must be provided for connection type ${details.type}.`);
       }
       
       const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect`, {
