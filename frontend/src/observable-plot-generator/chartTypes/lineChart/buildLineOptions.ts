@@ -56,7 +56,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
   const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-  const { clean, budgetedSorted, dotData, axisKind } = prepareLineData({
+  const { clean, budgetedSorted, dotData, axisKind, seriesGroups } = prepareLineData({
     data,
     independentColumn,
     dependentColumn,
@@ -146,10 +146,10 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     variant,
     orientation,
     budgetedSorted,
+    seriesGroups,
     areaConfig,
     colorField,
     colorInfo,
-    colorColumnName,
     manualColor,
   });
 

@@ -138,10 +138,11 @@ describe('buildLineOptions – dependent-axis domain always recomputed from data
   test('attaches __lineChartDomainInfo metadata', () => {
     const data = generateRows(500, 75, 25);
     const opts = buildLineOptions(makeParams(data, undefined));
-    const info = (opts as any).__lineChartDomainInfo;
+    const infos = (opts as any).__lineChartDomainInfo;
 
+    expect(Array.isArray(infos)).toBe(true);
+    const info = infos.find((i: any) => i.axis === 'y');
     expect(info).toBeDefined();
-    expect(info.axis).toBe('y');
     expect(info.column).toBe('AVG(y)');
     expect(info.domain).toBeDefined();
     expect(info.domain[0]).toBeLessThan(55);
@@ -177,7 +178,7 @@ describe('harmonizeLineChartDomains', () => {
     return {
       options: {
         [axis]: { label: column, domain },
-        __lineChartDomainInfo: { axis, column, domain },
+        __lineChartDomainInfo: [{ axis, column, domain }],
       } as any,
       position,
     };
