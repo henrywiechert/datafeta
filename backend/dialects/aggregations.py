@@ -31,6 +31,11 @@ class FiniteGuard(str, Enum):
     (median of [1, 2, 3, NaN] reads 2.5 instead of 2.0).
 
     The two engines spell the restriction differently.
+
+    Only ever applied to aggregations that are offered on numeric columns alone
+    (sum, avg, median).  ``isFinite`` has no overload for text -- DuckDB raises
+    a binder error -- and MIN/MAX/COUNT are deliberately available on string
+    measures, so they must stay unguarded.
     """
 
     #: No restriction.

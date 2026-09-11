@@ -7,12 +7,18 @@ from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
 from backend.dialects.base import SqlDialect
 
 
-# How each aggregation renders in DuckDB.  DuckDB does not propagate NaN through
-# aggregates, so no finite guard is needed; SUM/AVG are coalesced instead so an
-# empty group reads as 0 rather than a hole in the chart.
+# How each aggregation renders in DuckDB.  DuckDB has no -If combinator, so the
+# finite guard is the standard FILTER clause.  It is needed: contrary to a
+# long-standing comment here, DuckDB does propagate NaN through SUM and AVG --
+# one bad row turns the whole group into NaN.  COALESCE additionally keeps an
+# empty group reading as 0 rather than a hole in the chart.
 DUCKDB_AGGREGATE_SPECS: Mapping[str, AggregateSpec] = {
-    'sum': AggregateSpec('SUM', coalesce_zero=True),
-    'avg': AggregateSpec('AVG', coalesce_zero=True),
+    'sum': AggregateSpec(
+        'SUM', coalesce_zero=True, finite_guard=FiniteGuard.FILTER_CLAUSE
+    ),
+    'avg': AggregateSpec(
+        'AVG', coalesce_zero=True, finite_guard=FiniteGuard.FILTER_CLAUSE
+    ),
     'count': AggregateSpec('COUNT'),
     COUNT_STAR: AggregateSpec('COUNT', star=True),
     'count_distinct': AggregateSpec('COUNT', distinct=True),
