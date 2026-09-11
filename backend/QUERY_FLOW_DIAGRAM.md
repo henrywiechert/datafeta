@@ -161,7 +161,8 @@
 │ 6.2 Process Measures                                                           │
 │     FOR EACH measure:                                                           │
 │     ├─ Check if virtual_column (use vc_builder expression)                     │
-│     ├─ Apply aggregation (SUM, AVG, COUNT, MIN, MAX, COUNT_DISTINCT)           │
+│     ├─ Apply aggregation (per dialect AggregateSpec: SUM, AVG, MEDIAN,         │
+│     │   COUNT, MIN, MAX, COUNT_DISTINCT, ARG_MAX, ARG_MIN)                     │
 │     ├─ Apply column casting (before aggregation)                               │
 │     ├─ Apply rounding (after aggregation if configured)                        │
 │     └─ Use alias if provided                                                   │
