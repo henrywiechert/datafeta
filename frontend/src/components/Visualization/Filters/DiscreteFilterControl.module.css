@@ -21,35 +21,31 @@
   pointer-events: none;
 }
 
-.modeSwitcher {
+.toggleRow {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.modeSwitcher button {
-  font-size: 11px;
-  padding: 3px 8px;
-}
-
-.valueListToggleWrap {
-  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
   margin-bottom: 6px;
+}
+
+.toggleWrap {
+  display: inline-flex;
   width: fit-content;
 }
 
-.valueListToggle {
+.compactToggle {
   margin: 0;
   align-items: center;
 }
 
-.valueListToggle :global(.MuiFormControlLabel-label) {
+.compactToggle :global(.MuiFormControlLabel-label) {
   font-size: 11px;
   line-height: 1.2;
   color: rgba(0, 0, 0, 0.7);
 }
 
-.valueListToggle :global(.MuiSwitch-root) {
+.compactToggle :global(.MuiSwitch-root) {
   margin-right: 2px;
 }
 

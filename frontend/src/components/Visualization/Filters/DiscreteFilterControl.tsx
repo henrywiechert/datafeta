@@ -328,51 +328,54 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Alert>
       )}
 
-      {/* Pattern mode is only worth offering when the list is sampled and the picker
-          alone cannot reach every value. A filter already in pattern mode keeps the
-          switcher so a saved config stays editable on a small column. */}
-      {(metadata.isPartial || isPatternMode) && (
-        <Box className={styles.modeSwitcher}>
-          <Button
-            size="small"
-            variant={isPatternMode ? 'text' : 'contained'}
-            onClick={() => updatePatternConfig({ matchMode: 'selection' })}
-          >
-            Selection
-          </Button>
-          <Button
-            size="small"
-            variant={isPatternMode ? 'contained' : 'text'}
-            onClick={() => updatePatternConfig({ matchMode: 'pattern' })}
-          >
-            Pattern
-          </Button>
-        </Box>
-      )}
-
-      {onValueListModeChange && (
+      <Box className={styles.toggleRow}>
         <Tooltip
-          title="When on, only list values still possible given other discrete filters. When off, show the full value list."
+          title="Filter by a SQL LIKE pattern instead of a value list. A pattern stays meaningful when the dataset changes."
           placement="top"
           enterDelay={400}
         >
-          <span className={styles.valueListToggleWrap}>
+          <span className={styles.toggleWrap}>
             <FormControlLabel
-              className={styles.valueListToggle}
+              className={styles.compactToggle}
               control={
                 <Switch
                   size="small"
-                  checked={valueListMode === 'relevant'}
+                  checked={isPatternMode}
                   onChange={(e) =>
-                    onValueListModeChange(e.target.checked ? 'relevant' : 'all')
+                    updatePatternConfig({ matchMode: e.target.checked ? 'pattern' : 'selection' })
                   }
                 />
               }
-              label="Respect other filters"
+              label="Pattern mode"
             />
           </span>
         </Tooltip>
-      )}
+
+        {/* Only affects the checkbox list, which pattern mode hides. */}
+        {onValueListModeChange && !isPatternMode && (
+          <Tooltip
+            title="When on, only list values still possible given other discrete filters. When off, show the full value list."
+            placement="top"
+            enterDelay={400}
+          >
+            <span className={styles.toggleWrap}>
+              <FormControlLabel
+                className={styles.compactToggle}
+                control={
+                  <Switch
+                    size="small"
+                    checked={valueListMode === 'relevant'}
+                    onChange={(e) =>
+                      onValueListModeChange(e.target.checked ? 'relevant' : 'all')
+                    }
+                  />
+                }
+                label="Respect other filters"
+              />
+            </span>
+          </Tooltip>
+        )}
+      </Box>
 
       {isPatternMode && (
         <Box className={styles.patternPanel}>

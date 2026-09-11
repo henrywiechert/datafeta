@@ -58,6 +58,11 @@ export function useQueryFingerprint({
       if (!cfg) return `${k}:null`;
       // Only include properties that change query result (range/selected values/date boundaries)
       if (cfg.type === 'discrete') {
+        // Pattern mode leaves selectedValues untouched, so the pattern itself must be part
+        // of the signature or an edit to it would not be recognised as a new query.
+        if (cfg.matchMode === 'pattern') {
+          return `${k}:discrete:pattern:${cfg.pattern ?? ''}:${cfg.patternOperator ?? 'like'}:${cfg.isInversePattern ? 'not' : ''}`;
+        }
         return `${k}:discrete:${(cfg.selectedValues || []).length}`; // length enough; values change implies length change mostly; refine if necessary
       } else if (cfg.type === 'continuous') {
         return `${k}:continuous:${cfg.min ?? ''}:${cfg.max ?? ''}`;

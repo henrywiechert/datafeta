@@ -92,7 +92,7 @@ describe('DiscreteFilterControl', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pattern' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Pattern mode' }));
     expect(handlePatternChange).toHaveBeenCalledWith({
       matchMode: 'pattern',
       pattern: '',
@@ -128,7 +128,7 @@ describe('DiscreteFilterControl', () => {
     expect(handleMode).toHaveBeenCalledWith('relevant');
   });
 
-  test('hides the pattern mode switcher when the value list is complete', () => {
+  test('offers pattern mode even when the value list is complete', () => {
     render(
       <Harness
         metadata={buildMetadata(['Alpha', 'Beta'])}
@@ -136,11 +136,10 @@ describe('DiscreteFilterControl', () => {
       />
     );
 
-    expect(screen.queryByRole('button', { name: 'Pattern' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Selection' })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Pattern mode' })).not.toBeChecked();
   });
 
-  test('keeps the switcher for a filter already in pattern mode on a complete list', () => {
+  test('reflects an already active pattern filter on a complete list', () => {
     render(
       <Harness
         metadata={buildMetadata(['Alpha', 'Beta'])}
@@ -149,6 +148,19 @@ describe('DiscreteFilterControl', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Selection' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Pattern mode' })).toBeChecked();
+  });
+
+  test('hides the Respect other filters toggle in pattern mode', () => {
+    render(
+      <Harness
+        metadata={buildMetadata(['Alpha', 'Beta'])}
+        selectedValues={['Alpha']}
+        onValueListModeChange={jest.fn()}
+        initialMatchMode="pattern"
+      />
+    );
+
+    expect(screen.queryByRole('checkbox', { name: 'Respect other filters' })).not.toBeInTheDocument();
   });
 });
