@@ -67,8 +67,13 @@ def test_every_declared_aggregation_renders(dialect_name: str, aggregation: str)
 @pytest.mark.parametrize(
     'dialect_name, aggregation, expected',
     [
-        ('duckdb', 'sum', 'COALESCE(SUM("weight"),0)'),
-        ('duckdb', 'avg', 'COALESCE(AVG("weight"),0)'),
+        # Guarded: DuckDB propagates NaN through SUM/AVG despite not needing
+        # ClickHouse's -If combinator.
+        ('duckdb', 'sum', 'COALESCE(SUM("weight") FILTER(WHERE isFinite("weight")),0)'),
+        ('duckdb', 'avg', 'COALESCE(AVG("weight") FILTER(WHERE isFinite("weight")),0)'),
+        ('duckdb', 'median', 'quantile_cont("weight",0.5) FILTER(WHERE isFinite("weight"))'),
+        ('clickhouse', 'median',
+         'quantileExactInclusiveIf(0.5)(`weight`,isFinite(`weight`))'),
         ('duckdb', 'count', 'COUNT("weight")'),
         ('duckdb', 'count_distinct', 'COUNT(DISTINCT "weight")'),
         ('duckdb', 'min', 'MIN("weight")'),

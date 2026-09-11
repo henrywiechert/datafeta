@@ -149,11 +149,15 @@ class TestDuckDbDialect:
         result = dialect.cast_null_expr('amount', is_measure=True)
         assert result == 'NULL AS "amount"'
 
-    def test_sum_and_avg_coalesce_to_zero(self, dialect: DuckDbDialect):
-        # DuckDB does not propagate NaN, so no finite guard is needed; the
-        # COALESCE keeps an empty group reading as 0 rather than a hole.
-        assert dialect.aggregate_spec('sum') == AggregateSpec('SUM', coalesce_zero=True)
-        assert dialect.aggregate_spec('avg') == AggregateSpec('AVG', coalesce_zero=True)
+    def test_sum_and_avg_are_guarded_and_coalesced(self, dialect: DuckDbDialect):
+        # DuckDB does propagate NaN through SUM/AVG, so the FILTER guard is not
+        # optional; the COALESCE keeps an empty group reading as 0.
+        assert dialect.aggregate_spec('sum') == AggregateSpec(
+            'SUM', coalesce_zero=True, finite_guard=FiniteGuard.FILTER_CLAUSE
+        )
+        assert dialect.aggregate_spec('avg') == AggregateSpec(
+            'AVG', coalesce_zero=True, finite_guard=FiniteGuard.FILTER_CLAUSE
+        )
 
     def test_table_ref_ignores_database(self, dialect: DuckDbDialect):
         result = dialect.table_ref('events', database='analytics')

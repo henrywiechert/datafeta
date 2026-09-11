@@ -125,8 +125,9 @@ describe('local SQL', () => {
   const col = { raw: '"v"', numeric: 'CAST("v" AS DOUBLE)' };
 
   test.each<[Aggregation, string]>([
-    ['sum', 'SUM(CAST("v" AS DOUBLE))'],
-    ['avg', 'AVG(CAST("v" AS DOUBLE))'],
+    // Guarded, matching the backend: DuckDB propagates NaN through SUM/AVG.
+    ['sum', 'SUM(CAST("v" AS DOUBLE)) FILTER (WHERE isFinite(CAST("v" AS DOUBLE)))'],
+    ['avg', 'AVG(CAST("v" AS DOUBLE)) FILTER (WHERE isFinite(CAST("v" AS DOUBLE)))'],
     ['min', 'MIN(CAST("v" AS DOUBLE))'],
     ['max', 'MAX(CAST("v" AS DOUBLE))'],
     // Counting does not need the value parsed as a number.
@@ -142,6 +143,19 @@ describe('local SQL', () => {
     const { localSql } = AGGREGATIONS[name];
     if (!localSql) throw new Error(`${name} should be locally computable`);
     expect(localSql(col)).toBe(expected);
+  });
+
+  test('only numeric-only aggregations carry the non-finite guard', () => {
+    // isFinite has no overload for text: DuckDB raises a binder error. MIN/MAX
+    // and the counts are offered on string measures, so they must stay
+    // unguarded even though that leaves them NaN-sensitive on numeric columns.
+    for (const name of AGGREGATION_NAMES) {
+      const spec = AGGREGATIONS[name];
+      const sql = spec.localSql?.(col) ?? '';
+      if (sql.includes('isFinite')) {
+        expect(spec.numericOnly).toBe(true);
+      }
+    }
   });
 
   test('arg_max/arg_min are marked backend-only', () => {

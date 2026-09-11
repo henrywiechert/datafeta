@@ -73,7 +73,10 @@ export const AGGREGATIONS = {
     aliasPrefix: 'SUM',
     numericOnly: true,
     needsOrderingColumn: false,
-    localSql: (col) => `SUM(${col.numeric})`,
+    // Guarded like the backend: DuckDB propagates NaN through SUM, and the
+    // cached slice is raw imported data where NaN is most likely.
+    localSql: (col) =>
+      `SUM(${col.numeric}) FILTER (WHERE isFinite(${col.numeric}))`,
     rollup: { combine: total, exact: true },
   },
   avg: {
@@ -82,7 +85,8 @@ export const AGGREGATIONS = {
     aliasPrefix: 'AVG',
     numericOnly: true,
     needsOrderingColumn: false,
-    localSql: (col) => `AVG(${col.numeric})`,
+    localSql: (col) =>
+      `AVG(${col.numeric}) FILTER (WHERE isFinite(${col.numeric}))`,
     // A mean of per-group means weights every group equally.
     rollup: { combine: (values) => total(values) / values.length, exact: false },
   },
