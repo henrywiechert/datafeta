@@ -90,6 +90,15 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         },
       };
     }
+    case 'SET_LINE_SERIES_LABELS': {
+      return {
+        ...state,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          line: { ...state.chartTypeParams.line, seriesLabels: action.payload },
+        },
+      };
+    }
     case 'SET_DISTRIBUTION_VARIANT': {
       const variantChanged = state.chartTypeParams.distribution.variant !== action.payload;
       return {

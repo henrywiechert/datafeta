@@ -18,3 +18,12 @@ export function shouldShowLineColorModeControl(
 ): boolean {
   return isLineChart && !!colorField && colorField.flavour === 'continuous';
 }
+
+/** Show the per-line label toggle: only meaningful when color splits the data into lines. */
+export function shouldShowSeriesLabelControl(
+  colorField: Field | null | undefined,
+  isLineChart: boolean,
+  lineColorMode: LineColorMode = 'alongPath',
+): boolean {
+  return isLineChart && lineColorSplitsSeries(colorField, lineColorMode);
+}

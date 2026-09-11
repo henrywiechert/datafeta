@@ -44,6 +44,7 @@ export function resolveChartTypeParams(
       areaFillOpacity:
         grouped?.line?.areaFillOpacity ?? source?.areaFillOpacity ?? base.line.areaFillOpacity,
       colorMode: grouped?.line?.colorMode ?? base.line.colorMode ?? 'alongPath',
+      seriesLabels: grouped?.line?.seriesLabels ?? base.line.seriesLabels ?? 'off',
     },
     distribution: {
       variant: grouped?.distribution?.variant ?? source?.distributionVariant ?? base.distribution.variant,

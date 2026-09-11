@@ -213,6 +213,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       variant: ctx.lineVariant,
       areaFillOpacity: ctx.areaFillOpacity,
       lineColorMode: ctx.lineColorMode,
+      seriesLabels: ctx.lineSeriesLabels,
     });
   }
   
@@ -241,6 +242,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       variant: ctx.lineVariant,
       areaFillOpacity: ctx.areaFillOpacity,
       lineColorMode: ctx.lineColorMode,
+      seriesLabels: ctx.lineSeriesLabels,
     });
   }
   
@@ -713,6 +715,7 @@ export function generatePairChartOptions(
   lineVariant?: import('../../types').LineVariant,
   areaFillOpacity?: number,
   lineColorMode?: import('../../types').LineColorMode,
+  lineSeriesLabels?: import('../../types').LineSeriesLabelMode,
   xTickFormat?: (d: any) => string,
   yTickFormat?: (d: any) => string,
 ): Plot.PlotOptions {
@@ -736,6 +739,7 @@ export function generatePairChartOptions(
     lineVariant,
     areaFillOpacity,
     lineColorMode,
+    lineSeriesLabels,
     xTickFormat,
     yTickFormat,
     markStyle: resolveBarLayoutMarkStyle(overrides?.global, lineVariant),

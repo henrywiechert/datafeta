@@ -36,7 +36,7 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
       independentDomains: { x: true, y: false },
       chartTypeParams: {
         ...initialState.chartTypeParams,
-        line: { variant: 'area', areaFillOpacity: 0.42, colorMode: 'alongPath' },
+        line: { variant: 'area', areaFillOpacity: 0.42, colorMode: 'alongPath', seriesLabels: 'off' },
         distribution: { variant: 'box-plot' },
         table: { page: 3 },
       },
