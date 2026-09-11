@@ -4,6 +4,7 @@
  * Query description, results, and related types
  */
 
+import type { Aggregation } from '../aggregations';
 import type { DateTimePart, DateTimeMode, Flavour } from './field';
 import { VirtualTableDefinition } from './multiTable';
 import { VirtualColumnDefinition } from './virtualColumn';
@@ -29,7 +30,7 @@ export interface WindowCalc {
 
 export interface Measure {
   field: string;
-  aggregation: 'sum' | 'avg' | 'count' | 'count_distinct' | 'min' | 'max' | 'arg_max' | 'arg_min';
+  aggregation: Aggregation;
   alias: string;
   /** Ordering column for arg_max/arg_min (value at the row where this column is max/min) */
   aggregation_arg?: string;

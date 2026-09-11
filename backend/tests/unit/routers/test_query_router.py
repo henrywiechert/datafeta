@@ -159,7 +159,7 @@ class TestQueryEndpointValidation:
         client = make_client()
         response = client.post("/query", json={
             "target_table": "t",
-            "measures": [{"field": "x", "aggregation": "median", "alias": "m"}],
+            "measures": [{"field": "x", "aggregation": "stddev", "alias": "m"}],
         })
         assert response.status_code == 422
 

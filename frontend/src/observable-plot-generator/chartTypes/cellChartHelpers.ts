@@ -6,13 +6,19 @@
 
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
+import { getAggregationSpec } from '../../aggregations';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { scatterChart } from './scatterChart';
 import { ChartContext } from './cellChartTypes';
 
 /**
- * Aggregate numeric values from data using the specified aggregation function.
- * Handles sum, count, count_distinct, min, max, avg.
+ * Roll already-aggregated rows up to the cell grain.
+ *
+ * The rows arrive aggregated at a finer grain, so the combining rule comes from
+ * the aggregation registry rather than from this module.  An aggregation the
+ * registry cannot roll up (arg_max/arg_min: the value at a row the cell no
+ * longer identifies) yields NaN, which Plot skips -- previously such a value
+ * was summed, producing a confident wrong number.
  */
 export function aggregateValues(
   data: any[],
@@ -22,27 +28,14 @@ export function aggregateValues(
   const values = (Array.isArray(data) ? data : [])
     .map((d) => d?.[column])
     .filter((v) => typeof v === 'number' && Number.isFinite(v)) as number[];
-  
+
   if (values.length === 0) return 0;
-  
-  const agg = (aggregation || 'sum').toLowerCase();
-  switch (agg) {
-    case 'sum':
-      return values.reduce((s, v) => s + v, 0);
-    case 'count':
-    case 'count_distinct':
-      // COUNT aliases are already counts per group; sum them
-      return values.reduce((s, v) => s + v, 0);
-    case 'min':
-      return Math.min(...values);
-    case 'max':
-      return Math.max(...values);
-    case 'avg':
-      // Fallback to simple mean across groups (not weighted)
-      return values.reduce((s, v) => s + v, 0) / values.length;
-    default:
-      return values.reduce((s, v) => s + v, 0);
-  }
+  // Already at the requested grain: correct for every aggregation.
+  if (values.length === 1) return values[0];
+
+  const rollup = getAggregationSpec((aggregation || 'sum').toLowerCase())?.rollup;
+  if (!rollup) return NaN;
+  return rollup.combine(values);
 }
 
 /**

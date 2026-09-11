@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { getAggregationSpec } from '../../aggregations';
 import { TooltipField, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
@@ -42,8 +43,10 @@ function enrichLabelWithAggregation(label: string, sourceField?: Field): string 
 function isDateTimeDisplayField(field?: Field): boolean {
   if (!field || field.dataType !== 'datetime') return false;
   if (field.dateTimePart && field.dateTimeMode === 'distinct') return false;
-  // count/count_distinct on a datetime column produce integer counts, not timestamps.
-  if (field.aggregation === 'count' || field.aggregation === 'count_distinct') return false;
+  // An aggregate only stays a timestamp if it keeps the column's type: MEDIAN or
+  // MIN of a datetime is still a date, COUNT of one is an integer.
+  const spec = getAggregationSpec(field.aggregation);
+  if (spec && !spec.preservesColumnType) return false;
   return true;
 }
 

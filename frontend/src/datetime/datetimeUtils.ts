@@ -6,6 +6,7 @@
  * Handles datetime parts, modes, display names, and validation.
  */
 
+import { aggregationAliasPrefix } from '../aggregations';
 import { DateTimePart, DateTimeMode, Field } from '../types';
 // Re-export from datetimeSemantics for backward compatibility
 // Note: DATETIME_PARTS and DATETIME_MODES are defined in datetimeSemantics.ts
@@ -77,11 +78,7 @@ export function getDateTimePartTooltip(field: Field): string | undefined {
  */
 export function getResultColumnNameForDateTime(field: Field): string {
   if (field.type === 'measure' && field.aggregation) {
-    const aggName =
-      field.aggregation === 'arg_max' ? 'LATEST' :
-      field.aggregation === 'arg_min' ? 'EARLIEST' :
-      field.aggregation.toUpperCase();
-    const base = `${aggName}(${field.columnName})`;
+    const base = `${aggregationAliasPrefix(field.aggregation)}(${field.columnName})`;
     if (field.windowCalc === 'difference') {
       return `DIFF(${base})`;
     }

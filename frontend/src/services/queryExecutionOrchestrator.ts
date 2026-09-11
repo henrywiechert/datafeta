@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { apiService } from '../apiService';
+import { canComputeLocally } from '../aggregations';
 import { QueryDescription } from '../types';
 import { duckdbService, DuckDBService } from './duckdbService';
 import { columnCacheManager } from './columnCacheManager';
@@ -196,17 +197,18 @@ class QueryExecutionOrchestrator {
     // Window calcs (table calculations, e.g. per-bucket difference) are computed by the
     // backend in an outer window-function SELECT over the aggregated result. The local
     // DuckDB aggregation path doesn't implement this wrapping (Phase 1), so force backend.
-    // Likewise arg_max/arg_min (latest/earliest value) is not implemented locally.
+    // Likewise any aggregation the registry cannot express in local SQL (arg_max/arg_min:
+    // the ordering column is not in the cached slice).
     const hasWindowCalcs = (viewQueryDesc.measures || []).some((m: any) => m?.window_calc);
-    const hasArgAggregations = (viewQueryDesc.measures || []).some(
-      (m: any) => m?.aggregation === 'arg_max' || m?.aggregation === 'arg_min'
-    );
-    if ((hasWindowCalcs || hasArgAggregations) && decision.strategy !== 'pre_aggregated') {
+    const backendOnlyAggregations = (viewQueryDesc.measures || [])
+      .filter((m: any) => m?.aggregation && !canComputeLocally(m.aggregation))
+      .map((m: any) => m.aggregation);
+    if ((hasWindowCalcs || backendOnlyAggregations.length > 0) && decision.strategy !== 'pre_aggregated') {
       decision.strategy = 'pre_aggregated';
       decision.requiresBackendQuery = true;
       decision.reason += hasWindowCalcs
         ? ' (overridden: window calc requires backend pre-aggregation)'
-        : ' (overridden: arg_max/arg_min requires backend pre-aggregation)';
+        : ` (overridden: ${backendOnlyAggregations.join('/')} requires backend pre-aggregation)`;
     }
 
     // Cache-hit: query locally (refinement filters only).
@@ -290,7 +292,7 @@ class QueryExecutionOrchestrator {
     //
     // NOTE: fetchQueryDesc is built by the caller based on a *preview* decision.
     // If the strategy was overridden above (HAVING filters, window calcs,
-    // arg_max/arg_min), fetchQueryDesc may still be the raw slice — executing it
+    // backend-only aggregations), fetchQueryDesc may still be the raw slice — executing it
     // would return unaggregated rows. Use the view query unless we are actually
     // fetching raw columns.
     const backendQueryDesc =

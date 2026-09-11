@@ -5,7 +5,7 @@ from typing import get_args
 import pytest
 
 from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, get_dialect
-from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
 from backend.models.query import Measure
 
 
@@ -74,8 +74,12 @@ class TestClickHouseDialect:
     def test_sum_and_avg_guard_against_nan(self, dialect: ClickHouseDialect):
         # ClickHouse propagates NaN through aggregates, so one bad row would
         # otherwise turn a whole group into NaN.
-        assert dialect.aggregate_spec('sum') == AggregateSpec('sumIf', finite_guard=True)
-        assert dialect.aggregate_spec('avg') == AggregateSpec('avgIf', finite_guard=True)
+        assert dialect.aggregate_spec('sum') == AggregateSpec(
+            'sumIf', finite_guard=FiniteGuard.IF_ARGUMENT
+        )
+        assert dialect.aggregate_spec('avg') == AggregateSpec(
+            'avgIf', finite_guard=FiniteGuard.IF_ARGUMENT
+        )
 
     def test_wrap_datetime_comparison_with_datetime_string(self, dialect: ClickHouseDialect):
         result = dialect.wrap_datetime_comparison('2024-01-15 10:30:00.123', is_datetime_string=True)

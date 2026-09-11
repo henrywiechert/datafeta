@@ -18,11 +18,17 @@ from typing import TYPE_CHECKING, Any, Optional
 from pypika.functions import Coalesce, DistinctOptionFunction
 from pypika.terms import AggregateFunction, Star, Term
 
+from backend.dialects.aggregations import FINITE_PREDICATE, FiniteGuard
 from backend.exceptions import QueryGenerationError
 from backend.services.query_components.terms import CustomFunction
 
 if TYPE_CHECKING:
     from backend.dialects import SqlDialect
+
+
+def _finite_predicate(field_term: Any) -> Term:
+    """`isFinite(field)` -- excludes NaN/Inf from an aggregate."""
+    return CustomFunction(FINITE_PREDICATE, [field_term])
 
 
 def build_aggregate_term(
@@ -65,13 +71,17 @@ def build_aggregate_term(
         term = AggregateFunction(spec.function, field_term, arg_term)
     else:
         args = [field_term]
-        if spec.finite_guard:
-            args.append(CustomFunction("isFinite", [field_term]))
+        if spec.finite_guard is FiniteGuard.IF_ARGUMENT:
+            # The function name already carries the -If suffix; the predicate is
+            # the combinator's extra argument.
+            args.append(_finite_predicate(field_term))
         args.extend(spec.literal_args)
         if spec.distinct:
             term = DistinctOptionFunction(spec.function, *args).distinct()
         else:
             term = AggregateFunction(spec.function, *args)
+        if spec.finite_guard is FiniteGuard.FILTER_CLAUSE:
+            term = term.filter(_finite_predicate(field_term))
 
     if spec.coalesce_zero:
         term = Coalesce(term, 0)

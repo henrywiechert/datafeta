@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { forwardRef } from 'react';
+import { aggregationLabel } from '../../../aggregations';
 import { Field } from '../../../types';
 import styles from './FieldChipLabel.module.css';
 import { DragSource } from './types';
@@ -16,9 +17,8 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     // Get alias-aware display name function from context
     const getDisplayName = useFieldDisplayName();
     const fieldName = displayNameOverride ?? getDisplayName(field);
-    const AGGREGATION_DISPLAY: Record<string, string> = { arg_max: 'latest', arg_min: 'earliest' };
     const aggregationText = field.aggregation
-      ? ` (${AGGREGATION_DISPLAY[field.aggregation] ?? field.aggregation})`
+      ? ` (${aggregationLabel(field.aggregation)})`
       : '';
     // Table calculation marker: Δ = difference, %Δ = percent difference, ∑ = running sum
     const WINDOW_CALC_GLYPHS: Record<string, string> = {

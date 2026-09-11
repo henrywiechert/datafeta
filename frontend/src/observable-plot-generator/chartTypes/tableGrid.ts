@@ -27,6 +27,7 @@
  * `GridResultModel.pagination` so the pager UI can drive itself off of it.
  */
 
+import { getAggregationSpec } from '../../aggregations';
 import { ColorChannel, Field } from '../../types';
 import {
   GridCellModel,
@@ -460,9 +461,6 @@ function buildFacetSpaceContext(input: TableGridInput): FacetSpaceContext {
   };
 }
 
-/** Aggregations that can be correctly rolled up client-side from a finer grain. */
-const DECOMPOSABLE_AGGREGATIONS = new Set(['sum', 'count', 'min', 'max']);
-
 interface MeasureBandSource {
   field: Field;
   /** Result-set column carrying the aggregated value (e.g. `SUM(sales)`). */
@@ -536,10 +534,10 @@ function toFiniteNumber(value: any): number | null {
  *
  * - A single matching row is already at the band grain → shown verbatim
  *   (correct for every aggregation, including AVG / COUNT_DISTINCT).
- * - Multiple rows must be rolled up to the band grain. This is only correct for
- *   decomposable aggregations (SUM/COUNT/MIN/MAX); non-decomposable ones
- *   (AVG/COUNT_DISTINCT/…) cannot be derived from the finer grain and render
- *   blank until a dedicated band-grain query supplies them.
+ * - Multiple rows must be rolled up to the band grain. Only aggregations the
+ *   registry marks as exactly roll-uppable (SUM/COUNT/MIN/MAX) qualify; the
+ *   rest (AVG/COUNT_DISTINCT/…) cannot be derived from the finer grain and
+ *   render blank until a dedicated band-grain query supplies them.
  */
 function resolveBandValue(field: Field, bucket: any[], column: string): string {
   const raws = bucket
@@ -550,23 +548,14 @@ function resolveBandValue(field: Field, bucket: any[], column: string): string {
 
   const aggregation = (field.aggregation
     || (field.flavour === 'continuous' ? 'sum' : 'count')) as string;
-  if (!DECOMPOSABLE_AGGREGATIONS.has(aggregation)) return '';
+  // Only an exact roll-up may be shown: an approximation (mean of means, summed
+  // distinct counts) would read as a real band total.
+  const rollup = getAggregationSpec(aggregation)?.rollup;
+  if (!rollup?.exact) return '';
 
   const nums = raws.map(toFiniteNumber).filter((n): n is number => n !== null);
   if (nums.length === 0) return '';
-  let combined: number;
-  switch (aggregation) {
-    case 'min':
-      combined = Math.min(...nums);
-      break;
-    case 'max':
-      combined = Math.max(...nums);
-      break;
-    default: // sum, count
-      combined = nums.reduce((acc, n) => acc + n, 0);
-      break;
-  }
-  return formatTooltipValue(combined, field);
+  return formatTooltipValue(rollup.combine(nums), field);
 }
 
 /**
