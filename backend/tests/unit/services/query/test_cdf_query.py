@@ -163,7 +163,7 @@ class TestBuildCdfSqlClickHouse:
         desc = _cdf_desc()
         sql = build_cdf_sql(desc, "clickhouse", "`", num_breakpoints=5)
 
-        assert "quantilesExactInclusive" in sql
+        assert "quantilesExactInclusiveIf" in sql
         assert "ARRAY JOIN" in sql
         assert "`latency`" in sql
         assert "`latency__cdf`" in sql
@@ -176,7 +176,7 @@ class TestBuildCdfSqlClickHouse:
 
         assert "FROM (SELECT" in sql
         assert "ARRAY JOIN" in sql
-        assert "quantilesExactInclusive(0.0, 0.5, 1.0)" in sql
+        assert "quantilesExactInclusiveIf(0.0, 0.5, 1.0)" in sql
         assert "[0.0, 0.5, 1.0]" in sql
 
     def test_partition_uses_group_by(self):
@@ -206,7 +206,7 @@ class TestBuildCdfSqlClickHouse:
         )
         sql = build_cdf_sql(desc, "clickhouse", "`", num_breakpoints=3)
 
-        assert "quantilesExactInclusive" in sql
+        assert "quantilesExactInclusiveIf" in sql
         assert "`latency`" in sql
         assert "`latency__cdf`" in sql
         assert "`throughput`" in sql
@@ -312,7 +312,7 @@ class TestQueryServiceCdf:
             with_optimization=False,
         )
 
-        assert "quantilesExactInclusive" in sql
+        assert "quantilesExactInclusiveIf" in sql
         assert "ARRAY JOIN" in sql
         assert "`latency`" in sql
         assert "`latency__cdf`" in sql
@@ -372,7 +372,7 @@ class TestQueryServiceCdf:
         )
 
         assert "quantile_cont" not in sql
-        assert "quantilesExactInclusive" not in sql
+        assert "quantilesExactInclusiveIf" not in sql
         assert "cume_dist()" not in sql
 
 
@@ -417,7 +417,7 @@ class TestCdfUnionClickHouse:
 
         assert "SELECT," not in sql, f"Empty SELECT list detected in: {sql[:300]}"
         assert "UNION ALL" in sql
-        assert "quantilesExactInclusive" in sql
+        assert "quantilesExactInclusiveIf" in sql
         assert "`_source_database`" in sql
         assert "`_source_table`" in sql
 

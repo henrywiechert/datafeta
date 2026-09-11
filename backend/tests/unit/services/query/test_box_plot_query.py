@@ -47,10 +47,10 @@ class TestBuildBoxPlotSqlDuckDb:
             color_field_sql='"env"',
         )
 
-        assert 'COUNT("latency") AS "latency__count"' in sql
-        assert 'quantile_cont("latency", 0.25) AS "latency__q1"' in sql
-        assert 'quantile_cont("latency", 0.5) AS "latency__median"' in sql
-        assert 'quantile_cont("latency", 0.75) AS "latency__q3"' in sql
+        assert 'COUNT("latency") FILTER (WHERE isFinite("latency")) AS "latency__count"' in sql
+        assert ('quantile_cont("latency", 0.25) FILTER (WHERE isFinite("latency")) AS "latency__q1"') in sql
+        assert ('quantile_cont("latency", 0.5) FILTER (WHERE isFinite("latency")) AS "latency__median"') in sql
+        assert ('quantile_cont("latency", 0.75) FILTER (WHERE isFinite("latency")) AS "latency__q3"') in sql
         assert f'MIN("env") AS "{BOX_PLOT_COLOR_MIN_COLUMN}"' in sql
         assert f'MAX("env") AS "{BOX_PLOT_COLOR_MAX_COLUMN}"' in sql
         assert f'COUNT(DISTINCT "env") AS "{BOX_PLOT_COLOR_DISTINCT_COUNT_COLUMN}"' in sql
@@ -71,9 +71,9 @@ class TestBuildBoxPlotSqlClickHouse:
             color_field_sql="`env`",
         )
 
-        assert "quantileExactInclusive(0.25)(`latency`)" in sql
-        assert "quantileExactInclusive(0.5)(`latency`)" in sql
-        assert "quantileExactInclusive(0.75)(`latency`)" in sql
+        assert "quantileExactInclusiveIf(0.25)(`latency`, isFinite(`latency`))" in sql
+        assert "quantileExactInclusiveIf(0.5)(`latency`, isFinite(`latency`))" in sql
+        assert "quantileExactInclusiveIf(0.75)(`latency`, isFinite(`latency`))" in sql
         assert f"uniqExact(`env`) AS `{BOX_PLOT_COLOR_DISTINCT_COUNT_COLUMN}`" in sql
         assert "GROUP BY `region`" in sql
         assert "ORDER BY `region`" in sql
@@ -107,7 +107,7 @@ class TestQueryServiceBoxPlot:
             with_optimization=False,
         )
 
-        assert "quantileExactInclusive(0.25)" in sql
+        assert "quantileExactInclusiveIf(0.25)" in sql
         assert "`analytics`.`measurements`" in sql
 
 
@@ -158,6 +158,6 @@ class TestBoxPlotUnion:
         )
 
         assert "UNION ALL" in sql
-        assert "quantileExactInclusive(0.5)" in sql
+        assert "quantileExactInclusiveIf(0.5)" in sql
         assert "'db_alpha' AS `_source_database`" in sql
         assert "'db_beta' AS `_source_database`" in sql

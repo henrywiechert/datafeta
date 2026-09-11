@@ -27,6 +27,10 @@ from typing import List
 
 from backend.dialects import get_dialect, ClickHouseDialect
 from backend.models.query import QueryDescription
+from backend.services.query_components.finite_guard_sql import (
+    filter_finite_sql,
+    finite_predicate_sql,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +77,12 @@ def _build_duckdb_sql(
         select_parts.append(f"{q}{pf}{q}")
 
     for cdf in query_desc.cdf_fields:
+        # Guarded like the box plot and the median measure: a NaN sorts highest
+        # and would drag the whole upper tail of the curve with it.
+        field_sql = f"{q}{cdf.field}{q}"
         select_parts.append(
-            f"unnest(quantile_cont({q}{cdf.field}{q}, {bp_array})) AS {q}{cdf.field}{q}"
+            f"unnest(quantile_cont({field_sql}, {bp_array})"
+            f"{filter_finite_sql(field_sql)}) AS {field_sql}"
         )
         select_parts.append(
             f"unnest({bp_array}) AS {q}{cdf.alias}{q}"
@@ -133,8 +141,10 @@ def _build_clickhouse_sql(
         val_alias = f"_v{idx}"
         cdf_prob_alias = f"_c{idx}"
 
+        field_sql = f"{q}{cdf.field}{q}"
         inner_select_parts.append(
-            f"quantilesExactInclusive({bp_args})({q}{cdf.field}{q}) AS {vals_alias}"
+            f"quantilesExactInclusiveIf({bp_args})"
+            f"({field_sql}, {finite_predicate_sql(field_sql)}) AS {vals_alias}"
         )
         inner_select_parts.append(f"{bp_array} AS {cdfs_alias}")
 

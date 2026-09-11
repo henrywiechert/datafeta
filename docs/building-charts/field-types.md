@@ -47,7 +47,7 @@ Drag Dimensions to:
 
 ## Measures
 
-Measures are **numeric fields that must be aggregated** before they can be plotted (sum, average, min, max, count, …).
+Measures are **numeric fields that must be aggregated** before they can be plotted (sum, average, median, min, max, count, …).
 
 They appear in the **Measures** section of the Fields panel.
 
@@ -59,9 +59,18 @@ Values are placed on a linear scale; every standard aggregation applies.
 Count-like or integer-range fields: star ratings, boolean flags, small enumerations.  
 Treated categorically even though the underlying data type is numeric.
 
+### Median
+
+**Median** is the middle value of each group — the 50th percentile — and unlike the average it is barely moved by a few extreme values. Reach for it when a handful of outliers would otherwise drag the average away from what a typical row looks like.
+
+It is offered on numeric measures only, and is computed the same way as the centre line of a box plot, so the two always agree on the same data. Non-finite values (NaN, infinity), which can appear in imported CSV data, are left out of the calculation.
+
+!!! note
+    Median is not available on stacked (union) tables. Each table is summarised separately there, and a median of per-table medians is not the median of the combined data.
+
 ### Latest / Earliest value
 
-Besides the standard aggregations (sum, average, min, max, count, …), a measure can use **Latest value** or **Earliest value**: the value of the field at the row where a chosen datetime column is largest or smallest within each group. This is the natural "closing value per bucket" for gauge-like columns — e.g. the closing weight of a hive per day, rather than its sum or average.
+Besides the standard aggregations (sum, average, median, min, max, count, …), a measure can use **Latest value** or **Earliest value**: the value of the field at the row where a chosen datetime column is largest or smallest within each group. This is the natural "closing value per bucket" for gauge-like columns — e.g. the closing weight of a hive per day, rather than its sum or average.
 
 Right-click a measure chip and choose **Latest value (by …)** / **Earliest value (by …)**. If the table has a single datetime column it is used automatically; otherwise pick the ordering column from the submenu.
 

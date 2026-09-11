@@ -11,6 +11,10 @@ from typing import List, Optional, Sequence, Tuple
 
 from backend.dialects import get_dialect, ClickHouseDialect
 from backend.models.query import QueryDescription
+from backend.services.query_components.finite_guard_sql import (
+    filter_finite_sql,
+    finite_predicate_sql,
+)
 
 
 GroupFieldSql = Tuple[str, str]
@@ -55,13 +59,17 @@ def _build_duckdb_sql(
         select_parts.append(f"{expr_sql} AS {_quote(alias, quote_char)}")
 
     for expr_sql, alias in value_fields:
+        # Every statistic is computed over the same finite values, so the box,
+        # its whiskers and the count all describe one population -- and the
+        # median matches the median measure over the same column.
+        guard = filter_finite_sql(expr_sql)
         select_parts.extend([
-            f"COUNT({expr_sql}) AS {_quote(_summary_alias(alias, 'count'), quote_char)}",
-            f"MIN({expr_sql}) AS {_quote(_summary_alias(alias, 'min'), quote_char)}",
-            f"quantile_cont({expr_sql}, 0.25) AS {_quote(_summary_alias(alias, 'q1'), quote_char)}",
-            f"quantile_cont({expr_sql}, 0.5) AS {_quote(_summary_alias(alias, 'median'), quote_char)}",
-            f"quantile_cont({expr_sql}, 0.75) AS {_quote(_summary_alias(alias, 'q3'), quote_char)}",
-            f"MAX({expr_sql}) AS {_quote(_summary_alias(alias, 'max'), quote_char)}",
+            f"COUNT({expr_sql}){guard} AS {_quote(_summary_alias(alias, 'count'), quote_char)}",
+            f"MIN({expr_sql}){guard} AS {_quote(_summary_alias(alias, 'min'), quote_char)}",
+            f"quantile_cont({expr_sql}, 0.25){guard} AS {_quote(_summary_alias(alias, 'q1'), quote_char)}",
+            f"quantile_cont({expr_sql}, 0.5){guard} AS {_quote(_summary_alias(alias, 'median'), quote_char)}",
+            f"quantile_cont({expr_sql}, 0.75){guard} AS {_quote(_summary_alias(alias, 'q3'), quote_char)}",
+            f"MAX({expr_sql}){guard} AS {_quote(_summary_alias(alias, 'max'), quote_char)}",
         ])
 
     if color_field_sql:
@@ -95,13 +103,16 @@ def _build_clickhouse_sql(
         select_parts.append(f"{expr_sql} AS {_quote(alias, quote_char)}")
 
     for expr_sql, alias in value_fields:
+        # Same guard as the DuckDB branch, spelled with ClickHouse's -If
+        # combinator: the predicate is the aggregate's last argument.
+        cond = finite_predicate_sql(expr_sql)
         select_parts.extend([
-            f"count({expr_sql}) AS {_quote(_summary_alias(alias, 'count'), quote_char)}",
-            f"min({expr_sql}) AS {_quote(_summary_alias(alias, 'min'), quote_char)}",
-            f"quantileExactInclusive(0.25)({expr_sql}) AS {_quote(_summary_alias(alias, 'q1'), quote_char)}",
-            f"quantileExactInclusive(0.5)({expr_sql}) AS {_quote(_summary_alias(alias, 'median'), quote_char)}",
-            f"quantileExactInclusive(0.75)({expr_sql}) AS {_quote(_summary_alias(alias, 'q3'), quote_char)}",
-            f"max({expr_sql}) AS {_quote(_summary_alias(alias, 'max'), quote_char)}",
+            f"countIf({cond}) AS {_quote(_summary_alias(alias, 'count'), quote_char)}",
+            f"minIf({expr_sql}, {cond}) AS {_quote(_summary_alias(alias, 'min'), quote_char)}",
+            f"quantileExactInclusiveIf(0.25)({expr_sql}, {cond}) AS {_quote(_summary_alias(alias, 'q1'), quote_char)}",
+            f"quantileExactInclusiveIf(0.5)({expr_sql}, {cond}) AS {_quote(_summary_alias(alias, 'median'), quote_char)}",
+            f"quantileExactInclusiveIf(0.75)({expr_sql}, {cond}) AS {_quote(_summary_alias(alias, 'q3'), quote_char)}",
+            f"maxIf({expr_sql}, {cond}) AS {_quote(_summary_alias(alias, 'max'), quote_char)}",
         ])
 
     if color_field_sql:
