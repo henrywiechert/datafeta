@@ -58,6 +58,12 @@ export function filtersToHashKey(filters: Record<string, FilterConfig>): string 
       return {
         ...base,
         selectedValues: config.selectedValues ? [...config.selectedValues].sort() : undefined,
+        // Pattern mode replaces the value list in the generated SQL, so it must
+        // invalidate the hash even when selectedValues is untouched.
+        matchMode: config.matchMode,
+        pattern: config.pattern,
+        patternOperator: config.patternOperator,
+        isInversePattern: config.isInversePattern,
       };
     } else if (config.type === 'continuous') {
       return {

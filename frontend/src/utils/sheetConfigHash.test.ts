@@ -88,5 +88,28 @@ describe('sheetConfigHash', () => {
 
       expect(local).toBe(global);
     });
+
+    it('distinguishes pattern-mode settings that change the generated SQL', () => {
+      const patternConfig = (overrides: Record<string, unknown>) =>
+        filtersToHashKey({
+          name: {
+            fieldId: 'name',
+            columnName: 'name',
+            type: 'discrete',
+            selectedValues: [],
+            matchMode: 'pattern',
+            pattern: 'Mr.%',
+            patternOperator: 'like',
+            isInversePattern: false,
+            ...overrides,
+          } as any,
+        });
+
+      const keep = patternConfig({});
+      expect(patternConfig({ isInversePattern: true })).not.toBe(keep);
+      expect(patternConfig({ patternOperator: 'ilike' })).not.toBe(keep);
+      expect(patternConfig({ pattern: 'Mrs.%' })).not.toBe(keep);
+      expect(patternConfig({ matchMode: 'selection' })).not.toBe(keep);
+    });
   });
 });

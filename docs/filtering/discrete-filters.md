@@ -49,6 +49,26 @@ Changes are staged (no query runs yet). Click **Apply** to execute the filter an
 
 ---
 
+## Pattern mode (SQL LIKE)
+
+Every discrete filter has a **Pattern mode** switch next to **Respect other filters**. Turning it on
+replaces the checkbox list with a single SQL `LIKE` pattern:
+
+| Control | Effect |
+|---------|--------|
+| Pattern field | `%` matches any sequence, `_` matches one character — e.g. `Mr.%`, `%acme%` |
+| Case-sensitive / Case-insensitive | `LIKE` vs `ILIKE` |
+| Keep matches / Exclude matches | `LIKE` vs `NOT LIKE` |
+
+A pattern filter stores a rule instead of a value list, so it keeps working when the underlying data
+changes or when a saved snapshot is opened against a different dataset — unlike a checkbox selection,
+which is pinned to the exact values that existed when it was saved.
+
+Switching back to the value list restores the selection you had before; the pattern is remembered too,
+so you can toggle between the two without losing either.
+
+---
+
 ## Searching for values
 
 Type in the **search box** at the top of the filter panel to narrow down the value list. The search is case-insensitive and matches any substring.
