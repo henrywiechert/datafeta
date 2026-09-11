@@ -61,7 +61,8 @@ def test_arg_max_duckdb_sql(qs: QueryService):
         measures=[_arg_max_measure()],
     )
     sql = _translate(qs, desc)
-    assert 'arg_max("weight","ts") AS "LATEST(weight)"' in sql.replace(", ", ",")
+    # Alias without the optional AS keyword, as every other aggregate renders it.
+    assert 'arg_max("weight","ts") "LATEST(weight)"' in sql.replace(", ", ",")
     assert "GROUP BY" in sql
 
 
@@ -71,7 +72,7 @@ def test_arg_max_clickhouse_sql(qs: QueryService):
         measures=[_arg_max_measure()],
     )
     sql = _translate(qs, desc, db_type="clickhouse")
-    assert "argMax(`weight`,`ts`) AS `LATEST(weight)`" in sql.replace(", ", ",")
+    assert "argMax(`weight`,`ts`) `LATEST(weight)`" in sql.replace(", ", ",")
 
 
 def test_arg_min_duckdb_sql(qs: QueryService):
@@ -82,7 +83,7 @@ def test_arg_min_duckdb_sql(qs: QueryService):
         ],
     )
     sql = _translate(qs, desc)
-    assert 'arg_min("weight","ts") AS "EARLIEST(weight)"' in sql.replace(", ", ",")
+    assert 'arg_min("weight","ts") "EARLIEST(weight)"' in sql.replace(", ", ",")
 
 
 def test_arg_max_not_wrapped_nan_safe_on_clickhouse(qs: QueryService):

@@ -5,8 +5,6 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pypika import Criterion, Order, Query, Table
-from pypika.functions import Avg, Coalesce, Count, Max, Min, Sum
-from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import Dimension, Filter, Measure, OrderBy, QueryDescription
@@ -55,17 +53,6 @@ from backend.services.query_components.box_plot_query_builder import build_box_p
 from backend.services.query_components.window_calc_builder import apply_window_calcs
 
 logger = logging.getLogger(__name__)
-
-
-# Mapping from our model to Pypika functions
-AGGREGATION_MAP = {
-    'sum': Sum,
-    'avg': Avg,
-    'count': Count,
-    'count_distinct': lambda field_term: Count(field_term).distinct(),
-    'min': Min,
-    'max': Max,
-}
 
 
 class QueryService:
@@ -191,7 +178,6 @@ class QueryService:
             rounding_config=rounding_config,
             binning_config=binning_config,
             use_category_dedup=use_category_dedup,
-            aggregation_map=AGGREGATION_MAP,
             column_types=column_types,
         )
 
@@ -234,9 +220,13 @@ class QueryService:
         query_desc: QueryDescription,
         table_map: Dict[str, Any],
         default_table: Any,
+        db_type: str,
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> List[Criterion]:
         """Return HAVING criteria for group-scoped (measure) filters."""
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+
         field_parser = FieldReferenceParser(
             table_map=table_map,
             default_table=default_table,
@@ -248,7 +238,7 @@ class QueryService:
         )
         return builder.build_having(
             query_desc=query_desc,
-            aggregation_map=AGGREGATION_MAP,
+            dialect=dialect,
             table_map=table_map,
             default_table=default_table,
         )
@@ -872,6 +862,7 @@ class QueryService:
             query_desc,
             table_context.table_map,
             table_context.default_table,
+            db_type,
             vc_builder,
         )
         if having_criteria:

@@ -1,8 +1,9 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """ClickHouse SQL dialect implementation."""
 
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
 from backend.dialects.base import SqlDialect
 
 
@@ -24,6 +25,25 @@ CLICKHOUSE_TYPE_MAPPING = {
     'BOOLEAN': 'UInt8',
     'BOOL': 'UInt8',
     'NUMBER': 'Float64',
+}
+
+
+# How each aggregation renders in ClickHouse.  The -If combinator is what keeps
+# NaN/Inf out of sums and averages: ClickHouse propagates them, so a single bad
+# row would otherwise turn a whole group into NaN.
+CLICKHOUSE_AGGREGATE_SPECS: Mapping[str, AggregateSpec] = {
+    'sum': AggregateSpec('sumIf', finite_guard=True),
+    'avg': AggregateSpec('avgIf', finite_guard=True),
+    'count': AggregateSpec('COUNT'),
+    # count() over rows takes no argument at all in ClickHouse.
+    COUNT_STAR: AggregateSpec('count', star=True, star_arg=False),
+    # Deliberately exact: uniq() is faster but approximate, and a distinct count
+    # that drifts between engines is worse than a slow one.
+    'count_distinct': AggregateSpec('COUNT', distinct=True),
+    'min': AggregateSpec('MIN'),
+    'max': AggregateSpec('MAX'),
+    'arg_max': AggregateSpec('argMax', order_arg=True),
+    'arg_min': AggregateSpec('argMin', order_arg=True),
 }
 
 
@@ -75,8 +95,8 @@ class ClickHouseDialect(SqlDialect):
     def first_value_agg_name(self) -> str:
         return 'any'
 
-    def count_star_expr(self) -> str:
-        return 'count()'
+    def aggregate_specs(self) -> Mapping[str, AggregateSpec]:
+        return CLICKHOUSE_AGGREGATE_SPECS
 
     def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
         # ClickHouse has no standard lag(); lagInFrame() respects the window
@@ -86,15 +106,6 @@ class ClickHouseDialect(SqlDialect):
             f"lagInFrame(toNullable({field_sql}), 1, NULL) OVER "
             f"({over_content_sql} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
         )
-
-    def count_distinct_expr(self, field: str) -> str:
-        return f"uniq({field})"
-
-    def arg_max_function_name(self) -> str:
-        return 'argMax'
-
-    def arg_min_function_name(self) -> str:
-        return 'argMin'
 
     def to_epoch_expr(self, field: str) -> str:
         return f"toUnixTimestamp({field})"
@@ -118,15 +129,6 @@ class ClickHouseDialect(SqlDialect):
             return f"CAST(NULL AS Nullable({base_type})) AS {q}{alias}{q}"
         else:
             return f"CAST(NULL AS Nullable(String)) AS {q}{alias}{q}"
-
-    def needs_nan_safe_aggregation(self) -> bool:
-        return True
-
-    def nan_safe_sum_expr(self, field: str) -> str:
-        return f"sumIf({field}, isFinite({field}))"
-
-    def nan_safe_avg_expr(self, field: str) -> str:
-        return f"avgIf({field}, isFinite({field}))"
 
     def wrap_datetime_comparison(self, value: Any, is_datetime_string: bool) -> Any:
         if is_datetime_string and isinstance(value, str):

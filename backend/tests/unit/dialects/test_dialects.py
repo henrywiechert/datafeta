@@ -1,8 +1,12 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests for SQL dialect implementations."""
+from typing import get_args
+
 import pytest
 
 from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, get_dialect
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
+from backend.models.query import Measure
 
 
 class TestClickHouseDialect:
@@ -33,17 +37,20 @@ class TestClickHouseDialect:
     def test_first_value_agg_name(self, dialect: ClickHouseDialect):
         assert dialect.first_value_agg_name() == 'any'
 
-    def test_count_star_expr(self, dialect: ClickHouseDialect):
-        assert dialect.count_star_expr() == 'count()'
+    def test_count_star_spec_takes_no_argument(self, dialect: ClickHouseDialect):
+        # ClickHouse counts rows with count(), not COUNT(*).
+        spec = dialect.aggregate_spec(COUNT_STAR)
+        assert (spec.function, spec.star, spec.star_arg) == ('count', True, False)
 
-    def test_count_distinct_expr(self, dialect: ClickHouseDialect):
-        assert dialect.count_distinct_expr('field') == 'uniq(field)'
+    def test_count_distinct_spec_is_exact(self, dialect: ClickHouseDialect):
+        # uniq() is approximate; a distinct count that drifts between engines
+        # would be worse than a slower exact one.
+        spec = dialect.aggregate_spec('count_distinct')
+        assert (spec.function, spec.distinct) == ('COUNT', True)
 
-    def test_arg_max_function_name(self, dialect: ClickHouseDialect):
-        assert dialect.arg_max_function_name() == 'argMax'
-
-    def test_arg_min_function_name(self, dialect: ClickHouseDialect):
-        assert dialect.arg_min_function_name() == 'argMin'
+    def test_arg_aggregation_specs(self, dialect: ClickHouseDialect):
+        assert dialect.aggregate_spec('arg_max') == AggregateSpec('argMax', order_arg=True)
+        assert dialect.aggregate_spec('arg_min') == AggregateSpec('argMin', order_arg=True)
 
     def test_to_epoch_expr(self, dialect: ClickHouseDialect):
         assert dialect.to_epoch_expr('ts') == 'toUnixTimestamp(ts)'
@@ -64,16 +71,11 @@ class TestClickHouseDialect:
         result = dialect.cast_null_expr('field')
         assert result == 'CAST(NULL AS Nullable(String)) AS `field`'
 
-    def test_needs_nan_safe_aggregation(self, dialect: ClickHouseDialect):
-        assert dialect.needs_nan_safe_aggregation() is True
-
-    def test_nan_safe_sum_expr(self, dialect: ClickHouseDialect):
-        result = dialect.nan_safe_sum_expr('value')
-        assert result == 'sumIf(value, isFinite(value))'
-
-    def test_nan_safe_avg_expr(self, dialect: ClickHouseDialect):
-        result = dialect.nan_safe_avg_expr('value')
-        assert result == 'avgIf(value, isFinite(value))'
+    def test_sum_and_avg_guard_against_nan(self, dialect: ClickHouseDialect):
+        # ClickHouse propagates NaN through aggregates, so one bad row would
+        # otherwise turn a whole group into NaN.
+        assert dialect.aggregate_spec('sum') == AggregateSpec('sumIf', finite_guard=True)
+        assert dialect.aggregate_spec('avg') == AggregateSpec('avgIf', finite_guard=True)
 
     def test_wrap_datetime_comparison_with_datetime_string(self, dialect: ClickHouseDialect):
         result = dialect.wrap_datetime_comparison('2024-01-15 10:30:00.123', is_datetime_string=True)
@@ -120,17 +122,17 @@ class TestDuckDbDialect:
     def test_first_value_agg_name(self, dialect: DuckDbDialect):
         assert dialect.first_value_agg_name() == 'first'
 
-    def test_count_star_expr(self, dialect: DuckDbDialect):
-        assert dialect.count_star_expr() == 'COUNT(*)'
+    def test_count_star_spec_passes_star(self, dialect: DuckDbDialect):
+        spec = dialect.aggregate_spec(COUNT_STAR)
+        assert (spec.function, spec.star, spec.star_arg) == ('COUNT', True, True)
 
-    def test_count_distinct_expr(self, dialect: DuckDbDialect):
-        assert dialect.count_distinct_expr('field') == 'COUNT(DISTINCT field)'
+    def test_count_distinct_spec(self, dialect: DuckDbDialect):
+        spec = dialect.aggregate_spec('count_distinct')
+        assert (spec.function, spec.distinct) == ('COUNT', True)
 
-    def test_arg_max_function_name(self, dialect: DuckDbDialect):
-        assert dialect.arg_max_function_name() == 'arg_max'
-
-    def test_arg_min_function_name(self, dialect: DuckDbDialect):
-        assert dialect.arg_min_function_name() == 'arg_min'
+    def test_arg_aggregation_specs(self, dialect: DuckDbDialect):
+        assert dialect.aggregate_spec('arg_max') == AggregateSpec('arg_max', order_arg=True)
+        assert dialect.aggregate_spec('arg_min') == AggregateSpec('arg_min', order_arg=True)
 
     def test_to_epoch_expr(self, dialect: DuckDbDialect):
         assert dialect.to_epoch_expr('ts') == 'epoch(ts)'
@@ -143,16 +145,11 @@ class TestDuckDbDialect:
         result = dialect.cast_null_expr('amount', is_measure=True)
         assert result == 'NULL AS "amount"'
 
-    def test_needs_nan_safe_aggregation(self, dialect: DuckDbDialect):
-        assert dialect.needs_nan_safe_aggregation() is False
-
-    def test_nan_safe_sum_expr(self, dialect: DuckDbDialect):
-        result = dialect.nan_safe_sum_expr('value')
-        assert result == 'COALESCE(SUM(value), 0)'
-
-    def test_nan_safe_avg_expr(self, dialect: DuckDbDialect):
-        result = dialect.nan_safe_avg_expr('value')
-        assert result == 'COALESCE(AVG(value), 0)'
+    def test_sum_and_avg_coalesce_to_zero(self, dialect: DuckDbDialect):
+        # DuckDB does not propagate NaN, so no finite guard is needed; the
+        # COALESCE keeps an empty group reading as 0 rather than a hole.
+        assert dialect.aggregate_spec('sum') == AggregateSpec('SUM', coalesce_zero=True)
+        assert dialect.aggregate_spec('avg') == AggregateSpec('AVG', coalesce_zero=True)
 
     def test_table_ref_ignores_database(self, dialect: DuckDbDialect):
         result = dialect.table_ref('events', database='analytics')
@@ -192,17 +189,20 @@ class TestDialectInterface:
     def test_first_value_agg_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.first_value_agg_name(), str)
 
-    def test_count_star_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.count_star_expr(), str)
+    def test_every_declared_aggregation_has_a_spec(self, dialect: SqlDialect):
+        """A dialect must render every aggregation the API accepts.
 
-    def test_count_distinct_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.count_distinct_expr('x'), str)
+        Guards the seam that adding a value to Measure.aggregation without a
+        matching spec would otherwise only surface at query time, on one engine.
+        """
+        declared = set(get_args(Measure.model_fields['aggregation'].annotation))
+        assert declared <= set(dialect.aggregate_specs())
 
-    def test_arg_max_function_name_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.arg_max_function_name(), str)
+    def test_count_star_spec_is_present(self, dialect: SqlDialect):
+        assert dialect.aggregate_spec(COUNT_STAR) is not None
 
-    def test_arg_min_function_name_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.arg_min_function_name(), str)
+    def test_unknown_aggregation_has_no_spec(self, dialect: SqlDialect):
+        assert dialect.aggregate_spec('no_such_aggregation') is None
 
     def test_to_epoch_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.to_epoch_expr('x'), str)
@@ -210,14 +210,6 @@ class TestDialectInterface:
     def test_cast_null_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.cast_null_expr('x'), str)
 
-    def test_nan_safe_flag_is_bool(self, dialect: SqlDialect):
-        assert isinstance(dialect.needs_nan_safe_aggregation(), bool)
-
-    def test_nan_safe_sum_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.nan_safe_sum_expr('x'), str)
-
-    def test_nan_safe_avg_returns_string(self, dialect: SqlDialect):
-        assert isinstance(dialect.nan_safe_avg_expr('x'), str)
 
     def test_table_ref_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.table_ref('t'), str)

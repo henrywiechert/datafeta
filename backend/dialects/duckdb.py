@@ -1,9 +1,26 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """DuckDB SQL dialect implementation."""
 
-from typing import Any, Optional
+from typing import Mapping, Optional
 
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
 from backend.dialects.base import SqlDialect
+
+
+# How each aggregation renders in DuckDB.  DuckDB does not propagate NaN through
+# aggregates, so no finite guard is needed; SUM/AVG are coalesced instead so an
+# empty group reads as 0 rather than a hole in the chart.
+DUCKDB_AGGREGATE_SPECS: Mapping[str, AggregateSpec] = {
+    'sum': AggregateSpec('SUM', coalesce_zero=True),
+    'avg': AggregateSpec('AVG', coalesce_zero=True),
+    'count': AggregateSpec('COUNT'),
+    COUNT_STAR: AggregateSpec('COUNT', star=True),
+    'count_distinct': AggregateSpec('COUNT', distinct=True),
+    'min': AggregateSpec('MIN'),
+    'max': AggregateSpec('MAX'),
+    'arg_max': AggregateSpec('arg_max', order_arg=True),
+    'arg_min': AggregateSpec('arg_min', order_arg=True),
+}
 
 
 class DuckDbDialect(SqlDialect):
@@ -43,20 +60,11 @@ class DuckDbDialect(SqlDialect):
     def first_value_agg_name(self) -> str:
         return 'first'
 
-    def count_star_expr(self) -> str:
-        return 'COUNT(*)'
+    def aggregate_specs(self) -> Mapping[str, AggregateSpec]:
+        return DUCKDB_AGGREGATE_SPECS
 
     def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
         return f"lag({field_sql}) OVER ({over_content_sql})"
-
-    def count_distinct_expr(self, field: str) -> str:
-        return f"COUNT(DISTINCT {field})"
-
-    def arg_max_function_name(self) -> str:
-        return 'arg_max'
-
-    def arg_min_function_name(self) -> str:
-        return 'arg_min'
 
     def to_epoch_expr(self, field: str) -> str:
         return f"epoch({field})"
@@ -70,12 +78,3 @@ class DuckDbDialect(SqlDialect):
     ) -> str:
         q = self.quote_char
         return f"NULL AS {q}{alias}{q}"
-
-    def needs_nan_safe_aggregation(self) -> bool:
-        return False
-
-    def nan_safe_sum_expr(self, field: str) -> str:
-        return f"COALESCE(SUM({field}), 0)"
-
-    def nan_safe_avg_expr(self, field: str) -> str:
-        return f"COALESCE(AVG({field}), 0)"
