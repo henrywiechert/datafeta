@@ -8,7 +8,9 @@ conditional logic.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, List, Mapping, Optional
+
+from backend.dialects.aggregations import AggregateSpec
 
 
 class SqlDialect(ABC):
@@ -82,12 +84,22 @@ class SqlDialect(ABC):
         """
 
     @abstractmethod
-    def count_star_expr(self) -> str:
+    def aggregate_specs(self) -> Mapping[str, AggregateSpec]:
         """
-        COUNT(*) expression.
-        
-        Returns 'count()' for ClickHouse, 'COUNT(*)' for DuckDB.
+        Aggregation name -> how this dialect renders it.
+
+        Keys are ``Measure.aggregation`` values, plus ``COUNT_STAR`` for the
+        ``COUNT(*)`` form.  A name missing from the table is unsupported on this
+        engine; query generation rejects it rather than guessing a substitute.
+
+        The specs are consumed by
+        ``backend.services.query_components.aggregation_builder``, which is the
+        single place that turns them into SELECT and HAVING expressions.
         """
+
+    def aggregate_spec(self, name: str) -> Optional[AggregateSpec]:
+        """Spec for `name`, or None when this dialect does not support it."""
+        return self.aggregate_specs().get(name)
 
     @abstractmethod
     def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
@@ -101,30 +113,6 @@ class SqlDialect(ABC):
             field_sql: Already-quoted field/expression to lag.
             over_content_sql: Content of the OVER clause, e.g.
                 'PARTITION BY "cat" ORDER BY "day"' (no surrounding parens).
-        """
-
-    @abstractmethod
-    def count_distinct_expr(self, field: str) -> str:
-        """
-        Count distinct expression for a field.
-        
-        Returns "uniq({field})" for ClickHouse, "COUNT(DISTINCT {field})" for DuckDB.
-        """
-
-    @abstractmethod
-    def arg_max_function_name(self) -> str:
-        """
-        Aggregate function returning the value of arg1 at the row where arg2 is maximal.
-
-        Returns 'argMax' for ClickHouse, 'arg_max' for DuckDB.
-        """
-
-    @abstractmethod
-    def arg_min_function_name(self) -> str:
-        """
-        Aggregate function returning the value of arg1 at the row where arg2 is minimal.
-
-        Returns 'argMin' for ClickHouse, 'arg_min' for DuckDB.
         """
 
     @abstractmethod
@@ -157,32 +145,6 @@ class SqlDialect(ABC):
             
         Returns:
             SQL expression like "CAST(NULL AS Nullable(Float64)) AS `alias`"
-        """
-
-    @abstractmethod
-    def needs_nan_safe_aggregation(self) -> bool:
-        """
-        Whether SUM/AVG need NaN-safe wrapping.
-        
-        ClickHouse propagates NaN through aggregations; DuckDB handles it gracefully.
-        """
-
-    @abstractmethod
-    def nan_safe_sum_expr(self, field: str) -> str:
-        """
-        NaN-safe SUM expression.
-        
-        Returns "sumIf({field}, isFinite({field}))" for ClickHouse,
-        "COALESCE(SUM({field}), 0)" for DuckDB.
-        """
-
-    @abstractmethod
-    def nan_safe_avg_expr(self, field: str) -> str:
-        """
-        NaN-safe AVG expression.
-        
-        Returns "avgIf({field}, isFinite({field}))" for ClickHouse,
-        "COALESCE(AVG({field}), 0)" for DuckDB.
         """
 
     def wrap_datetime_comparison(self, value: Any, is_datetime_string: bool) -> Any:

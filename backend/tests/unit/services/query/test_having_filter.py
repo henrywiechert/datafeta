@@ -75,7 +75,7 @@ def test_build_skips_group_scoped_filters(qs: QueryService):
 # ---------------------------------------------------------------------------
 
 def test_build_having_produces_criterion(qs: QueryService):
-    from backend.services.query_service import AGGREGATION_MAP
+    from backend.dialects import get_dialect
 
     desc = _desc(
         dimensions=[Dimension(field="region", flavour="discrete")],
@@ -83,7 +83,7 @@ def test_build_having_produces_criterion(qs: QueryService):
         filters=[Filter(field="SUM(revenue)", operator=">=", value=1000, scope="group")],
     )
     builder, ctx = _make_filter_builder(qs, desc)
-    having = builder.build_having(desc, AGGREGATION_MAP, ctx.table_map, ctx.default_table)
+    having = builder.build_having(desc, get_dialect("duckdb"), ctx.table_map, ctx.default_table)
     assert len(having) == 1
     sql = having[0].get_sql(quote_char='"')
     assert "SUM" in sql.upper()
@@ -93,7 +93,7 @@ def test_build_having_produces_criterion(qs: QueryService):
 
 def test_build_having_unknown_alias_raises(qs: QueryService):
     from backend.exceptions import QueryGenerationError
-    from backend.services.query_service import AGGREGATION_MAP
+    from backend.dialects import get_dialect
 
     desc = _desc(
         dimensions=[Dimension(field="region", flavour="discrete")],
@@ -102,11 +102,11 @@ def test_build_having_unknown_alias_raises(qs: QueryService):
     )
     builder, ctx = _make_filter_builder(qs, desc)
     with pytest.raises(QueryGenerationError, match="unknown measure alias"):
-        builder.build_having(desc, AGGREGATION_MAP, ctx.table_map, ctx.default_table)
+        builder.build_having(desc, get_dialect("duckdb"), ctx.table_map, ctx.default_table)
 
 
 def test_build_having_multiple_criteria(qs: QueryService):
-    from backend.services.query_service import AGGREGATION_MAP
+    from backend.dialects import get_dialect
 
     desc = _desc(
         dimensions=[Dimension(field="region", flavour="discrete")],
@@ -117,7 +117,7 @@ def test_build_having_multiple_criteria(qs: QueryService):
         ],
     )
     builder, ctx = _make_filter_builder(qs, desc)
-    having = builder.build_having(desc, AGGREGATION_MAP, ctx.table_map, ctx.default_table)
+    having = builder.build_having(desc, get_dialect("duckdb"), ctx.table_map, ctx.default_table)
     assert len(having) == 2
 
 

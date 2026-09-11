@@ -13,6 +13,10 @@ from pypika.functions import Cast
 from backend.dialects import get_dialect
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.query_components.aggregation_builder import (
+    build_aggregate_term,
+    requires_order_arg,
+)
 from backend.services.query_components.field_term_resolver import FieldTermResolver
 from backend.services.query_components.terms import CustomFunction
 
@@ -115,15 +119,16 @@ class FilterBuilder:
     def build_having(
         self,
         query_desc: QueryDescription,
-        aggregation_map: Dict[str, Any],
+        dialect: "SqlDialect",
         table_map: Dict[str, Any],
         default_table: Any,
     ) -> List[Criterion]:
         """Return HAVING-clause criteria for group-scoped (measure) filters.
 
         Each filter with scope='group' must reference a measure alias that exists in
-        query_desc.measures.  The aggregation expression is reconstructed from the
-        Measure definition so PyPika can emit a proper HAVING clause.
+        query_desc.measures.  The aggregation expression is rebuilt from the Measure
+        definition through the same dialect-driven builder the SELECT clause uses, so
+        the filter always tests exactly the expression it is filtering on.
         """
         having_criteria: List[Criterion] = []
 
@@ -150,25 +155,40 @@ class FilterBuilder:
                         f"Available aliases: {list(alias_to_measure)}"
                     )
                 agg_name, raw_col = alias_match.group(1).lower(), alias_match.group(2)
-                agg_factory = aggregation_map.get(agg_name)
-                if agg_factory is None:
+                if dialect.aggregate_spec(agg_name) is None:
                     raise QueryGenerationError(
                         f"HAVING filter references unknown measure alias '{definition.field}' "
                         f"with unsupported aggregation '{agg_name}'. "
                         f"Available aliases: {list(alias_to_measure)}"
                     )
-                field_ref = self._parse_field_reference(raw_col)
-                agg_term = agg_factory(field_ref)
-            else:
-                agg_factory = aggregation_map.get(measure.aggregation)
-                if agg_factory is None:
+                if requires_order_arg(dialect, agg_name):
+                    # Two-argument aggregations need an ordering column, which the
+                    # alias string does not carry and no Measure is left to supply.
                     raise QueryGenerationError(
-                        f"Unsupported aggregation '{measure.aggregation}' in HAVING filter."
+                        f"HAVING filter on '{definition.field}' cannot be rebuilt: "
+                        f"aggregation '{agg_name}' needs an ordering column, which is "
+                        f"only available while its measure is still in the view. "
+                        f"Available aliases: {list(alias_to_measure)}"
                     )
-
+                field_ref = self._parse_field_reference(raw_col)
+                agg_term = build_aggregate_term(
+                    dialect, agg_name, field_ref, field_name=raw_col
+                )
+            else:
                 # Resolve the raw column; table-prefix handling mirrors the WHERE path
                 field_ref = self._parse_field_reference(measure.field)
-                agg_term = agg_factory(field_ref)
+                arg_ref = (
+                    self._parse_field_reference(measure.aggregation_arg)
+                    if measure.aggregation_arg
+                    else None
+                )
+                agg_term = build_aggregate_term(
+                    dialect,
+                    measure.aggregation,
+                    field_ref,
+                    arg_term=arg_ref,
+                    field_name=measure.field,
+                )
 
             operator_func = self._operator_map.get(definition.operator)
             if not operator_func:

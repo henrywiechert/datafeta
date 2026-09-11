@@ -6,14 +6,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
-from pypika.functions import Count
 from pypika.terms import Function
 
+from backend.dialects.aggregations import COUNT_STAR
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.query_components.aggregation_builder import build_aggregate_term
 from backend.services.query_components.contexts import SelectClauseResult
 from backend.services.query_components.field_term_resolver import FieldTermResolver
-from backend.services.query_components.terms import CastField, CustomFunction
+from backend.services.query_components.terms import CastField
 
 if TYPE_CHECKING:
     from backend.dialects import SqlDialect
@@ -43,7 +44,6 @@ class SelectClauseBuilder:
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
-        aggregation_map: Dict[str, Callable[[Any], Any]],
         column_types: Optional[Dict[str, str]] = None,
     ) -> SelectClauseResult:
         select_fields: list[Any] = []
@@ -189,45 +189,10 @@ class SelectClauseBuilder:
 
         if query_desc.measures:
             for measure in query_desc.measures:
-                # arg_max/arg_min are two-argument aggregations (value column +
-                # ordering column), so they bypass the single-arg AGGREGATION_MAP.
-                if measure.aggregation in ("arg_max", "arg_min"):
-                    if not measure.aggregation_arg:
-                        raise QueryGenerationError(
-                            f"Aggregation '{measure.aggregation}' on field "
-                            f"'{measure.field}' requires 'aggregation_arg' "
-                            f"(the ordering column, e.g. a timestamp)."
-                        )
-                    field_term = self._parse_field_reference(measure.field)
-                    field_term = self._apply_cast_if_configured(
-                        measure.field, field_term, query_desc.column_casts
-                    )
-                    arg_term = self._parse_field_reference(measure.aggregation_arg)
-                    arg_term = self._apply_cast_if_configured(
-                        measure.aggregation_arg, arg_term, query_desc.column_casts
-                    )
-                    fn_name = (
-                        dialect.arg_max_function_name()
-                        if measure.aggregation == "arg_max"
-                        else dialect.arg_min_function_name()
-                    )
-                    agg_term = CustomFunction(fn_name, [field_term, arg_term])
-                    select_fields.append(agg_term.as_(measure.alias))
-                    all_aliases.add(measure.alias)
-                    continue
-
-                agg_func_builder = aggregation_map.get(measure.aggregation)
-                if not agg_func_builder:
-                    raise QueryGenerationError(
-                    f"Unsupported aggregation function: {measure.aggregation}"
-                )
-
-                # Special-case COUNT(*) / ClickHouse count() so we don't generate count(`*`)
+                # COUNT(*) counts rows, so there is no column to resolve: "*" is
+                # not a field name and must not be run through the field parser.
                 if measure.aggregation == "count" and measure.field == "*":
-                    if dialect.name == "clickhouse":
-                        agg_term = Function("count")
-                    else:
-                        agg_term = Count("*")
+                    agg_term = build_aggregate_term(dialect, COUNT_STAR)
                     select_fields.append(agg_term.as_(measure.alias))
                     all_aliases.add(measure.alias)
                     continue
@@ -236,15 +201,22 @@ class SelectClauseBuilder:
                 field_term = self._apply_cast_if_configured(
                     measure.field, field_term, query_desc.column_casts
                 )
-                agg_term = agg_func_builder(field_term)
 
-                if dialect.needs_nan_safe_aggregation() and measure.aggregation in ["sum", "avg"]:
-                    nan_safe_func = "sumIf" if measure.aggregation == "sum" else "avgIf"
-                    is_finite = CustomFunction("isFinite", [field_term])
-                    agg_term = CustomFunction(nan_safe_func, [field_term, is_finite])
-                elif not dialect.needs_nan_safe_aggregation() and measure.aggregation in ["avg", "sum"]:
-                    from pypika.functions import Coalesce
-                    agg_term = Coalesce(agg_term, 0)
+                # Ordering column for two-argument aggregations (arg_max/arg_min).
+                arg_term = None
+                if measure.aggregation_arg:
+                    arg_term = self._parse_field_reference(measure.aggregation_arg)
+                    arg_term = self._apply_cast_if_configured(
+                        measure.aggregation_arg, arg_term, query_desc.column_casts
+                    )
+
+                agg_term = build_aggregate_term(
+                    dialect,
+                    measure.aggregation,
+                    field_term,
+                    arg_term=arg_term,
+                    field_name=measure.field,
+                )
 
                 select_fields.append(agg_term.as_(measure.alias))
                 all_aliases.add(measure.alias)
