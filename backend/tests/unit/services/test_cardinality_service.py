@@ -760,6 +760,49 @@ class TestCardinalityService:
         # Must keep literal dotted column name intact
         assert "`dlPreSchedData.raState`" in sql
 
+    def test_get_distinct_count_union_mode_keeps_sibling_filter_prefix(self):
+        """UNION source columns carry the table prefix, so sibling filters must keep theirs.
+
+        Stripping it produced `WHERE numOfLayers IN (...)` against a table whose column is
+        literally named 'dlPreSchedData.numOfLayers' -> UNKNOWN_IDENTIFIER.
+        """
+        from backend.models.data_source import VirtualTableDefinition, UnionTableDefinition
+
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+
+        self.mock_connector.fetch_data.return_value = (["count"], [[7]])
+
+        virtual_table = VirtualTableDefinition(
+            primary_table="preambleData",
+            mode="union",
+            joined_tables=[],
+            union_tables=[
+                UnionTableDefinition(table_name="dlPreSchedData", database="test_db"),
+                UnionTableDefinition(table_name="thirdTable", database="test_db"),
+            ]
+        )
+
+        service.get_distinct_count(
+            field="dlPreSchedData.raState",
+            table="preambleData",
+            database="test_db",
+            virtual_table=virtual_table,
+            filters=[
+                Filter(
+                    field="dlPreSchedData.numOfLayers",
+                    operator="in",
+                    value=["RANK4"],
+                ),
+                # A different union table is not in FROM — must still be dropped.
+                Filter(field="thirdTable.other", operator="in", value=["x"]),
+            ],
+        )
+
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "`dlPreSchedData.numOfLayers`" in sql
+        assert "`numOfLayers`" not in sql.replace("`dlPreSchedData.numOfLayers`", "")
+        assert "thirdTable" not in sql
+
     def test_get_distinct_count_applies_sibling_filters(self):
         """Sibling filters should appear in the COUNT(DISTINCT) WHERE clause."""
         service = CardinalityService(self.mock_connector, self.csv_details)

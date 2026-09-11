@@ -185,6 +185,9 @@ class CardinalityService:
         # Track whether we resolved a source table from a JOIN (for ClickHouse subquery wrapping)
         resolved_from_join = False
         resolved_table_name = table  # Default to the function parameter (primary table)
+        # True when the resolved table's columns literally include the table-name prefix,
+        # so filter fields must keep theirs too.
+        field_prefix_is_column_name = False
         
         # Build set of known table names from virtual table definition (for safe prefix checks)
         known_tables = set()
@@ -280,6 +283,7 @@ class CardinalityService:
                     table_map = {source_table_name: db_table}
                     resolved_from_join = True
                     resolved_table_name = source_table_name
+                    field_prefix_is_column_name = True
 
                     logger.info(
                         f"Cardinality query: UNION mode resolved source table '{source_table_name}' "
@@ -415,6 +419,7 @@ class CardinalityService:
                 known_tables=known_tables,
                 resolved_table_name=resolved_table_name,
                 vc_builder=vc_builder,
+                strip_resolved_prefix=not field_prefix_is_column_name,
             )
         
         # Apply regex filter if provided
@@ -469,6 +474,7 @@ class CardinalityService:
         known_tables: set,
         resolved_table_name: str,
         vc_builder: Optional[Any],
+        strip_resolved_prefix: bool = True,
     ) -> Tuple[Query, List[str]]:
         """Apply sibling filters to count_query; return (query, criterion SQL).
 
@@ -481,6 +487,7 @@ class CardinalityService:
             resolved_table_name,
             is_virtual_column=vc_builder.is_virtual_column if vc_builder else None,
             log_context="Cardinality query",
+            strip_resolved_prefix=strip_resolved_prefix,
         )
         if not resolvable:
             return count_query, []
