@@ -43,6 +43,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     lineVariant = 'line',
     areaFillOpacity,
     lineColorMode = 'alongPath',
+    lineSeriesLabels = 'off',
     distributionVariant = 'tick-strip',
     measureValuesSourceFields,
     bandThicknessScale,
@@ -313,6 +314,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           cellLineVariant,
           cellAreaFillOpacity,
           cellLineColorMode,
+          lineSeriesLabels,
           config.xTickFormat,
           config.yTickFormat
         );

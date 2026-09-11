@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { ColorChannel, Field, LineColorMode, LineVariant } from '../../../types';
+import { ColorChannel, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../../types';
 import { LabelConfig } from '../../types';
 
 export type LineOrientation = 'horizontal' | 'vertical';
@@ -32,6 +32,8 @@ export interface LineBuildParams {
   areaFillOpacity?: number;
   /** Continuous color: gradient along path vs one line per distinct value. */
   lineColorMode?: LineColorMode;
+  /** Direct labelling of each line's end with its color category value. */
+  seriesLabels?: LineSeriesLabelMode;
 }
 
 export type LineBudget = {

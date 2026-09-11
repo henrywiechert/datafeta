@@ -36,7 +36,7 @@ function inferXKind(sampleValues: any[]): XKind {
   return 'other';
 }
 
-function toXNumber(v: any, kind: XKind): number | null {
+export function toXNumber(v: any, kind: XKind): number | null {
   if (kind === 'time') {
     if (v instanceof Date) return v.getTime();
     if (typeof v === 'string') {

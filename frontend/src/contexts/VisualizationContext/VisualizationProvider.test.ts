@@ -16,7 +16,7 @@ describe('resolveChartTypeParams', () => {
   it('uses grouped chartTypeParams when present', () => {
     const source: LegacyChartTypeParamFields = {
       chartTypeParams: {
-        line: { variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath' },
+        line: { variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath', seriesLabels: 'off' },
         distribution: { variant: 'box-plot' },
         table: { page: 4 },
         density: base.density,
@@ -25,7 +25,7 @@ describe('resolveChartTypeParams', () => {
 
     const result = resolveChartTypeParams(base, source);
 
-    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath' });
+    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath', seriesLabels: 'off' });
     expect(result.distribution.variant).toBe('box-plot');
     expect(result.table).toEqual({ page: 4 });
     expect(result.density).toEqual(base.density);
@@ -41,7 +41,7 @@ describe('resolveChartTypeParams', () => {
 
     const result = resolveChartTypeParams(base, source);
 
-    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.7, colorMode: 'alongPath' });
+    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.7, colorMode: 'alongPath', seriesLabels: 'off' });
     expect(result.distribution.variant).toBe('box-plot');
     expect(result.table).toEqual({ page: 5 });
   });
@@ -49,7 +49,7 @@ describe('resolveChartTypeParams', () => {
   it('prefers grouped values over legacy flat fields when both are present', () => {
     const source: LegacyChartTypeParamFields = {
       chartTypeParams: {
-        line: { variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath' },
+        line: { variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath', seriesLabels: 'off' },
         distribution: { variant: 'tick-strip' },
         table: { page: 0 },
         density: base.density,
@@ -62,7 +62,7 @@ describe('resolveChartTypeParams', () => {
 
     const result = resolveChartTypeParams(base, source);
 
-    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath' });
+    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath', seriesLabels: 'off' });
     expect(result.distribution.variant).toBe('tick-strip');
     expect(result.table).toEqual({ page: 0 });
   });
@@ -70,12 +70,12 @@ describe('resolveChartTypeParams', () => {
   it('fills missing fields from defaults when partial grouped data is provided', () => {
     const source: LegacyChartTypeParamFields = {
       // Only `line` is supplied via grouped; everything else should default.
-      chartTypeParams: { line: { variant: 'area', areaFillOpacity: 0.5, colorMode: 'alongPath' } },
+      chartTypeParams: { line: { variant: 'area', areaFillOpacity: 0.5, colorMode: 'alongPath', seriesLabels: 'off' } },
     };
 
     const result = resolveChartTypeParams(base, source);
 
-    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.5, colorMode: 'alongPath' });
+    expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.5, colorMode: 'alongPath', seriesLabels: 'off' });
     expect(result.distribution).toEqual(base.distribution);
     expect(result.table).toEqual(base.table);
     expect(result.density).toEqual(base.density);
