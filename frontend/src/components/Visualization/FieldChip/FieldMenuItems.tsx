@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useContext, useState } from 'react';
+import { aggregationLabel } from '../../../aggregations';
 import { Field, ColumnCastConfig } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
@@ -244,7 +245,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
 
       {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.map(agg => (
         <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg, aggregationArg: undefined })}>
-          {agg} {!isBulkEdit && field.aggregation === agg && '✔'}
+          {aggregationLabel(agg)} {!isBulkEdit && field.aggregation === agg && '✔'}
         </div>
       ))}
 

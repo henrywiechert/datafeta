@@ -3,7 +3,7 @@
 
 from typing import Any, Mapping, Optional
 
-from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
 from backend.dialects.base import SqlDialect
 
 
@@ -32,8 +32,14 @@ CLICKHOUSE_TYPE_MAPPING = {
 # NaN/Inf out of sums and averages: ClickHouse propagates them, so a single bad
 # row would otherwise turn a whole group into NaN.
 CLICKHOUSE_AGGREGATE_SPECS: Mapping[str, AggregateSpec] = {
-    'sum': AggregateSpec('sumIf', finite_guard=True),
-    'avg': AggregateSpec('avgIf', finite_guard=True),
+    'sum': AggregateSpec('sumIf', finite_guard=FiniteGuard.IF_ARGUMENT),
+    'avg': AggregateSpec('avgIf', finite_guard=FiniteGuard.IF_ARGUMENT),
+    # quantileExactInclusive interpolates between the two middle values exactly
+    # as DuckDB's quantile_cont does, so both engines return the same median.
+    # Plain median()/quantile() would be approximate (reservoir sampling).
+    'median': AggregateSpec(
+        'quantileExactInclusiveIf(0.5)', finite_guard=FiniteGuard.IF_ARGUMENT
+    ),
     'count': AggregateSpec('COUNT'),
     # count() over rows takes no argument at all in ClickHouse.
     COUNT_STAR: AggregateSpec('count', star=True, star_arg=False),

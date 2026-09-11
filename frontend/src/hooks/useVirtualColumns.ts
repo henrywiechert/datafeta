@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useMemo } from 'react';
-import { Field, DataType, VirtualColumnDefinition } from '../types';
+import { Field, DataType, VirtualColumnDefinition, Aggregation } from '../types';
 import { isBinnedField } from '../utils/binningUtils';
 
 interface UseVirtualColumnsParams {
@@ -53,7 +53,7 @@ export function useVirtualColumns({
             // Default type and flavour based on output type (same logic as regular fields)
             let type: 'dimension' | 'measure';
             let flavour: 'discrete' | 'continuous';
-            let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+            let aggregation: Aggregation | undefined;
             
             if (isBinned) {
                 // Binned fields are ALWAYS discrete dimensions (this is the core histogram concept)

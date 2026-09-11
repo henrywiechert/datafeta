@@ -142,6 +142,39 @@ describe('buildMeasureExpr', () => {
     });
     expect(sql).toBe('COUNT(DISTINCT "dlFdSchedData.tbSize") AS "COUNT_DISTINCT(dlFdSchedData.tbSize)"');
   });
+
+  test('an unknown aggregation throws instead of silently summing', () => {
+    // A wrong number under a correct-looking alias is worse than a failed query.
+    expect(() =>
+      buildMeasureExpr({ field: 'value', aggregation: 'stddev', alias: 'STDDEV(value)' })
+    ).toThrow(/unknown aggregation 'stddev'/);
+  });
+
+  test('MEDIAN filters out non-finite values', () => {
+    const sql = buildMeasureExpr({
+      field: 'value',
+      aggregation: 'median',
+      alias: 'MEDIAN(value)',
+    });
+    expect(sql).toContain('quantile_cont(');
+    expect(sql).toContain('FILTER (WHERE isFinite(');
+    expect(sql).toContain('AS "MEDIAN(value)"');
+  });
+
+  test.each(['arg_max', 'arg_min'])(
+    '%s throws: the orchestrator must have routed it to the backend',
+    (aggregation) => {
+      expect(() =>
+        buildMeasureExpr({ field: 'value', aggregation, alias: 'LATEST(value)' })
+      ).toThrow(/does not support aggregation/);
+    }
+  );
+
+  test('a missing aggregation still defaults to SUM', () => {
+    // Measures without an explicit aggregation are a real, valid case.
+    const sql = buildMeasureExpr({ field: 'value', alias: 'SUM(value)' });
+    expect(sql).toContain('SUM(');
+  });
 });
 
 

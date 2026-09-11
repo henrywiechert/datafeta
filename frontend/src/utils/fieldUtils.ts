@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, Aggregation, DataType, Column } from '../types';
+import { menuAggregations } from '../aggregations';
 import { 
   getResultColumnNameForDateTime,
   getFieldDisplayNameWithDateTime,
@@ -7,7 +8,6 @@ import {
 } from '../datetime';
 import { generateSyntheticFields } from './syntheticFields';
 
-const DISCRETE_AGGREGATIONS: Aggregation[] = ['min', 'max', 'count', 'count_distinct'];
 
 /**
  * Convert an epoch-like value to a JS Date.
@@ -125,10 +125,14 @@ export function normalizeTimelineData(rows: any[], fields: Field[]): any[] {
     return newRow;
   });
 }
-const CONTINUOUS_AGGREGATIONS: Aggregation[] = ['sum', 'avg', 'min', 'max', 'count', 'count_distinct'];
 
 /**
  * Gets the list of valid aggregations for a given field based on its rules.
+ *
+ * Which aggregations exist, their order, and which of them need a numeric
+ * column all come from the aggregation registry; this decides only whether the
+ * field counts as numeric.
+ *
  * @param field The field to check.
  * @returns An array of valid aggregation types.
  */
@@ -137,17 +141,14 @@ export function getAvailableAggregations(field: Field): Aggregation[] {
     return []; // Dimensions have no aggregations
   }
 
-  // For measures, available aggregations depend on flavour and data type
-  if (field.flavour === 'discrete') {
-    // Numerical discrete measures can have continuous aggregations
-    if (field.dataType === 'integer' || field.dataType === 'float') {
-      return CONTINUOUS_AGGREGATIONS;
-    }
-    // Non-numerical discrete measures have limited aggregations
-    return DISCRETE_AGGREGATIONS;
-  }
+  // Continuous measures are numeric by construction; a discrete measure only
+  // qualifies when its column actually holds numbers.
+  const isNumeric =
+    field.flavour !== 'discrete' ||
+    field.dataType === 'integer' ||
+    field.dataType === 'float';
 
-  return CONTINUOUS_AGGREGATIONS;
+  return menuAggregations(isNumeric);
 }
 
 export function isDimension(field: Field): boolean {
@@ -219,7 +220,7 @@ export function mapBackendDataType(backendType: string): DataType {
 function getDefaultFieldProperties(dataType: DataType): {
     type: 'dimension' | 'measure';
     flavour: 'discrete' | 'continuous';
-    aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+    aggregation: Aggregation | undefined;
 } {
     if (dataType === 'string' || dataType === 'datetime') {
         return {

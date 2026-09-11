@@ -3,7 +3,7 @@
 
 from typing import Mapping, Optional
 
-from backend.dialects.aggregations import COUNT_STAR, AggregateSpec
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
 from backend.dialects.base import SqlDialect
 
 
@@ -18,6 +18,12 @@ DUCKDB_AGGREGATE_SPECS: Mapping[str, AggregateSpec] = {
     'count_distinct': AggregateSpec('COUNT', distinct=True),
     'min': AggregateSpec('MIN'),
     'max': AggregateSpec('MAX'),
+    # quantile_cont matches ClickHouse's quantileExactInclusive and the box
+    # plot's median line.  Unlike SUM/AVG it is guarded: a NaN sorts highest and
+    # would silently shift the median rather than making it obviously wrong.
+    'median': AggregateSpec(
+        'quantile_cont', literal_args=(0.5,), finite_guard=FiniteGuard.FILTER_CLAUSE
+    ),
     'arg_max': AggregateSpec('arg_max', order_arg=True),
     'arg_min': AggregateSpec('arg_min', order_arg=True),
 }

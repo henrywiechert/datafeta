@@ -4,10 +4,13 @@
  * Draggable field definitions and related types
  */
 
+import type { Aggregation } from '../aggregations';
 import type { ColumnCastConfig } from './query';
 
+// Single source of truth: the aggregation registry derives this from its keys.
+export type { Aggregation } from '../aggregations';
+
 export type FieldType = 'dimension' | 'measure';
-export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | 'arg_max' | 'arg_min';
 export type WindowCalcType = 'difference' | 'percent_difference' | 'running_sum';
 export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';

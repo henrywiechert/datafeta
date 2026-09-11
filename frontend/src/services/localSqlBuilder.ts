@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { getAggregationSpec } from '../aggregations';
 import {
   buildDateTimeAlias,
   getDistinctExtractPart,
@@ -195,21 +196,26 @@ export function buildMeasureExpr(m: MeasureLike): string {
   const fn = (m.aggregation || 'sum').toLowerCase();
   const alias = quoteIdent(m.alias);
 
-  if (fn === 'arg_max' || fn === 'arg_min') {
-    // Not supported locally; the orchestrator forces backend execution for
-    // these. Fail loudly rather than silently degrading to SUM.
+  // COUNT(*) counts rows, so there is no column to reference.
+  if (fn === 'count' && (!m.field || m.field === '*')) return `COUNT(*) AS ${alias}`;
+
+  const spec = getAggregationSpec(fn);
+  if (!spec) {
+    // Never fall back to SUM: a wrong number under a correct-looking label is
+    // worse than a failed query.
+    throw new Error(`Local SQL builder: unknown aggregation '${fn}'`);
+  }
+  if (!spec.localSql) {
+    // The orchestrator forces backend execution for these; reaching here means
+    // that guard and this registry have drifted apart.
     throw new Error(`Local SQL builder does not support aggregation '${fn}'`);
   }
-  if (fn === 'count') {
-    if (!m.field || m.field === '*') return `COUNT(*) AS ${alias}`;
-    return `COUNT(${quoteIdent(m.field)}) AS ${alias}`;
-  }
-  if (fn === 'count_distinct') return `COUNT(DISTINCT ${quoteIdent(m.field)}) AS ${alias}`;
-  if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS ${alias}`;
-  if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS ${alias}`;
-  if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS ${alias}`;
-  // default sum
-  return `SUM(${buildNumericExpr(m.field)}) AS ${alias}`;
+
+  const expr = spec.localSql({
+    raw: quoteIdent(m.field),
+    numeric: buildNumericExpr(m.field),
+  });
+  return `${expr} AS ${alias}`;
 }
 
 export function buildSelectSql(args: {

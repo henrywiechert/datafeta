@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+from backend.dialects.aggregations import union_reaggregation
 from backend.models.query import Dimension, Filter, Measure, QueryDescription
 
 from backend.services.query_components.result_budget_applier import apply_result_budget
@@ -191,25 +192,16 @@ class UnionQueryBuilder:
             # Re-aggregate across all union results to get overall min/max/sum/etc
             select_parts = []
             for field_key, measure in all_measure_fields:
-                agg = measure.aggregation.upper()
-                # Map aggregations that need re-aggregation
-                if agg == "MIN":
-                    select_parts.append(f"MIN({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
-                elif agg == "MAX":
-                    select_parts.append(f"MAX({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
-                elif agg == "SUM":
-                    select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
-                elif agg == "COUNT":
-                    select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
-                elif agg == "COUNT_DISTINCT":
-                    # Can't re-aggregate count distinct, keep as-is
-                    select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
-                elif agg == "AVG":
-                    # For average, we need weighted average if possible, otherwise just average the averages
-                    select_parts.append(f"AVG({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                quoted = f"{quote_char}{field_key}{quote_char}"
+                # How each aggregation merges across branches lives in one table
+                # (backend.dialects.aggregations.UNION_REAGGREGATION).  Reaching
+                # here with an unmergeable one is impossible: translate() rejects
+                # those before any SQL is built.
+                outer = union_reaggregation(measure.aggregation)
+                if outer is None:
+                    select_parts.append(quoted)
                 else:
-                    # Default: just select the field
-                    select_parts.append(f"{quote_char}{field_key}{quote_char}")
+                    select_parts.append(f"{outer}({quoted}) AS {quoted}")
             
             outer_sql = f"SELECT {', '.join(select_parts)} FROM (\n{union_sql}\n) AS union_result"
             self._logger.info("Applied outer aggregation for measure-only UNION query to get overall min/max/sum")
@@ -526,18 +518,24 @@ class UnionQueryBuilder:
         if not virtual_table or virtual_table.mode != "union":
             raise ValueError("Query description must have virtual_table in union mode")
 
-        # arg_max/arg_min cannot be re-aggregated across union sub-results
-        # (the outer wrapper would need the ordering column, which is not
-        # projected). Reject clearly instead of returning wrong numbers.
-        arg_measures = [
-            m.alias for m in (query_desc.measures or [])
-            if m.aggregation in ("arg_max", "arg_min")
+        # Each branch is aggregated on its own, so the outer wrapper merges
+        # per-branch values rather than rows.  Aggregations that cannot be
+        # recovered from those values (a median of medians is not the median;
+        # arg_max would need the ordering column, which branches do not
+        # project) are rejected rather than returning a plausible wrong number.
+        unmergeable = [
+            (m.aggregation, m.alias) for m in (query_desc.measures or [])
+            if union_reaggregation(m.aggregation) is None
         ]
-        if arg_measures:
+        if unmergeable:
             from backend.exceptions import QueryGenerationError
+            names = sorted({aggregation for aggregation, _ in unmergeable})
+            aliases = [alias for _, alias in unmergeable]
             raise QueryGenerationError(
-                "Aggregations 'arg_max'/'arg_min' (latest/earliest value) are not "
-                f"supported on stacked (union) tables yet: {', '.join(arg_measures)}"
+                f"Aggregation(s) {', '.join(repr(n) for n in names)} cannot be "
+                "combined across stacked (union) tables, because each table is "
+                "aggregated separately and the overall value cannot be derived "
+                f"from the per-table results: {', '.join(aliases)}"
             )
 
         # Parse table references from query

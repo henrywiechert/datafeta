@@ -21,7 +21,8 @@ class WindowCalc(BaseModel):
 class Measure(BaseModel):
     field: str
     aggregation: Literal[
-        'sum', 'avg', 'count', 'count_distinct', 'min', 'max', 'arg_max', 'arg_min'
+        'sum', 'avg', 'count', 'count_distinct', 'min', 'max', 'median',
+        'arg_max', 'arg_min',
     ]
     alias: str
     # Ordering column for arg_max/arg_min ("value of `field` at the row where
