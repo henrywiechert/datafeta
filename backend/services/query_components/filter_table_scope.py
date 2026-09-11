@@ -48,11 +48,16 @@ def scope_filters_to_table(
     resolved_table_name: str,
     is_virtual_column: Optional[Callable[[str], bool]] = None,
     log_context: str = "Query",
+    strip_resolved_prefix: bool = True,
 ) -> List[Any]:
     """Return `filters` restricted and re-qualified for a single-table FROM.
 
     Filters on other known tables are dropped; filters qualified with
     `resolved_table_name` have that prefix stripped. Filters are copied, never mutated.
+
+    Set `strip_resolved_prefix=False` when the resolved table's physical columns already
+    carry the table name (ClickHouse UNION sources with dotted column names). There the
+    prefix is part of the column name, so stripping it yields an unknown identifier.
     """
     if not filters:
         return []
@@ -75,6 +80,10 @@ def scope_filters_to_table(
                 f.field,
                 prefix,
             )
+            continue
+
+        if not strip_resolved_prefix:
+            scoped.append(f)
             continue
 
         logger.debug(

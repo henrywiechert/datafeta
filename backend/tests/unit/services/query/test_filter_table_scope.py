@@ -60,6 +60,15 @@ class TestScopeFiltersToTable:
         scope_filters_to_table([original], KNOWN_TABLES, "races")
         assert original.field == "races.year"
 
+    def test_keeps_resolved_prefix_when_columns_carry_the_table_name(self):
+        scoped = scope_filters_to_table(
+            [_filter("races.year"), _filter("results.points"), _filter("status")],
+            KNOWN_TABLES,
+            "races",
+            strip_resolved_prefix=False,
+        )
+        assert [f.field for f in scoped] == ["races.year", "status"]
+
     def test_empty_and_none_inputs(self):
         assert scope_filters_to_table(None, KNOWN_TABLES, "races") == []
         assert scope_filters_to_table([], KNOWN_TABLES, "races") == []
