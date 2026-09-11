@@ -32,6 +32,20 @@ from backend.services.query_components.union.virtual_column_checker import (
 )
 
 
+def needs_outer_aggregation(query_desc: QueryDescription) -> bool:
+    """True when the union wrapper re-aggregates per-branch measure values.
+
+    Any dimension -- including _source_database/_source_table -- keys each output
+    row to a single branch, so its value passes through the wrapper unmerged.
+    """
+    return (
+        bool(query_desc.measures)
+        and not query_desc.dimensions
+        and not query_desc.orderBy
+        and not bool(getattr(query_desc, "force_raw_rows", False))
+    )
+
+
 class UnionQueryBuilder:
     """Encapsulates the UNION-specific translation previously in QueryService."""
 
@@ -518,25 +532,28 @@ class UnionQueryBuilder:
         if not virtual_table or virtual_table.mode != "union":
             raise ValueError("Query description must have virtual_table in union mode")
 
-        # Each branch is aggregated on its own, so the outer wrapper merges
-        # per-branch values rather than rows.  Aggregations that cannot be
-        # recovered from those values (a median of medians is not the median;
-        # arg_max would need the ordering column, which branches do not
-        # project) are rejected rather than returning a plausible wrong number.
-        unmergeable = [
-            (m.aggregation, m.alias) for m in (query_desc.measures or [])
-            if union_reaggregation(m.aggregation) is None
-        ]
-        if unmergeable:
-            from backend.exceptions import QueryGenerationError
-            names = sorted({aggregation for aggregation, _ in unmergeable})
-            aliases = [alias for _, alias in unmergeable]
-            raise QueryGenerationError(
-                f"Aggregation(s) {', '.join(repr(n) for n in names)} cannot be "
-                "combined across stacked (union) tables, because each table is "
-                "aggregated separately and the overall value cannot be derived "
-                f"from the per-table results: {', '.join(aliases)}"
-            )
+        # Only a measure-only query merges per-branch values in the outer
+        # wrapper; with any dimension present each row comes from one branch and
+        # every aggregation is exact.  Reject only what would actually be merged
+        # wrongly (a median of medians is not the median; arg_max would need the
+        # ordering column, which branches do not project).
+        if needs_outer_aggregation(query_desc):
+            unmergeable = [
+                (m.aggregation, m.alias) for m in (query_desc.measures or [])
+                if union_reaggregation(m.aggregation) is None
+            ]
+            if unmergeable:
+                from backend.exceptions import QueryGenerationError
+                names = sorted({aggregation for aggregation, _ in unmergeable})
+                aliases = [alias for _, alias in unmergeable]
+                raise QueryGenerationError(
+                    f"Aggregation(s) {', '.join(repr(n) for n in names)} cannot be "
+                    "computed as a single value across stacked (union) tables, "
+                    "because each table is aggregated separately and the overall "
+                    "value cannot be derived from the per-table results: "
+                    f"{', '.join(aliases)}. Add a dimension (e.g. Source Database) "
+                    "to get one value per table."
+                )
 
         # Parse table references from query
         table_refs = self._parse_table_references(query_desc)
@@ -747,24 +764,10 @@ class UnionQueryBuilder:
             query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
         )
         
-        # Check if we have source tracking dimensions (_source_database, _source_table)
-        has_source_dimensions = any(
-            dim.field in ("_source_database", "_source_table") 
-            for dim in query_desc.dimensions
-        )
-        
-        # For measure-only queries (no dimensions at all, including source tracking), 
-        # we need to aggregate across all union results
-        # Example: MIN/MAX queries for filter ranges need the overall min/max, not per-table
-        # But do NOT apply if we have source tracking dimensions or ORDER BY (chart queries)
-        needs_outer_aggregation = (
-            has_measures 
-            and not has_dimensions 
-            and not has_source_dimensions
-            and not bool(query_desc.orderBy)
-            and not is_force_raw
-        )
-        
+        # Measure-only queries need the overall value across all union results,
+        # e.g. the MIN/MAX probes that compute filter ranges.
+        do_outer_aggregation = needs_outer_aggregation(query_desc)
+
         distinct_columns: List[str] = []
         if needs_distinct:
             for dim in query_desc.dimensions:
@@ -802,12 +805,12 @@ class UnionQueryBuilder:
             or bool(source_db_filters)
             or bool(source_table_filters)
             or needs_distinct
-            or needs_outer_aggregation
+            or do_outer_aggregation
         )
 
         if needs_outer_query:
             final_sql = self._build_outer_query(
-                union_sql, all_measure_fields, needs_outer_aggregation,
+                union_sql, all_measure_fields, do_outer_aggregation,
                 needs_distinct, distinct_columns, source_db_filters, source_table_filters,
                 query_desc, quote_char
             )

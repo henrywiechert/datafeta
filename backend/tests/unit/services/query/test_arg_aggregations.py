@@ -107,10 +107,55 @@ def test_arg_max_requires_aggregation_arg(qs: QueryService):
         _translate(qs, desc)
 
 
-def test_arg_max_rejected_on_union_tables(qs: QueryService):
+def test_arg_max_rejected_on_measure_only_union(qs: QueryService):
+    desc = _desc(
+        dimensions=[],
+        measures=[_arg_max_measure()],
+        virtual_table=VirtualTableDefinition(
+            primary_table="measurements",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="measurements_2024")],
+        ),
+    )
+    with pytest.raises(QueryGenerationError, match="union"):
+        _translate(qs, desc)
+
+
+def test_arg_max_allowed_on_union_tables_with_dimension(qs: QueryService):
+    """A dimension keys each row to one branch, so nothing is merged across branches."""
     desc = _desc(
         dimensions=[Dimension(field="day", flavour="continuous")],
         measures=[_arg_max_measure()],
+        virtual_table=VirtualTableDefinition(
+            primary_table="measurements",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="measurements_2024")],
+        ),
+    )
+    sql = _translate(qs, desc)
+    assert "UNION ALL" in sql
+    assert "arg_max" in sql
+
+
+def test_median_allowed_on_union_tables_with_dimension(qs: QueryService):
+    desc = _desc(
+        dimensions=[Dimension(field="day", flavour="continuous")],
+        measures=[Measure(field="weight", aggregation="median", alias="MEDIAN(weight)")],
+        virtual_table=VirtualTableDefinition(
+            primary_table="measurements",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="measurements_2024")],
+        ),
+    )
+    sql = _translate(qs, desc, db_type="clickhouse")
+    assert "UNION ALL" in sql
+    assert "quantileExactInclusiveIf(0.5)" in sql
+
+
+def test_median_rejected_on_measure_only_union(qs: QueryService):
+    desc = _desc(
+        dimensions=[],
+        measures=[Measure(field="weight", aggregation="median", alias="MEDIAN(weight)")],
         virtual_table=VirtualTableDefinition(
             primary_table="measurements",
             mode="union",

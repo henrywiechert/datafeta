@@ -94,11 +94,13 @@ class AggregateSpec:
 
 #: Outer aggregate that merges per-branch results of a UNION over stacked tables.
 #:
-#: Each branch is aggregated separately, so the wrapper sees per-branch values
-#: rather than rows.  ``None`` means the true value cannot be recovered from
-#: them, and the query is rejected instead of returning a plausible wrong
-#: number: a median of per-branch medians is not the median, and arg_max would
-#: need the ordering column, which the branches do not project.
+#: Only consulted for measure-only union queries, where the wrapper collapses the
+#: branches into one row; with any dimension present each row already comes from a
+#: single branch and passes through unmerged.  ``None`` means the true value
+#: cannot be recovered from per-branch values, and the query is rejected instead
+#: of returning a plausible wrong number: a median of per-branch medians is not
+#: the median, and arg_max would need the ordering column, which the branches do
+#: not project.
 #:
 #: Independent of dialect -- these are the merge semantics, not SQL syntax.
 UNION_REAGGREGATION: Mapping[str, Optional[str]] = {
