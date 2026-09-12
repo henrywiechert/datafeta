@@ -345,6 +345,33 @@ const range = await apiService.getDateTimeRange(
 // Returns: { min: string, max: string }
 ```
 
+## Field Profile ("Quick View")
+
+`POST /field-profile` returns a statistical profile of a single column, used by
+the Quick View panel in the field menu.
+
+```typescript
+const profile = await apiService.getFieldProfile(
+  request: FieldProfileRequest,
+  signal?: AbortSignal
+);
+```
+
+Notes:
+
+- The profile describes the **raw column**: active filters are not applied, so a
+  result stays valid while the user edits filters.
+- `distinct_count` is a HyperLogLog estimate by default (`approximate: true`) —
+  fixed memory regardless of cardinality, typically within 1–2%, and exact for
+  small cardinalities. `approximate: false` forces an exact count. The response
+  echoes `approximate`, which the UI renders as a `~` prefix.
+- At most two queries run per profile: a scalar pass, plus a grouped top-values
+  pass for non-numeric columns. When the grouped pass enumerates every value,
+  the exact distinct count replaces the estimate.
+- Results are cached in memory (5 min TTL, LRU) keyed by column plus table,
+  join/union, virtual column and datetime-part context. Pass an explicit
+  `signal`; the shared abort controller would cancel unrelated metadata calls.
+
 ## Multi-Table Support
 
 ### Table Relationships

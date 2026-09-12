@@ -3,8 +3,18 @@
 
 from typing import Mapping, Optional
 
-from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard, FINITE_PREDICATE
 from backend.dialects.base import SqlDialect
+
+
+# Canonical profile statistic -> DuckDB aggregate function name.
+_PROFILE_AGGREGATE_NAMES = {
+    'count': 'COUNT',
+    'min': 'MIN',
+    'max': 'MAX',
+    'avg': 'AVG',
+    'stddev': 'stddev_pop',
+}
 
 
 # How each aggregation renders in DuckDB.  DuckDB has no -If combinator, so the
@@ -90,3 +100,28 @@ class DuckDbDialect(SqlDialect):
     ) -> str:
         q = self.quote_char
         return f"NULL AS {q}{alias}{q}"
+
+    def count_star_sql(self) -> str:
+        return "COUNT(*)"
+
+    def count_if_sql(self, condition_sql: str) -> str:
+        return f"COUNT(*) FILTER (WHERE {condition_sql})"
+
+    def distinct_count_sql(self, expr_sql: str, *, approximate: bool = False) -> str:
+        if approximate:
+            return f"approx_count_distinct({expr_sql})"
+        return f"COUNT(DISTINCT {expr_sql})"
+
+    def aggregate_sql(self, func: str, expr_sql: str, *, finite_guard: bool = False) -> str:
+        name = _PROFILE_AGGREGATE_NAMES.get(func)
+        if name is None:
+            raise ValueError(f"Unsupported profile aggregate '{func}' for DuckDB")
+        guard = f" FILTER (WHERE {FINITE_PREDICATE}({expr_sql}))" if finite_guard else ""
+        return f"{name}({expr_sql}){guard}"
+
+    def quantile_sql(self, expr_sql: str, quantile: float, *, finite_guard: bool = False) -> str:
+        guard = f" FILTER (WHERE {FINITE_PREDICATE}({expr_sql}))" if finite_guard else ""
+        return f"quantile_cont({expr_sql}, {quantile}){guard}"
+
+    def string_length_sql(self, expr_sql: str) -> str:
+        return f"length({expr_sql})"

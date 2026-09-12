@@ -12,6 +12,7 @@
  */
 
 import { connectionApi } from './connectionApi';
+import { fieldProfileApi } from './fieldProfileApi';
 import { metadataApi } from './metadataApi';
 import { queryApi } from './queryApi';
 import { snapshotApi } from './snapshotApi';
@@ -59,6 +60,10 @@ export const apiService = {
   getRowCount: metadataApi.getRowCount,
   getFieldStats: metadataApi.getFieldStats,
 
+  // Field profile ("Quick View")
+  getFieldProfile: fieldProfileApi.getFieldProfile,
+  clearFieldProfileCache: fieldProfileApi.clearFieldProfileCache,
+
   // Query operations
   executeQuery: queryApi.executeQuery,
   executeQueryArrow: queryApi.executeQueryArrow,
@@ -90,6 +95,7 @@ export const apiService = {
 
 // Export individual service modules for direct use
 export { connectionApi } from './connectionApi';
+export { fieldProfileApi } from './fieldProfileApi';
 export { metadataApi } from './metadataApi';
 export { queryApi } from './queryApi';
 export { snapshotApi } from './snapshotApi';

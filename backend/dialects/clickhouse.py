@@ -3,8 +3,18 @@
 
 from typing import Any, Mapping, Optional
 
-from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
+from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard, FINITE_PREDICATE
 from backend.dialects.base import SqlDialect
+
+
+# Canonical profile statistic -> ClickHouse aggregate function name.
+_PROFILE_AGGREGATE_NAMES = {
+    'count': 'count',
+    'min': 'min',
+    'max': 'max',
+    'avg': 'avg',
+    'stddev': 'stddevPop',
+}
 
 
 # Mapping of common type names to ClickHouse types for NULL casting
@@ -140,3 +150,32 @@ class ClickHouseDialect(SqlDialect):
         if is_datetime_string and isinstance(value, str):
             return f"parseDateTime64BestEffort('{value}', 3)"
         return value
+
+    def count_star_sql(self) -> str:
+        return "count()"
+
+    def count_if_sql(self, condition_sql: str) -> str:
+        return f"countIf({condition_sql})"
+
+    def distinct_count_sql(self, expr_sql: str, *, approximate: bool = False) -> str:
+        return f"uniq({expr_sql})" if approximate else f"uniqExact({expr_sql})"
+
+    def aggregate_sql(self, func: str, expr_sql: str, *, finite_guard: bool = False) -> str:
+        name = _PROFILE_AGGREGATE_NAMES.get(func)
+        if name is None:
+            raise ValueError(f"Unsupported profile aggregate '{func}' for ClickHouse")
+        if finite_guard:
+            return f"{name}If({expr_sql}, {FINITE_PREDICATE}({expr_sql}))"
+        return f"{name}({expr_sql})"
+
+    def quantile_sql(self, expr_sql: str, quantile: float, *, finite_guard: bool = False) -> str:
+        if finite_guard:
+            return (
+                f"quantileExactInclusiveIf({quantile})"
+                f"({expr_sql}, {FINITE_PREDICATE}({expr_sql}))"
+            )
+        return f"quantileExactInclusive({quantile})({expr_sql})"
+
+    def string_length_sql(self, expr_sql: str) -> str:
+        # length() counts bytes; lengthUTF8() counts characters.
+        return f"lengthUTF8({expr_sql})"

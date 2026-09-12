@@ -12,6 +12,17 @@ export type { Database, Table, Column } from './database';
 // Virtual column types
 export type { BinnedFieldDefinition, VirtualColumnDefinition } from './virtualColumn';
 
+// Field profile ("Quick View") types
+export type {
+  ProfileKind,
+  FieldProfileRequest,
+  TopValue,
+  NumericProfile,
+  StringProfile,
+  DatetimeProfile,
+  FieldProfile,
+} from './fieldProfile';
+
 // Multi-table support types
 export type {
   ForeignKeyRelationship,
