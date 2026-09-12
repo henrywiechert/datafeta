@@ -64,7 +64,8 @@ export function useFieldProfile(field: Field): UseFieldProfileResult {
     virtualColumns: virtualColumns.length > 0 ? virtualColumns : undefined,
     virtualTable: virtualTable || undefined,
     profileKind: getProfileKind(field),
-    topN: 5,
+    topN: 6,
+    histogramBins: 24,
     approximate: true,
   }), [field, selectedTable, selectedDatabase, virtualColumns, virtualTable]);
 

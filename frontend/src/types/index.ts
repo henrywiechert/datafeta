@@ -17,8 +17,10 @@ export type {
   ProfileKind,
   FieldProfileRequest,
   TopValue,
+  HistogramBin,
   NumericProfile,
   StringProfile,
+  DatetimeBucket,
   DatetimeProfile,
   FieldProfile,
 } from './fieldProfile';

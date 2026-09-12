@@ -368,6 +368,10 @@ Notes:
 - At most two queries run per profile: a scalar pass, plus a grouped top-values
   pass for non-numeric columns. When the grouped pass enumerates every value,
   the exact distinct count replaces the estimate.
+- Numeric profiles instead spend their second query on a histogram: `histogramBins`
+  equal-width bins over `min..max`, with empty bins returned as `count: 0` so the
+  chart has no gaps. Datetime profiles get bucket counts at a granularity chosen
+  from the span (hour / day / month / year).
 - Results are cached in memory (5 min TTL, LRU) keyed by column plus table,
   join/union, virtual column and datetime-part context. Pass an explicit
   `signal`; the shared abort controller would cancel unrelated metadata calls.

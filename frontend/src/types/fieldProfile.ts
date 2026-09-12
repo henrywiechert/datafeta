@@ -19,11 +19,18 @@ export interface FieldProfileRequest {
   virtualTable?: VirtualTableDefinition;
   profileKind: ProfileKind;
   topN?: number;
+  histogramBins?: number;
   approximate?: boolean;
 }
 
 export interface TopValue {
   value: unknown;
+  count: number;
+}
+
+export interface HistogramBin {
+  lower: number;
+  upper: number;
   count: number;
 }
 
@@ -36,6 +43,7 @@ export interface NumericProfile {
   median?: number | null;
   q3?: number | null;
   non_finite_count: number;
+  histogram: HistogramBin[];
 }
 
 export interface StringProfile {
@@ -45,9 +53,16 @@ export interface StringProfile {
   top_values: TopValue[];
 }
 
+export interface DatetimeBucket {
+  start: string;
+  count: number;
+}
+
 export interface DatetimeProfile {
   min?: string | null;
   max?: string | null;
+  bucket?: string | null;
+  buckets: DatetimeBucket[];
 }
 
 export interface FieldProfile {

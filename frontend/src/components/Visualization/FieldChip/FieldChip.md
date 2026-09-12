@@ -209,7 +209,9 @@ interface FieldMenuConfig {
 **Quick View** renders `QuickViewPanel`, which loads a statistical profile of the
 raw column (`POST /field-profile`) after a short hover delay and caches it per
 column + table context. It deliberately ignores active filters so the profile
-stays valid while filters are edited.
+stays valid while filters are edited. `QuickViewCharts.tsx` draws the inline
+glyphs (completeness bar, histogram + quartile strip, time sparkline, top-value
+bars) as plain SVG/CSS — no plotting library for a 240px popover.
 
 ---
 
