@@ -257,3 +257,7 @@ class SqlDialect(ABC):
     def string_length_sql(self, expr_sql: str) -> str:
         """Character length of a string expression (not byte length)."""
 
+    def date_trunc_sql(self, unit: str, expr_sql: str) -> str:
+        """Truncate a timestamp to `unit` ('hour', 'day', 'month', 'year')."""
+        return f"date_trunc('{unit}', {expr_sql})"
+

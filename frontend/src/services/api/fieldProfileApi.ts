@@ -31,6 +31,7 @@ function cacheKey(request: FieldProfileRequest): string {
     request.dateTimePart ?? '',
     request.dateTimeMode ?? '',
     request.topN ?? 5,
+    request.histogramBins ?? 24,
     request.approximate !== false,
     request.virtualTable ?? null,
     request.virtualColumns ?? null,

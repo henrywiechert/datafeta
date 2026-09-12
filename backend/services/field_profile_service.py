@@ -16,16 +16,18 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from backend.connectors.base import BaseConnector
 from backend.dialects import get_dialect
 from backend.exceptions import QueryExecutionError
 from backend.models.data_source import ConnectionDetails
 from backend.models.query import (
+    DatetimeBucket,
     DatetimeProfile,
     FieldProfileRequest,
     FieldProfileResponse,
+    HistogramBin,
     NumericProfile,
     StringProfile,
     TopValue,
@@ -34,6 +36,7 @@ from backend.services.query_components.column_source_resolver import (
     build_column_expression,
     resolve_column_source,
 )
+from backend.services.query_components.finite_guard_sql import finite_predicate_sql
 from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 from backend.services.validation_service import ValidationService
 
@@ -57,10 +60,23 @@ _MAX_LEN = '_qv_maxlen'
 _EMPTY_COUNT = '_qv_empty'
 _TOP_VALUE = '_qv_value'
 _TOP_COUNT = '_qv_count'
+_BIN = '_qv_bin'
+_SPAN_SECONDS = '_qv_span'
 # The profiled column is projected under this alias by an inner subquery, so the
 # statistics always aggregate a plain identifier. That also sidesteps ClickHouse
 # VIEWs built with `SELECT a.*`, where referencing the column directly fails.
 _EXPR = '_qv_expr'
+
+# Time bucket granularity by span, coarsening so a sparkline stays readable
+# (roughly 24-90 buckets) for anything from a day of logs to decades of sales.
+_HOUR = 3600
+_DAY = 24 * _HOUR
+_BUCKET_THRESHOLDS = (
+    (4 * _DAY, 'hour'),
+    (120 * _DAY, 'day'),
+    (2200 * _DAY, 'month'),
+)
+_MAX_TIME_BUCKETS = 120
 
 
 class FieldProfileService:
@@ -123,11 +139,15 @@ class FieldProfileService:
 
         if request.profileKind == 'numeric':
             response.numeric = self._build_numeric_profile(scalar_row, row_count, null_count)
-        elif request.profileKind == 'datetime':
-            response.datetime = DatetimeProfile(
-                min=self._as_optional_str(self._get(scalar_row, _MIN, 3)),
-                max=self._as_optional_str(self._get(scalar_row, _MAX, 4)),
+            response.numeric.histogram = self._load_histogram(
+                request,
+                expr_sql,
+                from_sql,
+                response.numeric,
+                finite_count=self._as_int(self._get(scalar_row, _FINITE_COUNT, 10)),
             )
+        elif request.profileKind == 'datetime':
+            response.datetime = self._load_datetime_profile(request, scalar_row, expr_sql, from_sql)
             response.string = StringProfile(top_values=top_values)
         else:
             response.string = StringProfile(
@@ -197,6 +217,11 @@ class FieldProfileService:
             parts.extend([
                 self._alias(d.to_string_expr(d.aggregate_sql('min', expr_sql)), _MIN),
                 self._alias(d.to_string_expr(d.aggregate_sql('max', expr_sql)), _MAX),
+                self._alias(
+                    f"{d.to_epoch_expr(d.aggregate_sql('max', expr_sql))} - "
+                    f"{d.to_epoch_expr(d.aggregate_sql('min', expr_sql))}",
+                    _SPAN_SECONDS,
+                ),
             ])
         else:
             length_sql = d.string_length_sql(d.to_string_expr(expr_sql))
@@ -236,6 +261,93 @@ class FieldProfileService:
             q3=self._as_optional_float(self._get(row, _Q3, 9)),
             non_finite_count=max(0, row_count - null_count - finite_count),
         )
+
+    def _load_histogram(
+        self,
+        request: FieldProfileRequest,
+        expr_sql: str,
+        from_sql: str,
+        numeric: NumericProfile,
+        *,
+        finite_count: int,
+    ) -> List[HistogramBin]:
+        """Equal-width bin counts over the finite values, min..max."""
+        bins = request.histogramBins
+        low, high = numeric.min, numeric.max
+        if bins <= 0 or low is None or high is None:
+            return []
+
+        if high == low:
+            # A constant column has no range to divide into bins.
+            return [HistogramBin(lower=low, upper=high, count=finite_count)]
+
+        width = (high - low) / bins
+        bin_expr = (
+            f"least(floor(({expr_sql} - {low}) / {width}), {bins - 1})"
+        )
+        sql = (
+            f"SELECT {self._alias(bin_expr, _BIN)}, "
+            f"{self._alias(self._dialect.count_star_sql(), _TOP_COUNT)} "
+            f"{from_sql} "
+            f"WHERE {expr_sql} IS NOT NULL AND {finite_predicate_sql(expr_sql)} "
+            f"GROUP BY {bin_expr} ORDER BY {self._quote(_BIN)}"
+        )
+
+        counts: Dict[int, int] = {}
+        for row in self._fetch_all(sql):
+            index = self._as_optional_int(self._get(row, _BIN, 0))
+            if index is not None and 0 <= index < bins:
+                counts[index] = self._as_int(self._get(row, _TOP_COUNT, 1))
+
+        return [
+            HistogramBin(
+                lower=low + i * width,
+                upper=low + (i + 1) * width,
+                count=counts.get(i, 0),
+            )
+            for i in range(bins)
+        ]
+
+    def _load_datetime_profile(
+        self,
+        request: FieldProfileRequest,
+        scalar_row: Any,
+        expr_sql: str,
+        from_sql: str,
+    ) -> DatetimeProfile:
+        profile = DatetimeProfile(
+            min=self._as_optional_str(self._get(scalar_row, _MIN, 3)),
+            max=self._as_optional_str(self._get(scalar_row, _MAX, 4)),
+        )
+        span_seconds = self._as_optional_float(self._get(scalar_row, _SPAN_SECONDS, 5))
+        if request.histogramBins <= 0 or span_seconds is None:
+            return profile
+
+        profile.bucket = self._choose_bucket(span_seconds)
+        bucket_expr = self._dialect.date_trunc_sql(profile.bucket, expr_sql)
+        sql = (
+            f"SELECT {self._alias(self._dialect.to_string_expr(bucket_expr), _TOP_VALUE)}, "
+            f"{self._alias(self._dialect.count_star_sql(), _TOP_COUNT)} "
+            f"{from_sql} "
+            f"WHERE {expr_sql} IS NOT NULL "
+            f"GROUP BY {bucket_expr} ORDER BY {bucket_expr} "
+            f"LIMIT {_MAX_TIME_BUCKETS}"
+        )
+        profile.buckets = [
+            DatetimeBucket(
+                start=str(self._get(row, _TOP_VALUE, 0)),
+                count=self._as_int(self._get(row, _TOP_COUNT, 1)),
+            )
+            for row in self._fetch_all(sql)
+        ]
+        return profile
+
+    @staticmethod
+    def _choose_bucket(span_seconds: float) -> str:
+        for threshold, unit in _BUCKET_THRESHOLDS:
+            if span_seconds <= threshold:
+                return unit
+        return 'year'
 
     def _alias(self, expr_sql: str, alias: str) -> str:
         return f"{expr_sql} AS {self._quote(alias)}"

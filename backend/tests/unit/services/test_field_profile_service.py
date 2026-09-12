@@ -55,7 +55,7 @@ class TestValidation:
 class TestDuckDbSql:
     def test_numeric_scalar_statistics(self):
         service, connector = _service(CSV, rows=[(["c"], [[100, 4, 30, 1.0, 9.0, 5.0, 2.0, 2.5, 5.0, 7.5, 90]])])
-        service.profile(_request())
+        service.profile(_request(histogramBins=0))
 
         sql = _sql_calls(connector)[0]
         assert 'COUNT(*) AS "_qv_rows"' in sql
@@ -221,7 +221,7 @@ class TestResponseMapping:
         service, _ = _service(CSV, rows=[
             (["c"], [[100, 4, 30, 1.0, 9.0, 5.0, 2.0, 2.5, 5.0, 7.5, 90]]),
         ])
-        result = service.profile(_request())
+        result = service.profile(_request(histogramBins=0))
 
         assert result.row_count == 100
         assert result.null_count == 4
@@ -259,7 +259,7 @@ class TestResponseMapping:
                       "_qv_stddev": 2.0, "_qv_q1": 3.0, "_qv_median": 5.0,
                       "_qv_q3": 7.0, "_qv_finite": 8}]),
         ])
-        result = service.profile(_request())
+        result = service.profile(_request(histogramBins=0))
 
         assert result.row_count == 10
         assert result.null_count == 2
@@ -273,3 +273,98 @@ class TestResponseMapping:
 
         assert result.row_count == 0
         assert result.numeric.min is None
+
+class TestHistogram:
+    def _numeric_rows(self, low, high, bin_rows):
+        return [
+            (["c"], [[100, 0, 30, low, high, 5.0, 2.0, 2.5, 5.0, 7.5, 100]]),
+            (["c"], bin_rows),
+        ]
+
+    def test_equal_width_bins_cover_the_full_range(self):
+        service, connector = _service(
+            CSV, rows=self._numeric_rows(0.0, 10.0, [[0, 40], [1, 35], [3, 25]])
+        )
+        result = service.profile(_request(histogramBins=4))
+
+        bins = result.numeric.histogram
+        assert [b.lower for b in bins] == [0.0, 2.5, 5.0, 7.5]
+        assert [b.upper for b in bins] == [2.5, 5.0, 7.5, 10.0]
+        # Bin 2 got no rows back and must still be present, so the chart has no gap.
+        assert [b.count for b in bins] == [40, 35, 0, 25]
+
+        hist_sql = _sql_calls(connector)[1]
+        assert 'least(floor(("_qv_expr" - 0.0) / 2.5), 3)' in hist_sql
+        assert 'WHERE "_qv_expr" IS NOT NULL AND isFinite("_qv_expr")' in hist_sql
+
+    def test_constant_column_yields_single_bin_without_extra_query(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[10, 0, 1, 5.0, 5.0, 5.0, 0.0, 5.0, 5.0, 5.0, 10]]),
+        ])
+        result = service.profile(_request(histogramBins=8))
+
+        assert len(_sql_calls(connector)) == 1
+        assert result.numeric.histogram == [
+            type(result.numeric.histogram[0])(lower=5.0, upper=5.0, count=10)
+        ]
+
+    def test_histogram_disabled_skips_the_pass(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[100, 0, 30, 0.0, 10.0, 5.0, 2.0, 2.5, 5.0, 7.5, 100]]),
+        ])
+        result = service.profile(_request(histogramBins=0))
+
+        assert len(_sql_calls(connector)) == 1
+        assert result.numeric.histogram == []
+
+    def test_all_null_column_skips_the_pass(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[50, 50, 0, None, None, None, None, None, None, None, 0]]),
+        ])
+        result = service.profile(_request())
+
+        assert len(_sql_calls(connector)) == 1
+        assert result.numeric.histogram == []
+
+
+class TestDatetimeBuckets:
+    def _datetime_rows(self, span_seconds, buckets):
+        return [
+            (["c"], [[100, 0, 40, "2024-01-01", "2024-03-01", span_seconds]]),
+            (["c"], []),
+            (["c"], buckets),
+        ]
+
+    @pytest.mark.parametrize("span_days,expected", [
+        (1, "hour"),
+        (30, "day"),
+        (400, "month"),
+        (4000, "year"),
+    ])
+    def test_granularity_coarsens_with_span(self, span_days, expected):
+        service, connector = _service(
+            CSV, rows=self._datetime_rows(span_days * 86400, [["2024-01-01", 5]])
+        )
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert result.datetime.bucket == expected
+        assert f"date_trunc('{expected}', \"_qv_expr\")" in _sql_calls(connector)[2]
+
+    def test_buckets_returned_in_order(self):
+        service, _ = _service(CSV, rows=self._datetime_rows(
+            60 * 86400, [["2024-01-01", 10], ["2024-01-02", 25], ["2024-01-03", 7]]
+        ))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert [b.start for b in result.datetime.buckets] == ["2024-01-01", "2024-01-02", "2024-01-03"]
+        assert [b.count for b in result.datetime.buckets] == [10, 25, 7]
+
+    def test_missing_span_skips_the_bucket_pass(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[0, 0, 0, None, None, None]]),
+            (["c"], []),
+        ])
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert len(_sql_calls(connector)) == 2
+        assert result.datetime.buckets == []

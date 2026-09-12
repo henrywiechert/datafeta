@@ -319,12 +319,20 @@ class FieldProfileRequest(BaseModel):
     virtualTable: Optional[VirtualTableDefinition] = None
     profileKind: ProfileKind = 'string'
     topN: int = Field(5, ge=0, le=50)
+    histogramBins: int = Field(24, ge=0, le=100)
     approximate: bool = True
 
 
 class TopValue(BaseModel):
     """One of the most frequent values of a column."""
     value: Any
+    count: int
+
+
+class HistogramBin(BaseModel):
+    """One equal-width bucket of a numeric distribution."""
+    lower: float
+    upper: float
     count: int
 
 
@@ -338,6 +346,8 @@ class NumericProfile(BaseModel):
     q3: Optional[float] = None
     # Rows excluded from the statistics above because they were NaN or +/-Inf.
     non_finite_count: int = 0
+    # Equal-width bins spanning min..max, with empty bins present as count 0.
+    histogram: List[HistogramBin] = Field(default_factory=list)
 
 
 class StringProfile(BaseModel):
@@ -347,9 +357,18 @@ class StringProfile(BaseModel):
     top_values: List[TopValue] = Field(default_factory=list)
 
 
+class DatetimeBucket(BaseModel):
+    """Row count for one time bucket."""
+    start: str
+    count: int
+
+
 class DatetimeProfile(BaseModel):
     min: Optional[str] = None
     max: Optional[str] = None
+    # Granularity chosen from the span: 'hour' | 'day' | 'month' | 'year'.
+    bucket: Optional[str] = None
+    buckets: List[DatetimeBucket] = Field(default_factory=list)
 
 
 class FieldProfileResponse(BaseModel):
