@@ -207,3 +207,53 @@ class SqlDialect(ABC):
         if self.supports_schema_prefix and database:
             return f"{self.quote_char}{database}{self.quote_char}.{self.quote_char}{table_name}{self.quote_char}"
         return f"{self.quote_char}{table_name}{self.quote_char}"
+
+    # --- Raw-SQL statistics (field profiling) --- #
+    #
+    # Field profiling assembles SQL strings rather than PyPika terms (like the
+    # box plot and CDF builders do), so it cannot go through AggregateSpec.
+    # These render the same statistics per engine.
+
+    @abstractmethod
+    def count_star_sql(self) -> str:
+        """Row count over all rows: 'count()' for ClickHouse, 'COUNT(*)' for DuckDB."""
+
+    @abstractmethod
+    def count_if_sql(self, condition_sql: str) -> str:
+        """Count of rows satisfying `condition_sql`."""
+
+    @abstractmethod
+    def distinct_count_sql(self, expr_sql: str, *, approximate: bool = False) -> str:
+        """
+        Distinct value count.
+
+        The approximate form is HyperLogLog-based: fixed memory regardless of
+        cardinality, typically within 1-2% (and exact for small cardinalities),
+        where the exact form must materialise every distinct value.
+        """
+
+    @abstractmethod
+    def aggregate_sql(self, func: str, expr_sql: str, *, finite_guard: bool = False) -> str:
+        """
+        Scalar aggregate over a column expression.
+
+        Args:
+            func: One of 'count', 'min', 'max', 'avg', 'stddev'.
+            expr_sql: Already-quoted column expression.
+            finite_guard: Restrict to finite values. Only valid for numeric
+                columns -- isFinite() on a string or date is an error.
+        """
+
+    @abstractmethod
+    def quantile_sql(self, expr_sql: str, quantile: float, *, finite_guard: bool = False) -> str:
+        """
+        Interpolating quantile, matching the median measure and box plot.
+
+        Both engines use the exact/continuous variant so the same column yields
+        the same median everywhere in the product.
+        """
+
+    @abstractmethod
+    def string_length_sql(self, expr_sql: str) -> str:
+        """Character length of a string expression (not byte length)."""
+

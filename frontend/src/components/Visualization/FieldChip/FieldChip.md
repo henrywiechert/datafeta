@@ -201,8 +201,15 @@ interface FieldMenuConfig {
   allowAggregationChange: boolean; // SUM/AVG/MIN/MAX/COUNT
   allowBarSortOrder: boolean;      // Bar sort order (axes only)
   allowDateTimePart: boolean;      // DateTime part submenu
+  allowCreateBins: boolean;        // "Create Bins..." (available fields only)
+  allowQuickView: boolean;         // Quick View profile (available fields only)
 }
 ```
+
+**Quick View** renders `QuickViewPanel`, which loads a statistical profile of the
+raw column (`POST /field-profile`) after a short hover delay and caches it per
+column + table context. It deliberately ignores active filters so the profile
+stays valid while filters are edited.
 
 ---
 

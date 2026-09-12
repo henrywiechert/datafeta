@@ -14,8 +14,11 @@ from backend.models.query import Filter, QueryDescription
 from backend.exceptions import QueryExecutionError, InvalidInputError
 from backend.dialects import get_dialect
 from backend.services.validation_service import ValidationService
-from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.cast_field_applier import get_field_with_cast
+from backend.services.query_components.column_source_resolver import (
+    build_column_expression,
+    resolve_column_source,
+)
 from backend.services.query_components.field_reference_parser import FieldReferenceParser
 from backend.services.query_components.filter_builder import FilterBuilder
 from backend.services.query_components.filter_table_scope import scope_filters_to_table
@@ -154,256 +157,44 @@ class CardinalityService:
         filters: Optional[List[Filter]] = None,
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query.
-        
+
         For JOINed tables: We query the specific source table directly, not the JOIN.
         This ensures we get ALL distinct values from that table, not just the ones
-        that match the JOIN condition.
-        
-        Source table resolution priority:
-        1. Explicit source_table parameter (from Column.table_name, passed by frontend)
-        2. Virtual table + field prefix matching (legacy fallback)
-        3. Default to primary table
-        
-        IMPORTANT: Column names can legitimately contain dots (e.g., 'tableName.colName'
-        is a single column name in some databases). We must NOT split on dots blindly.
+        that match the JOIN condition. See `column_source_resolver`.
         """
-        # Import here to avoid circular dependency
-        from backend.services.query_components.virtual_column_builder import VirtualColumnExpressionBuilder
-        
-        has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
-        has_union_tables = virtual_table and virtual_table.mode == 'union' and virtual_table.union_tables and len(virtual_table.union_tables) > 0
+        resolved = resolve_column_source(
+            field=field,
+            table=table,
+            database=database,
+            dialect=self._dialect,
+            db_type=self.conn_details.type,
+            type_provider=self._type_provider,
+            virtual_columns=virtual_columns,
+            virtual_table=virtual_table,
+            source_table=source_table,
+            log_context="Cardinality query",
+        )
 
-        def _normalize_table_name(table_ref: Optional[str]) -> Optional[str]:
-            """Return bare table name from either 'table' or 'database/table' references."""
-            if not table_ref:
-                return table_ref
-            if '/' in table_ref:
-                parts = table_ref.split('/', 1)
-                return parts[1] if len(parts) == 2 else table_ref
-            return table_ref
-        
-        # Track whether we resolved a source table from a JOIN (for ClickHouse subquery wrapping)
-        resolved_from_join = False
-        resolved_table_name = table  # Default to the function parameter (primary table)
-        # True when the resolved table's columns literally include the table-name prefix,
-        # so filter fields must keep theirs too.
-        field_prefix_is_column_name = False
-        
-        # Build set of known table names from virtual table definition (for safe prefix checks)
-        known_tables = set()
-        if virtual_table:
-            known_tables.add(_normalize_table_name(virtual_table.primary_table))
-            for jt in virtual_table.joined_tables:
-                known_tables.add(_normalize_table_name(jt.table_name))
-            for ut in virtual_table.union_tables:
-                known_tables.add(_normalize_table_name(ut.table_name))
-            known_tables.discard(None)
+        field = resolved.field
+        db_table = resolved.db_table
+        table_map = resolved.table_map
+        known_tables = resolved.known_tables
+        resolved_table_name = resolved.resolved_table_name
+        resolved_from_join = resolved.resolved_from_join
+        field_prefix_is_column_name = resolved.field_prefix_is_column_name
+        vc_builder = resolved.vc_builder
 
-        # --- Source table resolution ---
-        # Priority 1: Explicit source_table from Column.table_name (most reliable)
-        if source_table and source_table != table:
-            # The field name from the merge service is prefixed: "sourceTable.actualColumnName"
-            # Strip the table prefix to get the real DB column name
-            prefix = source_table + '.'
-            if field.startswith(prefix):
-                field = field[len(prefix):]
-            
-            if self._dialect.supports_schema_prefix and database:
-                db_table = Table(source_table, schema=database)
-            else:
-                db_table = Table(source_table)
-            
-            count_query = Query.from_(db_table)
-            table_map = {source_table: db_table}
-            resolved_from_join = True
-            resolved_table_name = source_table
-            
-            logger.info(f"Cardinality query: Using explicit source table '{source_table}' for field '{field}' (from Column.table_name)")
-        
-        # Priority 2: Virtual table + field prefix matching (legacy/fallback)
-        elif has_joined_tables and '.' in field:
-            parts = field.split('.', 1)
-            if len(parts) == 2:
-                potential_table_name = parts[0]
-                remaining = parts[1]
-                
-                if potential_table_name in known_tables:
-                    source_table_name = potential_table_name
-                    source_column_name = remaining
-                    
-                    # Query the source table directly
-                    if self._dialect.supports_schema_prefix and database:
-                        db_table = Table(source_table_name, schema=database)
-                    else:
-                        db_table = Table(source_table_name)
-                    
-                    count_query = Query.from_(db_table)
-                    table_map = {source_table_name: db_table}
-                    field = source_column_name
-                    resolved_from_join = True
-                    resolved_table_name = source_table_name
-                    
-                    logger.info(f"Cardinality query: Using source table '{source_table_name}' directly for field '{source_column_name}' (bypassing JOIN, from field prefix)")
-                else:
-                    # Prefix doesn't match any known table — the dot is part of the column name
-                    logger.info(
-                        f"Cardinality query: Field '{field}' has dot but prefix '{potential_table_name}' "
-                        f"is not a known table ({known_tables}). Treating full name as column name."
-                    )
-                    if self._dialect.supports_schema_prefix and database:
-                        db_table = Table(table, schema=database)
-                    else:
-                        db_table = Table(table)
-                    count_query = Query.from_(db_table)
-                    table_map = {table: db_table}
-            else:
-                if self._dialect.supports_schema_prefix and database:
-                    db_table = Table(table, schema=database)
-                else:
-                    db_table = Table(table)
-                count_query = Query.from_(db_table)
-                table_map = {table: db_table}
+        count_query = Query.from_(db_table)
 
-        # Priority 2b: UNION mode + dotted field where prefix matches a known table.
-        # In this case, the dotted value may be a *literal* column name (e.g.
-        # 'dlPreSchedData.raState'), so we switch source table but DO NOT split field.
-        elif has_union_tables and '.' in field:
-            parts = field.split('.', 1)
-            if len(parts) == 2:
-                potential_table_name = parts[0]
+        field_expr = build_column_expression(
+            resolved,
+            dialect=self._dialect,
+            database=database,
+            type_provider=self._type_provider,
+            datetime_part=datetime_part,
+            datetime_mode=datetime_mode,
+        )
 
-                if potential_table_name in known_tables:
-                    source_table_name = potential_table_name
-                    if self._dialect.supports_schema_prefix and database:
-                        db_table = Table(source_table_name, schema=database)
-                    else:
-                        db_table = Table(source_table_name)
-
-                    count_query = Query.from_(db_table)
-                    table_map = {source_table_name: db_table}
-                    resolved_from_join = True
-                    resolved_table_name = source_table_name
-                    field_prefix_is_column_name = True
-
-                    logger.info(
-                        f"Cardinality query: UNION mode resolved source table '{source_table_name}' "
-                        f"for dotted field '{field}' without splitting column name"
-                    )
-                else:
-                    if self._dialect.supports_schema_prefix and database:
-                        db_table = Table(table, schema=database)
-                    else:
-                        db_table = Table(table)
-                    count_query = Query.from_(db_table)
-                    table_map = {table: db_table}
-            else:
-                if self._dialect.supports_schema_prefix and database:
-                    db_table = Table(table, schema=database)
-                else:
-                    db_table = Table(table)
-                count_query = Query.from_(db_table)
-                table_map = {table: db_table}
-        
-        # Priority 3: source_table matches the primary table — just strip the prefix
-        elif source_table and source_table == table and field.startswith(source_table + '.'):
-            field = field[len(source_table) + 1:]
-            if self._dialect.supports_schema_prefix and database:
-                db_table = Table(table, schema=database)
-            else:
-                db_table = Table(table)
-            count_query = Query.from_(db_table)
-            table_map = {table: db_table}
-            logger.info(f"Cardinality query: Stripped primary table prefix from field, using '{field}' from '{table}'")
-        
-        # Default: use primary table as-is
-        elif self._dialect.supports_schema_prefix and database:
-            db_table = Table(table, schema=database)
-            count_query = Query.from_(db_table)
-            table_map = {table: db_table}
-        else:
-            db_table = Table(table)
-            count_query = Query.from_(db_table)
-            table_map = {table: db_table}
-
-        # JOIN queries: expand table_map so virtual column expressions can resolve
-        # table-qualified refs (e.g. drivers.givenName -> drivers.givenName).
-        if virtual_columns and has_joined_tables:
-            table_map = self._expand_table_map(table_map, known_tables, database, self._dialect)
-        
-        # Initialize virtual column builder if virtual columns are defined
-        vc_builder = None
-        if virtual_columns:
-            db_type = self.conn_details.type
-            column_types = None
-            if db_type in {'duckdb', 'csv', 'file', 'sqlite', 'kaggle', 'hive_parquet', 'huggingface'}:
-                column_types = self._type_provider.get_types(None, resolved_table_name)
-            vc_builder = VirtualColumnExpressionBuilder(
-                table_map=table_map,
-                default_table=db_table,
-                db_type=db_type,
-                column_types=column_types,
-                source_database=database,
-                source_table=resolved_table_name,
-            )
-            
-            # Register all virtual columns
-            for vc in virtual_columns:
-                try:
-                    vc_builder.register_virtual_column(vc)
-                    logger.debug(f"Registered virtual column for cardinality: {vc.name}")
-                except Exception as e:
-                    logger.error(f"Failed to register virtual column '{vc.name}': {e}")
-                    raise QueryExecutionError(f"Invalid virtual column '{vc.name}': {e}")
-
-        # Virtual columns may reference a non-primary joined table — query that table directly.
-        if vc_builder and vc_builder.is_virtual_column(field):
-            source_fields = vc_builder.get_source_fields(field)
-            inferred_table = self._infer_single_source_table(
-                source_fields, known_tables, table
-            )
-            if inferred_table and inferred_table != resolved_table_name:
-                resolved_table_name = inferred_table
-                resolved_from_join = True
-                if self._dialect.supports_schema_prefix and database:
-                    db_table = Table(inferred_table, schema=database)
-                else:
-                    db_table = Table(inferred_table)
-                count_query = Query.from_(db_table)
-                logger.info(
-                    "Cardinality query: Virtual column '%s' resolved to source table '%s'",
-                    field,
-                    inferred_table,
-                )
-        
-        # Determine the field expression to count
-        # Check if this is a virtual column first
-        if vc_builder and vc_builder.is_virtual_column(field):
-            field_expr = vc_builder.get_virtual_column_term(field)
-            logger.debug(f"Using virtual column expression for cardinality count: {field}")
-        elif datetime_part and datetime_mode:
-            # For datetime parts, extract the part first using DateTimeService
-            # Note: At this point, 'field' is already the column name (not table-qualified)
-            # because we extracted the source table earlier for joined table cases
-            base_field = db_table[field]
-
-            # Detect string columns overridden to DateTime so they get parsed before
-            # datetime functions are applied (otherwise the DB raises an illegal-type error).
-            source_type = self._type_provider.source_type(
-                field, database, resolved_table_name
-            )
-
-            field_expr = DateTimeService.get_datetime_part_expression(
-                base_field, 
-                datetime_part, 
-                datetime_mode, 
-                self._dialect,
-                source_type=source_type,
-            )
-        else:
-            # Use the field directly - it's already the column name
-            # (table prefix was handled above when extracting source table)
-            field_expr = db_table[field]
-        
         # Build count query using custom CountDistinct
         count_expr = CountDistinct(field_expr)
         count_query = count_query.select(count_expr.as_('count'))
@@ -516,43 +307,6 @@ class CardinalityService:
             criterion_sql.append(criterion.get_sql(quote_char=quote_char))
         return count_query, criterion_sql
 
-    @staticmethod
-    def _expand_table_map(
-        table_map: dict,
-        known_tables: set,
-        database: Optional[str],
-        dialect,
-    ) -> dict:
-        """Include all joined tables in table_map for virtual column name resolution."""
-        expanded = dict(table_map)
-        for tname in known_tables:
-            if tname in expanded:
-                continue
-            if dialect.supports_schema_prefix and database:
-                expanded[tname] = Table(tname, schema=database)
-            else:
-                expanded[tname] = Table(tname)
-        return expanded
-
-    @staticmethod
-    def _infer_single_source_table(
-        source_fields: List[str],
-        known_tables: set,
-        default_table: str,
-    ) -> Optional[str]:
-        """When all source fields belong to one table, return that table name."""
-        tables: set = set()
-        for field_name in source_fields:
-            if '.' in field_name:
-                prefix = field_name.split('.', 1)[0]
-                if prefix in known_tables:
-                    tables.add(prefix)
-                    continue
-            tables.add(default_table)
-        if len(tables) == 1:
-            return next(iter(tables))
-        return None
-    
     def _apply_regex_filter(
         self,
         count_query: Query,

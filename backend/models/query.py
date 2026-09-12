@@ -297,3 +297,72 @@ class DistinctCountRequest(BaseModel):
 class CountResponse(BaseModel):
     """Response body for count endpoints."""
     count: int
+
+
+ProfileKind = Literal['numeric', 'string', 'datetime', 'boolean']
+
+
+class FieldProfileRequest(BaseModel):
+    """Request body for POST /field-profile.
+
+    Describes the raw column: no active filters are applied, so the profile stays
+    valid (and cacheable) while the user edits filters. The table/join/union/cast
+    context is still required because it defines what the column *is*.
+    """
+    field: str
+    table: str
+    database: Optional[str] = None
+    sourceTable: Optional[str] = None  # explicit source table (multi-table JOIN support)
+    dateTimePart: Optional[str] = None
+    dateTimeMode: Optional[str] = None
+    virtualColumns: Optional[List[VirtualColumnDefinition]] = None
+    virtualTable: Optional[VirtualTableDefinition] = None
+    profileKind: ProfileKind = 'string'
+    topN: int = Field(5, ge=0, le=50)
+    approximate: bool = True
+
+
+class TopValue(BaseModel):
+    """One of the most frequent values of a column."""
+    value: Any
+    count: int
+
+
+class NumericProfile(BaseModel):
+    min: Optional[float] = None
+    max: Optional[float] = None
+    mean: Optional[float] = None
+    stddev: Optional[float] = None
+    q1: Optional[float] = None
+    median: Optional[float] = None
+    q3: Optional[float] = None
+    # Rows excluded from the statistics above because they were NaN or +/-Inf.
+    non_finite_count: int = 0
+
+
+class StringProfile(BaseModel):
+    min_length: Optional[int] = None
+    max_length: Optional[int] = None
+    empty_count: int = 0
+    top_values: List[TopValue] = Field(default_factory=list)
+
+
+class DatetimeProfile(BaseModel):
+    min: Optional[str] = None
+    max: Optional[str] = None
+
+
+class FieldProfileResponse(BaseModel):
+    """Response body for POST /field-profile."""
+    field: str
+    profile_kind: ProfileKind
+    # True when distinct_count came from HyperLogLog rather than an exact count.
+    approximate: bool
+    row_count: int
+    null_count: int
+    distinct_count: Optional[int] = None
+    numeric: Optional[NumericProfile] = None
+    string: Optional[StringProfile] = None
+    datetime: Optional[DatetimeProfile] = None
+    duration_ms: int = 0
+    query_sql: Optional[str] = None

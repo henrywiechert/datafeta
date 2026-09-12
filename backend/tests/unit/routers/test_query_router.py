@@ -15,8 +15,15 @@ from fastapi.testclient import TestClient
 from backend.dependencies import get_active_connector, get_connection_details
 from backend.exceptions import QueryExecutionError
 from backend.models.data_source import ConnectionDetails
-from backend.models.query import FilterConfigEntry, QueryResult, RowCountRequest
+from backend.models.query import (
+    FieldProfileRequest,
+    FieldProfileResponse,
+    FilterConfigEntry,
+    QueryResult,
+    RowCountRequest,
+)
 from backend.routers import query as query_router
+from backend.services.field_profile_service import FieldProfileService
 from backend.services.filter_conversion_service import FilterConversionService
 from backend.services.query_execution_service import QueryExecutionService
 
@@ -284,3 +291,50 @@ class TestFilterConfigEntryEquivalence:
             "type": "hexbin",
         })
         assert raw == typed == []
+
+
+class TestFieldProfileEndpoint:
+    """Tests for POST /field-profile request contract."""
+
+    def test_missing_field_returns_422(self):
+        client = make_client()
+        response = client.post("/field-profile", json={"table": "sales"})
+        assert response.status_code == 422
+
+    def test_top_n_upper_bound_enforced(self):
+        client = make_client()
+        response = client.post(
+            "/field-profile",
+            json={"field": "price", "table": "sales", "topN": 500},
+        )
+        assert response.status_code == 422
+
+    def test_happy_path_returns_profile(self):
+        client = make_client()
+        profile = FieldProfileResponse(
+            field="price",
+            profile_kind="numeric",
+            approximate=True,
+            row_count=100,
+            null_count=3,
+            distinct_count=42,
+        )
+        with patch.object(FieldProfileService, 'profile', return_value=profile) as mock_profile:
+            response = client.post(
+                "/field-profile",
+                json={"field": "price", "table": "sales", "profileKind": "numeric"},
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["row_count"] == 100
+        assert body["distinct_count"] == 42
+        assert body["approximate"] is True
+
+        request_arg = mock_profile.call_args.args[0]
+        assert isinstance(request_arg, FieldProfileRequest)
+        assert request_arg.field == "price"
+        # Defaults matter: profiles describe the raw column with an estimated
+        # distinct count unless the caller asks otherwise.
+        assert request_arg.approximate is True
+        assert request_arg.topN == 5

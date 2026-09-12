@@ -17,11 +17,14 @@ from backend.models.data_source import ConnectionDetails
 from backend.models.query import (
     CountResponse,
     DistinctCountRequest,
+    FieldProfileRequest,
+    FieldProfileResponse,
     QueryDescription,
     QueryResult,
     RowCountRequest,
 )
 from backend.services.cardinality_service import CardinalityService
+from backend.services.field_profile_service import FieldProfileService
 from backend.services.query_execution_service import QueryExecutionService
 
 logger = logging.getLogger(__name__)
@@ -81,6 +84,17 @@ def get_distinct_count(
     )
     
     return CountResponse(count=count)
+
+
+@router.post("/field-profile", response_model=FieldProfileResponse)
+def get_field_profile(
+    request: FieldProfileRequest = Body(...),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """Statistical profile of a single raw column, for the Quick View panel."""
+    service = FieldProfileService(connector, conn_details)
+    return service.profile(request)
 
 
 @router.post("/query", response_model=QueryResult, response_model_exclude_none=True)

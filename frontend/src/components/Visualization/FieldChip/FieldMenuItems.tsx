@@ -8,6 +8,7 @@ import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
 import { DragSource } from './types';
 import ColumnCastingDialog from './ColumnCastingDialog';
 import { FieldAliasDialog } from './FieldAliasDialog';
+import QuickViewPanel from './QuickViewPanel';
 import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 import { isSyntheticField } from '../../../utils/syntheticFields';
 import { FieldMenuConfig } from './fieldMenuConfig';
@@ -136,6 +137,14 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         </>
       )}
       
+      {/* Quick View: profile of the raw column, loaded on hover */}
+      {menuConfig.allowQuickView && !isBulkEdit && !isSynthetic && (
+        <>
+          <QuickViewPanel field={field} />
+          <div className={menuStyles.separator} />
+        </>
+      )}
+
       {menuConfig.allowTypeChange && (
         <>
           <div 

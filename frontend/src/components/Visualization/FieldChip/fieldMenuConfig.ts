@@ -28,6 +28,9 @@ export interface FieldMenuConfig {
 
   /** Allow creating binned fields (histogram support) - only in available fields panel */
   allowCreateBins: boolean;
+
+  /** Show the Quick View field profile - only in available fields panel */
+  allowQuickView: boolean;
 }
 
 /**
@@ -51,6 +54,7 @@ export function getDefaultFieldMenuConfig(source: DragSource): FieldMenuConfig {
     allowBarSortOrder: isAxis,
     allowDateTimePart: true,
     allowCreateBins: isAvailableFields,
+    allowQuickView: isAvailableFields,
   };
 }
 
