@@ -60,11 +60,25 @@ export interface DatetimeBucket {
   count: number;
 }
 
+export interface DatetimeGap {
+  start: string;
+  length: number;
+}
+
 export interface DatetimeProfile {
   min?: string | null;
   max?: string | null;
+  span_seconds?: number | null;
+  /** Finest unit every value sits on; null means sub-second precision. */
+  resolution?: string | null;
   bucket?: string | null;
+  /** Continuous series including empty buckets, so gaps are visible. */
   buckets: DatetimeBucket[];
+  expected_buckets: number;
+  populated_buckets: number;
+  gaps: DatetimeGap[];
+  /** Series hit the bucket cap, so coverage and gaps were not computed. */
+  truncated: boolean;
 }
 
 export interface FieldProfile {

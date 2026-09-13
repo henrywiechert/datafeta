@@ -51,3 +51,51 @@ export const formatBucketLabel = (start: string, bucket?: string | null): string
   if (bucket === 'hour') return start.slice(5, 16);
   return start.slice(0, 10);
 };
+
+const DURATION_UNITS: Array<[string, number]> = [
+  ['year', 365.2425 * 86400],
+  ['month', 30.436875 * 86400],
+  ['day', 86400],
+  ['hour', 3600],
+  ['min', 60],
+  ['sec', 1],
+];
+
+const plural = (count: number, unit: string): string =>
+  `${count} ${unit}${count === 1 || unit === 'min' || unit === 'sec' ? '' : 's'}`;
+
+/** Coarse human duration, e.g. '2 years 8 months' or '14 days 6 hours'. */
+export const formatDuration = (seconds: number | null | undefined): string => {
+  if (seconds === null || seconds === undefined || Number.isNaN(seconds)) return '—';
+  if (seconds < 1) return '< 1 sec';
+
+  let remaining = seconds;
+  const parts: string[] = [];
+  for (const [unit, size] of DURATION_UNITS) {
+    const count = Math.floor(remaining / size);
+    if (count > 0) {
+      parts.push(plural(count, unit));
+      remaining -= count * size;
+    }
+    // Two units is enough to convey scale; more just adds noise.
+    if (parts.length === 2) break;
+  }
+  return parts.join(' ');
+};
+
+/** Engines return 'YYYY-MM-DD HH:MM:SS', which Safari will not parse as-is. */
+export const parseTimestamp = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(value.trim().replace(' ', 'T'));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+/** How long ago a timestamp was, e.g. '3 days ago'. */
+export const formatRelative = (value: string | null | undefined): string => {
+  const parsed = parseTimestamp(value);
+  if (!parsed) return '—';
+  const deltaSeconds = (Date.now() - parsed.getTime()) / 1000;
+  if (deltaSeconds < 0) return `in ${formatDuration(-deltaSeconds)}`;
+  if (deltaSeconds < 60) return 'just now';
+  return `${formatDuration(deltaSeconds)} ago`;
+};

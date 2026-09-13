@@ -27,9 +27,13 @@ interface ColumnChartProps {
   titles: string[];
   leftLabel: string;
   rightLabel: string;
+  /** Shade slots with no rows, so a gap reads as a hole rather than a flat run. */
+  markEmpty?: boolean;
 }
 
-const ColumnChart: React.FC<ColumnChartProps> = ({ counts, titles, leftLabel, rightLabel }) => {
+const ColumnChart: React.FC<ColumnChartProps> = ({
+  counts, titles, leftLabel, rightLabel, markEmpty,
+}) => {
   const peak = Math.max(...counts, 1);
   const slot = CHART_WIDTH / counts.length;
   const barWidth = Math.max(1, slot - 1);
@@ -45,8 +49,22 @@ const ColumnChart: React.FC<ColumnChartProps> = ({ counts, titles, leftLabel, ri
         role="img"
       >
         {counts.map((count, i) => {
+          if (count === 0) {
+            return markEmpty ? (
+              <rect
+                key={i}
+                x={i * slot}
+                y={0}
+                width={barWidth}
+                height={BARS_HEIGHT}
+                className={styles.emptySlot}
+              >
+                <title>{titles[i]}</title>
+              </rect>
+            ) : null;
+          }
           // Non-empty buckets keep a 1px stub so rare values stay visible.
-          const height = count === 0 ? 0 : Math.max(1, (count / peak) * BARS_HEIGHT);
+          const height = Math.max(1, (count / peak) * BARS_HEIGHT);
           return (
             <rect
               key={i}
@@ -136,11 +154,15 @@ export const TimeDistribution: React.FC<{
   return (
     <ColumnChart
       counts={buckets.map(b => b.count)}
-      titles={buckets.map(
-        b => `${formatBucketLabel(b.start, bucket)}: ${formatInteger(b.count)}`,
-      )}
+      titles={buckets.map(b => {
+        const label = formatBucketLabel(b.start, bucket);
+        return b.count === 0
+          ? `${label}: no rows`
+          : `${label}: ${formatInteger(b.count)}`;
+      })}
       leftLabel={formatBucketLabel(buckets[0].start, bucket)}
       rightLabel={formatBucketLabel(buckets[buckets.length - 1].start, bucket)}
+      markEmpty
     />
   );
 };

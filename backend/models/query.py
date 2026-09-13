@@ -366,12 +366,30 @@ class DatetimeBucket(BaseModel):
     count: int
 
 
+class DatetimeGap(BaseModel):
+    """A run of consecutive empty buckets."""
+    start: str
+    length: int
+
+
 class DatetimeProfile(BaseModel):
     min: Optional[str] = None
     max: Optional[str] = None
+    span_seconds: Optional[float] = None
+    # Finest unit every value lands on: 'day' | 'hour' | 'minute' | 'second'.
+    # None means sub-second precision is in use.
+    resolution: Optional[str] = None
     # Granularity chosen from the span: 'hour' | 'day' | 'month' | 'year'.
     bucket: Optional[str] = None
+    # Complete series from the first to the last populated bucket; empty buckets
+    # are present with count 0 so gaps are visible rather than absent.
     buckets: List[DatetimeBucket] = Field(default_factory=list)
+    expected_buckets: int = 0
+    populated_buckets: int = 0
+    # Longest gaps first. Only meaningful when `truncated` is False.
+    gaps: List[DatetimeGap] = Field(default_factory=list)
+    # The series hit the bucket cap, so coverage and gaps were not computed.
+    truncated: bool = False
 
 
 class FieldProfileResponse(BaseModel):

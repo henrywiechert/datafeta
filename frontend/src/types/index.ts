@@ -21,6 +21,7 @@ export type {
   NumericProfile,
   StringProfile,
   DatetimeBucket,
+  DatetimeGap,
   DatetimeProfile,
   FieldProfile,
 } from './fieldProfile';

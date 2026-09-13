@@ -365,16 +365,24 @@ Notes:
   fixed memory regardless of cardinality, typically within 1–2%, and exact for
   small cardinalities. `approximate: false` forces an exact count. The response
   echoes `approximate`, which the UI renders as a `~` prefix.
-- At most two queries run per profile: a scalar pass, plus a grouped top-values
-  pass for non-numeric columns. When the grouped pass enumerates every value,
-  the exact distinct count replaces the estimate.
+- At most two queries run per profile: a scalar pass, plus one distribution pass.
+  For string columns that second pass is the grouped top-values list; when it
+  enumerates every value, the exact distinct count replaces the estimate.
 - Numeric profiles instead spend their second query on the distribution. Columns
   with more than 12 distinct values get `histogram`: `histogramBins` equal-width
   bins over `min..max`, with empty bins returned as `count: 0` so the chart has
   no gaps. Columns at or below that get `value_counts` instead — every distinct
   value in ascending order, which also yields an exact `distinct_count`. Only one
-  of the two is ever populated. Datetime profiles get bucket counts at a
-  granularity chosen from the span (hour / day / month / year).
+  of the two is ever populated.
+- Datetime profiles report `span_seconds`, a detected `resolution`
+  (`day`/`hour`/`minute`/`second`, or null for sub-second), and a **continuous**
+  bucket series at a granularity chosen from the span (hour / day / month /
+  year). Empty buckets are present with `count: 0`, so `expected_buckets`,
+  `populated_buckets` and `gaps` describe coverage. Gaps shorter than one bucket
+  cannot be seen, so the UI labels coverage with the unit. When the series hits
+  the bucket cap, `truncated` is set and the coverage fields are left unset.
+  The top-values pass is skipped for datetimes unless the column is
+  low-cardinality — listing unique timestamps is noise.
 - `_source_table` / `_source_database` are literals the UNION builder injects per
   branch, not real columns, so they are profiled by counting rows per branch
   instead of being selected. The result is an exact row count per source table

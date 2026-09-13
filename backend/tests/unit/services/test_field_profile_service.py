@@ -2,7 +2,7 @@
 """Unit tests for FieldProfileService (Quick View)."""
 
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from backend.exceptions import InvalidInputError
 from backend.models.data_source import (
@@ -496,9 +496,9 @@ class TestDiscreteNumericValues:
 
 class TestDatetimeBuckets:
     def _datetime_rows(self, span_seconds, buckets):
+        # rows, nulls, distinct, min, max, span, then one counter per resolution.
         return [
-            (["c"], [[100, 0, 40, "2024-01-01", "2024-03-01", span_seconds]]),
-            (["c"], []),
+            (["c"], [[100, 0, 40, "2024-01-01", "2024-03-01", span_seconds, 100, 0, 0, 0]]),
             (["c"], buckets),
         ]
 
@@ -515,7 +515,7 @@ class TestDatetimeBuckets:
         result = service.profile(_request(field="created_at", profileKind="datetime"))
 
         assert result.datetime.bucket == expected
-        assert f"date_trunc('{expected}', \"_qv_expr\")" in _sql_calls(connector)[2]
+        assert f"date_trunc('{expected}', \"_qv_expr\")" in _sql_calls(connector)[1]
 
     def test_buckets_returned_in_order(self):
         service, _ = _service(CSV, rows=self._datetime_rows(
@@ -525,13 +525,142 @@ class TestDatetimeBuckets:
 
         assert [b.start for b in result.datetime.buckets] == ["2024-01-01", "2024-01-02", "2024-01-03"]
         assert [b.count for b in result.datetime.buckets] == [10, 25, 7]
+        assert result.datetime.expected_buckets == 3
+        assert result.datetime.populated_buckets == 3
+        assert result.datetime.gaps == []
+
+    def test_missing_buckets_are_filled_with_zero(self):
+        """A gap must render as a hole, not as a narrower chart."""
+        service, _ = _service(CSV, rows=self._datetime_rows(
+            60 * 86400, [["2024-01-01", 10], ["2024-01-05", 4], ["2024-01-06", 8]]
+        ))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert [b.start for b in result.datetime.buckets] == [
+            "2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05", "2024-01-06",
+        ]
+        assert [b.count for b in result.datetime.buckets] == [10, 0, 0, 0, 4, 8]
+        assert result.datetime.expected_buckets == 6
+        assert result.datetime.populated_buckets == 3
+
+    def test_gaps_reported_longest_first(self):
+        service, _ = _service(CSV, rows=self._datetime_rows(
+            60 * 86400,
+            [["2024-01-01", 1], ["2024-01-03", 1], ["2024-01-07", 1]],
+        ))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert [(g.start, g.length) for g in result.datetime.gaps] == [
+            ("2024-01-04", 3), ("2024-01-02", 1),
+        ]
+
+    def test_month_buckets_step_by_calendar_month(self):
+        service, _ = _service(CSV, rows=self._datetime_rows(
+            400 * 86400, [["2024-11-01", 5], ["2025-02-01", 3]]
+        ))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert [b.start for b in result.datetime.buckets] == [
+            "2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01",
+        ]
+        assert [(g.start, g.length) for g in result.datetime.gaps] == [("2024-12-01", 2)]
+
+    def test_timestamp_labels_are_normalised(self):
+        service, _ = _service(CSV, rows=self._datetime_rows(
+            3600, [["2024-01-01 00:00:00", 5], ["2024-01-01 02:00:00", 2]]
+        ))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert [b.start for b in result.datetime.buckets] == [
+            "2024-01-01 00:00:00", "2024-01-01 01:00:00", "2024-01-01 02:00:00",
+        ]
+
+    def test_truncated_series_skips_coverage_and_gaps(self):
+        overflow = [[f"2024-01-01 {h:02d}:00:00", 1] for h in range(24)]
+        # Span picks hour buckets, but the returned window exceeds the cap.
+        service, _ = _service(CSV, rows=self._datetime_rows(3600, overflow))
+        with patch(
+            "backend.services.field_profile_service._MAX_TIME_BUCKETS", 10
+        ):
+            result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert result.datetime.truncated is True
+        assert result.datetime.expected_buckets == 0
+        assert result.datetime.gaps == []
 
     def test_missing_span_skips_the_bucket_pass(self):
         service, connector = _service(CSV, rows=[
             (["c"], [[0, 0, 0, None, None, None]]),
-            (["c"], []),
         ])
         result = service.profile(_request(field="created_at", profileKind="datetime"))
 
-        assert len(_sql_calls(connector)) == 2
+        assert len(_sql_calls(connector)) == 1
         assert result.datetime.buckets == []
+
+
+class TestDatetimeResolution:
+    """The finest unit every value sits on says whether this is a date or a timestamp."""
+
+    def _scalar(self, day, hour, minute, second, non_null=100):
+        return [(["c"], [[non_null, 0, 40, "2024-01-01", "2024-03-01", 86400 * 30,
+                          day, hour, minute, second]]),
+                (["c"], [])]
+
+    def test_scalar_pass_counts_each_candidate_unit(self):
+        service, connector = _service(CSV, rows=self._scalar(100, 100, 100, 100))
+        service.profile(_request(field="created_at", profileKind="datetime"))
+
+        sql = _sql_calls(connector)[0]
+        for unit in ("day", "hour", "minute", "second"):
+            assert f"date_trunc('{unit}', \"_qv_expr\") = \"_qv_expr\"" in sql
+            assert f'AS "_qv_res_{unit}"' in sql
+
+    @pytest.mark.parametrize("counters,expected", [
+        ((100, 100, 100, 100), "day"),
+        ((0, 100, 100, 100), "hour"),
+        ((0, 0, 100, 100), "minute"),
+        ((0, 0, 0, 100), "second"),
+        ((0, 0, 0, 40), None),
+    ])
+    def test_finest_matching_unit_wins(self, counters, expected):
+        service, _ = _service(CSV, rows=self._scalar(*counters))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert result.datetime.resolution == expected
+
+    def test_span_is_reported(self):
+        service, _ = _service(CSV, rows=self._scalar(100, 100, 100, 100))
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert result.datetime.span_seconds == 86400 * 30
+
+
+class TestDatetimeTopValues:
+    """Listing the most frequent timestamps is only useful for coarse date columns."""
+
+    def test_high_cardinality_datetime_skips_the_pass(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[100, 0, 90, "2024-01-01", "2024-03-01", 86400 * 30, 0, 0, 100, 100]]),
+            (["c"], [["2024-01-01", 5]]),
+        ])
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        # Two calls: the scalar pass and the bucket pass, no top-values pass.
+        assert len(_sql_calls(connector)) == 2
+        assert result.string.top_values == []
+
+    def test_coarse_date_column_still_lists_its_values(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[100, 0, 3, "2024-01-01", "2024-01-03", 86400 * 2, 100, 0, 0, 0]]),
+            (["c"], [["2024-01-02", 50], ["2024-01-01", 30], ["2024-01-03", 20]]),
+            (["c"], [["2024-01-01", 30], ["2024-01-02", 50], ["2024-01-03", 20]]),
+        ])
+        result = service.profile(_request(field="created_at", profileKind="datetime"))
+
+        assert len(_sql_calls(connector)) == 3
+        assert [v.value for v in result.string.top_values] == [
+            "2024-01-02", "2024-01-01", "2024-01-03",
+        ]
+        # Enumerating every value also pins down the distinct count exactly.
+        assert result.distinct_count == 3
+        assert result.approximate is False
