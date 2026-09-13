@@ -379,7 +379,7 @@ const ORIENTATION = {
 
 ### Identified for Future Refactoring:
 
-1. **Parameter Explosion**: `generatePairChartOptions()` and chart functions have 15+ positional parameters. Consider using config objects.
+1. **Parameter Explosion**: `generatePairChartOptions()` now takes a single `PairChartRequest` object, but several chart functions (`scatterChart()`, `tickStrip()`, `boxPlot()`, `ganttChart()`) still have 5+ positional parameters. Consider using config objects.
 
 2. **Magic Numbers**: Budget constants scattered across files could be centralized in `chartLayoutConfig.ts`.
 

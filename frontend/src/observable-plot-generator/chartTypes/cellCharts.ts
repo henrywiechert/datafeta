@@ -1,7 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
-import { ColorChannel, Field } from '../../types';
-import { LabelConfig, GanttZoomRange } from '../types';
+import { Field } from '../../types';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
@@ -13,16 +12,16 @@ import { ganttChart } from './ganttChart';
 import { buildCdfOptions } from './cdfChart';
 import { buildDensityOptions } from './densityChart';
 import { buildHeatmapOptions } from './heatmapChart';
-import { CellChartType, ChartTypeOverrides, resolveBarLayoutMarkStyle, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
+import { CellChartType, resolveBarLayoutMarkStyle, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 // Types and helpers extracted to separate files
-import { Domains, ChartContext, ChartHandler } from './cellChartTypes';
+import { ChartContext, ChartHandler, PairChartRequest } from './cellChartTypes';
 import { aggregateValues, resolveXYColumns, messageOptions, scatterForDimOnly, resolveColumnInData } from './cellChartHelpers';
 
 // Re-export types for external consumers
-export type { Domains, ChartContext, ChartHandler } from './cellChartTypes';
+export type { Domains, ChartContext, ChartHandler, PairChartRequest } from './cellChartTypes';
 
 // ---------- Unified Bar Creation --------------------------------------------
 
@@ -692,57 +691,14 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
  * Generate PlotOptions for a single cell given X/Y fields and optional shared measure domains.
  * Supports overrides for chart type selection.
  */
-export function generatePairChartOptions(
-  data: any[],
-  xField: Field | null,
-  yField: Field | null,
-  sharedMeasureDomains?: Domains,
-  overrides?: ChartTypeOverrides,
-  color?: ColorChannel,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number,
-  sizeScaleData?: any[],
-  bandThicknessScale?: number,
-  labelCfg?: LabelConfig,
-  tooltipFields?: Field[],
-  facetFields?: Field[],
-  sharedCategoricalDomains?: Record<string, any[]>,
-  ganttZoomRange?: GanttZoomRange | null,
-  shapeField?: Field,
-  manualShape?: string,
-  distributionVariant?: import('../../types').DistributionVariant,
-  lineVariant?: import('../../types').LineVariant,
-  areaFillOpacity?: number,
-  lineColorMode?: import('../../types').LineColorMode,
-  lineSeriesLabels?: import('../../types').LineSeriesLabelMode,
-  xTickFormat?: (d: any) => string,
-  yTickFormat?: (d: any) => string,
-): Plot.PlotOptions {
+export function generatePairChartOptions(request: PairChartRequest): Plot.PlotOptions {
+  const { data, xField, yField, overrides, ...settings } = request;
+
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
-    sharedMeasureDomains,
-    sharedCategoricalDomains,
-    color: color ?? { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
-    sizeField,
-    sizeRange,
-    manualSize,
-    sizeScaleData,
-    bandThicknessScale,
-    labelCfg,
-    tooltipFields,
-    facetFields,
-    ganttZoomRange,
-    shapeField,
-    manualShape,
-    distributionVariant,
-    lineVariant,
-    areaFillOpacity,
-    lineColorMode,
-    lineSeriesLabels,
-    xTickFormat,
-    yTickFormat,
-    markStyle: resolveBarLayoutMarkStyle(overrides?.global, lineVariant),
+    ...settings,
+    color: settings.color ?? { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
+    markStyle: resolveBarLayoutMarkStyle(overrides?.global, settings.lineVariant),
   };
 
   if (!xField && !yField) {
@@ -768,7 +724,7 @@ export function generatePairChartOptions(
   const xf = xField!;
   const yf = yField!;
   const resolved: CellChartType = resolveChartTypeForPair(xf, yf, overrides);
-  const selected: CellChartType = distributionVariant === 'box-plot'
+  const selected: CellChartType = settings.distributionVariant === 'box-plot'
     ? (resolved === 'tickX' ? 'boxX' : resolved === 'tickY' ? 'boxY' : resolved)
     : resolved;
   const handler = CHART_HANDLERS[selected];

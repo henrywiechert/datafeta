@@ -4,10 +4,10 @@
  *
  * This is the single entry point the grid generator uses for every cell, and it
  * forwards ~20 optional settings into a `ChartContext`. These tests pin down
- * that forwarding (and the field-combination dispatch) so the signature can be
- * reshaped without silently re-mapping an argument.
+ * that forwarding and the field-combination dispatch.
  */
 import { generatePairChartOptions } from './cellCharts';
+import type { PairChartRequest } from './cellCharts';
 import type { Field } from '../../types';
 
 jest.mock('@observablehq/plot', () => {
@@ -56,29 +56,43 @@ const markTypes = (opts: any): string[] => marksOf(opts).map((m) => m?.type).fil
 
 describe('generatePairChartOptions – field combination dispatch', () => {
   test('reports when no fields are supplied', () => {
-    const opts = generatePairChartOptions([], null, null);
+    const opts = generatePairChartOptions({ data: [], xField: null, yField: null });
     expect(JSON.stringify(opts)).toContain('No fields');
   });
 
   test('a lone measure renders a bar', () => {
-    const opts = generatePairChartOptions([{ 'SUM(v)': 5 }], measure('v'), null);
+    const opts = generatePairChartOptions({
+      data: [{ 'SUM(v)': 5 }],
+      xField: measure('v'),
+      yField: null,
+    });
     expect(markTypes(opts).some((t) => t.startsWith('bar'))).toBe(true);
   });
 
   test('a lone dimension renders dots', () => {
-    const opts = generatePairChartOptions([{ c: 'a' }], dimension('c'), null);
+    const opts = generatePairChartOptions({
+      data: [{ c: 'a' }],
+      xField: dimension('c'),
+      yField: null,
+    });
     expect(markTypes(opts)).toContain('dot');
   });
 
   test('dimension x measure renders a bar', () => {
-    const data = [{ c: 'a', 'SUM(v)': 1 }, { c: 'b', 'SUM(v)': 2 }];
-    const opts = generatePairChartOptions(data, dimension('c'), measure('v'));
+    const opts = generatePairChartOptions({
+      data: [{ c: 'a', 'SUM(v)': 1 }, { c: 'b', 'SUM(v)': 2 }],
+      xField: dimension('c'),
+      yField: measure('v'),
+    });
     expect(markTypes(opts).some((t) => t.startsWith('bar'))).toBe(true);
   });
 
   test('measure x measure renders a scatter', () => {
-    const data = [{ 'SUM(a)': 1, 'SUM(b)': 2 }, { 'SUM(a)': 3, 'SUM(b)': 4 }];
-    const opts = generatePairChartOptions(data, measure('a'), measure('b'));
+    const opts = generatePairChartOptions({
+      data: [{ 'SUM(a)': 1, 'SUM(b)': 2 }, { 'SUM(a)': 3, 'SUM(b)': 4 }],
+      xField: measure('a'),
+      yField: measure('b'),
+    });
     expect(markTypes(opts)).toContain('dot');
   });
 });
@@ -94,42 +108,14 @@ describe('generatePairChartOptions – settings reach the chart builders', () =>
   const colorField = dimension('series');
   const colorChannel = { field: colorField, scheme: '', bias: 0, reversed: false, manual: '' } as any;
 
-  /** Positional call mirroring coreGridGenerator's single call site. */
-  const buildLine = (opts: {
-    lineVariant?: any;
-    areaFillOpacity?: number;
-    lineColorMode?: any;
-    lineSeriesLabels?: any;
-    color?: any;
-    xTickFormat?: (d: any) => string;
-  }) =>
-    generatePairChartOptions(
-      lineData,                 // 1  data
-      continuousDim,            // 2  xField
-      measure('v'),             // 3  yField
-      undefined,                // 4  sharedMeasureDomains
-      { global: 'line' } as any,// 5  overrides
-      opts.color,               // 6  color
-      undefined,                // 7  sizeField
-      undefined,                // 8  sizeRange
-      undefined,                // 9  manualSize
-      undefined,                // 10 sizeScaleData
-      undefined,                // 11 bandThicknessScale
-      undefined,                // 12 labelCfg
-      undefined,                // 13 tooltipFields
-      undefined,                // 14 facetFields
-      undefined,                // 15 sharedCategoricalDomains
-      undefined,                // 16 ganttZoomRange
-      undefined,                // 17 shapeField
-      undefined,                // 18 manualShape
-      undefined,                // 19 distributionVariant
-      opts.lineVariant,         // 20
-      opts.areaFillOpacity,     // 21
-      opts.lineColorMode,       // 22
-      opts.lineSeriesLabels,    // 23
-      opts.xTickFormat,         // 24
-      undefined,                // 25 yTickFormat
-    );
+  const buildLine = (settings: Partial<PairChartRequest>) =>
+    generatePairChartOptions({
+      data: lineData,
+      xField: continuousDim,
+      yField: measure('v'),
+      overrides: { global: 'line' } as any,
+      ...settings,
+    });
 
   test('line variant selects line vs area marks', () => {
     expect(markTypes(buildLine({ lineVariant: 'line' }))).toContain('line');
@@ -153,22 +139,15 @@ describe('generatePairChartOptions – settings reach the chart builders', () =>
     expect(labelled.opts.className).toContain('series-end-label');
   });
 
-  // The line handler does not forward tick formats; bars do. Pinned via a bar
-  // so the last two positional arguments stay covered.
+  // The line handler does not forward tick formats; bars do.
   test('xTickFormat reaches the category axis of a bar', () => {
     const fmt = (d: any) => `#${d}`;
-    const opts: any = generatePairChartOptions(
-      [{ c: 'a', 'SUM(v)': 1 }],
-      dimension('c'),
-      measure('v'),
-      undefined, undefined, undefined,
-      undefined, undefined, undefined, undefined, undefined,
-      undefined, undefined, undefined, undefined, undefined,
-      undefined, undefined, undefined, undefined, undefined,
-      undefined, undefined,
-      fmt,        // 24 xTickFormat
-      undefined,  // 25 yTickFormat
-    );
+    const opts: any = generatePairChartOptions({
+      data: [{ c: 'a', 'SUM(v)': 1 }],
+      xField: dimension('c'),
+      yField: measure('v'),
+      xTickFormat: fmt,
+    });
     expect(opts.x?.tickFormat).toBe(fmt);
   });
 });
