@@ -18,7 +18,14 @@ import {
   TimeDistribution,
   TopValueBars,
 } from './QuickViewCharts';
-import { formatInteger, formatNumber, formatPercent } from './quickViewFormat';
+import {
+  formatBucketLabel,
+  formatDuration,
+  formatInteger,
+  formatNumber,
+  formatPercent,
+  formatRelative,
+} from './quickViewFormat';
 
 interface QuickViewPanelProps {
   field: Field;
@@ -63,6 +70,68 @@ const Completeness: React.FC<{ profile: FieldProfile }> = ({ profile }) => {
           />
         )}
       </div>
+    </>
+  );
+};
+
+const DatetimeSection: React.FC<{ profile: FieldProfile }> = ({ profile }) => {
+  const dt = profile.datetime;
+  if (!dt) return null;
+
+  const nonNull = profile.row_count - profile.null_count;
+  const distinct = profile.distinct_count ?? 0;
+  // Cadence of the series rather than of the rows: duplicates of the same
+  // timestamp say nothing about how often the column was sampled.
+  const averageInterval = dt.span_seconds && distinct > 1
+    ? dt.span_seconds / (distinct - 1)
+    : null;
+  const rowsPerValue = distinct > 0 ? nonNull / distinct : null;
+  const showCoverage = !dt.truncated && dt.expected_buckets > 0;
+  const largestGap = dt.gaps[0];
+
+  return (
+    <>
+      <div className={styles.sectionTitle}>Characteristics</div>
+      <Row
+        label="Range"
+        value={
+          <span title={`${dt.min ?? '—'} → ${dt.max ?? '—'}`}>
+            {`${(dt.min ?? '').slice(0, 10)} → ${(dt.max ?? '').slice(0, 10)}`}
+          </span>
+        }
+      />
+      <Row label="Span" value={formatDuration(dt.span_seconds)} />
+      <Row label="Resolution" value={dt.resolution ?? 'sub-second'} />
+      {averageInterval !== null && (
+        <Row label="Avg interval" value={`≈ ${formatDuration(averageInterval)}`} />
+      )}
+      {rowsPerValue !== null && rowsPerValue > 1.05 && (
+        <Row label="Rows per value" value={formatNumber(rowsPerValue)} />
+      )}
+      <Row label="Latest" value={formatRelative(dt.max)} />
+
+      {dt.buckets.length > 0 && (
+        <>
+          <div className={styles.sectionTitle}>
+            Over time{dt.bucket ? ` (by ${dt.bucket})` : ''}
+          </div>
+          <TimeDistribution buckets={dt.buckets} bucket={dt.bucket} />
+          {showCoverage && (
+            <Row
+              label="Coverage"
+              value={`${formatInteger(dt.populated_buckets)} of ${formatInteger(dt.expected_buckets)} ${dt.bucket}s`
+                + ` (${formatPercent(dt.populated_buckets, dt.expected_buckets)})`}
+            />
+          )}
+          {largestGap && (
+            <Row
+              label={dt.gaps.length > 1 ? `Gaps (${dt.gaps.length})` : 'Gap'}
+              value={`${largestGap.length} ${dt.bucket}${largestGap.length === 1 ? '' : 's'}`
+                + ` @ ${formatBucketLabel(largestGap.start, dt.bucket)}`}
+            />
+          )}
+        </>
+      )}
     </>
   );
 };
@@ -155,17 +224,7 @@ const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
         )}
 
         {profile.datetime && (
-          <>
-            <div className={styles.sectionTitle}>
-              Over time{profile.datetime.bucket ? ` (by ${profile.datetime.bucket})` : ''}
-            </div>
-            <TimeDistribution
-              buckets={profile.datetime.buckets}
-              bucket={profile.datetime.bucket}
-            />
-            <Row label="Earliest" value={profile.datetime.min ?? '—'} />
-            <Row label="Latest" value={profile.datetime.max ?? '—'} />
-          </>
+          <DatetimeSection profile={profile} />
         )}
 
         {profile.string && profile.string.top_values.length > 0 && (

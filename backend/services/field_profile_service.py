@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,6 +26,7 @@ from backend.exceptions import QueryExecutionError
 from backend.models.data_source import ConnectionDetails
 from backend.models.query import (
     DatetimeBucket,
+    DatetimeGap,
     DatetimeProfile,
     FieldProfileRequest,
     FieldProfileResponse,
@@ -64,6 +66,10 @@ _TOP_VALUE = '_qv_value'
 _TOP_COUNT = '_qv_count'
 _BIN = '_qv_bin'
 _SPAN_SECONDS = '_qv_span'
+# One counter per candidate resolution: the finest unit whose truncation leaves
+# every value unchanged is the precision the column actually uses.
+_RESOLUTION_UNITS = ('day', 'hour', 'minute', 'second')
+_RESOLUTION_ALIASES = {unit: f'_qv_res_{unit}' for unit in _RESOLUTION_UNITS}
 # The profiled column is projected under this alias by an inner subquery, so the
 # statistics always aggregate a plain identifier. That also sidesteps ClickHouse
 # VIEWs built with `SELECT a.*`, where referencing the column directly fails.
@@ -79,6 +85,25 @@ _BUCKET_THRESHOLDS = (
     (2200 * _DAY, 'month'),
 )
 _MAX_TIME_BUCKETS = 120
+_MAX_REPORTED_GAPS = 5
+
+# Engines render a truncated timestamp as text; accept the shapes they produce.
+_BUCKET_PARSE_FORMATS = (
+    '%Y-%m-%d %H:%M:%S',
+    '%Y-%m-%d %H:%M:%S.%f',
+    '%Y-%m-%dT%H:%M:%S',
+    '%Y-%m-%d %H:%M',
+    '%Y-%m-%d',
+)
+
+# Filled buckets must be labelled identically to the ones the engine returned,
+# so every label is re-rendered from the parsed value.
+_BUCKET_LABEL_FORMATS = {
+    'hour': '%Y-%m-%d %H:00:00',
+    'day': '%Y-%m-%d',
+    'month': '%Y-%m-01',
+    'year': '%Y-01-01',
+}
 
 # Above this many distinct values a numeric column is binned; at or below it the
 # values are listed exactly, since bins would only blur a handful of categories.
@@ -117,9 +142,13 @@ class FieldProfileService:
         scalar_sql = self._build_scalar_sql(request, expr_sql, from_sql)
         scalar_row = self._fetch_one(scalar_sql)
 
+        row_count = self._as_int(self._get(scalar_row, _ROW_COUNT, 0))
+        null_count = self._as_int(self._get(scalar_row, _NULL_COUNT, 1))
+        distinct_count = self._as_optional_int(self._get(scalar_row, _DISTINCT_COUNT, 2))
+
         top_values: List[TopValue] = []
         exhaustive_top = False
-        if request.topN > 0 and request.profileKind != 'numeric':
+        if request.topN > 0 and self._wants_top_values(request, distinct_count):
             top_sql = self._build_top_values_sql(request, expr_sql, from_sql)
             rows = self._fetch_all(top_sql)
             # One extra row was requested; its absence proves the list is complete.
@@ -128,10 +157,6 @@ class FieldProfileService:
                 TopValue(value=self._get(r, _TOP_VALUE, 0), count=self._as_int(self._get(r, _TOP_COUNT, 1)))
                 for r in rows[:request.topN]
             ]
-
-        row_count = self._as_int(self._get(scalar_row, _ROW_COUNT, 0))
-        null_count = self._as_int(self._get(scalar_row, _NULL_COUNT, 1))
-        distinct_count = self._as_optional_int(self._get(scalar_row, _DISTINCT_COUNT, 2))
 
         approximate = request.approximate
         if exhaustive_top:
@@ -155,7 +180,9 @@ class FieldProfileService:
             response.numeric = self._build_numeric_profile(scalar_row, row_count, null_count)
             self._load_numeric_distribution(request, expr_sql, from_sql, response)
         elif request.profileKind == 'datetime':
-            response.datetime = self._load_datetime_profile(request, scalar_row, expr_sql, from_sql)
+            response.datetime = self._load_datetime_profile(
+                request, scalar_row, expr_sql, from_sql, row_count - null_count
+            )
             response.string = StringProfile(top_values=top_values)
         else:
             response.string = StringProfile(
@@ -168,6 +195,20 @@ class FieldProfileService:
         return response
 
     # --- Query construction --- #
+
+    @staticmethod
+    def _wants_top_values(request: FieldProfileRequest, distinct_count: Optional[int]) -> bool:
+        """Whether the grouped top-values pass is worth a round trip.
+
+        Listing the most frequent timestamps of a real time column is noise --
+        every value is unique. It only pays off for a coarse date column (a daily
+        snapshot), which the distinct count identifies.
+        """
+        if request.profileKind == 'numeric':
+            return False
+        if request.profileKind != 'datetime':
+            return True
+        return distinct_count is not None and 0 < distinct_count <= _DISCRETE_VALUE_MAX
 
     def _profile_source_field(
         self, request: FieldProfileRequest, started: float
@@ -324,6 +365,13 @@ class FieldProfileService:
                     _SPAN_SECONDS,
                 ),
             ])
+            parts.extend(
+                self._alias(
+                    d.count_if_sql(f"{d.date_trunc_sql(unit, expr_sql)} = {expr_sql}"),
+                    _RESOLUTION_ALIASES[unit],
+                )
+                for unit in _RESOLUTION_UNITS
+            )
         else:
             length_sql = d.string_length_sql(d.to_string_expr(expr_sql))
             parts.extend([
@@ -465,12 +513,15 @@ class FieldProfileService:
         scalar_row: Any,
         expr_sql: str,
         from_sql: str,
+        non_null_count: int,
     ) -> DatetimeProfile:
+        span_seconds = self._as_optional_float(self._get(scalar_row, _SPAN_SECONDS, 5))
         profile = DatetimeProfile(
             min=self._as_optional_str(self._get(scalar_row, _MIN, 3)),
             max=self._as_optional_str(self._get(scalar_row, _MAX, 4)),
+            span_seconds=span_seconds,
+            resolution=self._detect_resolution(scalar_row, non_null_count),
         )
-        span_seconds = self._as_optional_float(self._get(scalar_row, _SPAN_SECONDS, 5))
         if request.histogramBins <= 0 or span_seconds is None:
             return profile
 
@@ -482,16 +533,114 @@ class FieldProfileService:
             f"{from_sql} "
             f"WHERE {expr_sql} IS NOT NULL "
             f"GROUP BY {bucket_expr} ORDER BY {bucket_expr} "
-            f"LIMIT {_MAX_TIME_BUCKETS}"
+            f"LIMIT {_MAX_TIME_BUCKETS + 1}"
         )
-        profile.buckets = [
-            DatetimeBucket(
-                start=str(self._get(row, _TOP_VALUE, 0)),
-                count=self._as_int(self._get(row, _TOP_COUNT, 1)),
-            )
-            for row in self._fetch_all(sql)
-        ]
+        rows = self._fetch_all(sql)
+        self._fill_bucket_series(profile, rows)
         return profile
+
+    def _fill_bucket_series(self, profile: DatetimeProfile, rows: List[Any]) -> None:
+        """Expand the populated buckets into a continuous series and find gaps.
+
+        The engine only returns buckets that have rows, so a gap would otherwise
+        arrive as a missing entry and render as a narrower chart instead of a
+        hole. Emitting zeros makes the gap the visible thing it should be.
+        """
+        unit = profile.bucket
+        raw = []
+        for row in rows:
+            start = self._parse_bucket(self._get(row, _TOP_VALUE, 0))
+            if start is not None:
+                raw.append((start, self._as_int(self._get(row, _TOP_COUNT, 1))))
+        if not raw or unit is None:
+            return
+
+        truncated = len(raw) > _MAX_TIME_BUCKETS
+        raw = raw[:_MAX_TIME_BUCKETS]
+
+        counts = {start: count for start, count in raw}
+        series: List[datetime] = []
+        cursor, last = raw[0][0], raw[-1][0]
+        while cursor <= last:
+            if len(series) >= _MAX_TIME_BUCKETS:
+                truncated = True
+                break
+            series.append(cursor)
+            cursor = self._next_bucket(cursor, unit)
+
+        if truncated:
+            # A partial series cannot describe coverage over the whole range, so
+            # report the populated buckets only and leave the derived stats unset.
+            profile.truncated = True
+            profile.buckets = [
+                DatetimeBucket(start=self._format_bucket(start, unit), count=count)
+                for start, count in raw
+            ]
+            return
+
+        profile.buckets = [
+            DatetimeBucket(start=self._format_bucket(start, unit), count=counts.get(start, 0))
+            for start in series
+        ]
+        profile.expected_buckets = len(series)
+        profile.populated_buckets = len(counts)
+        profile.gaps = self._find_gaps(series, counts, unit)
+
+    def _find_gaps(
+        self, series: List[datetime], counts: Dict[datetime, int], unit: str
+    ) -> List[DatetimeGap]:
+        gaps: List[DatetimeGap] = []
+        run_start: Optional[datetime] = None
+        run_length = 0
+        for start in series:
+            if start in counts:
+                if run_start is not None:
+                    gaps.append(DatetimeGap(
+                        start=self._format_bucket(run_start, unit), length=run_length
+                    ))
+                    run_start, run_length = None, 0
+            else:
+                if run_start is None:
+                    run_start = start
+                run_length += 1
+        # A trailing run cannot happen: the series ends on a populated bucket.
+        gaps.sort(key=lambda gap: -gap.length)
+        return gaps[:_MAX_REPORTED_GAPS]
+
+    def _detect_resolution(self, scalar_row: Any, non_null_count: int) -> Optional[str]:
+        """Finest unit that every value already sits on, or None if sub-second."""
+        if non_null_count <= 0:
+            return None
+        for offset, unit in enumerate(_RESOLUTION_UNITS):
+            matching = self._as_int(self._get(scalar_row, _RESOLUTION_ALIASES[unit], 6 + offset))
+            if matching >= non_null_count:
+                return unit
+        return None
+
+    @staticmethod
+    def _parse_bucket(value: Any) -> Optional[datetime]:
+        text = str(value).strip() if value is not None else ''
+        for fmt in _BUCKET_PARSE_FORMATS:
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
+        logger.debug("Could not parse time bucket %r", value)
+        return None
+
+    @staticmethod
+    def _next_bucket(start: datetime, unit: str) -> datetime:
+        if unit == 'hour':
+            return start + timedelta(hours=1)
+        if unit == 'day':
+            return start + timedelta(days=1)
+        if unit == 'month':
+            return datetime(start.year + start.month // 12, start.month % 12 + 1, 1)
+        return datetime(start.year + 1, 1, 1)
+
+    @staticmethod
+    def _format_bucket(start: datetime, unit: str) -> str:
+        return start.strftime(_BUCKET_LABEL_FORMATS[unit])
 
     @staticmethod
     def _choose_bucket(span_seconds: float) -> str:

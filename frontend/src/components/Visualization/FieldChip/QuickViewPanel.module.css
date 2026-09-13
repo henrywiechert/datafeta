@@ -130,6 +130,11 @@
   fill-opacity: 1;
 }
 
+.emptySlot {
+  fill: #f5b7b7;
+  fill-opacity: 0.35;
+}
+
 .strip {
   display: block;
   margin-top: 3px;
