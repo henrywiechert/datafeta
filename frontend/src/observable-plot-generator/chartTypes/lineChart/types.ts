@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { ColorChannel, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../../types';
 import { LabelConfig } from '../../types';
+import type { ColorScaleInfo } from '../../utils/colorSchemeUtils';
 
 export type LineOrientation = 'horizontal' | 'vertical';
 
@@ -12,6 +13,11 @@ export interface LineBuildParams {
   labels?: { x?: string; y?: string };
   domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] };
   color?: ColorChannel;
+  /**
+   * Shared color scale (facet/grid). When omitted, the scale is derived from
+   * this cell's rows — which remaps categories that are missing from the cell.
+   */
+  colorScaleInfo?: ColorScaleInfo | null;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;

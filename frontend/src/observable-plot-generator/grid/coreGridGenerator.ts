@@ -316,6 +316,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           areaFillOpacity: cellAreaFillOpacity,
           lineColorMode: cellLineColorMode,
           lineSeriesLabels,
+          colorScaleInfo: sharedColorScale,
           xTickFormat: config.xTickFormat,
           yTickFormat: config.yTickFormat,
         });

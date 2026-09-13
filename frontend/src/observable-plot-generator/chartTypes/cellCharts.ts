@@ -213,6 +213,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       areaFillOpacity: ctx.areaFillOpacity,
       lineColorMode: ctx.lineColorMode,
       seriesLabels: ctx.lineSeriesLabels,
+      colorScaleInfo: ctx.colorScaleInfo,
     });
   }
   
@@ -242,6 +243,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       areaFillOpacity: ctx.areaFillOpacity,
       lineColorMode: ctx.lineColorMode,
       seriesLabels: ctx.lineSeriesLabels,
+      colorScaleInfo: ctx.colorScaleInfo,
     });
   }
   
