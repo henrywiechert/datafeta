@@ -6,7 +6,6 @@ import { resolveColorForRow, type ColorScaleInfo } from '../../utils/colorScheme
 import { formatValue } from '../../utils/labelUtils';
 import {
   createSeriesEndLabelMark,
-  dropCollidingEndLabels,
   MAX_SERIES_LABELS,
 } from '../../utils/seriesEndLabels';
 import { lastRowPerSeries } from './dataPrep';
@@ -102,8 +101,9 @@ export function buildAreaMarks(params: {
  * 'end' places it in the padded gutter past the line; 'endInside' keeps it
  * within the data area for axes that cannot be padded.
  *
- * Labels that provably collide on the dependent axis are dropped here; the
- * remaining pixel-level overlap is resolved by the renderer's de-overlap pass.
+ * Overlapping labels are handled by the renderer's de-overlap pass, which has
+ * the text metrics and plot size needed to space them out or drop the ones
+ * that cannot fit.
  */
 export function buildSeriesEndLabelMarks(params: {
   mode: LineSeriesLabelMode;
@@ -111,8 +111,6 @@ export function buildSeriesEndLabelMarks(params: {
   seriesGroups?: Map<string, any[]>;
   xColumn: string;
   yColumn: string;
-  dependentColumn: string;
-  dependentDomain?: [number, number] | [Date, Date];
   colorColumnName?: string;
   colorField?: Field;
   colorInfo: ColorScaleInfo | null;
@@ -121,7 +119,6 @@ export function buildSeriesEndLabelMarks(params: {
 }): any[] {
   const {
     mode, orientation, seriesGroups, xColumn, yColumn,
-    dependentColumn, dependentDomain,
     colorColumnName, colorField, colorInfo, fallbackColor, fontSize,
   } = params;
 
@@ -129,11 +126,7 @@ export function buildSeriesEndLabelMarks(params: {
   if (colorInfo?.kind !== 'categorical' && colorInfo?.kind !== 'seriesGradient') return [];
   if (seriesGroups.size === 0 || seriesGroups.size > MAX_SERIES_LABELS) return [];
 
-  const endRows = dropCollidingEndLabels({
-    endRows: lastRowPerSeries(seriesGroups),
-    dependentColumn,
-    dependentDomain,
-  });
+  const endRows = lastRowPerSeries(seriesGroups);
   if (endRows.length === 0) return [];
 
   return [
@@ -150,20 +143,14 @@ export function buildSeriesEndLabelMarks(params: {
   ];
 }
 
-/** Label texts for the series that will actually be labelled, for gutter sizing. */
+/** Label texts for the series that will be labelled, for gutter sizing. */
 export function seriesEndLabelTexts(params: {
   seriesGroups?: Map<string, any[]>;
   colorColumnName?: string;
-  dependentColumn: string;
-  dependentDomain?: [number, number] | [Date, Date];
 }): string[] {
-  const { seriesGroups, colorColumnName, dependentColumn, dependentDomain } = params;
+  const { seriesGroups, colorColumnName } = params;
   if (!seriesGroups || !colorColumnName) return [];
   if (seriesGroups.size === 0 || seriesGroups.size > MAX_SERIES_LABELS) return [];
 
-  return dropCollidingEndLabels({
-    endRows: lastRowPerSeries(seriesGroups),
-    dependentColumn,
-    dependentDomain,
-  }).map((row) => formatValue(row[colorColumnName]));
+  return lastRowPerSeries(seriesGroups).map((row) => formatValue(row[colorColumnName]));
 }

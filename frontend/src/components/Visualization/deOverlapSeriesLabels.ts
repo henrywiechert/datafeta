@@ -2,13 +2,19 @@
 /**
  * Push series-end labels apart after Observable Plot renders.
  *
- * The generator can only thin labels that collide in data space (see
- * `seriesEndLabels.ts`); it never sees the final plot size or real text
- * metrics, and Plot's `dx`/`dy` are constant mark options rather than channels,
- * so per-label offsets cannot be expressed in the spec. This pass does the
- * exact work in pixel space: sort the labels along the dodge axis, then greedily
- * shift each one just far enough to clear its predecessor, and hide the ones
- * that no longer fit inside the frame.
+ * The generator emits one label per series and leaves all collision handling
+ * here (see `seriesEndLabels.ts`): it never sees the final plot size or real
+ * text metrics, and Plot's `dx`/`dy` are constant mark options rather than
+ * channels, so per-label offsets cannot be expressed in the spec. This pass
+ * sorts the labels along the dodge axis, shifts only those that have to move
+ * in order to clear their neighbour, and hides any the axis cannot fit.
+ *
+ * Plot positions each `<text>` with its own `transform="translate(x,y)"`
+ * (optionally followed by a rotate), so the offset has to be folded into that
+ * transform rather than replacing it — clearing it would drop the label onto
+ * the mark group's origin. For the same reason `getBBox()` is only used for
+ * text *metrics*: it reports the box in the element's own coordinate system
+ * and therefore excludes the translate that positions it.
  */
 
 import {
@@ -21,13 +27,44 @@ const LABEL_GAP_PX = 2;
 
 type Axis = 'x' | 'y';
 
+/** The translate Plot rendered, plus whatever followed it (e.g. a rotate). */
+type Anchor = { x: number; y: number; suffix: string };
+
+const TRANSLATE_RE = /^\s*translate\(\s*([-+\d.eE]+)\s*[,\s]\s*([-+\d.eE]+)\s*\)/;
+
+/**
+ * Plot's own translate for this label, cached so repeated passes over the same
+ * DOM stay idempotent (the second pass must not treat a shifted label as its
+ * anchor).
+ */
+function readAnchor(el: SVGTextElement): Anchor {
+  const cached = (el as any).__seriesEndLabelAnchor as Anchor | undefined;
+  if (cached) return cached;
+
+  const transform = el.getAttribute('transform') ?? '';
+  const match = TRANSLATE_RE.exec(transform);
+  const anchor: Anchor = match
+    ? { x: Number.parseFloat(match[1]), y: Number.parseFloat(match[2]), suffix: transform.slice(match[0].length) }
+    : { x: 0, y: 0, suffix: transform };
+
+  (el as any).__seriesEndLabelAnchor = anchor;
+  return anchor;
+}
+
+function applyOffset(el: SVGTextElement, anchor: Anchor, offset: number, axis: Axis): void {
+  const x = axis === 'x' ? anchor.x + offset : anchor.x;
+  const y = axis === 'y' ? anchor.y + offset : anchor.y;
+  el.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)})${anchor.suffix}`);
+}
+
 function resolveAlongAxis(labels: SVGTextElement[], axis: Axis, frameSize: number): void {
-  type Entry = { el: SVGTextElement; start: number; extent: number };
+  type Entry = { el: SVGTextElement; anchor: Anchor; desired: number; extent: number; pos: number };
 
   const entries: Entry[] = [];
   for (const el of labels) {
-    // Clear any offset from a previous pass so re-renders stay idempotent.
-    el.removeAttribute('transform');
+    const anchor = readAnchor(el);
+    // A label hidden by an earlier pass has to be revealed before measuring:
+    // getBBox reports an empty box for `display: none`.
     el.style.removeProperty('display');
     let box: DOMRect;
     try {
@@ -36,50 +73,48 @@ function resolveAlongAxis(labels: SVGTextElement[], axis: Axis, frameSize: numbe
       // getBBox throws on elements that are not rendered (e.g. detached frame).
       return;
     }
+    // getBBox is local to the element, so the anchor supplies the absolute part.
+    const desired = axis === 'y' ? anchor.y + box.y : anchor.x + box.x;
     entries.push({
       el,
-      start: axis === 'y' ? box.y : box.x,
+      anchor,
+      desired,
       extent: axis === 'y' ? box.height : box.width,
+      pos: desired,
     });
   }
 
-  entries.sort((a, b) => a.start - b.start);
+  entries.sort((a, b) => a.desired - b.desired);
 
-  // Total stack height/width; if the labels cannot possibly fit, bail out rather
-  // than smearing them across the whole frame.
-  const required = entries.reduce((sum, e) => sum + e.extent + LABEL_GAP_PX, -LABEL_GAP_PX);
-  if (frameSize > 0 && required > frameSize) {
-    return;
-  }
-
-  let floor = -Infinity;
+  // Forward pass: push each label just far enough to clear its predecessor.
+  let floor = 0;
   for (const entry of entries) {
-    const target = Math.max(entry.start, floor);
-    const shift = target - entry.start;
-    if (shift > 0.5) {
-      entry.el.setAttribute(
-        'transform',
-        axis === 'y' ? `translate(0,${shift.toFixed(2)})` : `translate(${shift.toFixed(2)},0)`
-      );
-    }
-    floor = target + entry.extent + LABEL_GAP_PX;
+    entry.pos = Math.max(entry.desired, floor);
+    floor = entry.pos + entry.extent + LABEL_GAP_PX;
   }
 
-  // If the greedy pass pushed the tail past the frame, pull the whole stack back
-  // so it stays visible; the labels keep their relative order either way.
-  if (frameSize > 0 && floor - LABEL_GAP_PX > frameSize) {
-    const overflow = floor - LABEL_GAP_PX - frameSize;
-    for (const entry of entries) {
-      const current = entry.el.getAttribute('transform');
-      const existing = current
-        ? Number.parseFloat(current.replace(/^translate\(|\)$/g, '').split(',')[axis === 'y' ? 1 : 0]) || 0
-        : 0;
-      const next = existing - overflow;
-      entry.el.setAttribute(
-        'transform',
-        axis === 'y' ? `translate(0,${next.toFixed(2)})` : `translate(${next.toFixed(2)},0)`
-      );
+  // Backward pass: pull back only the labels that now overflow the far edge,
+  // so a cluster near the end of the axis stays near its lines instead of the
+  // whole stack being dragged across the frame.
+  if (frameSize > 0) {
+    let ceiling = frameSize;
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const entry = entries[i];
+      entry.pos = Math.min(entry.pos, ceiling - entry.extent);
+      ceiling = entry.pos - LABEL_GAP_PX;
     }
+  }
+
+  for (const entry of entries) {
+    // Both passes clamp into the frame, so a position that ended up before its
+    // start means the axis ran out of room for this label. Overlapping text is
+    // unreadable, so drop it and keep the labels that do fit.
+    if (entry.pos < 0) {
+      entry.el.style.display = 'none';
+      applyOffset(entry.el, entry.anchor, 0, axis);
+      continue;
+    }
+    applyOffset(entry.el, entry.anchor, entry.pos - entry.desired, axis);
   }
 }
 
@@ -97,16 +132,18 @@ export function deOverlapSeriesLabels(plot: SVGSVGElement | HTMLElement): void {
     const markGroups = plot.querySelectorAll<SVGGElement>(selector);
     if (markGroups.length === 0) continue;
 
-    const svg = plot instanceof SVGSVGElement ? plot : plot.querySelector('svg');
-    const frameSize = svg
-      ? axis === 'y'
-        ? svg.height?.baseVal?.value ?? 0
-        : svg.width?.baseVal?.value ?? 0
-      : 0;
-
     markGroups.forEach((group) => {
       const labels = Array.from(group.querySelectorAll<SVGTextElement>('text'));
-      if (labels.length > 1) resolveAlongAxis(labels, axis, frameSize);
+      if (labels.length <= 1) return;
+
+      const svg = group.ownerSVGElement;
+      const frameSize = svg
+        ? axis === 'y'
+          ? svg.height?.baseVal?.value ?? 0
+          : svg.width?.baseVal?.value ?? 0
+        : 0;
+
+      resolveAlongAxis(labels, axis, frameSize);
     });
   }
 }

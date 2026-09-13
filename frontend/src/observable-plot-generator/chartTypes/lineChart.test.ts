@@ -539,8 +539,10 @@ describe('buildLineOptions – series end labels', () => {
     expect(mark.opts.className).toContain('series-end-label-dodge-y');
   });
 
-  test('drops labels that would collide on the dependent axis', () => {
-    // Beta and Gamma end within a hair of each other; only the higher survives.
+  test('labels every series even when their ends nearly coincide', () => {
+    // Beta and Gamma end within a hair of each other. Whether both labels can
+    // be shown depends on the rendered text size and plot height, which only
+    // `deOverlapSeriesLabels` knows, so the generator must not pre-empt it.
     const mark = textMark(build({
       seriesLabels: 'end',
       data: [
@@ -553,12 +555,7 @@ describe('buildLineOptions – series end labels', () => {
       ],
     }));
 
-    const labelled = mark.data.map((d: any) => d.series);
-    expect(labelled).toHaveLength(2);
-    expect(labelled).toContain('Alpha');
-    // The larger of the colliding pair wins.
-    expect(labelled).toContain('Gamma');
-    expect(labelled).not.toContain('Beta');
+    expect(mark.data.map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 
   test('sizes the gutter from the longest label', () => {

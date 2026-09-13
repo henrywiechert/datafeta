@@ -4,14 +4,16 @@
  * chart builder and the MeasureValues multi-mark builder.
  *
  * Placement is a two-stage contract:
- *  1. Here (pure, no DOM): pick which series get a label, reserve gutter space
- *     on the independent axis, and emit a single tagged `Plot.text` mark.
- *  2. In the renderer (`deOverlapSeriesLabels`): resolve the remaining
- *     label-vs-label collisions in pixel space, which needs real text metrics
- *     and the final plot size — neither of which exists at generation time.
+ *  1. Here (pure, no DOM): reserve gutter space on the independent axis and
+ *     emit a single tagged `Plot.text` mark, one label per series.
+ *  2. In the renderer (`deOverlapSeriesLabels`): resolve label-vs-label
+ *     collisions in pixel space, which needs real text metrics and the final
+ *     plot size — neither of which exists at generation time.
  *
- * Stage 1 therefore only thins labels it can prove collide in *data* space; the
- * DOM pass does the exact work. The `dodge` class is what couples the two.
+ * Collision handling belongs entirely to stage 2: it is the only stage that
+ * knows how tall a label actually is and how much room the axis has, so it
+ * both spaces labels out and drops the ones that cannot fit. The `dodge` class
+ * is what couples the two stages.
  */
 import * as Plot from '@observablehq/plot';
 
@@ -33,61 +35,8 @@ export const SERIES_LABEL_FONT_SIZE = 11;
 /** Gap between the last point and its label, in pixels. */
 const LABEL_OFFSET_PX = 6;
 
-/**
- * Minimum separation between two labels on the dependent axis, as a fraction of
- * the dependent span. Below this they are guaranteed to collide at any plausible
- * plot height, so the smaller series is dropped rather than shifted.
- */
-const MIN_SEPARATION_RATIO = 0.03;
-
 /** Placement once 'end' has been resolved against the axis's ability to pad. */
 export type SeriesEndLabelPlacement = 'end' | 'endInside';
-
-function toNumeric(v: any): number | null {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (v instanceof Date) return v.getTime();
-  return null;
-}
-
-/**
- * Thin labels that provably overlap on the dependent axis.
- *
- * The renderer pushes surviving labels apart, but it can only borrow so much
- * room; dropping the hopeless cases here keeps that pass from cascading every
- * label down the axis. On collision the larger dependent value wins, which
- * keeps the topmost line of a bundle labelled.
- */
-export function dropCollidingEndLabels(params: {
-  endRows: any[];
-  dependentColumn: string;
-  dependentDomain?: [number, number] | [Date, Date];
-  minSeparationRatio?: number;
-}): any[] {
-  const { endRows, dependentColumn, dependentDomain, minSeparationRatio = MIN_SEPARATION_RATIO } = params;
-  if (endRows.length <= 1) return endRows;
-
-  const valued = endRows
-    .map((row) => ({ row, value: toNumeric(row?.[dependentColumn]) }))
-    .filter((e): e is { row: any; value: number } => e.value != null);
-  if (valued.length <= 1) return valued.map((e) => e.row);
-
-  const domainMin = dependentDomain ? toNumeric(dependentDomain[0]) : null;
-  const domainMax = dependentDomain ? toNumeric(dependentDomain[1]) : null;
-  const span = domainMin != null && domainMax != null
-    ? domainMax - domainMin
-    : Math.max(...valued.map((e) => e.value)) - Math.min(...valued.map((e) => e.value));
-  if (!(span > 0)) return [valued[0].row];
-
-  const minGap = span * minSeparationRatio;
-  // Descending: on a collision the higher value is the one already kept.
-  const descending = valued.slice().sort((a, b) => b.value - a.value);
-  const kept: typeof descending = [];
-  for (const entry of descending) {
-    const last = kept[kept.length - 1];
-    if (!last || last.value - entry.value >= minGap) kept.push(entry);
-  }
-  return kept.map((e) => e.row);
-}
 
 /**
  * Extra headroom to reserve past the last point, as a fraction of the data span.
