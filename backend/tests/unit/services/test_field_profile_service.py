@@ -297,16 +297,15 @@ class TestHistogram:
         assert 'least(floor(("_qv_expr" - 0.0) / 2.5), 3)' in hist_sql
         assert 'WHERE "_qv_expr" IS NOT NULL AND isFinite("_qv_expr")' in hist_sql
 
-    def test_constant_column_yields_single_bin_without_extra_query(self):
+    def test_constant_column_is_listed_not_binned(self):
         service, connector = _service(CSV, rows=[
             (["c"], [[10, 0, 1, 5.0, 5.0, 5.0, 0.0, 5.0, 5.0, 5.0, 10]]),
+            (["c"], [[5.0, 10]]),
         ])
         result = service.profile(_request(histogramBins=8))
 
-        assert len(_sql_calls(connector)) == 1
-        assert result.numeric.histogram == [
-            type(result.numeric.histogram[0])(lower=5.0, upper=5.0, count=10)
-        ]
+        assert result.numeric.histogram == []
+        assert [(v.value, v.count) for v in result.numeric.value_counts] == [(5.0, 10)]
 
     def test_histogram_disabled_skips_the_pass(self):
         service, connector = _service(CSV, rows=[
@@ -325,6 +324,75 @@ class TestHistogram:
 
         assert len(_sql_calls(connector)) == 1
         assert result.numeric.histogram == []
+
+
+class TestDiscreteNumericValues:
+    """Few distinct values are listed exactly; binning them would blur them."""
+
+    def _rows(self, distinct, value_rows):
+        return [
+            (["c"], [[100, 0, distinct, 1.0, 5.0, 3.0, 1.4, 2.0, 3.0, 4.0, 100]]),
+            (["c"], value_rows),
+        ]
+
+    def test_low_cardinality_lists_values_in_ascending_order(self):
+        service, connector = _service(CSV, rows=self._rows(
+            5, [[1.0, 10], [2.0, 20], [3.0, 40], [4.0, 20], [5.0, 10]]
+        ))
+        result = service.profile(_request(histogramBins=24))
+
+        assert result.numeric.histogram == []
+        assert [v.value for v in result.numeric.value_counts] == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert [v.count for v in result.numeric.value_counts] == [10, 20, 40, 20, 10]
+
+        values_sql = _sql_calls(connector)[1]
+        # Ordered by value, not by frequency: the point is the shape of the domain.
+        assert 'GROUP BY "_qv_expr" ORDER BY "_qv_expr"' in values_sql
+        assert 'LIMIT 13' in values_sql
+
+    def test_enumerated_values_give_an_exact_distinct_count(self):
+        service, _ = _service(CSV, rows=self._rows(4, [[1.0, 10], [2.0, 20], [3.0, 40]]))
+        result = service.profile(_request())
+
+        assert result.distinct_count == 3
+        assert result.approximate is False
+
+    def test_non_finite_rows_keep_the_estimate(self):
+        # NaN counts towards uniq() but is excluded from the grouped pass, so the
+        # two numbers describe different populations and must not be merged.
+        service, _ = _service(CSV, rows=[
+            (["c"], [[100, 0, 4, 1.0, 3.0, 2.0, 0.8, 1.0, 2.0, 3.0, 97]]),
+            (["c"], [[1.0, 40], [2.0, 30], [3.0, 27]]),
+        ])
+        result = service.profile(_request())
+
+        assert len(result.numeric.value_counts) == 3
+        assert result.distinct_count == 4
+        assert result.approximate is True
+
+    def test_underestimated_cardinality_falls_back_to_binning(self):
+        overflow = [[float(i), 1] for i in range(13)]
+        service, connector = _service(CSV, rows=[
+            (["c"], [[100, 0, 10, 0.0, 12.0, 6.0, 3.0, 3.0, 6.0, 9.0, 100]]),
+            (["c"], overflow),
+            (["c"], [[0, 50], [3, 50]]),
+        ])
+        result = service.profile(_request(histogramBins=4))
+
+        assert result.numeric.value_counts == []
+        assert len(result.numeric.histogram) == 4
+        assert len(_sql_calls(connector)) == 3
+
+    def test_high_cardinality_skips_the_value_list(self):
+        service, connector = _service(CSV, rows=[
+            (["c"], [[100, 0, 5000, 0.0, 10.0, 5.0, 2.0, 2.5, 5.0, 7.5, 100]]),
+            (["c"], [[0, 60], [1, 40]]),
+        ])
+        result = service.profile(_request(histogramBins=2))
+
+        assert result.numeric.value_counts == []
+        assert len(result.numeric.histogram) == 2
+        assert len(_sql_calls(connector)) == 2
 
 
 class TestDatetimeBuckets:

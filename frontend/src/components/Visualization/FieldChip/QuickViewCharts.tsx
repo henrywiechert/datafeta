@@ -112,7 +112,6 @@ const QuartileStrip: React.FC<{ numeric: NumericProfile }> = ({ numeric }) => {
 export const NumericDistribution: React.FC<{ numeric: NumericProfile }> = ({ numeric }) => {
   const bins: HistogramBin[] = numeric.histogram;
   if (bins.length === 0) return null;
-
   return (
     <>
       <ColumnChart
@@ -154,7 +153,11 @@ export const TopValueBars: React.FC<{ values: TopValue[]; total: number }> = ({ 
   return (
     <div>
       {values.map((tv, i) => (
-        <div key={i} className={styles.topValueRow} title={formatValue(tv.value)}>
+        <div
+          key={i}
+          className={styles.topValueRow}
+          title={`${formatValue(tv.value)}: ${formatInteger(tv.count)} rows (${formatPercent(tv.count, total)})`}
+        >
           <div className={styles.topValueFill} style={{ width: `${(tv.count / peak) * 100}%` }} />
           <span className={styles.topValueLabel}>{formatValue(tv.value)}</span>
           <span className={styles.topValueCount}>{formatPercent(tv.count, total)}</span>

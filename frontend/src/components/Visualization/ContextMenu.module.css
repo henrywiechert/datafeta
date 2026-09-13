@@ -75,4 +75,9 @@
   .subMenuLeft {
     left: auto;
     right: 100%;
-  } 
+  }
+
+  .subMenuUp {
+    top: auto;
+    bottom: 0;
+  }

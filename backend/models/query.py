@@ -348,6 +348,9 @@ class NumericProfile(BaseModel):
     non_finite_count: int = 0
     # Equal-width bins spanning min..max, with empty bins present as count 0.
     histogram: List[HistogramBin] = Field(default_factory=list)
+    # Complete, value-ordered list of distinct values, set instead of `histogram`
+    # when the column has few enough of them that binning would only blur them.
+    value_counts: List[TopValue] = Field(default_factory=list)
 
 
 class StringProfile(BaseModel):

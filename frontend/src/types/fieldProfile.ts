@@ -44,6 +44,8 @@ export interface NumericProfile {
   q3?: number | null;
   non_finite_count: number;
   histogram: HistogramBin[];
+  /** Complete, value-ordered list, set instead of `histogram` for few distinct values. */
+  value_counts: TopValue[];
 }
 
 export interface StringProfile {

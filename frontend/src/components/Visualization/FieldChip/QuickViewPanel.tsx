@@ -11,6 +11,7 @@ import { Field, FieldProfile } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import styles from './QuickViewPanel.module.css';
 import { getProfileKind, useFieldProfile } from '../../../hooks/useFieldProfile';
+import { useFlyoutPosition } from '../useFlyoutPosition';
 import {
   CompletenessBar,
   NumericDistribution,
@@ -22,8 +23,6 @@ import { formatInteger, formatNumber, formatPercent } from './quickViewFormat';
 interface QuickViewPanelProps {
   field: Field;
 }
-
-const PANEL_WIDTH_PX = 256;
 
 const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
   <div className={styles.row}>
@@ -70,15 +69,16 @@ const Completeness: React.FC<{ profile: FieldProfile }> = ({ profile }) => {
 
 const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [openToLeft, setOpenToLeft] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { profile, loading, error, start, cancel, loadExact } = useFieldProfile(field);
+  const { openToLeft, openUpward, maxHeight } = useFlyoutPosition(
+    containerRef,
+    panelRef,
+    isOpen,
+  );
 
   const handleMouseEnter = () => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      setOpenToLeft(rect.right + PANEL_WIDTH_PX > window.innerWidth - 20);
-    }
     setIsOpen(true);
     start();
   };
@@ -124,6 +124,15 @@ const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
         />
         <Completeness profile={profile} />
 
+        {numeric && numeric.value_counts.length > 0 && (
+          <>
+            <div className={styles.sectionTitle}>
+              {`Values (${numeric.value_counts.length})`}
+            </div>
+            <TopValueBars values={numeric.value_counts} total={rows} />
+          </>
+        )}
+
         {numeric && numeric.histogram.length > 0 && (
           <>
             <div className={styles.sectionTitle}>Distribution</div>
@@ -131,7 +140,8 @@ const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
           </>
         )}
 
-        {numeric && (
+        {/* A constant column makes every summary statistic restate the value. */}
+        {numeric && numeric.value_counts.length !== 1 && (
           <>
             <Row
               label="p25 · median · p75"
@@ -192,7 +202,15 @@ const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
         Quick View →
       </div>
       {isOpen && (
-        <div className={`${styles.panel} ${openToLeft ? styles.panelLeft : ''}`}>
+        <div
+          ref={panelRef}
+          className={[
+            styles.panel,
+            openToLeft ? styles.panelLeft : '',
+            openUpward ? styles.panelUp : '',
+          ].filter(Boolean).join(' ')}
+          style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}
+        >
           <div className={styles.header}>{field.displayAlias || field.columnName}</div>
           <div className={styles.subHeader}>{field.dataType} · raw column</div>
           {renderBody()}
