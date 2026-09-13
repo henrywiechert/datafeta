@@ -4,6 +4,11 @@ import { DEFAULT_CHART_COLOR } from '../../../config/chartLayoutConfig';
 import type { Field, LineSeriesLabelMode, LineVariant } from '../../../types';
 import { resolveColorForRow, type ColorScaleInfo } from '../../utils/colorSchemeUtils';
 import { formatValue } from '../../utils/labelUtils';
+import {
+  createSeriesEndLabelMark,
+  dropCollidingEndLabels,
+  MAX_SERIES_LABELS,
+} from '../../utils/seriesEndLabels';
 import { lastRowPerSeries } from './dataPrep';
 import type { LineMarkConfigs, LineOrientation } from './types';
 
@@ -92,15 +97,13 @@ export function buildAreaMarks(params: {
   ];
 }
 
-/** Beyond this many lines direct labelling becomes unreadable, so it is skipped. */
-const MAX_SERIES_LABELS = 25;
-
-const SERIES_LABEL_FONT_SIZE = 11;
-
 /**
  * One label per line, anchored at the series' last point.
  * 'end' places it in the padded gutter past the line; 'endInside' keeps it
  * within the data area for axes that cannot be padded.
+ *
+ * Labels that provably collide on the dependent axis are dropped here; the
+ * remaining pixel-level overlap is resolved by the renderer's de-overlap pass.
  */
 export function buildSeriesEndLabelMarks(params: {
   mode: LineSeriesLabelMode;
@@ -108,6 +111,8 @@ export function buildSeriesEndLabelMarks(params: {
   seriesGroups?: Map<string, any[]>;
   xColumn: string;
   yColumn: string;
+  dependentColumn: string;
+  dependentDomain?: [number, number] | [Date, Date];
   colorColumnName?: string;
   colorField?: Field;
   colorInfo: ColorScaleInfo | null;
@@ -116,6 +121,7 @@ export function buildSeriesEndLabelMarks(params: {
 }): any[] {
   const {
     mode, orientation, seriesGroups, xColumn, yColumn,
+    dependentColumn, dependentDomain,
     colorColumnName, colorField, colorInfo, fallbackColor, fontSize,
   } = params;
 
@@ -123,27 +129,41 @@ export function buildSeriesEndLabelMarks(params: {
   if (colorInfo?.kind !== 'categorical' && colorInfo?.kind !== 'seriesGradient') return [];
   if (seriesGroups.size === 0 || seriesGroups.size > MAX_SERIES_LABELS) return [];
 
-  const endPoints = lastRowPerSeries(seriesGroups);
-  if (endPoints.length === 0) return [];
-
-  const outside = mode === 'end';
-  const horizontal = orientation === 'horizontal';
+  const endRows = dropCollidingEndLabels({
+    endRows: lastRowPerSeries(seriesGroups),
+    dependentColumn,
+    dependentDomain,
+  });
+  if (endRows.length === 0) return [];
 
   return [
-    Plot.text(endPoints, {
-      x: xColumn,
-      y: yColumn,
-      text: (d: any) => formatValue(d[colorColumnName]),
-      fill: (d: any) => resolveColorForRow(d, colorInfo, colorField, fallbackColor),
-      textAnchor: horizontal ? (outside ? 'start' : 'end') : 'middle',
-      dx: horizontal ? (outside ? 6 : -6) : 0,
-      dy: horizontal ? 0 : (outside ? -8 : 10),
-      fontSize: fontSize ?? SERIES_LABEL_FONT_SIZE,
-      fontWeight: 500,
-      stroke: 'white',
-      strokeWidth: 3,
-      paintOrder: 'stroke',
-      pointerEvents: 'none',
-    } as any),
+    createSeriesEndLabelMark({
+      endRows,
+      placement: mode,
+      orientation,
+      xColumn,
+      yColumn,
+      getText: (d: any) => formatValue(d[colorColumnName]),
+      getFill: (d: any) => resolveColorForRow(d, colorInfo, colorField, fallbackColor),
+      fontSize,
+    }),
   ];
+}
+
+/** Label texts for the series that will actually be labelled, for gutter sizing. */
+export function seriesEndLabelTexts(params: {
+  seriesGroups?: Map<string, any[]>;
+  colorColumnName?: string;
+  dependentColumn: string;
+  dependentDomain?: [number, number] | [Date, Date];
+}): string[] {
+  const { seriesGroups, colorColumnName, dependentColumn, dependentDomain } = params;
+  if (!seriesGroups || !colorColumnName) return [];
+  if (seriesGroups.size === 0 || seriesGroups.size > MAX_SERIES_LABELS) return [];
+
+  return dropCollidingEndLabels({
+    endRows: lastRowPerSeries(seriesGroups),
+    dependentColumn,
+    dependentDomain,
+  }).map((row) => formatValue(row[colorColumnName]));
 }

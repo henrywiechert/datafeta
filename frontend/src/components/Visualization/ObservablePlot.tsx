@@ -8,6 +8,7 @@ import { useFullscreenPortalTarget } from '../../hooks/useFullscreenPortalTarget
 import { useElementSize } from '../../hooks/useElementSize';
 import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
+import { deOverlapSeriesLabels } from './deOverlapSeriesLabels';
 import { stampColorCategories } from './stampColorCategories';
 
 interface ObservablePlotProps {
@@ -80,6 +81,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         // Stamp data-cat attributes on mark elements for highlight matching.
         // Uses the same __data__ → datum resolution as the tooltip system.
         stampColorCategories(plot, options);
+
+        // Series-end labels can only be de-overlapped once real text metrics
+        // and the final plot size exist.
+        deOverlapSeriesLabels(plot);
 
         // Add custom tooltip event listeners if configured
         const customTooltipConfig = options.__customTooltip;

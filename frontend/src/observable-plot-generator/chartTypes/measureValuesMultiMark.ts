@@ -9,10 +9,11 @@
 
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY } from '../../config/chartLayoutConfig';
-import { Field, FieldOverrideState, LineVariant, UserChartType } from '../../types';
+import { Field, FieldOverrideState, LineSeriesLabelMode, LineVariant, UserChartType } from '../../types';
 import { MEASURE_NAMES_FIELD, getMeasureMemberLabel } from '../../utils/syntheticFields';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { createSeriesEndLabelMark, MAX_SERIES_LABELS } from '../utils/seriesEndLabels';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
@@ -67,6 +68,29 @@ function getMeasureLineVariant(
 }
 
 /**
+ * Row with the largest value on `column`, i.e. the visual end of the line.
+ *
+ * Computed rather than taken from the tail of the array because this path only
+ * sorts its data when point reduction kicks in.
+ */
+function lastRowByColumn(rows: any[], column: string): any | null {
+  let best: any = null;
+  let bestValue = -Infinity;
+  for (const row of rows) {
+    const raw = row?.[column];
+    const value = raw instanceof Date
+      ? raw.getTime()
+      : typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+    if (value == null) continue;
+    if (value > bestValue) {
+      bestValue = value;
+      best = row;
+    }
+  }
+  return best;
+}
+
+/**
  * Get the size for a specific measure from overrides.
  */
 function getMeasureSize(
@@ -91,6 +115,8 @@ interface MultiMarkConfig {
   manualColor?: string;
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
+  /** Direct labelling of each measure's line end with the measure name. */
+  seriesLabels?: LineSeriesLabelMode;
   sharedDomains?: Record<string, [number, number] | [Date, Date]>;
   tooltipFields?: Field[];
 }
@@ -306,6 +332,7 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     manualColor,
     lineVariant = 'line',
     areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
+    seriesLabels = 'off',
     tooltipFields,
   } = config;
 
@@ -353,6 +380,8 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
 
   // Create marks for each source measure
   const allMarks: Plot.Markish[] = [];
+  // Collected per measure so all line ends can be labelled by one mark.
+  const labelRows: Array<{ row: any; text: string; color: string }> = [];
 
   for (let i = 0; i < measureValuesSourceFields.length; i++) {
     const measureField = measureValuesSourceFields[i];
@@ -394,6 +423,33 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     );
 
     allMarks.push(...marks);
+
+    if (seriesLabels !== 'off' && chartType === 'line') {
+      const endRow = lastRowByColumn(filteredData, categoryColumn);
+      if (endRow) labelRows.push({ row: endRow, text: measureName, color: staticColor });
+    }
+  }
+
+  // Series-end labels. Unlike the single-measure line chart this path does not
+  // widen the category axis: its domain comes from `sharedDomains` and is shared
+  // with sibling grid cells, so padding it per cell would break their alignment.
+  // Labels are therefore always placed inside the data area.
+  if (labelRows.length > 0 && labelRows.length <= MAX_SERIES_LABELS) {
+    const rows = labelRows.map((entry) => entry.row);
+    const byRow = new Map(labelRows.map((entry) => [entry.row, entry]));
+    allMarks.push(
+      createSeriesEndLabelMark({
+        endRows: rows,
+        placement: 'endInside',
+        // `orientation` here is named for the measure axis, which is the inverse
+        // of the label helper's convention (it names the independent axis).
+        orientation: isMeasureValuesOnY ? 'horizontal' : 'vertical',
+        xColumn: isMeasureValuesOnY ? categoryColumn : measureValuesColumn,
+        yColumn: isMeasureValuesOnY ? measureValuesColumn : categoryColumn,
+        getText: (row: any) => byRow.get(row)?.text ?? '',
+        getFill: (row: any) => byRow.get(row)?.color ?? '#333',
+      })
+    );
   }
 
   // Add a baseline rule at y=0
