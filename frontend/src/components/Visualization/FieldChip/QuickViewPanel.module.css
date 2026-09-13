@@ -221,6 +221,13 @@
   text-decoration: underline;
 }
 
+/* Same box as .exactLink, holding a blank line. The footer keeps its height
+   once the exact count arrives: a shrinking panel slides out from under the
+   pointer, which the browser reports as a mouseleave and closes Quick View. */
+.exactSpacer {
+  margin-top: 6px;
+}
+
 .skeleton {
   height: 8px;
   border-radius: 3px;
