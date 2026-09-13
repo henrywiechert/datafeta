@@ -375,6 +375,10 @@ Notes:
   value in ascending order, which also yields an exact `distinct_count`. Only one
   of the two is ever populated. Datetime profiles get bucket counts at a
   granularity chosen from the span (hour / day / month / year).
+- `_source_table` / `_source_database` are literals the UNION builder injects per
+  branch, not real columns, so they are profiled by counting rows per branch
+  instead of being selected. The result is an exact row count per source table
+  (or per database), with no approximation.
 - Results are cached in memory (5 min TTL, LRU) keyed by column plus table,
   join/union, virtual column and datetime-part context. Pass an explicit
   `signal`; the shared abort controller would cancel unrelated metadata calls.

@@ -35,6 +35,7 @@ from backend.models.query import (
 )
 from backend.services.query_components.column_source_resolver import (
     build_column_expression,
+    normalize_table_name,
     resolve_column_source,
 )
 from backend.services.query_components.finite_guard_sql import finite_predicate_sql
@@ -83,6 +84,11 @@ _MAX_TIME_BUCKETS = 120
 # values are listed exactly, since bins would only blur a handful of categories.
 _DISCRETE_VALUE_MAX = 12
 
+# Synthetic columns the UNION builder injects as a literal per branch. They do
+# not exist in any table, so they are profiled from the branch list instead.
+_SOURCE_FIELDS = ('_source_table', '_source_database')
+_MAX_SOURCE_VALUES = 25
+
 
 class FieldProfileService:
     """Builds and runs the Quick View profile queries for one column."""
@@ -103,6 +109,9 @@ class FieldProfileService:
         )
 
         started = time.perf_counter()
+
+        if request.field in _SOURCE_FIELDS:
+            return self._profile_source_field(request, started)
 
         expr_sql, from_sql = self._resolve_expression(request)
         scalar_sql = self._build_scalar_sql(request, expr_sql, from_sql)
@@ -159,6 +168,99 @@ class FieldProfileService:
         return response
 
     # --- Query construction --- #
+
+    def _profile_source_field(
+        self, request: FieldProfileRequest, started: float
+    ) -> FieldProfileResponse:
+        """Profile `_source_table` / `_source_database` from the UNION branches.
+
+        These are literals the union builder injects per branch, so selecting
+        them from a table fails with an unknown-identifier error. Counting rows
+        per branch reproduces exactly what a query over them would return.
+        """
+        sources = self._resolve_source_branches(request)
+        use_table_name = request.field == '_source_table'
+        labelled = [
+            ((table if use_table_name else database) or '', database, table)
+            for database, table in sources
+        ]
+        by_label = self._count_rows_per_label(labelled)
+
+        ordered = sorted(by_label.items(), key=lambda kv: (-kv[1], kv[0]))
+        total = sum(by_label.values())
+        lengths = [len(label) for label in by_label]
+
+        return FieldProfileResponse(
+            field=request.field,
+            profile_kind='string',
+            # Every branch was enumerated, so nothing here is an estimate.
+            approximate=False,
+            row_count=total,
+            null_count=0,
+            distinct_count=len(by_label),
+            string=StringProfile(
+                min_length=min(lengths) if lengths else None,
+                max_length=max(lengths) if lengths else None,
+                empty_count=by_label.get('', 0),
+                top_values=[
+                    TopValue(value=label, count=count)
+                    for label, count in ordered[:_MAX_SOURCE_VALUES]
+                ],
+            ),
+            duration_ms=int((time.perf_counter() - started) * 1000),
+        )
+
+    def _resolve_source_branches(
+        self, request: FieldProfileRequest
+    ) -> List[Tuple[Optional[str], str]]:
+        """(database, table) for every branch contributing rows, in query order."""
+        virtual_table = request.virtualTable
+        branches: List[Tuple[Optional[str], str]] = []
+
+        if virtual_table and virtual_table.mode == 'union':
+            primary = normalize_table_name(virtual_table.primary_table) or request.table
+            branches.append((request.database, primary))
+            for union_table in virtual_table.union_tables:
+                name = normalize_table_name(union_table.table_name)
+                if name:
+                    branches.append((union_table.database or request.database, name))
+        else:
+            branches.append((request.database, request.table))
+
+        seen = set()
+        unique: List[Tuple[Optional[str], str]] = []
+        for branch in branches:
+            if branch not in seen:
+                seen.add(branch)
+                unique.append(branch)
+        return unique
+
+    def _count_rows_per_label(
+        self, labelled: List[Tuple[str, Optional[str], str]]
+    ) -> Dict[str, int]:
+        """Row counts summed per label, in one round trip.
+
+        Each branch selects its own label alongside its count, so the result does
+        not depend on UNION ALL preserving branch order.
+        """
+        count_sql = self._dialect.count_star_sql()
+        selects = [
+            f"SELECT {self._alias(self._string_literal(label), _TOP_VALUE)}, "
+            f"{self._alias(count_sql, _TOP_COUNT)} "
+            f"FROM {self._dialect.table_ref(table, database)}"
+            for label, database, table in labelled
+        ]
+
+        totals: Dict[str, int] = {}
+        for row in self._fetch_all(' UNION ALL '.join(selects)):
+            label = str(self._get(row, _TOP_VALUE, 0) or '')
+            totals[label] = totals.get(label, 0) + self._as_int(self._get(row, _TOP_COUNT, 1))
+        return totals
+
+    @staticmethod
+    def _string_literal(value: str) -> str:
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
 
     def _resolve_expression(self, request: FieldProfileRequest) -> Tuple[str, str]:
         """Return (aggregated column alias, FROM clause projecting it)."""

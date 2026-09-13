@@ -9,6 +9,7 @@ from backend.models.data_source import (
     Column,
     ConnectionDetails,
     TableJoinDefinition,
+    UnionTableDefinition,
     VirtualColumnDefinition,
     VirtualTableDefinition,
 )
@@ -213,6 +214,104 @@ class TestColumnResolution:
             dateTimeMode="distinct",
         ))
         assert '"created_at"' in _sql_calls(connector)[0]
+
+
+class TestSourceTrackingFields:
+    """_source_table / _source_database are UNION literals, not real columns."""
+
+    def _union_table(self):
+        return VirtualTableDefinition(
+            primary_table="sales_2023",
+            mode="union",
+            union_tables=[
+                UnionTableDefinition(table_name="sales_2024"),
+                UnionTableDefinition(table_name="archive", database="cold"),
+            ],
+        )
+
+    def test_source_table_counts_rows_per_branch(self):
+        service, connector = _service(CLICKHOUSE, rows=[
+            (["c"], [["sales_2023", 100], ["sales_2024", 250], ["archive", 40]]),
+        ])
+        result = service.profile(_request(
+            field="_source_table",
+            table="sales_2023",
+            database="shop",
+            virtualTable=self._union_table(),
+        ))
+
+        sql = _sql_calls(connector)[0]
+        # Selecting the column would fail with UNKNOWN_IDENTIFIER; the literal
+        # is what the union builder injects per branch.
+        assert "`_source_table`" not in sql
+        assert "'sales_2023' AS `_qv_value`" in sql
+        assert "FROM `shop`.`sales_2024`" in sql
+        assert "FROM `cold`.`archive`" in sql
+
+        assert result.row_count == 390
+        assert result.distinct_count == 3
+        assert result.approximate is False
+        assert [(v.value, v.count) for v in result.string.top_values] == [
+            ("sales_2024", 250), ("sales_2023", 100), ("archive", 40),
+        ]
+
+    def test_source_database_sums_tables_sharing_a_database(self):
+        service, connector = _service(CLICKHOUSE, rows=[
+            (["c"], [["shop", 100], ["shop", 250], ["cold", 40]]),
+        ])
+        result = service.profile(_request(
+            field="_source_database",
+            table="sales_2023",
+            database="shop",
+            virtualTable=self._union_table(),
+        ))
+
+        assert "'shop' AS `_qv_value`" in _sql_calls(connector)[0]
+        assert result.distinct_count == 2
+        assert [(v.value, v.count) for v in result.string.top_values] == [
+            ("shop", 350), ("cold", 40),
+        ]
+
+    def test_single_table_has_one_source(self):
+        service, connector = _service(CLICKHOUSE, rows=[(["c"], [["sales", 42]])])
+        result = service.profile(_request(
+            field="_source_table", table="sales", database="shop",
+        ))
+
+        assert "UNION ALL" not in _sql_calls(connector)[0]
+        assert result.row_count == 42
+        assert [(v.value, v.count) for v in result.string.top_values] == [("sales", 42)]
+
+    def test_join_mode_ignores_joined_tables(self):
+        """Only UNION branches contribute rows to a source column."""
+        virtual_table = VirtualTableDefinition(
+            primary_table="orders",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="customers",
+                    join_type="INNER",
+                    on_conditions=["orders.customer_id = customers.id"],
+                )
+            ],
+        )
+        service, connector = _service(CLICKHOUSE, rows=[(["c"], [["orders", 10]])])
+        service.profile(_request(
+            field="_source_table",
+            table="orders",
+            database="shop",
+            virtualTable=virtual_table,
+        ))
+
+        sql = _sql_calls(connector)[0]
+        assert "customers" not in sql
+
+    def test_table_name_quote_is_escaped(self):
+        service, connector = _service(CLICKHOUSE, rows=[(["c"], [["o'brien", 1]])])
+        service.profile(_request(
+            field="_source_table", table="o'brien", database="shop",
+        ))
+
+        assert "'o''brien' AS `_qv_value`" in _sql_calls(connector)[0]
 
 
 class TestResponseMapping:
