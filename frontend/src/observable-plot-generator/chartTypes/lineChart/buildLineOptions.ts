@@ -99,13 +99,11 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
 
   // Grid cells clip overflow, so 'end' labels need room carved out of the scale;
   // where the axis has no numeric domain to pad, fall back to labelling inside.
-  // The gutter is sized from the labels that survive collision thinning, so it
-  // must be computed from the same inputs the label mark uses.
+  // The gutter is sized from the same labels the mark will emit, so both must
+  // be derived from the same inputs.
   const labelTexts = seriesLabels === 'off' ? [] : seriesEndLabelTexts({
     seriesGroups,
     colorColumnName,
-    dependentColumn,
-    dependentDomain: recomputedDependent,
   });
   const paddedIndependent = seriesLabels === 'end' && seriesGroups
     ? padIndependentDomain(plotData, independentColumn, axisKind, labelTexts, labelCfg?.fontSize)
@@ -207,8 +205,6 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         seriesGroups,
         xColumn,
         yColumn,
-        dependentColumn,
-        dependentDomain: recomputedDependent,
         colorColumnName,
         colorField,
         colorInfo,

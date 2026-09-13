@@ -310,6 +310,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       lineVariant: context.lineVariant,
       areaFillOpacity: context.areaFillOpacity,
       lineColorMode: context.lineColorMode,
+      lineSeriesLabels: context.lineSeriesLabels,
       distributionVariant: context.distributionVariant,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
