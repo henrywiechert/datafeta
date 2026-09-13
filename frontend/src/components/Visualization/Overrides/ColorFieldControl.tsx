@@ -20,6 +20,8 @@ interface ColorFieldControlProps {
   onColorChange: (color: string) => void;
   onBiasChange: (bias: number) => void;
   onReverseChange: (reversed: boolean) => void;
+  /** Optional control on the right of the color row (e.g. series labels). */
+  trailing?: React.ReactNode;
 }
 
 const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
@@ -34,6 +36,7 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   onColorChange,
   onBiasChange,
   onReverseChange,
+  trailing,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
@@ -53,7 +56,7 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          gridTemplateColumns: trailing ? 'auto minmax(0, 1fr) auto' : 'auto minmax(0, 1fr)',
           alignItems: 'center',
           gap: 0.5,
         }}
@@ -100,6 +103,8 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
             )}
           </PropertyDropZone>
         </Box>
+
+        {trailing}
 
       </Box>
     </Box>
