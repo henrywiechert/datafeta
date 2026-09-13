@@ -36,6 +36,7 @@ export const formatPercent = (part: number, total: number): string => {
 export const formatValue = (value: unknown): string => {
   if (value === null || value === undefined) return '(null)';
   if (value === '') return '(empty)';
+  if (typeof value === 'number') return formatNumber(value);
   return String(value);
 };
 

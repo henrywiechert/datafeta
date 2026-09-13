@@ -87,6 +87,8 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   );
   const showArgAggregations =
     !isSynthetic && availableAggregations.length > 0 && datetimeArgColumns.length > 0;
+  const currentAggregationLabel =
+    !isBulkEdit && field.aggregation ? aggregationLabel(field.aggregation) : undefined;
   
   // For bulk edit, check if all selected fields can perform the operation
   const allCanBeMeasure = isBulkEdit ? selectedFields.every(f => canBeMeasure(f)) : isFieldMeasure;
@@ -250,46 +252,49 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         </>
       )}
       
-      {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
-
-      {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.map(agg => (
-        <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg, aggregationArg: undefined })}>
-          {aggregationLabel(agg)} {!isBulkEdit && field.aggregation === agg && '✔'}
-        </div>
-      ))}
-
-      {/* Latest/Earliest value (arg_max/arg_min): value at the row where the
-          chosen datetime column is maximal/minimal, e.g. closing weight per day */}
-      {menuConfig.allowAggregationChange && allAreMeasures && showArgAggregations && (
+      {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.length > 0 && (
         <>
-          {([['arg_max', 'Latest value'], ['arg_min', 'Earliest value']] as const).map(([agg, label]) => {
-            const isActive = !isBulkEdit && field.aggregation === agg;
-            if (datetimeArgColumns.length === 1) {
-              const col = datetimeArgColumns[0].columnName;
-              return (
-                <div
-                  key={agg}
-                  className={menuStyles.menuItem}
-                  onClick={() => onUpdate({ aggregation: agg, aggregationArg: col })}
-                >
-                  {label} (by {col}) {isActive && '✔'}
-                </div>
-              );
-            }
-            return (
-              <SubMenu key={agg} label={`${label} (by …)${isActive ? ' ✔' : ''}`}>
-                {datetimeArgColumns.map((c: Field) => (
+          <div className={menuStyles.separator} />
+          <SubMenu
+            label={`Aggregation${currentAggregationLabel ? ` (${currentAggregationLabel})` : ''}`}
+          >
+            {availableAggregations.map(agg => (
+              <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg, aggregationArg: undefined })}>
+                {aggregationLabel(agg)} {!isBulkEdit && field.aggregation === agg && '✔'}
+              </div>
+            ))}
+
+            {/* Latest/Earliest value (arg_max/arg_min): value at the row where the
+                chosen datetime column is maximal/minimal, e.g. closing weight per day */}
+            {showArgAggregations && ([['arg_max', 'Latest value'], ['arg_min', 'Earliest value']] as const).map(([agg, label]) => {
+              const isActive = !isBulkEdit && field.aggregation === agg;
+              if (datetimeArgColumns.length === 1) {
+                const col = datetimeArgColumns[0].columnName;
+                return (
                   <div
-                    key={c.columnName}
+                    key={agg}
                     className={menuStyles.menuItem}
-                    onClick={() => onUpdate({ aggregation: agg, aggregationArg: c.columnName })}
+                    onClick={() => onUpdate({ aggregation: agg, aggregationArg: col })}
                   >
-                    {c.columnName} {isActive && field.aggregationArg === c.columnName && '✔'}
+                    {label} (by {col}) {isActive && '✔'}
                   </div>
-                ))}
-              </SubMenu>
-            );
-          })}
+                );
+              }
+              return (
+                <SubMenu key={agg} label={`${label} (by …)${isActive ? ' ✔' : ''}`}>
+                  {datetimeArgColumns.map((c: Field) => (
+                    <div
+                      key={c.columnName}
+                      className={menuStyles.menuItem}
+                      onClick={() => onUpdate({ aggregation: agg, aggregationArg: c.columnName })}
+                    >
+                      {c.columnName} {isActive && field.aggregationArg === c.columnName && '✔'}
+                    </div>
+                  ))}
+                </SubMenu>
+              );
+            })}
+          </SubMenu>
         </>
       )}
 

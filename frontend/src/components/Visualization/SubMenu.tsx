@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import styles from './ContextMenu.module.css';
+import { useFlyoutPosition } from './useFlyoutPosition';
 
 interface SubMenuProps {
   label: string;
@@ -10,51 +11,19 @@ interface SubMenuProps {
 
 const SubMenu: React.FC<SubMenuProps> = ({ label, children, isActive }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [openToLeft, setOpenToLeft] = useState(false);
-  const subMenuRef = React.useRef<HTMLDivElement>(null);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  const handleMouseEnter = () => {
-    if (containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      
-      // Estimate submenu width based on content
-      // Use a more generous estimate to account for longer text
-      const estimatedSubMenuWidth = 160;
-      
-      // If submenu would go off right edge, open to left
-      if (containerRect.right + estimatedSubMenuWidth > viewportWidth - 20) { // 20px margin
-        setOpenToLeft(true);
-      } else {
-        setOpenToLeft(false);
-      }
-    }
-    
-    setIsOpen(true);
-  };
-
-  // Fine-tune position after submenu is rendered
-  React.useEffect(() => {
-    if (isOpen && containerRef.current && subMenuRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const subMenuRect = subMenuRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      
-      // Double-check with actual dimensions
-      if (containerRect.right + subMenuRect.width > viewportWidth - 10) {
-        if (!openToLeft) {
-          setOpenToLeft(true);
-        }
-      }
-    }
-  }, [isOpen, openToLeft]);
+  const subMenuRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { openToLeft, openUpward, maxHeight } = useFlyoutPosition(
+    containerRef,
+    subMenuRef,
+    isOpen,
+  );
 
   return (
     <div 
       ref={containerRef}
       className={styles.subMenuContainer}
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
     >
       <div className={`${styles.menuItem} ${styles.subMenuItem}`}>
@@ -63,7 +32,12 @@ const SubMenu: React.FC<SubMenuProps> = ({ label, children, isActive }) => {
       {isOpen && (
         <div 
           ref={subMenuRef}
-          className={`${styles.subMenu} ${openToLeft ? styles.subMenuLeft : ''}`}
+          className={[
+            styles.subMenu,
+            openToLeft ? styles.subMenuLeft : '',
+            openUpward ? styles.subMenuUp : '',
+          ].filter(Boolean).join(' ')}
+          style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}
         >
           {children}
         </div>

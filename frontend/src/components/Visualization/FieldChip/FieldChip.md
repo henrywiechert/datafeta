@@ -62,7 +62,8 @@ FieldChip/
 │  │  │  • Data Type (string/integer/float/datetime)                   │  │  │
 │  │  │  • DateTime Part submenu                                       │  │  │
 │  │  │  • Configure Casting                                           │  │  │
-│  │  │  • Aggregation (SUM/AVG/MIN/MAX/COUNT)                        │  │  │
+│  │  │  • Aggregation submenu (SUM/AVG/… + Latest/Earliest value)     │  │  │
+│  │  │  • Table Calculation submenu                                   │  │  │
 │  │  │  • Bar Sort Order (axes only)                                  │  │  │
 │  │  │  • Remove from this zone                                       │  │  │
 │  │  └─────────────────────────────────────────────────────────────────┘  │  │

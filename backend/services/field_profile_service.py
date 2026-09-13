@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import time
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.connectors.base import BaseConnector
@@ -78,6 +79,10 @@ _BUCKET_THRESHOLDS = (
 )
 _MAX_TIME_BUCKETS = 120
 
+# Above this many distinct values a numeric column is binned; at or below it the
+# values are listed exactly, since bins would only blur a handful of categories.
+_DISCRETE_VALUE_MAX = 12
+
 
 class FieldProfileService:
     """Builds and runs the Quick View profile queries for one column."""
@@ -139,13 +144,7 @@ class FieldProfileService:
 
         if request.profileKind == 'numeric':
             response.numeric = self._build_numeric_profile(scalar_row, row_count, null_count)
-            response.numeric.histogram = self._load_histogram(
-                request,
-                expr_sql,
-                from_sql,
-                response.numeric,
-                finite_count=self._as_int(self._get(scalar_row, _FINITE_COUNT, 10)),
-            )
+            self._load_numeric_distribution(request, expr_sql, from_sql, response)
         elif request.profileKind == 'datetime':
             response.datetime = self._load_datetime_profile(request, scalar_row, expr_sql, from_sql)
             response.string = StringProfile(top_values=top_values)
@@ -262,25 +261,75 @@ class FieldProfileService:
             non_finite_count=max(0, row_count - null_count - finite_count),
         )
 
+    def _load_numeric_distribution(
+        self,
+        request: FieldProfileRequest,
+        expr_sql: str,
+        from_sql: str,
+        response: FieldProfileResponse,
+    ) -> None:
+        """Fill in either the exact value list or a binned histogram.
+
+        Binning a column that holds only a handful of values (a rating, a status
+        code, a year) hides the very thing worth seeing, so those are listed
+        value by value instead.
+        """
+        numeric = response.numeric
+        if numeric is None or request.histogramBins <= 0:
+            return
+        low, high = numeric.min, numeric.max
+        if low is None or high is None:
+            return
+
+        distinct = response.distinct_count
+        if distinct is not None and 0 < distinct <= _DISCRETE_VALUE_MAX:
+            values = self._load_numeric_value_counts(expr_sql, from_sql)
+            if values is not None:
+                numeric.value_counts = values
+                # Only a trustworthy distinct count when nothing was dropped from
+                # the grouped pass: NaN rows count towards uniq() but not here.
+                if numeric.non_finite_count == 0:
+                    response.distinct_count = len(values)
+                    response.approximate = False
+                return
+            # The estimate was low; fall through and bin after all.
+
+        if high > low:
+            numeric.histogram = self._load_histogram(request, expr_sql, from_sql, low, high)
+
+    def _load_numeric_value_counts(
+        self, expr_sql: str, from_sql: str
+    ) -> Optional[List[TopValue]]:
+        """Every distinct value in ascending order, or None if there are too many."""
+        sql = (
+            f"SELECT {self._alias(expr_sql, _TOP_VALUE)}, "
+            f"{self._alias(self._dialect.count_star_sql(), _TOP_COUNT)} "
+            f"{from_sql} "
+            f"WHERE {expr_sql} IS NOT NULL AND {finite_predicate_sql(expr_sql)} "
+            f"GROUP BY {expr_sql} ORDER BY {expr_sql} "
+            f"LIMIT {_DISCRETE_VALUE_MAX + 1}"
+        )
+        rows = self._fetch_all(sql)
+        if len(rows) > _DISCRETE_VALUE_MAX:
+            return None
+        return [
+            TopValue(
+                value=self._as_json_number(self._get(row, _TOP_VALUE, 0)),
+                count=self._as_int(self._get(row, _TOP_COUNT, 1)),
+            )
+            for row in rows
+        ]
+
     def _load_histogram(
         self,
         request: FieldProfileRequest,
         expr_sql: str,
         from_sql: str,
-        numeric: NumericProfile,
-        *,
-        finite_count: int,
+        low: float,
+        high: float,
     ) -> List[HistogramBin]:
         """Equal-width bin counts over the finite values, min..max."""
         bins = request.histogramBins
-        low, high = numeric.min, numeric.max
-        if bins <= 0 or low is None or high is None:
-            return []
-
-        if high == low:
-            # A constant column has no range to divide into bins.
-            return [HistogramBin(lower=low, upper=high, count=finite_count)]
-
         width = (high - low) / bins
         bin_expr = (
             f"least(floor(({expr_sql} - {low}) / {width}), {bins - 1})"
@@ -418,3 +467,13 @@ class FieldProfileService:
     @staticmethod
     def _as_optional_str(value: Any) -> Optional[str]:
         return None if value is None else str(value)
+
+    @staticmethod
+    def _as_json_number(value: Any) -> Any:
+        """Widen DECIMAL to float so it serialises as a JSON number, not a string.
+
+        int is left alone: converting it would lose precision above 2^53.
+        """
+        if isinstance(value, Decimal):
+            return float(value)
+        return value
