@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY } from '../../../config/chartLayoutConfig';
+import type { LineSeriesLabelMode } from '../../../types';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import {
   deriveColorScaleInfo,
@@ -9,9 +10,9 @@ import {
 } from '../../utils/colorSchemeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../../utils/labelUtils';
 import { prepareLineData } from './dataPrep';
-import { attachLineDomainMetadata, buildLineAxes, recomputeDependentDomain } from './domains';
+import { attachLineDomainMetadata, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
 import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale } from './encodings';
-import { buildAreaMarks, createBaseMarkConfigs, createHoverDotConfig } from './marks';
+import { buildAreaMarks, buildSeriesEndLabelMarks, createBaseMarkConfigs, createHoverDotConfig } from './marks';
 import { LINE_ORIENTATION } from './orientation';
 import { attachLineTooltipMetadata } from './tooltips';
 import type { LineBuildParams } from './types';
@@ -46,6 +47,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     variant = 'line',
     areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
     lineColorMode = 'alongPath',
+    seriesLabels = 'off',
   } = params;
   const color = resolveContextColorChannel(params as any);
   const colorField = color.field ?? undefined;
@@ -56,7 +58,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
   const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-  const { clean, budgetedSorted, dotData, axisKind } = prepareLineData({
+  const { clean, budgetedSorted, dotData, axisKind, seriesGroups } = prepareLineData({
     data,
     independentColumn,
     dependentColumn,
@@ -88,6 +90,20 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       [O.dependentAxis]: recomputedDependent,
     };
   }
+
+  // Grid cells clip overflow, so 'end' labels need room carved out of the scale;
+  // where the axis has no numeric domain to pad, fall back to labelling inside.
+  const paddedIndependent = seriesLabels === 'end' && seriesGroups
+    ? padIndependentDomain(plotData, independentColumn, axisKind)
+    : undefined;
+  if (paddedIndependent) {
+    effectiveDomain = {
+      ...effectiveDomain,
+      [O.independentAxis]: paddedIndependent,
+    };
+  }
+  const effectiveSeriesLabels: LineSeriesLabelMode =
+    seriesLabels === 'end' && !paddedIndependent ? 'endInside' : seriesLabels;
 
   const xLabel = labels?.x || xColumn;
   const yLabel = labels?.y || yColumn;
@@ -146,10 +162,10 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     variant,
     orientation,
     budgetedSorted,
+    seriesGroups,
     areaConfig,
     colorField,
     colorInfo,
-    colorColumnName,
     manualColor,
   });
 
@@ -171,6 +187,18 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       ...lineMarks,
       Plot.dot(dotData, dotConfig),
       Plot.dot(dotData, hoverDotConfig),
+      ...buildSeriesEndLabelMarks({
+        mode: effectiveSeriesLabels,
+        orientation,
+        seriesGroups,
+        xColumn,
+        yColumn,
+        colorColumnName,
+        colorField,
+        colorInfo,
+        fallbackColor: comparisonColorContext.fallbackColor,
+        fontSize: labelCfg?.fontSize,
+      }),
     ],
   };
 
@@ -221,6 +249,15 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     axis: O.dependentAxis,
     column: dependentColumn,
     domain: recomputedDependent,
+  });
+
+  // The label gutter must be identical in every facet cell, otherwise cells
+  // sharing an external axis gutter would disagree about the scale.
+  attachLineDomainMetadata({
+    plotOptions,
+    axis: O.independentAxis,
+    column: independentColumn,
+    domain: paddedIndependent,
   });
 
   attachSeriesHighlightData(plotOptions, budgetedSorted);

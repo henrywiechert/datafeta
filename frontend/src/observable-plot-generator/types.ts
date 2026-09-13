@@ -71,6 +71,7 @@ export interface CartesianPlotsConfig {
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
   lineColorMode?: import('../types').LineColorMode;
+  lineSeriesLabels?: import('../types').LineSeriesLabelMode;
   distributionVariant?: DistributionVariant;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
@@ -132,6 +133,8 @@ export interface ChartGenerationContext {
   areaFillOpacity?: number;
   /** Continuous line color: along path vs one line per value. */
   lineColorMode?: import('../types').LineColorMode;
+  /** Direct labelling of each line's end with its color category value. */
+  lineSeriesLabels?: import('../types').LineSeriesLabelMode;
   /** Variant for the distribution chart family when globalChartType is 'tick'. */
   distributionVariant?: DistributionVariant;
   /**

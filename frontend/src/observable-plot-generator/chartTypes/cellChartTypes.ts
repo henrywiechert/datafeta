@@ -5,7 +5,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineVariant } from '../../types';
+import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 
@@ -46,6 +46,8 @@ export interface ChartContext {
   areaFillOpacity?: number;
   /** Continuous line color: along path vs one line per value. */
   lineColorMode?: LineColorMode;
+  /** Direct labelling of each line's end with its color category value. */
+  lineSeriesLabels?: LineSeriesLabelMode;
   /** KDE parameters when rendering density charts. */
   densityParams?: DensityParams;
   xTickFormat?: (d: any) => string;

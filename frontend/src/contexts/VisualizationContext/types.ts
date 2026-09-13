@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FieldOverrideState, MeasureGroup, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant, LineColorMode, DensityParams } from '../../types/field';
+import { Field, FieldOverrideState, MeasureGroup, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant, LineColorMode, LineSeriesLabelMode, DensityParams } from '../../types/field';
 import { QueryResult } from '../../types/query';
 import { FilterConfig, FilterMetadata } from '../../types/filter';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
@@ -187,6 +187,8 @@ export interface LineChartParams {
   areaFillOpacity: number;
   /** Continuous color on line charts: gradient along one path vs one line per value. */
   colorMode: LineColorMode;
+  /** Per-series labels drawn at the end of each line. */
+  seriesLabels: LineSeriesLabelMode;
 }
 
 /** Parameters for the distribution chart type (top-level chart type remains 'tick'). */
@@ -303,6 +305,7 @@ export type VisualizationAction =
   | { type: 'SET_LINE_VARIANT'; payload: LineVariant }
   | { type: 'SET_AREA_FILL_OPACITY'; payload: number }
   | { type: 'SET_LINE_COLOR_MODE'; payload: LineColorMode }
+  | { type: 'SET_LINE_SERIES_LABELS'; payload: LineSeriesLabelMode }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
   // Table-refactor pagination
   | { type: 'SET_TABLE_PAGE'; payload: number }

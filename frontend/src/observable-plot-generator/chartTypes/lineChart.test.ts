@@ -138,10 +138,11 @@ describe('buildLineOptions – dependent-axis domain always recomputed from data
   test('attaches __lineChartDomainInfo metadata', () => {
     const data = generateRows(500, 75, 25);
     const opts = buildLineOptions(makeParams(data, undefined));
-    const info = (opts as any).__lineChartDomainInfo;
+    const infos = (opts as any).__lineChartDomainInfo;
 
+    expect(Array.isArray(infos)).toBe(true);
+    const info = infos.find((i: any) => i.axis === 'y');
     expect(info).toBeDefined();
-    expect(info.axis).toBe('y');
     expect(info.column).toBe('AVG(y)');
     expect(info.domain).toBeDefined();
     expect(info.domain[0]).toBeLessThan(55);
@@ -177,7 +178,7 @@ describe('harmonizeLineChartDomains', () => {
     return {
       options: {
         [axis]: { label: column, domain },
-        __lineChartDomainInfo: { axis, column, domain },
+        __lineChartDomainInfo: [{ axis, column, domain }],
       } as any,
       position,
     };
@@ -482,5 +483,82 @@ describe('buildLineOptions – area variant grouping', () => {
     const yDomain = (opts.y as any)?.domain as [number, number];
     expect(yDomain[0]).toBeLessThanOrEqual(0);
     expect(yDomain[1]).toBeGreaterThan(20);
+  });
+});
+
+describe('buildLineOptions – series end labels', () => {
+  const discreteColorField = {
+    id: 'series',
+    columnName: 'series',
+    type: 'dimension',
+    flavour: 'discrete',
+  } as any;
+
+  const rows = [
+    { x: 1, 'AVG(y)': 10, series: 'Alpha' },
+    { x: 2, 'AVG(y)': 15, series: 'Alpha' },
+    { x: 1, 'AVG(y)': 20, series: 'Beta' },
+    { x: 2, 'AVG(y)': 25, series: 'Beta' },
+  ];
+
+  const build = (overrides: Partial<LineBuildParams> = {}): any =>
+    buildLineOptions({
+      data: rows,
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      color: color(discreteColorField),
+      ...overrides,
+    } as LineBuildParams);
+
+  const textMark = (opts: any) => ((opts.marks || []) as any[]).find((m) => m.type === 'text');
+
+  test('emits no text mark when disabled', () => {
+    expect(textMark(build({ seriesLabels: 'off' }))).toBeUndefined();
+    expect(textMark(build())).toBeUndefined();
+  });
+
+  test('labels the last point of each series with its category value', () => {
+    const mark = textMark(build({ seriesLabels: 'end' }));
+
+    expect(mark).toBeDefined();
+    expect(mark.data).toHaveLength(2);
+    expect(mark.data.map((d: any) => d.series)).toEqual(['Alpha', 'Beta']);
+    expect(mark.data.every((d: any) => d.x === 2)).toBe(true);
+    expect(mark.opts.text(mark.data[0])).toBe('Alpha');
+    expect(mark.opts.textAnchor).toBe('start');
+  });
+
+  test('reserves gutter space on the independent axis in end mode', () => {
+    const padded = build({ seriesLabels: 'end' });
+    const unpadded = build({ seriesLabels: 'off' });
+
+    expect((padded.x as any).domain[1]).toBeGreaterThan(2);
+    expect((unpadded.x as any).domain).toBeUndefined();
+
+    const infos = padded.__lineChartDomainInfo;
+    expect(infos.some((i: any) => i.axis === 'x' && i.column === 'x')).toBe(true);
+  });
+
+  test('does not emit labels without a series-splitting color field', () => {
+    expect(textMark(build({ seriesLabels: 'end', color: color(null) }))).toBeUndefined();
+  });
+
+  test('falls back to inside placement when the axis cannot be padded', () => {
+    const opts = build({
+      seriesLabels: 'end',
+      data: [
+        { x: 'a', 'AVG(y)': 10, series: 'Alpha' },
+        { x: 'b', 'AVG(y)': 15, series: 'Alpha' },
+        { x: 'a', 'AVG(y)': 20, series: 'Beta' },
+        { x: 'b', 'AVG(y)': 25, series: 'Beta' },
+      ],
+    });
+
+    const mark = textMark(opts);
+    expect(mark).toBeDefined();
+    expect(mark.opts.textAnchor).toBe('end');
+    expect((opts.x as any).domain).toBeUndefined();
   });
 });

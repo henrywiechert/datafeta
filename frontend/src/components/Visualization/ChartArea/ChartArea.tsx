@@ -95,7 +95,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
 
   // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
   // into flat locals here, which the rendering/cache boundaries below consume.
-  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
+  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode, seriesLabels: lineSeriesLabels } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
   const { page: tablePage } = chartTypeParams.table;
 
@@ -217,6 +217,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       lineVariant,
       areaFillOpacity,
       lineColorMode,
+      lineSeriesLabels,
       distributionVariant,
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
@@ -446,6 +447,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       lineVariant,
       areaFillOpacity,
       lineColorMode,
+      lineSeriesLabels,
       distributionVariant,
       tablePage: isTableMode ? tablePage : undefined,
       tablePageSize: isTableMode ? tablePageSize : undefined,
@@ -457,7 +459,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     }),
     [
       xAxisFields, yAxisFields, chartFilterConfigurations, channels,
-      measureGroup, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant,
+      measureGroup, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, lineSeriesLabels, distributionVariant,
       isTableMode, tablePage, tablePageSize,
       independentDomains,
     ],

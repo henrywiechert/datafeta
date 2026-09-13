@@ -133,7 +133,7 @@ function createLineLikeCellGenerator(): CellGenerator {
         position: { row: 0, col: 0 },
         options: {
           y: { label: 'SUM(value)', domain },
-          __lineChartDomainInfo: { axis: 'y', column: 'SUM(value)', domain },
+          __lineChartDomainInfo: [{ axis: 'y', column: 'SUM(value)', domain }],
         } as any,
       }],
     };
