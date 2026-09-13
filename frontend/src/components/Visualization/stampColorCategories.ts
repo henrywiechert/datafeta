@@ -12,6 +12,7 @@
  */
 
 import { DENSITY_CAT_CLASS_PREFIX } from '../../observable-plot-generator/overlays/density';
+import { SERIES_END_LABEL_CLASS } from '../../observable-plot-generator/utils/seriesEndLabels';
 
 const MARK_SELECTOR = [
   'circle',
@@ -58,6 +59,33 @@ function decodeDensityCatClass(encoded: string): string {
   }
 }
 
+/**
+ * Resolve an element's D3 data binding to the original row object.
+ *
+ * Observable Plot v0.6.x data binding varies by mark type:
+ *  - dot/bar/text marks: a single index (number) into the data array
+ *  - line/area marks: an array of indices (one path per series)
+ */
+function resolveDatum(el: Element, data: any[] | undefined): any | null {
+  let datum = (el as any).__data__;
+
+  if (Array.isArray(datum)) {
+    const firstIdx = datum[0];
+    if (typeof firstIdx === 'number' && data && firstIdx < data.length) {
+      datum = data[firstIdx];
+    } else if (firstIdx && typeof firstIdx === 'object') {
+      // Some marks bind an array of row objects instead of row indices.
+      datum = firstIdx;
+    } else {
+      return null;
+    }
+  } else if (typeof datum === 'number' && data && datum < data.length) {
+    datum = data[datum];
+  }
+
+  return datum != null && typeof datum === 'object' ? datum : null;
+}
+
 export function stampColorCategories(
   plot: SVGSVGElement | HTMLElement,
   options: any,
@@ -78,28 +106,20 @@ export function stampColorCategories(
     // second pass below.
     if (el.closest(`[class*="${DENSITY_CAT_CLASS_PREFIX}"]`)) continue;
 
-    let datum = (el as any).__data__;
+    const datum = resolveDatum(el, data);
+    if (!datum) continue;
 
-    // Observable Plot v0.6.x data binding varies by mark type:
-    //  - dot/bar marks: a single index (number) into the data array
-    //  - line/area marks: an array of indices (one path per series)
-    if (Array.isArray(datum)) {
-      const firstIdx = datum[0];
-      if (typeof firstIdx === 'number' && data && firstIdx < data.length) {
-        datum = data[firstIdx];
-      } else if (firstIdx && typeof firstIdx === 'object') {
-        // Some marks bind an array of row objects instead of row indices.
-        datum = firstIdx;
-      } else {
-        continue;
-      }
-    } else if (typeof datum === 'number' && data && datum < data.length) {
-      datum = data[datum];
-    }
-    if (datum == null || typeof datum !== 'object') continue;
+    el.setAttribute('data-cat', encodeCatValue(datum[fieldName]));
+  }
 
-    const val = datum[fieldName];
-    el.setAttribute('data-cat', encodeCatValue(val));
+  // --- Series-end labels ---
+  // Text marks are not in MARK_SELECTOR (they are not fillable data marks), but
+  // series-end labels are per-series and must dim/restore with their line.
+  const labelEls = plot.querySelectorAll<SVGTextElement>(`g.${SERIES_END_LABEL_CLASS} text`);
+  for (let i = 0; i < labelEls.length; i++) {
+    const datum = resolveDatum(labelEls[i], data);
+    if (!datum) continue;
+    labelEls[i].setAttribute('data-cat', encodeCatValue(datum[fieldName]));
   }
 
   // --- Second pass: stamp density overlay group paths ---

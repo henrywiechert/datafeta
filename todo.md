@@ -231,5 +231,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [DONE] Reverse analog color scale
 
-## [] Line chart labels
+## [DONE] Line chart labels
 - single label at the right end of the line (when it is a single category per line)
+- Off / Line end / Inside, per sheet. Labels that collide are thinned in the
+  generator and pushed apart in pixel space after render.

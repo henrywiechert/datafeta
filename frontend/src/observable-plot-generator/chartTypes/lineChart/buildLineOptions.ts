@@ -12,7 +12,13 @@ import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../.
 import { prepareLineData } from './dataPrep';
 import { attachLineDomainMetadata, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
 import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale } from './encodings';
-import { buildAreaMarks, buildSeriesEndLabelMarks, createBaseMarkConfigs, createHoverDotConfig } from './marks';
+import {
+  buildAreaMarks,
+  buildSeriesEndLabelMarks,
+  createBaseMarkConfigs,
+  createHoverDotConfig,
+  seriesEndLabelTexts,
+} from './marks';
 import { LINE_ORIENTATION } from './orientation';
 import { attachLineTooltipMetadata } from './tooltips';
 import type { LineBuildParams } from './types';
@@ -93,8 +99,16 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
 
   // Grid cells clip overflow, so 'end' labels need room carved out of the scale;
   // where the axis has no numeric domain to pad, fall back to labelling inside.
+  // The gutter is sized from the labels that survive collision thinning, so it
+  // must be computed from the same inputs the label mark uses.
+  const labelTexts = seriesLabels === 'off' ? [] : seriesEndLabelTexts({
+    seriesGroups,
+    colorColumnName,
+    dependentColumn,
+    dependentDomain: recomputedDependent,
+  });
   const paddedIndependent = seriesLabels === 'end' && seriesGroups
-    ? padIndependentDomain(plotData, independentColumn, axisKind)
+    ? padIndependentDomain(plotData, independentColumn, axisKind, labelTexts, labelCfg?.fontSize)
     : undefined;
   if (paddedIndependent) {
     effectiveDomain = {
@@ -193,6 +207,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         seriesGroups,
         xColumn,
         yColumn,
+        dependentColumn,
+        dependentDomain: recomputedDependent,
         colorColumnName,
         colorField,
         colorInfo,

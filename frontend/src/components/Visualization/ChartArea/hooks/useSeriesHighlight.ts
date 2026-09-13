@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useEffect, useRef, RefObject } from 'react';
+import { SERIES_END_LABEL_CLASS } from '../../../../observable-plot-generator/utils/seriesEndLabels';
 import { encodeCatValue } from '../../stampColorCategories';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,8 @@ function buildHighlightCSS(values: any[]): string {
     `${HL_SEL} svg path[fill]:not([fill="none"])`,
     `${HL_SEL} svg path[stroke]:not([stroke="none"])`,
     `${HL_SEL} svg line[stroke]:not([stroke="none"])`,
+    // Series-end labels are per-series too, so they must dim with their line.
+    `${HL_SEL} svg g.${SERIES_END_LABEL_CLASS} text`,
   ];
 
   // 2. Restore marks that match one of the selected category values
@@ -53,6 +56,7 @@ function buildHighlightCSS(values: any[]): string {
       `${HL_SEL} svg rect[data-cat="${encoded}"]`,
       `${HL_SEL} svg path[data-cat="${encoded}"]`,
       `${HL_SEL} svg line[data-cat="${encoded}"]`,
+      `${HL_SEL} svg text[data-cat="${encoded}"]`,
     );
   }
 

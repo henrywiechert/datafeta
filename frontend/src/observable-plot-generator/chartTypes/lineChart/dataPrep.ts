@@ -205,7 +205,7 @@ export function groupRowsByColorSeries(rows: any[], colorColumnName: string): Ma
 /**
  * Sort comparator using toComparable for a given column.
  */
-export function compareByColumn(column: string) {
+function compareByColumn(column: string) {
   return (a: any, b: any): number => {
     const av = toComparable(a[column]);
     const bv = toComparable(b[column]);

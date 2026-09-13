@@ -247,6 +247,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           manualColor: manualColor,  // Pass global manual color as fallback
           lineVariant: cellLineVariant,
           areaFillOpacity: cellAreaFillOpacity,
+          seriesLabels: lineSeriesLabels,
           sharedDomains: { ...sharedMeasureDomains, ...sharedNumeric },
           tooltipFields,
         });

@@ -524,10 +524,53 @@ describe('buildLineOptions – series end labels', () => {
 
     expect(mark).toBeDefined();
     expect(mark.data).toHaveLength(2);
-    expect(mark.data.map((d: any) => d.series)).toEqual(['Alpha', 'Beta']);
+    // Order is unspecified — each label is positioned from its own datum.
+    expect(mark.data.map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta']);
     expect(mark.data.every((d: any) => d.x === 2)).toBe(true);
-    expect(mark.opts.text(mark.data[0])).toBe('Alpha');
+    expect(mark.data.map((d: any) => mark.opts.text(d)).sort()).toEqual(['Alpha', 'Beta']);
     expect(mark.opts.textAnchor).toBe('start');
+  });
+
+  test('tags the label mark so the renderer can de-overlap it', () => {
+    const mark = textMark(build({ seriesLabels: 'end' }));
+
+    expect(mark.opts.className).toContain('series-end-label');
+    // Horizontal charts stack their end labels vertically.
+    expect(mark.opts.className).toContain('series-end-label-dodge-y');
+  });
+
+  test('drops labels that would collide on the dependent axis', () => {
+    // Beta and Gamma end within a hair of each other; only the higher survives.
+    const mark = textMark(build({
+      seriesLabels: 'end',
+      data: [
+        { x: 1, 'AVG(y)': 0, series: 'Alpha' },
+        { x: 2, 'AVG(y)': 10, series: 'Alpha' },
+        { x: 1, 'AVG(y)': 50, series: 'Beta' },
+        { x: 2, 'AVG(y)': 100, series: 'Beta' },
+        { x: 1, 'AVG(y)': 50, series: 'Gamma' },
+        { x: 2, 'AVG(y)': 100.2, series: 'Gamma' },
+      ],
+    }));
+
+    const labelled = mark.data.map((d: any) => d.series);
+    expect(labelled).toHaveLength(2);
+    expect(labelled).toContain('Alpha');
+    // The larger of the colliding pair wins.
+    expect(labelled).toContain('Gamma');
+    expect(labelled).not.toContain('Beta');
+  });
+
+  test('sizes the gutter from the longest label', () => {
+    const shortLabels = build({ seriesLabels: 'end' });
+    const longLabels = build({
+      seriesLabels: 'end',
+      data: rows.map((r) => ({ ...r, series: `${r.series} a very long series name indeed` })),
+    });
+
+    const shortGutter = (shortLabels.x as any).domain[1] - 2;
+    const longGutter = (longLabels.x as any).domain[1] - 2;
+    expect(longGutter).toBeGreaterThan(shortGutter);
   });
 
   test('reserves gutter space on the independent axis in end mode', () => {

@@ -2,22 +2,26 @@
 import * as Plot from '@observablehq/plot';
 import { DOMAIN_PAD_RATIO } from '../../../config/chartLayoutConfig';
 import { formatDateTick } from '../../utils/dateFormatUtils';
+import { estimateGutterRatio } from '../../utils/seriesEndLabels';
 import { toXNumber } from './dataPrep';
 import type { LineBuildParams, XKind } from './types';
-
-/** Extra headroom past the last point, as a fraction of the data span. */
-const SERIES_LABEL_GUTTER_RATIO = 0.16;
 
 /**
  * Widen the independent axis so series-end labels stay inside the plot area.
  * Grid cells force marginRight/insetRight to 0 and clip overflow, so the only
  * way to reserve space is within the scale itself. Returns undefined for
  * non-numeric axes, where there is no domain to pad.
+ *
+ * The gutter is sized from the labels that will actually be drawn, so long
+ * category names are not clipped in narrow cells and short ones do not waste a
+ * fixed slice of the axis.
  */
 export function padIndependentDomain(
   rows: any[],
   column: string,
-  axisKind: XKind
+  axisKind: XKind,
+  labels: string[] = [],
+  fontSize?: number
 ): [number, number] | [Date, Date] | undefined {
   if (axisKind !== 'number' && axisKind !== 'time') return undefined;
 
@@ -31,10 +35,18 @@ export function padIndependentDomain(
   }
   if (min === Infinity || max === -Infinity) return undefined;
 
+  // A cell with no labels still reports its extent so that harmonization can
+  // hand it the same padded domain as its neighbours; only the padding is zero.
+  // Without this, an unlabelled facet cell would auto-scale its own axis and
+  // visibly disagree with the rest of the grid.
+  const gutterRatio = estimateGutterRatio(labels, fontSize);
   const span = max - min;
-  const pad = span === 0
-    ? Math.max(Math.abs(max) * DOMAIN_PAD_RATIO, 1)
-    : span * SERIES_LABEL_GUTTER_RATIO;
+  let pad = 0;
+  if (gutterRatio > 0) {
+    pad = span === 0
+      ? Math.max(Math.abs(max) * DOMAIN_PAD_RATIO, 1)
+      : span * gutterRatio;
+  }
   const paddedMax = max + pad;
 
   return axisKind === 'time'
