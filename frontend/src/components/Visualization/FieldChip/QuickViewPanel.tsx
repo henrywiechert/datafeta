@@ -241,10 +241,15 @@ const QuickViewPanel: React.FC<QuickViewPanelProps> = ({ field }) => {
           />
         )}
 
-        {profile.approximate && (
-          <div className={styles.exactLink} onClick={loadExact}>
+        {/* The blank line is deliberate: dropping the row once the count is exact
+            would shrink the panel out from under the pointer, and the resulting
+            mouseleave closes Quick View. */}
+        {profile.approximate ? (
+          <div className={styles.exactLink} onClick={loading ? undefined : loadExact}>
             {loading ? 'Counting…' : 'Count distinct exactly'}
           </div>
+        ) : (
+          <div className={styles.exactSpacer} aria-hidden>{'\u00a0'}</div>
         )}
       </>
     );
