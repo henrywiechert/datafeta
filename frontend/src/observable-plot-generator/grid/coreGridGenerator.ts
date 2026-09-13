@@ -261,19 +261,19 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         };
 
         // Standard single-mark rendering
-        options = generatePairChartOptions(
+        options = generatePairChartOptions({
           data,
           xField,
           yField,
-          { ...sharedMeasureDomains, ...sharedNumeric },
-          cellChartTypeOverrides,
-          cellColor,
-          cellSizeField || undefined,
-          cellSizeRange,
-          cellManualSize,
+          sharedMeasureDomains: { ...sharedMeasureDomains, ...sharedNumeric },
+          overrides: cellChartTypeOverrides,
+          color: cellColor,
+          sizeField: cellSizeField || undefined,
+          sizeRange: cellSizeRange,
+          manualSize: cellManualSize,
           sizeScaleData,
-          thicknessScale,
-          (() => {
+          bandThicknessScale: thicknessScale,
+          labelCfg: (() => {
             // Per-cell label configuration based on dataLabelMode and labelFields
             if (!labelCfg) return undefined;
             if (cellOverride?.dataLabelMode === 'off') {
@@ -307,18 +307,18 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           })(),
           tooltipFields,
           facetFields,
-          sharedDomains.categorical,
+          sharedCategoricalDomains: sharedDomains.categorical,
           ganttZoomRange,
           shapeField,
           manualShape,
           distributionVariant,
-          cellLineVariant,
-          cellAreaFillOpacity,
-          cellLineColorMode,
+          lineVariant: cellLineVariant,
+          areaFillOpacity: cellAreaFillOpacity,
+          lineColorMode: cellLineColorMode,
           lineSeriesLabels,
-          config.xTickFormat,
-          config.yTickFormat
-        );
+          xTickFormat: config.xTickFormat,
+          yTickFormat: config.yTickFormat,
+        });
       }
 
       // Apply statistical overlays (regression, moving average, Bollinger bands)

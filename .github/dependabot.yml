@@ -174,3 +174,9 @@ updates:
       - dependency-name: "@duckdb/duckdb-wasm"
         update-types:
           - "version-update:semver-major"
+      # @types/node v26 uses syntax TypeScript 4.9 cannot parse. A parse error
+      # anywhere makes tsc skip *all* semantic checking, silently disabling the
+      # typecheck. Unpin only together with a TypeScript major upgrade.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"

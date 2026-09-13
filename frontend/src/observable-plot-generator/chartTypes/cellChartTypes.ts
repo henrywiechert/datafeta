@@ -7,7 +7,7 @@
 import * as Plot from '@observablehq/plot';
 import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
-import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
+import { BarLayoutMarkStyle, ChartTypeOverrides } from '../helpers/chartTypeResolver';
 
 /**
  * Domain types for shared scales
@@ -57,6 +57,18 @@ export interface ChartContext {
    * drawing bar, dot, line, or area marks at each measure value.
    */
   markStyle?: BarLayoutMarkStyle;
+}
+
+/**
+ * Input for `generatePairChartOptions`. Beyond the data and the two fields,
+ * every property is an optional setting forwarded into the `ChartContext`.
+ * `markStyle` is excluded because it is derived from `overrides`.
+ */
+export interface PairChartRequest extends Partial<Omit<ChartContext, 'markStyle'>> {
+  data: any[];
+  xField: Field | null;
+  yField: Field | null;
+  overrides?: ChartTypeOverrides;
 }
 
 /**
