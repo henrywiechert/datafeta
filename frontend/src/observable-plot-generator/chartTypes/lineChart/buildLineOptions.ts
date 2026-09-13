@@ -54,6 +54,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
     lineColorMode = 'alongPath',
     seriesLabels = 'off',
+    colorScaleInfo,
   } = params;
   const color = resolveContextColorChannel(params as any);
   const colorField = color.field ?? undefined;
@@ -134,7 +135,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const colorInfo = colorField
     ? useSeriesGradient
       ? deriveSplitSeriesGradientColorScale(budgetedSorted, color)
-      : deriveColorScaleInfo(budgetedSorted, color)
+      : (colorScaleInfo ?? deriveColorScaleInfo(budgetedSorted, color))
     : null;
   const comparisonColorContext = applyLineColorEncoding({
     lineConfig,

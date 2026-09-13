@@ -601,4 +601,34 @@ describe('buildLineOptions – series end labels', () => {
     expect(mark.opts.textAnchor).toBe('end');
     expect((opts.x as any).domain).toBeUndefined();
   });
+
+  test('label fill uses the shared color domain, not the categories present in this cell', () => {
+    // Facet cell that only contains Beta/Gamma. Without the shared scale those
+    // would be remapped to the first two palette colors (Alpha's and Beta's).
+    const shared = {
+      kind: 'categorical' as const,
+      domain: ['Alpha', 'Beta', 'Gamma'],
+      range: ['#4e79a7', '#f28e2c', '#e15759'],
+    };
+    const cellRows = [
+      { x: 1, 'AVG(y)': 20, series: 'Beta' },
+      { x: 2, 'AVG(y)': 25, series: 'Beta' },
+      { x: 1, 'AVG(y)': 30, series: 'Gamma' },
+      { x: 2, 'AVG(y)': 35, series: 'Gamma' },
+    ];
+
+    const local = textMark(build({ seriesLabels: 'end', data: cellRows }));
+    const sharedMark = textMark(build({
+      seriesLabels: 'end',
+      data: cellRows,
+      colorScaleInfo: shared,
+    }));
+
+    const beta = cellRows[1];
+    const gamma = cellRows[3];
+    expect(local.opts.fill(beta)).toBe('#4e79a7');
+    expect(local.opts.fill(gamma)).toBe('#f28e2c');
+    expect(sharedMark.opts.fill(beta)).toBe('#f28e2c');
+    expect(sharedMark.opts.fill(gamma)).toBe('#e15759');
+  });
 });

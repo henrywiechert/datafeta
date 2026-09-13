@@ -139,6 +139,24 @@ describe('generatePairChartOptions – settings reach the chart builders', () =>
     expect(labelled.opts.className).toContain('series-end-label');
   });
 
+  test('colorScaleInfo is used for series-end label fill', () => {
+    const beta = lineData[3];
+    const local = marksOf(buildLine({ color: colorChannel, lineSeriesLabels: 'end' }))
+      .find((m) => m.type === 'text');
+    const shared = marksOf(buildLine({
+      color: colorChannel,
+      lineSeriesLabels: 'end',
+      colorScaleInfo: {
+        kind: 'categorical',
+        domain: ['Other', 'Alpha', 'Beta'],
+        range: ['#111111', '#222222', '#abcdef'],
+      },
+    })).find((m) => m.type === 'text');
+
+    expect(local.opts.fill(beta)).not.toBe('#abcdef');
+    expect(shared.opts.fill(beta)).toBe('#abcdef');
+  });
+
   // The line handler does not forward tick formats; bars do.
   test('xTickFormat reaches the category axis of a bar', () => {
     const fmt = (d: any) => `#${d}`;

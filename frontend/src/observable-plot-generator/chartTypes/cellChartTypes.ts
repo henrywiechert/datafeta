@@ -8,6 +8,7 @@ import * as Plot from '@observablehq/plot';
 import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 import { BarLayoutMarkStyle, ChartTypeOverrides } from '../helpers/chartTypeResolver';
+import type { ColorScaleInfo } from '../utils/colorSchemeUtils';
 
 /**
  * Domain types for shared scales
@@ -22,6 +23,8 @@ export interface ChartContext {
   sharedMeasureDomains?: Domains;
   sharedCategoricalDomains?: Record<string, any[]>;
   color: ColorChannel;
+  /** Shared color scale across the grid so missing-in-cell categories keep their global color. */
+  colorScaleInfo?: ColorScaleInfo | null;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
