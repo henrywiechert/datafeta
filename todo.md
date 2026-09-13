@@ -41,17 +41,18 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - add panel for additional fields for tooltips
 - huger scatter data -> reduce data (remove duplicated pairs)
 
-## [] derived variables
+## [DONE] derived variables
 - which language ?
 - what is meant here - basic virtual columns exist ?
 - great feature would be an integrated notebook to work on selected dataset.
+-> Virtual Columns
 
 ## [] Filter
 - LIKE query to be used in final query optionally.
 - Otherwise restrict the number of selected items.
 - Reset button for filter.
 
-## [] DateTime
+## [DONE] DateTime
 - When used as cont. dimension, measures on Y doe not work, only dimensions.
 - (no autoscale of X in active area, for dimension that works)
 - I think that is no longer a problem. To be checked.
@@ -83,16 +84,16 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - Data-set is unchanged. Filtering is then delegated to frontend.
 
 ## [] Sharing feature
-- Store required data-set with config online.
+- Store required data-set with config online. -> Not yet
 - Share sheets and/or dashboard via link - Done
 - different tiers of data availability
-    - full data source access
+    - full data source access -> Done
     - shared sheet bound to single data source
     - sheet bound to selected filters data (data stored with the sheet)
 
 ## [DONE] Tooltips not working in Fullscreen
 
-## [] Better progress dialog
+## [DONE] Better progress dialog
 - Rendering, SQL query
 - Works relatively well now.
 
@@ -100,7 +101,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - Works relatively well now. Query optimization doc added.
 - line charts sometimes do not have the 50.000 sampling limit - to be analyzed
 
-## [] Sheet switch destroys something
+## [DONE] Sheet switch destroys something
 - Table lost
 - Still virtual columns are sheet specific, they should be per session
 
@@ -111,7 +112,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [DONE] No tick strip when using DateTime as continous field only.
 
-## [] Shape encoding (circle, square, triangle, cross, diamond)
+## [DONE] Shape encoding (circle, square, triangle, cross, diamond)
 
 ## [] Ordinal type
 - // What Polaris suggests:
@@ -121,7 +122,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Hierarchical/chained filters -> 2 chained time filter.
 
-## [] Drill Down (Year->Month->Day ...)
+## [DONE] Drill Down (Year->Month->Day ...)
 
 ## [DONE] Zoom via UI
 - now supported (Ctrl-Mouse)
@@ -132,7 +133,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Geographical Maps
 
-## [] Pie Charts
+## [DONE] Pie Charts
 
 ## [] Text as primary Mark -> wordcloud
 - Generally apply the concept of alwayas having a primary mark
@@ -152,7 +153,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [DONE] Category reorder by drag/drop
 - Reorder for bar charts present in pop up on axis. - in measure menu on Axes
 
-## [] Manually Color assigmnets for discrete colors
+## [] Manual Color assigmnets for discrete colors
 
 ## [DONE] Arrow columnar storage
 
@@ -163,9 +164,9 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - support aliases maybe - Aliases supported
 - most aggragation naming consistent now
 
-## [] Tighter DateTime filter config layout
+## [DONE] Tighter DateTime filter config layout
 
-## [] Tighter layout for Virtual columns
+## [DONE] Tighter layout for Virtual columns
 
 ## [DONE] Gantt Charts
 
@@ -209,17 +210,17 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [] Zoom: remember zoom across sheets (zoom is global config?)
 - Use case: Zoom in, change sheet, switch back, Undo should now revert zoom action
 
-## [] Remember UI panel sizing across sheet changes
+## [DONE] Remember UI panel sizing across sheet changes
 - Also store this in snapshot
 
 ## [] Regex not stored in snapshot
 - What is meant here ?
 
-## [] Filter aggregations (SUM(field) > x)
+## [DONE] Filter aggregations (SUM(field) > x)
 - currently only absolute values are filterable
 - aggregation filter only makes sense in aggregation views
 
-## Wrong header description
+## [DONE] Wrong header description
 - Wrong order and horizontal placement
 - I want FirstLevel | SecondLevel ...
 
@@ -228,4 +229,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## Geodata
 
-## Reverse analog color scale
+## [DONE] Reverse analog color scale
+
+## [] Line chart labels
+- single label at the right end of the line (when it is a single category per line)

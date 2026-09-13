@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field } from '../types';
-import { lineColorSplitsSeries, shouldShowLineColorModeControl } from './lineColorEncoding';
+import { lineColorSplitsSeries, shouldShowLineColorModeControl, shouldShowSeriesLabelControl } from './lineColorEncoding';
 
 const continuousField = {
   id: 'v',
@@ -32,5 +32,13 @@ describe('lineColorEncoding', () => {
     expect(shouldShowLineColorModeControl(continuousField, false)).toBe(false);
     expect(shouldShowLineColorModeControl(discreteField, true)).toBe(false);
     expect(shouldShowLineColorModeControl(null, true)).toBe(false);
+  });
+
+  test('shouldShowSeriesLabelControl only when color splits the data into lines', () => {
+    expect(shouldShowSeriesLabelControl(discreteField, true)).toBe(true);
+    expect(shouldShowSeriesLabelControl(discreteField, false)).toBe(false);
+    expect(shouldShowSeriesLabelControl(continuousField, true, 'alongPath')).toBe(false);
+    expect(shouldShowSeriesLabelControl(continuousField, true, 'bySeries')).toBe(true);
+    expect(shouldShowSeriesLabelControl(null, true)).toBe(false);
   });
 });

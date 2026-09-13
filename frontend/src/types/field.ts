@@ -104,6 +104,9 @@ export type LineVariant = 'line' | 'area';
 /** How a continuous color field is encoded on line charts. */
 export type LineColorMode = 'alongPath' | 'bySeries';
 
+/** Direct labelling of line ends with the color category value. */
+export type LineSeriesLabelMode = 'off' | 'end' | 'endInside';
+
 export interface FieldOverrideState {
   // Color overrides
   colorFieldId?: string | null;

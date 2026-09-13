@@ -2,7 +2,45 @@
 import * as Plot from '@observablehq/plot';
 import { DOMAIN_PAD_RATIO } from '../../../config/chartLayoutConfig';
 import { formatDateTick } from '../../utils/dateFormatUtils';
-import type { LineBuildParams } from './types';
+import { toXNumber } from './dataPrep';
+import type { LineBuildParams, XKind } from './types';
+
+/** Extra headroom past the last point, as a fraction of the data span. */
+const SERIES_LABEL_GUTTER_RATIO = 0.16;
+
+/**
+ * Widen the independent axis so series-end labels stay inside the plot area.
+ * Grid cells force marginRight/insetRight to 0 and clip overflow, so the only
+ * way to reserve space is within the scale itself. Returns undefined for
+ * non-numeric axes, where there is no domain to pad.
+ */
+export function padIndependentDomain(
+  rows: any[],
+  column: string,
+  axisKind: XKind
+): [number, number] | [Date, Date] | undefined {
+  if (axisKind !== 'number' && axisKind !== 'time') return undefined;
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (const row of rows) {
+    const v = toXNumber(row?.[column], axisKind);
+    if (v == null) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (min === Infinity || max === -Infinity) return undefined;
+
+  const span = max - min;
+  const pad = span === 0
+    ? Math.max(Math.abs(max) * DOMAIN_PAD_RATIO, 1)
+    : span * SERIES_LABEL_GUTTER_RATIO;
+  const paddedMax = max + pad;
+
+  return axisKind === 'time'
+    ? [new Date(min), new Date(paddedMax)]
+    : [min, paddedMax];
+}
 
 /**
  * Recompute the dependent-axis domain from the (possibly bin-aggregated) data.
@@ -65,26 +103,31 @@ export function buildLineAxes(params: {
   };
 }
 
+export type LineDomainInfo = {
+  axis: 'x' | 'y';
+  column: string;
+  domain: [number, number] | [Date, Date];
+};
+
+/** Appends one entry; a plot may register both its dependent and independent axis. */
 export function attachLineDomainMetadata(params: {
   plotOptions: Plot.PlotOptions;
   axis: 'x' | 'y';
   column: string;
-  domain?: [number, number];
+  domain?: [number, number] | [Date, Date];
 }): void {
   const { plotOptions, axis, column, domain } = params;
   if (!domain) return;
 
-  (plotOptions as any).__lineChartDomainInfo = {
-    axis,
-    column,
-    domain,
-  };
+  const target = plotOptions as any;
+  const infos: LineDomainInfo[] = target.__lineChartDomainInfo ?? (target.__lineChartDomainInfo = []);
+  infos.push({ axis, column, domain });
 }
 
 /**
- * Harmonize line chart dependent-axis domains across multiple plots so faceted
- * grids share the same scale. Collects per-cell recomputed domains (attached
- * by buildLineOptions as __lineChartDomainInfo) and replaces them with the
+ * Harmonize line chart domains across multiple plots so faceted grids share the
+ * same scale. Collects per-cell recomputed domains (attached by buildLineOptions
+ * as __lineChartDomainInfo entries, one per axis) and replaces them with the
  * union across all cells grouped by axis + column.
  *
  * When an axis is configured as independent per facet, the union is scoped to a
@@ -106,30 +149,35 @@ export function harmonizeLineChartDomains(
   plots: Array<{ options: Plot.PlotOptions; position?: { row: number; col: number } }>,
   independentDomains?: { x?: boolean; y?: boolean }
 ): void {
-  type Entry = { options: any; domain: [number, number] };
+  type Entry = { options: any; domain: [number, number] | [Date, Date]; info: LineDomainInfo };
   const groups = new Map<string, Entry[]>();
 
   for (const plot of plots) {
-    const info = (plot.options as any)?.__lineChartDomainInfo;
-    if (!info?.domain) continue;
-    const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
-    let group = groups.get(key);
-    if (!group) {
-      group = [];
-      groups.set(key, group);
+    const infos: LineDomainInfo[] | undefined = (plot.options as any)?.__lineChartDomainInfo;
+    if (!infos) continue;
+    for (const info of infos) {
+      if (!info?.domain) continue;
+      const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
+      let group = groups.get(key);
+      if (!group) {
+        group = [];
+        groups.set(key, group);
+      }
+      group.push({ options: plot.options, domain: info.domain, info });
     }
-    group.push({ options: plot.options, domain: info.domain });
   }
 
   groups.forEach((group) => {
     if (group.length <= 1) return;
 
-    const sharedMin = Math.min(...group.map((g: Entry) => g.domain[0]));
-    const sharedMax = Math.max(...group.map((g: Entry) => g.domain[1]));
-    const shared: [number, number] = [sharedMin, sharedMax];
+    const isDate = group[0].domain[0] instanceof Date;
+    const sharedMin = Math.min(...group.map((g: Entry) => Number(g.domain[0])));
+    const sharedMax = Math.max(...group.map((g: Entry) => Number(g.domain[1])));
+    const shared = (isDate
+      ? [new Date(sharedMin), new Date(sharedMax)]
+      : [sharedMin, sharedMax]) as [number, number] | [Date, Date];
 
-    for (const { options } of group) {
-      const info = options.__lineChartDomainInfo;
+    for (const { options, info } of group) {
       if (options[info.axis]) {
         options[info.axis].domain = shared;
       }

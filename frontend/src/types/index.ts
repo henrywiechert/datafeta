@@ -78,6 +78,7 @@ export type {
   DateTimeMode,
   LineVariant,
   LineColorMode,
+  LineSeriesLabelMode,
   DistributionVariant,
   PieVariant,
   DragSource,

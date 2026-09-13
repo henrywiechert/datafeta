@@ -28,7 +28,8 @@ import ChartTypeControl from './ChartTypeControl';
 import DensityParametersSection from './DensityParametersSection';
 import FieldOverrideRow from './FieldOverrideRow';
 import LineColorModeControl from './LineColorModeControl';
-import { shouldShowLineColorModeControl } from '../../../utils/lineColorEncoding';
+import SeriesLabelControl from './SeriesLabelControl';
+import { shouldShowLineColorModeControl, shouldShowSeriesLabelControl } from '../../../utils/lineColorEncoding';
 import { resolveColorChannel } from '../../../utils/colorChannel';
 import { getMeasureMemberLabel } from '../../../utils/syntheticFields';
 
@@ -140,7 +141,7 @@ const FieldOverridesPanel: React.FC = () => {
     manualShape,
   } = state;
 
-  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
+  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode, seriesLabels: lineSeriesLabels } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
@@ -208,6 +209,11 @@ const FieldOverridesPanel: React.FC = () => {
   const showLineColorMode = shouldShowLineColorModeControl(
     colorField as Field | null,
     isLineChart,
+  );
+  const showSeriesLabels = shouldShowSeriesLabelControl(
+    colorField as Field | null,
+    isLineChart,
+    lineColorMode,
   );
 
   // Track previous auto-selected type to detect changes
@@ -509,6 +515,15 @@ const FieldOverridesPanel: React.FC = () => {
             value={lineColorMode}
             onChange={(mode) => {
               applyGlobalAction({ type: 'SET_LINE_COLOR_MODE', payload: mode });
+            }}
+          />
+        )}
+
+        {showSeriesLabels && (
+          <SeriesLabelControl
+            value={lineSeriesLabels}
+            onChange={(mode) => {
+              applyGlobalAction({ type: 'SET_LINE_SERIES_LABELS', payload: mode });
             }}
           />
         )}
