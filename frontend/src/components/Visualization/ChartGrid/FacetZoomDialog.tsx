@@ -7,6 +7,7 @@ import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-g
 import ObservablePlot from '../ObservablePlot';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
 import { computeZoomBandXAxis, computeZoomBandYAxis } from './utils/layoutUtils';
+import { rescaleZoomPlotAxes } from './utils/rescaleZoomAxes';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 
 /**
@@ -31,8 +32,8 @@ interface FacetZoomDialogProps {
 
 /**
  * Modal overlay that enlarges a single facet cell for closer inspection.
- * Renders the cell's original plot options (axes intact, no suppressAxes).
- * No filter changes, no re-query — purely a client-side view.
+ * Renders the cell's plot with axes intact (no suppressAxes), rescaled to this
+ * cell's data. No filter changes, no re-query — purely a client-side view.
  */
 const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   grid,
@@ -62,8 +63,15 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
     height: _h,
     ...restOptions
   } = cell.content.options as any;
-  const xAxis = withCompactNumericTicks(restOptions.x);
-  const yAxis = withCompactNumericTicks(restOptions.y);
+  // Compact ticks need the original domain to detect a numeric range; rescale
+  // then drops that domain so Plot autoscales this cell.
+  const { x: rescaledX, y: rescaledY } = rescaleZoomPlotAxes({
+    ...restOptions,
+    x: withCompactNumericTicks(restOptions.x),
+    y: withCompactNumericTicks(restOptions.y),
+  });
+  const xAxis = rescaledX ?? restOptions.x;
+  const yAxis = rescaledY ?? restOptions.y;
 
   // Band Y (horizontal charts): size left margin from longest label + ellipsis.
   const yIsBand = yAxis?.type === 'band' && Array.isArray(yAxis?.domain);
