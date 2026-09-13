@@ -508,6 +508,14 @@ const FieldOverridesPanel: React.FC = () => {
               { clearOverrides: clearColorOverridesForAllFields },
             );
           }}
+          trailing={showSeriesLabels ? (
+            <SeriesLabelControl
+              value={lineSeriesLabels}
+              onChange={(mode) => {
+                applyGlobalAction({ type: 'SET_LINE_SERIES_LABELS', payload: mode });
+              }}
+            />
+          ) : undefined}
         />
 
         {showLineColorMode && (
@@ -515,15 +523,6 @@ const FieldOverridesPanel: React.FC = () => {
             value={lineColorMode}
             onChange={(mode) => {
               applyGlobalAction({ type: 'SET_LINE_COLOR_MODE', payload: mode });
-            }}
-          />
-        )}
-
-        {showSeriesLabels && (
-          <SeriesLabelControl
-            value={lineSeriesLabels}
-            onChange={(mode) => {
-              applyGlobalAction({ type: 'SET_LINE_SERIES_LABELS', payload: mode });
             }}
           />
         )}
