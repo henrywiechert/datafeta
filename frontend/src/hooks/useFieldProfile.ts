@@ -6,6 +6,11 @@
  * mouse down a menu would otherwise fire a query per field. A profile in flight
  * is aborted when the pointer leaves, using a dedicated controller so it cannot
  * cancel unrelated metadata requests (apiClient's default controller is shared).
+ *
+ * A loaded profile is kept until the request itself changes. Re-entering the panel
+ * must not re-query: the pointer can leave and return purely because the panel
+ * resized, and a silent re-query would replace an exact distinct count the user
+ * explicitly asked for with the estimate again.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,6 +58,8 @@ export function useFieldProfile(field: Field): UseFieldProfileResult {
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** Set once a fetch has settled, so hover re-entry does not re-query. */
+  const loadedRef = useRef(false);
 
   const request = useMemo<FieldProfileRequest>(() => ({
     field: field.columnName,
@@ -68,6 +75,16 @@ export function useFieldProfile(field: Field): UseFieldProfileResult {
     histogramBins: 24,
     approximate: true,
   }), [field, selectedTable, selectedDatabase, virtualColumns, virtualTable]);
+
+  // Compared by value: `field` is often a fresh object on every render, so an
+  // identity-keyed effect would discard the profile continuously.
+  const requestKey = JSON.stringify(request);
+
+  useEffect(() => {
+    loadedRef.current = false;
+    setProfile(null);
+    setError(null);
+  }, [requestKey]);
 
   const cancel = useCallback(() => {
     if (timerRef.current) {
@@ -91,10 +108,12 @@ export function useFieldProfile(field: Field): UseFieldProfileResult {
       );
       if (!controller.signal.aborted) {
         setProfile(result);
+        loadedRef.current = true;
       }
     } catch (e) {
       if (!controller.signal.aborted) {
         setError(e instanceof Error ? e.message : 'Failed to load field profile');
+        loadedRef.current = true;
       }
     } finally {
       if (abortRef.current === controller) {
@@ -105,7 +124,7 @@ export function useFieldProfile(field: Field): UseFieldProfileResult {
   }, [request]);
 
   const start = useCallback(() => {
-    if (!selectedTable || timerRef.current || abortRef.current) return;
+    if (!selectedTable || loadedRef.current || timerRef.current || abortRef.current) return;
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       void run(true);
