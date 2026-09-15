@@ -106,6 +106,9 @@
   --df-scroll-thumb-hover: #555555;
   --df-scroll-track: #f1f1f1;
   --df-slider-rail-disabled: #bdbdbd;
+  --df-plain-button-bg: #007bff;
+  --df-plain-button-hover-bg: #0056b3;
+  --df-plain-button-disabled-bg: #cccccc;
   --df-track-muted: rgba(0, 0, 0, 0.1);
   --df-inverse-surface: rgba(20, 20, 20, 0.95);
   --df-inverse-text: #ffffff;
@@ -218,6 +221,9 @@
   --df-scroll-thumb-hover: #777777;
   --df-scroll-track: #262626;
   --df-slider-rail-disabled: #4a4a4a;
+  --df-plain-button-bg: #3d8bfd;
+  --df-plain-button-hover-bg: #2b6cb0;
+  --df-plain-button-disabled-bg: #4a4a4a;
   --df-track-muted: rgba(255, 255, 255, 0.16);
   --df-inverse-surface: rgba(20, 20, 20, 0.95);
   --df-inverse-text: #ffffff;

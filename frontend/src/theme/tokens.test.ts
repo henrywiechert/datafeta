@@ -89,6 +89,9 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['profileWhisker',     '#bbbbbb', 'QuickViewPanel box-plot whiskers'],
   ['profileHighlight',   '#bbdefb', 'QuickViewPanel top-value bar fill'],
   ['trackMuted',         'rgba(0, 0, 0, 0.1)', 'LoadingModal progress track'],
+  ['plainButtonBg',         '#007bff', 'App.css bare <button> — pre-MUI global styling'],
+  ['plainButtonHoverBg',    '#0056b3', 'App.css bare <button>:hover'],
+  ['plainButtonDisabledBg', '#cccccc', 'App.css bare <button>:disabled'],
   ['sliderRailDisabled', '#bdbdbd', 'ColorBiasControl disabled rail'],
   ['surfaceRaisedScrim', 'rgba(255, 255, 255, 0.6)', 'ChartTypeControl framed selector'],
 ];
