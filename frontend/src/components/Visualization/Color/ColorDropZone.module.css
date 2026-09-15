@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   min-height: 22px;
-  color: #1976d2;
+  color: var(--df-text-accent);
   font-size: 0.7rem;
   font-weight: 500;
   padding: 0 4px;

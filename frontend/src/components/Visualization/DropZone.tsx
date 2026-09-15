@@ -5,52 +5,8 @@ import FieldChip, { DragSource } from './FieldChip';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { readDragPayload } from '../../utils/dragDataStore';
 import styles from './DropZone.module.css';
+import { DROP_ZONE_STYLES as DROPZONE_STYLES } from './dropZoneStyles';
 
-// Style constants
-const DROPZONE_STYLES = {
-  container: { display: 'flex' },
-  label: { 
-    fontWeight: 'normal' as const, 
-    marginRight: '5px', 
-    minWidth: '6px', 
-    textAlign: 'left' as const, 
-    display: 'flex', 
-    alignItems: 'center' 
-  },
-  dropArea: { 
-    flex: 1, 
-    padding: '2px 4px', 
-    minHeight: '28px', 
-    display: 'flex', 
-    alignItems: 'center' 
-  },
-  fieldsWrapper: { 
-    display: 'flex', 
-    flexWrap: 'wrap' as const, 
-    alignItems: 'center', 
-    gap: '2px', 
-    position: 'relative' as const, 
-    width: '100%' 
-  },
-  dropIndicator: {
-    width: '2px',
-    height: '24px',
-    backgroundColor: '#1976d2',
-    zIndex: 1000
-  },
-  flavourSeparator: {
-    width: '1px',
-    height: '16px',
-    backgroundColor: '#ccc',
-    margin: '0 2px'
-  },
-  emptyMessage: { 
-    color: '#666', 
-    fontStyle: 'italic' as const, 
-    fontSize: '12px',
-    padding: '1px 0'
-  }
-} as const;
 
 // Helper function to parse drag data safely
 // Returns unified structure with arrays for fields and indices
