@@ -186,13 +186,18 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     });
   }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterConfig]);
 
-  const handleContinuousChange = useCallback((newMin: number | null, newMax: number | null) => {
+  const handleContinuousChange = useCallback((
+    newMin: number | null,
+    newMax: number | null,
+    adaptToRange: boolean,
+  ) => {
     onConfigChange({
       fieldId: field.id,
       columnName: field.columnName,
       type: 'continuous',
       min: newMin,
       max: newMax,
+      adaptToRange,
       isZoomFilter: filterConfig?.isZoomFilter,
     });
   }, [field.id, field.columnName, onConfigChange, filterConfig?.isZoomFilter]);
@@ -333,6 +338,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           metadata={filterMetadata}
           min={min}
           max={max}
+          adaptToRange={filterConfig && filterConfig.type === 'continuous' ? filterConfig.adaptToRange : undefined}
           onChange={handleContinuousChange}
         />
       );
