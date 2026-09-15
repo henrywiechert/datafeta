@@ -5,10 +5,23 @@
  * Scoped to transient chrome (menus, dialogs) that felt oversized under
  * Material defaults. Leaves carefully tuned panels (chips, overrides, palette)
  * alone — those use local sx/CSS already.
+ *
+ * Built with `experimental_extendTheme` rather than `createTheme` so the
+ * palette is emitted as CSS custom properties (`--mui-palette-*`), which the
+ * app's 30 CSS modules can read — `createTheme`'s palette is a JS object that
+ * only `sx` can see. This is not a styling change: `extendTheme` derives its
+ * light scheme from the same `createTheme` code path, so all 60 palette leaves
+ * are byte-identical to the defaults the app renders today. It additionally
+ * emits the component namespaces (Alert, Button, Switch, …) and `*Channel`
+ * values that let MUI internals composite alpha via `var()` instead of
+ * `alpha()`. `src/theme/palette.test.ts` locks that equivalence.
+ *
+ * Deliberately NO `palette` block: the app's own semantic colors belong in the
+ * `--df-*` token layer, not in MUI's namespace. See `THEMING.md`.
  */
-import { createTheme } from '@mui/material/styles';
+import { experimental_extendTheme as extendTheme } from '@mui/material/styles';
 
-const denseTheme = createTheme({
+const denseTheme = extendTheme({
   shape: {
     borderRadius: 4,
   },
