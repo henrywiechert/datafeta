@@ -151,10 +151,17 @@ export interface VisualizationStateSnapshot {
  * All fields are optional; missing values fall back to component defaults.
  */
 export interface SheetPanelLayout {
-  /** Left (Fields) panel size as a percentage of the horizontal panel group. */
+  /**
+   * Left (Fields) panel size as a percentage of the horizontal panel group.
+   * Holds the last *expanded* size, so collapsing and expanding round-trips.
+   */
   leftPanelSize?: number;
   /** Middle (Properties) panel size as a percentage of the horizontal panel group. */
   middlePanelSize?: number;
+  /** Left (Fields) panel collapsed to its rail. */
+  leftPanelCollapsed?: boolean;
+  /** Middle (Properties) panel collapsed to its rail. */
+  middlePanelCollapsed?: boolean;
   /** Legend stack width in pixels. */
   legendWidth?: number;
   /** Debug view height in pixels. */

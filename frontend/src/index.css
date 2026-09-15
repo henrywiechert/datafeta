@@ -44,13 +44,6 @@ svg tspan,
     sans-serif;
 }
 
-/* Styles for react-resizable-panels resize handles (v4 uses data-separator) */
-[data-separator] {
-  flex: 0 0 6px;
-  position: relative;
-  cursor: col-resize;
-}
-
 /* Observable Plot tooltip styling */
 .plot-tip {
   /* Typography */
