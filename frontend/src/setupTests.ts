@@ -48,3 +48,45 @@ if (typeof (global as any).PointerEvent === 'undefined') {
   }
 }
 
+// Polyfill DOMRect for Jest (jsdom) environment.
+// react-resizable-panels builds DOMRects when computing separator hit regions.
+if (typeof (global as any).DOMRect === 'undefined') {
+  class DOMRect {
+    constructor(
+      public x = 0,
+      public y = 0,
+      public width = 0,
+      public height = 0,
+    ) {}
+    get top(): number { return this.height < 0 ? this.y + this.height : this.y; }
+    get left(): number { return this.width < 0 ? this.x + this.width : this.x; }
+    get right(): number { return this.width < 0 ? this.x : this.x + this.width; }
+    get bottom(): number { return this.height < 0 ? this.y : this.y + this.height; }
+    static fromRect(rect?: DOMRectInit): DOMRect {
+      return new DOMRect(rect?.x, rect?.y, rect?.width, rect?.height);
+    }
+    toJSON(): unknown { return { ...this }; }
+  }
+  (global as any).DOMRect = DOMRect;
+  if (typeof window !== 'undefined') {
+    (window as any).DOMRect = DOMRect;
+  }
+}
+
+// Polyfill ResizeObserver for Jest (jsdom) environment.
+// jsdom does not implement it, and react-resizable-panels constructs one per
+// group to track available space — so any component rendering a Panel group
+// (ChartArea, VisualizationPage) throws "n is not a constructor" without this.
+// Observing is a no-op: jsdom reports zero-size elements anyway, so layout
+// assertions belong in the browser, not here.
+if (typeof (global as any).ResizeObserver === 'undefined') {
+  class ResizeObserver {
+    observe(): void { /* no-op */ }
+    unobserve(): void { /* no-op */ }
+    disconnect(): void { /* no-op */ }
+  }
+  (global as any).ResizeObserver = ResizeObserver;
+  if (typeof window !== 'undefined') {
+    (window as any).ResizeObserver = ResizeObserver;
+  }
+}

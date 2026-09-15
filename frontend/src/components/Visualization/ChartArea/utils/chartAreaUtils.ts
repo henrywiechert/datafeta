@@ -3,52 +3,6 @@
  * Chart area utility functions
  */
 
-/**
- * Calculates the dynamic maximum height for debug view based on window height
- * @param windowHeight - Current window height
- * @param maxPercentage - Maximum percentage of window height to use (default 70%)
- * @param minHeight - Minimum height in pixels (default 400px)
- * @returns Calculated maximum height
- */
-export const calculateDynamicMaxHeight = (
-  windowHeight: number,
-  maxPercentage: number = 0.7,
-  minHeight: number = 400
-): number => {
-  const calculatedHeight = Math.floor(windowHeight * maxPercentage);
-  return Math.max(minHeight, calculatedHeight);
-};
-
-/**
- * Creates a window resize handler that updates max height
- * @param setMaxHeight - Function to set the maximum height
- * @param setCurrentHeight - Function to set the current height (optional)
- * @returns Cleanup function for the resize listener
- */
-export const createResizeHandler = (
-  setMaxHeight: (height: number) => void,
-  setCurrentHeight?: (updater: (prev: number) => number) => void
-) => {
-  const updateMaxHeight = () => {
-    const windowHeight = window.innerHeight;
-    const newMaxHeight = calculateDynamicMaxHeight(windowHeight);
-    setMaxHeight(newMaxHeight);
-    
-    // Ensure current height doesn't exceed new max height
-    if (setCurrentHeight) {
-      setCurrentHeight((prev: number) => Math.min(prev, newMaxHeight));
-    }
-  };
-
-  // Initial calculation
-  updateMaxHeight();
-  
-  // Add resize listener
-  window.addEventListener('resize', updateMaxHeight);
-  
-  // Return cleanup function
-  return () => window.removeEventListener('resize', updateMaxHeight);
-};
 
 /**
  * Logs operation timing information

@@ -32,7 +32,10 @@
 }
 
 .chartWrapper {
-    flex: 1;
+    /* Fills its Panel. The panel's own element is the flex container and is
+       sized by the group, so this only has to occupy it completely. */
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     min-height: 0; /* Allow shrinking below content size */
