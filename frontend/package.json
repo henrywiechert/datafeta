@@ -42,13 +42,14 @@
     "zustand": "^5.0.15"
   },
   "scripts": {
-    "prestart": "node scripts/generate-version.js",
+    "prestart": "node scripts/generate-version.js && node scripts/generate-tokens.js",
     "start": "react-scripts start",
-    "prebuild": "node scripts/generate-version.js",
+    "prebuild": "node scripts/generate-version.js && node scripts/generate-tokens.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "check:cycles": "npx --yes madge@7 --circular --extensions ts,tsx src",
+    "generate:tokens": "node scripts/generate-tokens.js",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
   },
   "eslintConfig": {

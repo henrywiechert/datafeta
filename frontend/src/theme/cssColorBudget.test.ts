@@ -27,6 +27,13 @@ import * as path from 'path';
 const SRC_ROOT = path.resolve(__dirname, '..');
 const BUDGET_PATH = path.join(__dirname, 'cssColorBudget.json');
 
+/**
+ * `src/theme/` is where color literals are supposed to live — it holds the
+ * token definitions and their generated stylesheet. Exempt for the same reason
+ * it is exempt from the ESLint color rules in package.json.
+ */
+const EXEMPT_PREFIXES = ['src/theme/'];
+
 /** Hex and functional notation are counted anywhere on the line: they cannot
  *  plausibly appear in a selector (the only id selector in the app is `#root`,
  *  and `root` is not hex), so continuation lines of multi-line declarations
@@ -62,10 +69,10 @@ const collectCssFiles = (dir: string, found: string[] = []): string[] => {
 const actualCounts = (): Record<string, number> => {
   const counts: Record<string, number> = {};
   for (const file of collectCssFiles(SRC_ROOT).sort()) {
+    const relative = `src/${path.relative(SRC_ROOT, file).split(path.sep).join('/')}`;
+    if (EXEMPT_PREFIXES.some((prefix) => relative.startsWith(prefix))) continue;
     const count = countColorLiterals(fs.readFileSync(file, 'utf8'));
-    if (count > 0) {
-      counts[`src/${path.relative(SRC_ROOT, file).split(path.sep).join('/')}`] = count;
-    }
+    if (count > 0) counts[relative] = count;
   }
   return counts;
 };

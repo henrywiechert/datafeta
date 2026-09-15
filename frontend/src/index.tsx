@@ -1,6 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+// Token layer first: CRA extracts this to a blocking stylesheet, so :root
+// carries --df-* before the first paint — including on html/body, which sit
+// outside ThemeRoot and so never see MUI's emotion-injected variables.
+import './theme/tokens.generated.css';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';

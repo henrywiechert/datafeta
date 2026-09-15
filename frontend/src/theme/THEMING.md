@@ -57,6 +57,25 @@ both exist, on purpose.
 when today's rendered value is bit-identical to MUI's default for X.
 `#1976d2 === primary.main` is fine. `#e0e0e0 === divider` is not.
 
+### A token may only delegate to an MUI role that actually flips
+
+The second half of the rule, and the less obvious one. MUI's `grey.*` ramp and
+`common.*` are **shared by both color schemes** — `grey.50` is `#fafafa` in
+light *and* in dark. So even though `#fafafa === grey.50` exactly, defining
+
+```
+--df-surface-panel: var(--mui-palette-grey-50);   /* WRONG */
+```
+
+would leave every panel near-white in dark mode. Only roles that differ between
+the schemes are safe to delegate to; verified flipping roles include
+`primary.*`, `error/warning/success/info.main`, `text.*`, `action.*`, `divider`
+and `background.*`. Surfaces and the grey ladder are therefore per-scheme
+literals in `tokens.def.json`.
+
+`tokens.test.ts` enforces this: every delegating token is checked to point at a
+role whose light and dark values actually differ.
+
 Collapsing the grey ladder into ~6 roles is a later, separately reviewed change
 with a screenshot diff behind it. A token named after a literal's role can be
 retired later; a token that silently changed a value cannot be un-shipped.
@@ -82,6 +101,26 @@ needs come from the TypeScript side of the generated pair.
 **Never hand-write a `--df-*` name in CSS.** The names are derived from the
 token module's keys. A typo in `var(--df-typo)` silently falls back and the
 build stays green — nothing in the toolchain catches it.
+
+## The token files
+
+| File | Role |
+|---|---|
+| `tokens.def.json` | **Source of truth.** Light and dark values, same keys in both. JSON so the generator needs no TypeScript parser. |
+| `tokens.def.ts` | Types it, and exposes `TOKENS[scheme]` for the few consumers that need a concrete value rather than a `var()`. |
+| `tokens.ts` | Builds the `var()` strings. `T.surfacePanel === 'var(--df-surface-panel)'`. The only place those strings are constructed, so a typo is a compile error. |
+| `tokens.generated.css` | Generated. `:root` for light, `[data-df-color-scheme="dark"]` for dark — the same attribute `ThemeRoot` toggles, so one flip switches both layers. Committed, so a fresh clone and `npm test` work without running the generator. |
+| `scripts/generate-tokens.js` | Runs from `prestart`/`prebuild` beside `generate-version.js`. Also `npm run generate:tokens`. Fails if the two schemes disagree on keys. |
+
+Token names are camelCase in TypeScript and kebab-case in CSS
+(`surfacePanel` ⇄ `--df-surface-panel`). The transform is implemented twice —
+once in `tokens.ts`, once in the generator — and `tokens.test.ts` asserts the
+two agree, which is cheaper than making a build script import TypeScript.
+
+Dark values exist but are **unreachable**: `ThemeRoot` pins `defaultMode="light"`
+and offers no toggle yet. They are a first pass, authored so that token *names*
+had to survive contact with a second scheme; expect to tune them when dark mode
+actually ships.
 
 ## Guardrails
 
