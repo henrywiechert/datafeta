@@ -104,8 +104,6 @@
       },
       {
         "files": [
-          "src/components/ConnectionForms/HuggingFaceConnectionForm.tsx",
-          "src/components/ConnectionForms/KaggleConnectionForm.tsx",
           "src/components/DebugPanel/hints/FieldHintsList.tsx",
           "src/components/DebugPanel/optimizations/NoOptimizationsMessage.tsx",
           "src/components/Layout/layoutTokens.ts",
@@ -130,8 +128,7 @@
           "src/observable-plot-generator/overlays/movingAverage.ts",
           "src/observable-plot-generator/overlays/types.ts",
           "src/observable-plot-generator/utils/colorSchemeUtils.ts",
-          "src/observable-plot-generator/utils/facetBackgroundUtils.ts",
-          "src/pages/DataSourceSelectionPage.tsx"
+          "src/observable-plot-generator/utils/facetBackgroundUtils.ts"
         ],
         "rules": {
           "no-restricted-syntax": "off"

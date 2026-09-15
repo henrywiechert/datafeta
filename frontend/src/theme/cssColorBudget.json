@@ -8,6 +8,5 @@
   "src/components/Visualization/Legend/LegendPanel.module.css": 14,
   "src/components/Visualization/Legend/LegendStack.module.css": 4,
   "src/components/Visualization/Properties/PropertySection.module.css": 6,
-  "src/index.css": 4,
-  "src/pages/DataSourceSelectionPage.module.css": 69
+  "src/index.css": 4
 }

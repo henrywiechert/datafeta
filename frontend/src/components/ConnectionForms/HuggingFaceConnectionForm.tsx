@@ -6,6 +6,7 @@
 import React from 'react';
 import { HuggingFaceFormState } from './types';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
+import { T } from '../../theme/tokens';
 
 interface HuggingFaceConnectionFormProps {
   state: HuggingFaceFormState;
@@ -64,7 +65,7 @@ export function HuggingFaceConnectionForm({
             placeholder="hf_... for private or gated datasets"
             disabled={disabled}
           />
-          <small style={{ color: '#666', fontSize: '0.85em' }}>
+          <small style={{ color: T.textMuted, fontSize: '0.85em' }}>
             Public datasets do not require a token. Create tokens in{' '}
             <a
               href="https://huggingface.co/settings/tokens"
@@ -131,7 +132,7 @@ export function HuggingFaceConnectionForm({
                 {state.isSearching ? 'Searching...' : 'Search'}
               </button>
             </div>
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+            <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '4px' }}>
               Search by keywords or enter exact dataset (owner/dataset-name).
             </div>
           </div>
@@ -159,7 +160,7 @@ export function HuggingFaceConnectionForm({
             </div>
             <small
               style={{
-                color: '#666',
+                color: T.textMuted,
                 fontSize: '0.85em',
                 display: 'block',
                 marginTop: '4px',
@@ -191,7 +192,7 @@ export function HuggingFaceConnectionForm({
               style={{
                 maxHeight: '200px',
                 overflowY: 'auto',
-                border: '1px solid #ddd',
+                border: `1px solid ${T.borderMuted}`,
                 borderRadius: '4px',
               }}
             >
@@ -203,12 +204,12 @@ export function HuggingFaceConnectionForm({
                     padding: '10px',
                     cursor: 'pointer',
                     backgroundColor:
-                      state.selectedDataset === dataset.ref ? '#e3f2fd' : 'white',
-                    borderBottom: '1px solid #eee',
+                      state.selectedDataset === dataset.ref ? T.surfaceHeader : T.surfaceRaised,
+                    borderBottom: `1px solid ${T.borderSubtle}`,
                   }}
                 >
                   <div style={{ fontWeight: 'bold' }}>{dataset.title}</div>
-                  <div style={{ fontSize: '0.85em', color: '#666' }}>
+                  <div style={{ fontSize: '0.85em', color: T.textMuted }}>
                     {dataset.ref} • {dataset.size_mb} MB
                     {dataset.num_rows ? ` • ${dataset.num_rows.toLocaleString()} rows` : ''}
                   </div>
@@ -244,7 +245,7 @@ export function HuggingFaceConnectionForm({
                 marginTop: '8px',
                 maxHeight: '180px',
                 overflowY: 'auto',
-                border: '1px solid #ddd',
+                border: `1px solid ${T.borderMuted}`,
                 borderRadius: '4px',
               }}
             >
@@ -254,8 +255,8 @@ export function HuggingFaceConnectionForm({
                   style={{
                     display: 'block',
                     padding: '8px 10px',
-                    borderBottom: '1px solid #eee',
-                    color: split.is_too_large ? '#999' : 'inherit',
+                    borderBottom: `1px solid ${T.borderSubtle}`,
+                    color: split.is_too_large ? T.textFaint : 'inherit',
                   }}
                 >
                   <input
@@ -266,7 +267,7 @@ export function HuggingFaceConnectionForm({
                     style={{ marginRight: '8px' }}
                   />
                   <strong>{split.table_name}</strong>
-                  <span style={{ fontSize: '0.85em', color: '#666', marginLeft: '6px' }}>
+                  <span style={{ fontSize: '0.85em', color: T.textMuted, marginLeft: '6px' }}>
                     {split.config}/{split.split} • {split.size_mb} MB
                     {split.num_rows ? ` • ${split.num_rows.toLocaleString()} rows` : ''}
                     {split.is_too_large ? ' • too large' : ''}

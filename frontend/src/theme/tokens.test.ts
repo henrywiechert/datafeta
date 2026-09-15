@@ -92,6 +92,9 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['plainButtonBg',         '#007bff', 'App.css bare <button> — pre-MUI global styling'],
   ['plainButtonHoverBg',    '#0056b3', 'App.css bare <button>:hover'],
   ['plainButtonDisabledBg', '#cccccc', 'App.css bare <button>:disabled'],
+  ['textDisabledInk',   '#8a8a8a', 'DataSourceSelectionPage disabled form text (no MUI on that page)'],
+  ['surfaceDisabled',   '#eeeeee', 'DataSourceSelectionPage disabled inputs/fieldsets'],
+  ['actionSuccessBg',   '#388e3c', 'DataSourceSelectionPage load-demo button'],
   ['sliderRailDisabled', '#bdbdbd', 'ColorBiasControl disabled rail'],
   ['surfaceRaisedScrim', 'rgba(255, 255, 255, 0.6)', 'ChartTypeControl framed selector'],
 ];

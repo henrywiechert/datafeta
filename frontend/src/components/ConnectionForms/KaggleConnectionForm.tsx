@@ -7,6 +7,7 @@ import React from 'react';
 import { CsvFormState, KaggleFormState } from './types';
 import { CsvParsingOptionsSection } from './CsvParsingOptionsSection';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
+import { T } from '../../theme/tokens';
 
 interface KaggleConnectionFormProps {
   state: KaggleFormState;
@@ -64,7 +65,7 @@ export function KaggleConnectionForm({
             placeholder="Your Kaggle API key"
             disabled={disabled}
           />
-          <small style={{ color: '#666', fontSize: '0.85em' }}>
+          <small style={{ color: T.textMuted, fontSize: '0.85em' }}>
             Get your API key from{' '}
             <a
               href="https://www.kaggle.com/settings/account"
@@ -132,7 +133,7 @@ export function KaggleConnectionForm({
                 {state.isSearching ? 'Searching...' : 'Search'}
               </button>
             </div>
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+            <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '4px' }}>
               Search by keywords or enter exact dataset (owner/dataset-name). Returns up
               to 200 results. Leave empty to browse recent datasets.
             </div>
@@ -163,7 +164,7 @@ export function KaggleConnectionForm({
             </div>
             <small
               style={{
-                color: '#666',
+                color: T.textMuted,
                 fontSize: '0.85em',
                 display: 'block',
                 marginTop: '4px',
@@ -195,7 +196,7 @@ export function KaggleConnectionForm({
               style={{
                 maxHeight: '200px',
                 overflowY: 'auto',
-                border: '1px solid #ddd',
+                border: `1px solid ${T.borderMuted}`,
                 borderRadius: '4px',
               }}
             >
@@ -207,12 +208,12 @@ export function KaggleConnectionForm({
                     padding: '10px',
                     cursor: 'pointer',
                     backgroundColor:
-                      state.selectedDataset === dataset.ref ? '#e3f2fd' : 'white',
-                    borderBottom: '1px solid #eee',
+                      state.selectedDataset === dataset.ref ? T.surfaceHeader : T.surfaceRaised,
+                    borderBottom: `1px solid ${T.borderSubtle}`,
                   }}
                 >
                   <div style={{ fontWeight: 'bold' }}>{dataset.title}</div>
-                  <div style={{ fontSize: '0.85em', color: '#666' }}>
+                  <div style={{ fontSize: '0.85em', color: T.textMuted }}>
                     {dataset.ref} • {dataset.size_mb} MB
                     {dataset.csv_file_count !== null &&
                     dataset.csv_file_count !== undefined
