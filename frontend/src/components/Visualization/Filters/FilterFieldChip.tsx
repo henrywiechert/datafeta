@@ -13,6 +13,7 @@ import ContinuousFilterControl from './ContinuousFilterControl';
 import { DateTimeRangeFilter } from '../../DateTime';
 import styles from './FilterFieldChip.module.css';
 import FieldChip from '../FieldChip';
+import { T } from '../../../theme/tokens';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { resolveValueListMode } from '../../../utils/cascadingFilters';
@@ -50,10 +51,10 @@ const compactMeasureFieldSx = {
     px: 0,
   },
   '& .MuiInput-underline:before': {
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: T.inputUnderline,
   },
   '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
-    borderBottomColor: 'rgba(0,0,0,0.35)',
+    borderBottomColor: T.inputUnderlineHover,
   },
 } as const;
 
