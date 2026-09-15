@@ -9,6 +9,7 @@
 
 import { UserChartType } from '../../types/field';
 import { CellChartType } from '../helpers/chartTypeResolver';
+import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR } from '../../config/colorSchemes';
 
 // --- Overlay type identifiers ------------------------------------------------
 
@@ -52,9 +53,9 @@ export interface OverlayConfig {
 // --- Default overlay configs (all start disabled) ----------------------------
 
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
-  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5, perGroup: false, showCI: true } },
-  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2, perGroup: false } },
-  { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: '#4e79a7', perGroup: false }, hideSourceData: false },
+  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: DEFAULT_OVERLAY_COLOR, strokeWidth: 1.5, perGroup: false, showCI: true } },
+  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: DEFAULT_MANUAL_COLOR, strokeWidth: 2, perGroup: false } },
+  { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: false },
 ];
 
 // --- Overlay metadata (for UI + registry) ------------------------------------

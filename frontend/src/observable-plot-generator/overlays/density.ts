@@ -17,6 +17,7 @@
 
 import * as Plot from '@observablehq/plot';
 import { OverlayParams } from './types';
+import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 
 /**
  * CSS class prefix written onto per-group density paths.
@@ -53,7 +54,7 @@ export function buildDensity(
   const filled      = params.filled     ?? false;
   const fillOpacity = params.opacity    ?? 0.2;
   const strokeWidth = params.strokeWidth ?? 1.5;
-  const color       = params.color      ?? '#4e79a7';
+  const color       = params.color      ?? DEFAULT_MANUAL_COLOR;
   const perGroup    = params.perGroup   ?? false;
 
   const useGroup = perGroup && !!colorColumn;

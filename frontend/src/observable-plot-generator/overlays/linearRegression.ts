@@ -8,6 +8,7 @@
 
 import * as Plot from '@observablehq/plot';
 import { OverlayParams } from './types';
+import { DEFAULT_OVERLAY_COLOR } from '../../config/colorSchemes';
 
 export function buildLinearRegression(
   data: any[],
@@ -18,7 +19,7 @@ export function buildLinearRegression(
   colorColumn?: string,
 ): Plot.Markish {
   const ci = params.ci ?? 0.95;
-  const color = params.color ?? '#e15759';
+  const color = params.color ?? DEFAULT_OVERLAY_COLOR;
   const fillOpacity = params.opacity ?? 0.1;
   const strokeWidth = params.strokeWidth ?? 1.5;
   const perGroup = params.perGroup ?? false;

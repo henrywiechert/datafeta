@@ -3,7 +3,7 @@
  * Utility to convert our color scheme ID to Observable Plot color configuration
  */
 
-import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../../config/colorSchemes';
+import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, PREDEFINED_COLORS, getSchemeById } from '../../config/colorSchemes';
 import { ColorChannel, Field, FieldOverrideState } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { isMeasureNamesField, getMeasureMemberLabel } from '../../utils/syntheticFields';
@@ -32,8 +32,8 @@ function getColorRange(colorSchemeId?: string): string[] {
   const scheme = getSchemeById(colorSchemeId);
   
   if (!scheme) {
-    // Fallback colors (Tableau 10)
-    return ['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'];
+    // Same Tableau 10 the default scheme uses; kept in one place.
+    return PREDEFINED_COLORS;
   }
 
   return scheme.colors;
@@ -408,6 +408,11 @@ function parseHexColor(color: string): { r: number; g: number; b: number } | nul
   };
 }
 
+/* eslint-disable no-restricted-syntax -- 'black'/'white' here are contrast
+   decisions derived from the MARK's own luminance, not page-relative theme
+   colours: a label sitting on a mark must contrast with that mark. The
+   `fallback` is the page-relative part and becomes scheme-derived when dark
+   mode lands. See src/theme/THEMING.md. */
 export function getContrastTextColor(backgroundColor: string, fallback: 'black' | 'white' = 'black'): 'black' | 'white' {
   const rgb = parseHexColor(backgroundColor);
   if (!rgb) return fallback;
@@ -420,6 +425,7 @@ export function getContrastTextColor(backgroundColor: string, fallback: 'black' 
 
   return luminance > 0.179 ? 'black' : 'white';
 }
+/* eslint-enable no-restricted-syntax */
 
 /**
  * Simple RGB color interpolation between two hex colors

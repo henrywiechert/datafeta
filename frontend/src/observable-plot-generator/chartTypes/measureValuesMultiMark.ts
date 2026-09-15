@@ -15,6 +15,8 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSeriesEndLabelMark, MAX_SERIES_LABELS } from '../utils/seriesEndLabels';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { PREDEFINED_COLORS } from '../../config/colorSchemes';
+import { T } from '../../theme/tokens';
 
 /**
  * Check if source measures have any per-measure overrides that require multi-mark rendering.
@@ -312,11 +314,9 @@ function createMarksForType(
  * Generate a multi-mark plot for MeasureValues with per-measure chart types.
  * Each source measure is rendered as a separate mark layer with its own chart type.
  */
-// Default color palette when no color scale is available
-const DEFAULT_COLORS = [
-  '#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f',
-  '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'
-];
+// Default palette when no color scale is available. Tableau 10, from the one
+// place it is defined — this file used to carry its own copy.
+const DEFAULT_COLORS = PREDEFINED_COLORS;
 
 export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plot.PlotOptions {
   const {
@@ -447,13 +447,13 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
         xColumn: isMeasureValuesOnY ? categoryColumn : measureValuesColumn,
         yColumn: isMeasureValuesOnY ? measureValuesColumn : categoryColumn,
         getText: (row: any) => byRow.get(row)?.text ?? '',
-        getFill: (row: any) => byRow.get(row)?.color ?? '#333',
+        getFill: (row: any) => byRow.get(row)?.color ?? 'currentColor',
       })
     );
   }
 
   // Add a baseline rule at y=0
-  allMarks.push(Plot.ruleY([0], { stroke: '#ddd', strokeWidth: 1 }));
+  allMarks.push(Plot.ruleY([0], { stroke: T.borderMuted, strokeWidth: 1 }));
 
   // Build axis configurations
   // Explicitly set type to ensure proper scaling for mixed chart types

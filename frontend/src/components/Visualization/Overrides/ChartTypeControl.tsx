@@ -221,7 +221,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               borderRadius: 0,
               '&.Mui-selected': {
                 backgroundColor: 'primary.main',
-                color: 'white',
+                color: T.textInverse,
                 '&:hover': {
                   backgroundColor: 'primary.dark',
                 },
