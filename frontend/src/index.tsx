@@ -1,11 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ThemeProvider } from '@mui/material/styles';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import denseTheme from './theme';
+import ThemeRoot from './theme/ThemeRoot';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import { DataSourceProvider } from './contexts/DataSourceContext';
 import { AppConfigProvider } from './contexts/AppConfigContext';
@@ -18,7 +17,8 @@ const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 // Provider hierarchy:
-// 1. ThemeProvider     - dense MUI chrome (menus/dialogs)
+// 1. ThemeRoot          - dense MUI chrome (menus/dialogs) + the CSS-variable
+//    palette that CSS modules read; owns the light/dark color scheme
 // 2. AppConfigProvider  - app-wide configuration
 // 3. DataSourceProvider - session-scoped metadata (databases, tables, fields)
 // 4. ConnectionProvider - connection state (depends on DataSourceContext;
@@ -26,7 +26,7 @@ const root = ReactDOM.createRoot(
 //    created inside VisualizationPage with key={activeSheet?.id}).
 root.render(
   <React.StrictMode>
-    <ThemeProvider theme={denseTheme}>
+    <ThemeRoot>
       <AppConfigProvider>
         <DataSourceProvider>
           <ConnectionProvider>
@@ -34,7 +34,7 @@ root.render(
           </ConnectionProvider>
         </DataSourceProvider>
       </AppConfigProvider>
-    </ThemeProvider>
+    </ThemeRoot>
   </React.StrictMode>
 );
 
