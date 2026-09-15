@@ -28,6 +28,7 @@ import { apiService } from '../apiService';
 import { DemoDataset } from '../services/api';
 import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import styles from './DataSourceSelectionPage.module.css';
+import { T } from '../theme/tokens';
 
 interface DataSourceSelectionPageProps {
   onLoadConfiguration: (config: any, options?: { preserveConnection?: boolean }) => Promise<void>;
@@ -205,7 +206,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
           target="_blank"
           rel="noopener noreferrer"
           title="Open User Manual"
-          style={{ color: '#666', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+          style={{ color: T.textMuted, display: 'flex', alignItems: 'center', lineHeight: 1 }}
         >
           <span style={{ fontSize: '1.3rem' }}>?</span>
         </a>
