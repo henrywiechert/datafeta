@@ -9,8 +9,25 @@
 }
 
 .sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 0 4px;
   min-width: 0;
+}
+
+.sliderRow > :global(.MuiSlider-root) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.autoToggle {
+  padding: 2px !important;
+  flex: 0 0 auto;
+}
+
+.autoToggle :global(.MuiSvgIcon-root) {
+  font-size: 1rem;
 }
 
 .inputsRow {
@@ -38,4 +55,32 @@
 .input {
   width: 100%;
   min-width: 0;
+}
+
+.inputWrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+/*
+ * The ∞ glyph is absent from many UI fonts, so rendering it inside the input
+ * pulls in a fallback font whose metrics stretch the field. Painting it as an
+ * out-of-flow overlay keeps the input's box size fixed and lets us size the
+ * symbol freely. pointer-events: none so clicks land on the input beneath.
+ */
+.infOverlay {
+  position: absolute;
+  left: 0;
+  /* Pin to the input's text line (py: 2px, line-height 1.25 @ 0.8125rem ≈ 16px)
+     rather than the wrapper box, which is taller than the text area. */
+  top: 2px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  user-select: none;
 }
