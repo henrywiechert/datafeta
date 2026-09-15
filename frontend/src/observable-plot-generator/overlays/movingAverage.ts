@@ -8,6 +8,7 @@
 
 import * as Plot from '@observablehq/plot';
 import { OverlayParams } from './types';
+import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 
 export function buildMovingAverage(
   data: any[],
@@ -20,7 +21,7 @@ export function buildMovingAverage(
   const k = params.windowSize ?? 20;
   const reduce = params.reduce ?? 'mean';
   const anchor = params.anchor ?? 'middle';
-  const color = params.color ?? '#4e79a7';
+  const color = params.color ?? DEFAULT_MANUAL_COLOR;
   const strokeWidth = params.strokeWidth ?? 2;
   const perGroup = params.perGroup ?? false;
 

@@ -20,6 +20,7 @@ import { generateHeatmapGrid } from './chartTypes/heatmapChart';
 import { generateTableGrid, TableGridInput } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
 import { resolveContextColorChannel } from './utils/colorSchemeUtils';
+import { T } from '../theme/tokens';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -104,7 +105,7 @@ function createMessageChart(message: string): PlotResult {
           Plot.text([message], {
             frameAnchor: "middle",
             fontSize: 14,
-            fill: "gray"
+            fill: T.textMuted
           })
         ]
       },

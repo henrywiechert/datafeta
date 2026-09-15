@@ -75,6 +75,10 @@
         {
           "selector": "TemplateElement[value.raw=/\\b(rgb|rgba|hsl|hsla)\\s*\\(/]",
           "message": "Hardcoded color in a template literal. Interpolate a token from src/theme/tokens.ts instead. See src/theme/THEMING.md."
+        },
+        {
+          "selector": "Literal[value=/^(white|black|gray|grey)$/i]",
+          "message": "Named color. Use a token from src/theme/tokens.ts (T.*) or 'currentColor'. Named colors hide from hex searches and do not follow the theme. See src/theme/THEMING.md."
         }
       ]
     },
@@ -111,8 +115,11 @@
           "src/components/Visualization/ChartArea/components/DebugPanel.tsx",
           "src/components/Visualization/ChartArea/components/HeatmapSizeBar.tsx",
           "src/components/Visualization/ChartGrid/BrushOverlay.tsx",
+          "src/components/Visualization/ChartGrid/MultiPlotGrid.tsx",
           "src/components/Visualization/ChartGrid/PlotArea.tsx",
           "src/components/Visualization/ChartGrid/VirtualResizeLine.tsx",
+          "src/components/Visualization/ChartGrid/facetLabels/LeftFacetLabelsComponent.tsx",
+          "src/components/Visualization/ChartGrid/facetLabels/TopFacetLabelsComponent.tsx",
           "src/components/Visualization/ChartGrid/renderers/PieSvgRenderer.tsx",
           "src/components/Visualization/CustomTooltip/addTooltipListeners.ts",
           "src/components/Visualization/DebugView.tsx",
@@ -121,14 +128,13 @@
           "src/components/Visualization/Table/TableViewRowsLazy.tsx",
           "src/components/icons/DataSlicerIcon.tsx",
           "src/config/chartLayoutConfig.ts",
-          "src/observable-plot-generator/chartTypes/measureValuesMultiMark.ts",
-          "src/observable-plot-generator/chartTypes/pieChart.ts",
-          "src/observable-plot-generator/overlays/density.ts",
-          "src/observable-plot-generator/overlays/linearRegression.ts",
-          "src/observable-plot-generator/overlays/movingAverage.ts",
-          "src/observable-plot-generator/overlays/types.ts",
-          "src/observable-plot-generator/utils/colorSchemeUtils.ts",
-          "src/observable-plot-generator/utils/facetBackgroundUtils.ts"
+          "src/observable-plot-generator/chartTypes/cdfChart.ts",
+          "src/observable-plot-generator/chartTypes/cellChartHelpers.ts",
+          "src/observable-plot-generator/chartTypes/densityChart.ts",
+          "src/observable-plot-generator/chartTypes/heatmapChart.ts",
+          "src/observable-plot-generator/rules/chartRules.ts",
+          "src/observable-plot-generator/utils/labelUtils.ts",
+          "src/observable-plot-generator/utils/seriesEndLabels.ts"
         ],
         "rules": {
           "no-restricted-syntax": "off"

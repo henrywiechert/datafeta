@@ -9,6 +9,8 @@ import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { buildLabelStringFromFields } from '../utils/labelUtils';
 import { FacetPlan, planFacets } from '../faceting/facetPlanner';
 import { coordinateFacetedGrid, CellGenerator, CellResult, FacetCellContext } from '../faceting/facetCoordinator';
+import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
+import { T } from '../../theme/tokens';
 
 const PIE_CELL_SIZE = 260;
 const MIN_PIE_CELL_SIZE = 120;
@@ -25,7 +27,7 @@ function createMessageChart(message: string): PlotResult {
           Plot.text([message], {
             frameAnchor: 'middle',
             fontSize: 14,
-            fill: 'gray',
+            fill: T.textMuted,
           }),
         ],
       },
@@ -95,13 +97,13 @@ function valueKey(value: any): string {
 
 function getColorForValue(value: any, colorScale: SharedDomains['colorScale']): string {
   if (!colorScale || colorScale.kind !== 'categorical') {
-    return '#4e79a7';
+    return DEFAULT_MANUAL_COLOR;
   }
   const domain = colorScale.domain as any[];
   const range = colorScale.range;
   const index = domain.findIndex((candidate) => valueKey(candidate) === valueKey(value));
   const safeIndex = index >= 0 ? index : 0;
-  return range[safeIndex % range.length] || '#4e79a7';
+  return range[safeIndex % range.length] || DEFAULT_MANUAL_COLOR;
 }
 
 function aggregatePositiveValue(rows: any[], column: string): number {

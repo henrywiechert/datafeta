@@ -87,6 +87,9 @@ function hexToRgba(hex: string, opacity: number): string {
   const g = parseInt(cleanHex.substring(2, 4), 16);
   const b = parseInt(cleanHex.substring(4, 6), 16);
   
+  // Composes a *data* colour (a categorical scheme entry) with the user's
+  // facet-background opacity. Not a theme colour — see src/theme/THEMING.md.
+  // eslint-disable-next-line no-restricted-syntax
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 

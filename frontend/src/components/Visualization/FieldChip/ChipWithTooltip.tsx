@@ -171,7 +171,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
           top: -8,
           right: -8,
           backgroundColor: T.profileValid,
-          color: 'white',
+          color: T.textInverse,
           borderRadius: '50%',
           width: 20,
           height: 20,
