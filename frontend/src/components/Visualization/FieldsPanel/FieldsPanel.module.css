@@ -41,9 +41,9 @@
 
 .header {
     padding: 10px 10px 6px 10px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--df-border-hairline);
     flex-shrink: 0;
-    background-color: #fafafa;
+    background-color: var(--df-surface-panel);
 }
 
 .headerTitleRow {
@@ -58,7 +58,7 @@
 }
 
 .headerTitleRow:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--df-state-hover);
 }
 
 .headerActions {
@@ -120,7 +120,7 @@
 
 .categoryTitle {
   margin-bottom: 4px;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--df-text-secondary);
   font-weight: bold;
 }
 
@@ -135,6 +135,6 @@
 }
 
 .emptyMessage {
-  color: rgba(0, 0, 0, 0.38);
+  color: var(--df-text-disabled);
   font-style: italic;
 }
