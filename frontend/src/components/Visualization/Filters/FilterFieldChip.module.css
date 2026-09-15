@@ -52,7 +52,7 @@
 
 .controlContainer {
   border-top: 1px solid var(--df-border-hairline);
-  background-color: white;
+  background-color: var(--df-surface-raised);
 }
 
 .loading {

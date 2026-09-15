@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import type { SxProps, Theme } from '@mui/material/styles';
 import compactStyles from './CompactAutocomplete.module.css';
+import { T } from '../../../theme/tokens';
 
 /** MUI Autocomplete root class for data-source pickers (shared height, font, adornments). */
 export const compactAutocompleteClassName = compactStyles.compact;
@@ -19,7 +20,7 @@ export const sourcePickerFieldLabelSx: SxProps<Theme> = {
   minWidth: '44px',
   textAlign: 'right',
   paddingRight: '2px',
-  color: 'rgba(0,0,0,0.55)',
+  color: T.textGhost,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'flex-end',

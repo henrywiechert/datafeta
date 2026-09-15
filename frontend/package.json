@@ -130,8 +130,6 @@
           "src/components/Visualization/FieldChip/FieldAliasDialog.tsx",
           "src/components/Visualization/FieldChip/FieldMenuItems.tsx",
           "src/components/Visualization/FieldChip/dragImageUtils.ts",
-          "src/components/Visualization/FieldsPanel/FieldsPanel.tsx",
-          "src/components/Visualization/FieldsPanel/sourcePickerShared.ts",
           "src/components/Visualization/Overrides/BackgroundFieldControl.tsx",
           "src/components/Visualization/Overrides/ChartTypeControl.tsx",
           "src/components/Visualization/Overrides/DensityParametersSection.tsx",
