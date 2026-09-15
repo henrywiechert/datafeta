@@ -29,7 +29,7 @@ After connecting to a data source you are taken to the **Visualization workspace
 
 All three panels are resizable by dragging the dividers, and each can be collapsed to give the chart more space.
 
-Panels can be collapsed by clicking the `<` / `>` arrows on the resize handles to give the chart more room.
+To collapse a panel, double-click its divider — or press `Ctrl+B` for the Fields panel and `Ctrl+J` for the middle panel. A collapsed panel leaves a narrow labelled rail behind; click the rail (or its `>` arrow) to bring the panel back. Dividers can also be resized from the keyboard: focus one with `Tab`, then use the arrow keys, or `Home` / `End` to jump to the smallest and largest allowed size. Panel sizes and collapsed state are remembered per sheet.
 
 ---
 

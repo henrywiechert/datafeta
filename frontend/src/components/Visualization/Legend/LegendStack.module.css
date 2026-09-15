@@ -6,7 +6,8 @@
   flex-shrink: 0;
   margin-left: 8px;
   background-color: #fafafa;
-  border-left: 1px solid #e0e0e0;
+  /* No border-left: the SplitHandle in .handleSlot draws the boundary line,
+     so the legend edge matches every other split in the app. */
   position: relative;
   box-sizing: border-box;
 }
@@ -39,20 +40,17 @@
   background: #aaa;
 }
 
-.resizeHandle {
+/*
+ * Holds the shared SplitHandle over the gap between chart and legend. Anchored
+ * to the middle of the 8px margin-left above and centred on that point, so it
+ * stays centred whatever SPLIT_HANDLE_THICKNESS_PX is set to.
+ */
+.handleSlot {
   position: absolute;
   top: 0;
   left: -4px;
-  width: 8px;
+  transform: translateX(-50%);
   height: 100%;
-  cursor: col-resize;
-  background-color: transparent;
-}
-
-.resizeHandle:hover {
-  background-color: rgba(0, 0, 0, 0.06);
-}
-
-.resizeHandleActive {
-  background-color: rgba(0, 0, 0, 0.12);
+  display: flex;
+  z-index: 2;
 }

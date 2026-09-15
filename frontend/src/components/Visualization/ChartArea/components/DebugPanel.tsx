@@ -1,8 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
-import ResizeHandle from '../../../Layout/ResizeHandle';
+import SplitHandle from '../../../Layout/SplitHandle';
+import { SplitBounds } from '../../../Layout/useSplitDrag';
 import DebugView, { DebugData } from '../../DebugView';
+
+const MIN_DEBUG_HEIGHT_PX = 150;
 
 interface DebugPanelProps {
   isDebugOpen: boolean;
@@ -19,13 +22,23 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   onDebugResize,
   debugData,
 }) => {
+  const getBounds = useCallback((): SplitBounds => ({
+    currentPx: debugHeight,
+    minPx: MIN_DEBUG_HEIGHT_PX,
+    maxPx: maxDebugHeight,
+  }), [debugHeight, maxDebugHeight]);
+
+  const handleCommit = useCallback((height: number) => {
+    onDebugResize(Math.round(height));
+  }, [onDebugResize]);
+
   if (!isDebugOpen) return null;
 
   return (
-    <Box sx={{ 
-      mt: 1, 
-      border: '1px solid #e0e0e0', 
-      borderRadius: 1, 
+    <Box sx={{
+      mt: 1,
+      border: '1px solid #e0e0e0',
+      borderRadius: 1,
       height: `${debugHeight}px`,
       minHeight: `${debugHeight}px`, // Ensure it maintains its height
       maxHeight: `${debugHeight}px`, // Prevent growing beyond set height
@@ -34,17 +47,16 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
       flexDirection: 'column',
       flexShrink: 0 // Don't let it shrink below its set size
     }}>
-      {/* Resize handle at the top */}
-      <ResizeHandle 
-        direction="vertical"
-        edge="top"
-        onResize={onDebugResize}
-        currentSize={debugHeight}
-        minSize={150}
-        maxSize={maxDebugHeight}
+      {/* Handle above the panel, so dragging up grows it. */}
+      <SplitHandle
+        orientation="horizontal"
+        panelSide="after"
+        ariaLabel="Resize debug view"
+        getBounds={getBounds}
+        onCommitPx={handleCommit}
       />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <DebugView 
+        <DebugView
           debugData={debugData}
         />
       </Box>
@@ -52,4 +64,4 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
   );
 };
 
-export default DebugPanel; 
+export default DebugPanel;

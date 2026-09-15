@@ -1,6 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 // Central layout constants for chart grid and intrinsic sizing
 import type { UserChartType } from '../types';
+import {
+  SPLIT_LINE_ACTIVE_HEX,
+  SPLIT_LINE_ACTIVE_THICKNESS_PX,
+  SPLIT_LINE_DRAGGING_HEX,
+} from '../components/Layout/layoutTokens';
 
 export const MIN_GRID_COLUMN_PX = 120;
 export const MIN_GRID_ROW_PX = 120;
@@ -96,10 +101,14 @@ export const TABLE_MEASURE_BAND_ROW_PX = 28;
 export const HEATMAP_DEFAULT_CELL_SIZE_PX = 14;
 export const HEATMAP_MIN_CELL_SIZE_PX = 1;
 
-// Resize handle constants (for future dynamic resize feature)
-export const RESIZE_HANDLE_WIDTH = 2;
-export const RESIZE_HANDLE_COLOR = '#99a795';
-export const RESIZE_HANDLE_HOVER_COLOR = '#6b7a67';
+// Gridline resize handles. These draw themselves with raw inline styles (they
+// sit on absolutely positioned gridlines), so they take the literal hex tokens
+// rather than the sx palette keys. Colors come from layoutTokens so a gridline
+// handle reads as the same affordance as a panel split — they used to be a
+// one-off green.
+export const RESIZE_HANDLE_WIDTH = SPLIT_LINE_ACTIVE_THICKNESS_PX;
+export const RESIZE_HANDLE_COLOR = SPLIT_LINE_ACTIVE_HEX;
+export const RESIZE_HANDLE_HOVER_COLOR = SPLIT_LINE_DRAGGING_HEX;
 
 // Min sizes for cell resize. Upper bound is intentionally unbounded: facet
 // cells in practice never come close to a hard cap, and heatmaps (whose
