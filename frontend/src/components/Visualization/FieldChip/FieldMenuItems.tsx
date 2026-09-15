@@ -16,6 +16,7 @@ import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useDataSourceMetadata } from '../../../contexts/DataSourceContext/hooks';
 import { VisualizationContext } from '../../../contexts/VisualizationContext';
 import { WINDOW_CALC_OPTIONS, hasWindowCalcOrderByDimension } from '../../../utils/windowCalcUtils';
+import { T } from '../../../theme/tokens';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -122,7 +123,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
       {/* Show bulk edit indicator if applicable */}
       {isBulkEdit && (
         <>
-          <div className={menuStyles.menuItem} style={{ color: '#1976d2', fontWeight: 'bold', cursor: 'default' }}>
+          <div className={menuStyles.menuItem} style={{ color: 'primary.main', fontWeight: 'bold', cursor: 'default' }}>
             Apply to {selectedFields.length} fields
           </div>
           <div className={menuStyles.separator} />
@@ -132,7 +133,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
       {/* Show synthetic field badge if applicable (only for single field) */}
       {!isBulkEdit && isSynthetic && (
         <>
-          <div className={menuStyles.menuItem} style={{ color: '#666', fontStyle: 'italic', cursor: 'default' }}>
+          <div className={menuStyles.menuItem} style={{ color: T.textMuted, fontStyle: 'italic', cursor: 'default' }}>
             🔒 Synthetic Field
           </div>
           <div className={menuStyles.separator} />
@@ -306,7 +307,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
             {!windowCalcEligible && (
               <div
                 className={menuStyles.menuItem}
-                style={{ color: '#888', fontStyle: 'italic', cursor: 'default', whiteSpace: 'normal', maxWidth: 240 }}
+                style={{ color: T.textFaint, fontStyle: 'italic', cursor: 'default', whiteSpace: 'normal', maxWidth: 240 }}
               >
                 Add a date field (e.g. as Day) to an axis or Tooltip to enable table calculations
               </div>

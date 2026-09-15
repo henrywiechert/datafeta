@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { ColumnCastConfig } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 export interface ColumnCastingDialogProps {
   open: boolean;
@@ -37,7 +38,7 @@ const NUMERIC_PATTERN_SUGGESTIONS = [',', '.', ' ', '_', "'"] as const;
 const labelSx = {
   fontSize: '0.7rem',
   fontWeight: 500,
-  color: 'rgba(0, 0, 0, 0.6)',
+  color: 'text.secondary',
   lineHeight: 1.2,
   mb: 0.25,
 } as const;
@@ -55,7 +56,7 @@ const compactFieldSx = {
     py: 0.25,
   },
   '& .MuiInput-underline:before': {
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: T.inputUnderline,
   },
 } as const;
 
@@ -238,7 +239,7 @@ const ColumnCastingDialog: React.FC<ColumnCastingDialogProps> = ({
             lineHeight: 1.4,
             px: 0.75,
             py: 0.5,
-            backgroundColor: '#f5f5f5',
+            backgroundColor: T.surfaceSunken,
             borderRadius: 1,
             wordBreak: 'break-all',
           }}

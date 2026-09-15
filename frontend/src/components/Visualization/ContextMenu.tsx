@@ -2,6 +2,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './ContextMenu.module.css';
+import { T } from '../../theme/tokens';
 
 interface MenuPosition {
   x: number;
@@ -67,7 +68,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, onClose, children }
       style={{ 
         top: adjustedPosition.y,
         left: adjustedPosition.x,
-        backgroundColor: '#ffffff',
+        backgroundColor: T.surfaceRaised,
         opacity: 1,
       }}
       onClick={(e) => e.stopPropagation()}

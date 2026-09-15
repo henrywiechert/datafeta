@@ -10,6 +10,7 @@ import FieldChipLabel from './FieldChipLabel';
 import labelStyles from './FieldChipLabel.module.css';
 import { useTruncationDetection } from './useTruncationDetection';
 import { getChipWidthProps, getChipClassNames } from './chipStyles';
+import { T } from '../../../theme/tokens';
 
 interface ChipWithTooltipProps {
   field: Field;
@@ -169,7 +170,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
           position: 'absolute',
           top: -8,
           right: -8,
-          backgroundColor: '#1976d2',
+          backgroundColor: T.profileValid,
           color: 'white',
           borderRadius: '50%',
           width: 20,
@@ -220,15 +221,15 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
                 padding: '6px 12px',
                 fontSize: '13px',
                 pointerEvents: 'none',
-                backgroundColor: '#ffffff',
-                color: '#111111',
-                border: '1px solid #e5e7eb',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                backgroundColor: T.surfaceRaised,
+                color: T.textInk,
+                border: `1px solid ${T.borderHairline}`,
+                boxShadow: `0 4px 12px ${T.shadowFaint}`
               }
             },
             arrow: {
               sx: {
-                color: '#ffffff'
+                color: T.surfaceRaised
               }
             }
           }}

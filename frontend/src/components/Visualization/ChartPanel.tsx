@@ -8,6 +8,7 @@ import ChartCaption from './ChartCaption';
 import { Field, DragSource } from '../../types';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
+import { T } from '../../theme/tokens';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
@@ -130,7 +131,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       {/* Add separation line between drop zones and chart area */}
       <Box sx={{ 
         height: '1px', 
-        backgroundColor: '#e0e0e0', 
+        backgroundColor: T.borderHairline, 
         width: '100%', 
         mb: 1,
         mt: 1
