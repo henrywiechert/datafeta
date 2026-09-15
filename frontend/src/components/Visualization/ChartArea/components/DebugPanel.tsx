@@ -38,7 +38,6 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
       <ResizeHandle 
         direction="vertical"
         edge="top"
-        deferred
         onResize={onDebugResize}
         currentSize={debugHeight}
         minSize={150}

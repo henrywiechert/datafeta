@@ -27,7 +27,6 @@ export { useDragDrop } from './useDragDrop';
 export { useFieldsPanelDrag } from './useFieldsPanelDrag';
 
 // Layout and UI hooks
-export { useLayoutState } from './useLayoutState';
 export { useChartTooltip } from './useChartTooltip';
 
 // Connection hooks

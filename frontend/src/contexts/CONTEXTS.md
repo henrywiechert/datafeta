@@ -43,7 +43,6 @@ dispatches into visualization state directly — it emits `'connection:reset'` o
 | `DataSourceContext` | App-wide | None | DB/table selection, available fields |
 | `VisualizationContext` | Per-sheet | Via SheetContext | Chart axes, filters, encodings, query/render state |
 | `UndoRedoContext` | Per-sheet | Memory only | Action history for undo/redo |
-| `LayoutContext` | App-wide | localStorage | Panel collapse/resize state |
 
 ---
 
@@ -169,18 +168,6 @@ Provides undo/redo functionality for visualization state:
 
 ---
 
-### 6. LayoutContext
-**File:** `LayoutContext.tsx`
-
-Manages UI panel layout:
-- Panel visibility (collapsed/expanded)
-- Panel widths
-- Persisted to localStorage via `useLayoutState` hook
-
-**Panels managed:** Fields panel, filter panel, legend panel, debug panel, etc.
-
----
-
 ## Multi-Field Selection (Zustand Store)
 
 Field selection for drag operations is managed by a Zustand store (`stores/selectionStore.ts`), not a React context:
@@ -278,12 +265,12 @@ stack.
 │  │                  VisualizationContext                          │  │
 │  │  (axes, filters, encodings, loading, virtual columns)         │  │
 │  └───────────────────────────────────────────────────────────────┘  │
-│         │                              │                              │
-│         ▼                              ▼                              │
-│  ┌─────────────┐              ┌─────────────────┐                    │
-│  │UndoRedoCtx  │              │  LayoutContext  │                    │
-│  │(history)    │              │  (panel state)  │                    │
-│  └─────────────┘              └─────────────────┘                    │
+│         │                                                             │
+│         ▼                                                             │
+│  ┌─────────────┐                                                      │
+│  │UndoRedoCtx  │                                                      │
+│  │(history)    │                                                      │
+│  └─────────────┘                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

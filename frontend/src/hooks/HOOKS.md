@@ -33,7 +33,6 @@ Custom React hooks for state management, data operations, and UI interactions.
 | `useVisualizationState` | Facade composing field, metadata, and filter hooks | `VisualizationPage` |
 | `useDragDrop` | Drag-drop operations with undo/redo integration | `VisualizationPage` |
 | `useUndoRedo` | Re-export of `UndoRedoContext` hook | Multiple components |
-| `useLayoutState` | Panel visibility/collapse state | `LayoutContext` |
 
 ### Field Operations
 
