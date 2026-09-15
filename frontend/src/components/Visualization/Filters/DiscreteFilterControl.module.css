@@ -16,8 +16,8 @@
   gap: 6px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #e0e0e0;
+  background: var(--df-surface-raised-alpha);
+  border: 1px solid var(--df-border-hairline);
   pointer-events: none;
 }
 
@@ -42,7 +42,7 @@
 .compactToggle :global(.MuiFormControlLabel-label) {
   font-size: 11px;
   line-height: 1.2;
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--df-text-label);
 }
 
 .compactToggle :global(.MuiSwitch-root) {
@@ -50,16 +50,16 @@
 }
 
 .filterBox {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--df-border-hairline);
   border-radius: 6px;
-  background: #fff;
+  background: var(--df-surface-raised);
   overflow: hidden;
 }
 
 .previewBox {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--df-border-hairline);
   border-radius: 4px;
-  background: #fafafa;
+  background: var(--df-surface-panel);
   overflow: hidden;
   margin-bottom: 6px;
 }
@@ -109,9 +109,9 @@
   flex-direction: column;
   gap: 4px;
   padding: 4px 8px 6px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--df-border-hairline);
   border-radius: 4px;
-  background: #fafafa;
+  background: var(--df-surface-panel);
   margin-bottom: 6px;
 }
 
@@ -177,7 +177,7 @@
 .inverseToggle :global(.MuiFormControlLabel-label) {
   font-size: 11px;
   line-height: 1.2;
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--df-text-label);
 }
 
 .inverseToggle :global(.MuiSwitch-root) {
@@ -186,8 +186,8 @@
 
 .searchHeader {
   padding: 4px 8px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #fafafa;
+  border-bottom: 1px solid var(--df-border-hairline);
+  background: var(--df-surface-panel);
 }
 
 .buttonGroup {
@@ -219,7 +219,7 @@
 .selectAllLabel {
   font-size: 11px;
   line-height: 1.15;
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--df-text-label);
 }
 
 .invertButton {
@@ -246,7 +246,7 @@
 
 .sectionDivider {
   height: 1px;
-  background: #d0d0d0;
+  background: var(--df-border-muted);
   margin: 3px 8px;
   flex-shrink: 0;
 }
@@ -263,7 +263,7 @@
 }
 
 .checkboxItem:hover {
-  background-color: #f5f5f5;
+  background-color: var(--df-state-hover);
 }
 
 .nativeCheckbox {
@@ -278,7 +278,7 @@
   font-size: 11px;
   line-height: 1.15;
   white-space: nowrap;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--df-text-primary);
 }
 
 .searchRow {
@@ -330,14 +330,14 @@
 
 .toggleActive {
   font-weight: 600;
-  background-color: #e6f4ea !important; /* light green */
-  color: #1b5e20 !important; /* dark green text */
-  border: 1px solid #b7dfbb !important;
+  background-color: var(--df-toggle-active-bg) !important;
+  color: var(--df-toggle-active-ink) !important;
+  border: 1px solid var(--df-toggle-active-border) !important;
   border-radius: 4px;
 }
 
 .toggleActive:hover {
-  background-color: #cce8d6 !important; /* slightly darker green for better hover indication */
+  background-color: var(--df-toggle-active-hover-bg) !important;
 }
 
 

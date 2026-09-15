@@ -82,14 +82,15 @@
 
 .toggleActive {
   font-weight: 600;
-  background-color: #e6f4ea !important;
-  color: #1b5e20 !important;
-  border: 1px solid #b7dfbb !important;
-  border-radius: 6px;
+  background-color: var(--df-toggle-active-bg) !important;
+  color: var(--df-toggle-active-ink) !important;
+  border: 1px solid var(--df-toggle-active-border) !important;
+  /* 4px matches theme.shape.borderRadius and the filter-panel toggle. */
+  border-radius: 4px;
 }
 
 .toggleActive:hover {
-  background-color: #cce8d6 !important;
+  background-color: var(--df-toggle-active-hover-bg) !important;
 }
 
 .fieldsList {

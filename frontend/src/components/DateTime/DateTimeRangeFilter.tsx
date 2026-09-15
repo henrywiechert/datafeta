@@ -26,6 +26,7 @@ import {
   CUSTOM_PRESET_LABEL,
 } from '../../datetime';
 import styles from './DateTimeRangeFilter.module.css';
+import { T } from '../../theme/tokens';
 
 interface DateTimeRangeFilterProps {
   metadata: DateTimeFilterMetadata;
@@ -74,7 +75,7 @@ const compactFieldSx = {
     height: 14,
   },
   '& .MuiInput-underline:before': {
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: T.inputUnderline,
   },
 } as const;
 
