@@ -10,6 +10,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { Field } from '../../../types';
 import { useDataSource } from '../../../contexts/DataSourceContext';
+import { T } from '../../../theme/tokens';
 
 interface FieldAliasDialogProps {
   anchorEl: HTMLElement | null;
@@ -171,7 +172,7 @@ export const FieldAliasDialog: React.FC<FieldAliasDialogProps> = ({
             px: 0,
           },
           '& .MuiInput-underline:before': {
-            borderBottomColor: 'rgba(0,0,0,0.2)',
+            borderBottomColor: T.inputUnderline,
           },
         }}
       />

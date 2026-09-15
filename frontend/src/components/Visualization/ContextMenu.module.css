@@ -1,10 +1,10 @@
 .menu {
     position: fixed;
     z-index: 10000; /* Much higher z-index to ensure it's on top */
-    background-color: #ffffff; /* Explicit white background */
+    background-color: var(--df-surface-raised);
     opacity: 1; /* Ensure full opacity */
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--df-border-strong);
+    box-shadow: 0 2px 8px var(--df-shadow-medium);
     border-radius: 4px;
     padding: 2px 0;
     min-width: 140px;
@@ -31,11 +31,11 @@
   }
   
   .menuItem:hover {
-    background-color: #f0f0f0;
+    background-color: var(--df-state-hover);
   }
 
   .menuItem.disabled {
-    color: #999;
+    color: var(--df-text-faint);
     cursor: not-allowed;
   }
 
@@ -45,7 +45,7 @@
   
   .separator {
     height: 1px;
-    background-color: #e0e0e0;
+    background-color: var(--df-border-hairline);
     margin: 2px 0;
   }
 
@@ -63,9 +63,9 @@
     position: absolute;
     left: 100%;
     top: 0;
-    background-color: white;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background-color: var(--df-surface-raised);
+    border: 1px solid var(--df-border-strong);
+    box-shadow: 0 2px 8px var(--df-shadow-medium);
     border-radius: 4px;
     padding: 2px 0;
     min-width: 120px;

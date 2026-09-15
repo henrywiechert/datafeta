@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { LoadingOperationType } from '../contexts/VisualizationContext';
+import { T } from '../theme/tokens';
 
 interface LoadingModalProps {
   open: boolean;
@@ -142,7 +143,7 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
               sx={{ 
                 height: 4, 
                 borderRadius: 2,
-                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                backgroundColor: T.trackMuted,
                 '& .MuiLinearProgress-bar': {
                   borderRadius: 2,
                 }
