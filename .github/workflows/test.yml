@@ -69,6 +69,14 @@ jobs:
       # Type-only cycles are ignored via .madgerc (skipTypeImports).
       run: npm run check:cycles
 
+    - name: Lint frontend
+      working-directory: frontend
+      # Gates the design-token rules in package.json eslintConfig, which reject
+      # hardcoded colors in files already migrated. See src/theme/THEMING.md.
+      # The CSS half of that contract is enforced by src/theme/cssColorBudget.test.ts
+      # in the test step below.
+      run: npm run lint
+
     - name: Run frontend tests
       working-directory: frontend
       run: CI=true npm test -- --watchAll=false

@@ -56,6 +56,27 @@
       "react-app",
       "react-app/jest"
     ],
+    "rules": {
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+          "message": "Hardcoded color. Use a token from src/theme/tokens.ts (T.*) or an MUI palette key in sx. See src/theme/THEMING.md."
+        },
+        {
+          "selector": "Literal[value=/\\b(rgb|rgba|hsl|hsla)\\s*\\(/]",
+          "message": "Hardcoded color. Use a token from src/theme/tokens.ts (T.*) or an MUI palette key in sx. See src/theme/THEMING.md."
+        },
+        {
+          "selector": "TemplateElement[value.raw=/#[0-9a-fA-F]{3,8}\\b/]",
+          "message": "Hardcoded color in a template literal. Interpolate a token from src/theme/tokens.ts instead. See src/theme/THEMING.md."
+        },
+        {
+          "selector": "TemplateElement[value.raw=/\\b(rgb|rgba|hsl|hsla)\\s*\\(/]",
+          "message": "Hardcoded color in a template literal. Interpolate a token from src/theme/tokens.ts instead. See src/theme/THEMING.md."
+        }
+      ]
+    },
     "overrides": [
       {
         "files": [
@@ -67,7 +88,83 @@
           "testing-library/no-node-access": "off",
           "testing-library/prefer-screen-queries": "off",
           "testing-library/render-result-naming-convention": "off",
-          "jest/no-conditional-expect": "off"
+          "jest/no-conditional-expect": "off",
+          "no-restricted-syntax": "off"
+        }
+      },
+      {
+        "files": [
+          "src/config/colorSchemes.ts",
+          "src/theme/**"
+        ],
+        "rules": {
+          "no-restricted-syntax": "off"
+        }
+      },
+      {
+        "files": [
+          "src/components/ConnectionForms/HuggingFaceConnectionForm.tsx",
+          "src/components/ConnectionForms/KaggleConnectionForm.tsx",
+          "src/components/DateTime/DateTimeFilterControl.tsx",
+          "src/components/DateTime/DateTimeRangeFilter.tsx",
+          "src/components/DebugPanel/hints/FieldHintsList.tsx",
+          "src/components/DebugPanel/optimizations/NoOptimizationsMessage.tsx",
+          "src/components/Layout/layoutTokens.ts",
+          "src/components/LoadingModal.tsx",
+          "src/components/Visualization/ChartArea/components/ChartControls.tsx",
+          "src/components/Visualization/ChartArea/components/DebugPanel.tsx",
+          "src/components/Visualization/ChartArea/components/HeatmapSizeBar.tsx",
+          "src/components/Visualization/ChartGrid/BrushOverlay.tsx",
+          "src/components/Visualization/ChartGrid/PlotArea.tsx",
+          "src/components/Visualization/ChartGrid/VirtualResizeLine.tsx",
+          "src/components/Visualization/ChartGrid/renderers/PieSvgRenderer.tsx",
+          "src/components/Visualization/ChartPanel.tsx",
+          "src/components/Visualization/Color/ColorBiasControl.tsx",
+          "src/components/Visualization/Color/ColorPalettePopover.tsx",
+          "src/components/Visualization/Color/ColorSchemeSelector.tsx",
+          "src/components/Visualization/Color/ManualColorSelector.tsx",
+          "src/components/Visualization/ContextMenu.tsx",
+          "src/components/Visualization/CustomTooltip/addTooltipListeners.ts",
+          "src/components/Visualization/DebugView.tsx",
+          "src/components/Visualization/DropZone.tsx",
+          "src/components/Visualization/FieldChip/ChipWithTooltip.tsx",
+          "src/components/Visualization/FieldChip/ColumnCastingDialog.tsx",
+          "src/components/Visualization/FieldChip/FieldAliasDialog.tsx",
+          "src/components/Visualization/FieldChip/FieldMenuItems.tsx",
+          "src/components/Visualization/FieldChip/chipStyles.ts",
+          "src/components/Visualization/FieldChip/dragImageUtils.ts",
+          "src/components/Visualization/FieldsPanel/FieldsPanel.tsx",
+          "src/components/Visualization/FieldsPanel/sourcePickerShared.ts",
+          "src/components/Visualization/Filters/ContinuousFilterControl.tsx",
+          "src/components/Visualization/Filters/FilterFieldChip.tsx",
+          "src/components/Visualization/Overrides/BackgroundFieldControl.tsx",
+          "src/components/Visualization/Overrides/ChartTypeControl.tsx",
+          "src/components/Visualization/Overrides/DensityParametersSection.tsx",
+          "src/components/Visualization/Overrides/FieldOverrideRow.tsx",
+          "src/components/Visualization/Overrides/FieldOverridesPanel.tsx",
+          "src/components/Visualization/Overrides/LabelFieldControl.tsx",
+          "src/components/Visualization/Overrides/OverlaysSection.tsx",
+          "src/components/Visualization/Overrides/SeriesLabelControl.tsx",
+          "src/components/Visualization/Overrides/ShapeFieldControl.tsx",
+          "src/components/Visualization/Overrides/SizeRangeControl.tsx",
+          "src/components/Visualization/Overrides/overrideUtils.ts",
+          "src/components/Visualization/Table/TableRowsPagination.tsx",
+          "src/components/Visualization/Table/TableViewRowsLazy.tsx",
+          "src/components/Visualization/TableColumnsDropZone.tsx",
+          "src/components/icons/DataSlicerIcon.tsx",
+          "src/config/chartLayoutConfig.ts",
+          "src/observable-plot-generator/chartTypes/measureValuesMultiMark.ts",
+          "src/observable-plot-generator/chartTypes/pieChart.ts",
+          "src/observable-plot-generator/overlays/density.ts",
+          "src/observable-plot-generator/overlays/linearRegression.ts",
+          "src/observable-plot-generator/overlays/movingAverage.ts",
+          "src/observable-plot-generator/overlays/types.ts",
+          "src/observable-plot-generator/utils/colorSchemeUtils.ts",
+          "src/observable-plot-generator/utils/facetBackgroundUtils.ts",
+          "src/pages/DataSourceSelectionPage.tsx"
+        ],
+        "rules": {
+          "no-restricted-syntax": "off"
         }
       }
     ]
