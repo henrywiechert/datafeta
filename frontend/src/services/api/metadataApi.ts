@@ -390,7 +390,7 @@ export const metadataApi = {
     virtualColumns?: VirtualColumnDefinition[],
     unionTables?: string[],
     signal?: AbortSignal
-  ): Promise<{ min: number; max: number }> {
+  ): Promise<{ min: number | null; max: number | null }> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
 

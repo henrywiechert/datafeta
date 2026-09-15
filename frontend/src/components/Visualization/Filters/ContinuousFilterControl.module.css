@@ -84,3 +84,11 @@
   pointer-events: none;
   user-select: none;
 }
+
+/* Shown instead of the slider when the column holds a single distinct value. */
+.singleValue {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.7rem !important;
+  padding: 4px 0;
+}

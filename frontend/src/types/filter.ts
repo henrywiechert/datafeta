@@ -53,6 +53,13 @@ export interface ContinuousFilterConfig extends BaseFilterConfig {
   type: 'continuous';
   min: number | null;
   max: number | null;
+  /**
+   * True when bounds sitting at the dataset extreme should be stored as null so
+   * they follow the loaded dataset. Missing ⇒ derived from the bounds themselves
+   * (an unbounded end implies adapt), so configurations saved before this flag
+   * existed — and zoom filters, which always pin both ends — keep their behaviour.
+   */
+  adaptToRange?: boolean;
 }
 
 // DateTime filter: user sets date range
@@ -107,8 +114,13 @@ export interface DiscreteFilterMetadata extends BaseFilterMetadata {
 
 export interface ContinuousFilterMetadata extends BaseFilterMetadata {
   type: 'continuous';
-  min: number;
-  max: number;
+  /**
+   * Dataset range. Null when the column holds no non-NULL value, because the
+   * range comes straight from SQL MIN()/MAX(), which return NULL for an
+   * all-NULL (or empty) column.
+   */
+  min: number | null;
+  max: number | null;
 }
 
 export interface DateTimeFilterMetadata extends BaseFilterMetadata {

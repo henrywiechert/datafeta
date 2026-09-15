@@ -214,8 +214,8 @@ export function useBrushZoom({
         // Clamp to metadata bounds if available
         const meta = filterMetadata[fieldId];
         if (meta && meta.type === 'continuous') {
-          newMin = Math.max(newMin, meta.min);
-          newMax = Math.min(newMax, meta.max);
+          if (meta.min != null) newMin = Math.max(newMin, meta.min);
+          if (meta.max != null) newMax = Math.min(newMax, meta.max);
         }
 
         updateExistingContinuousFilter(
