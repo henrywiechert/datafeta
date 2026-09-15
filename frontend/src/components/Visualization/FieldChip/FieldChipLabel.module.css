@@ -21,11 +21,11 @@
 }
 
 .discreteSymbol {
-  color: #1976d2; /* Blue matching the light blue hover */
+  color: var(--df-flavour-discrete-border);
 }
 
 .continuousSymbol {
-  color: #388e3c; /* Green matching the light green hover */
+  color: var(--df-flavour-continuous-border);
 }
 
 /* Specific tooltip styles */
