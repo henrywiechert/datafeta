@@ -121,7 +121,6 @@
           "src/components/Visualization/ChartGrid/facetLabels/LeftFacetLabelsComponent.tsx",
           "src/components/Visualization/ChartGrid/facetLabels/TopFacetLabelsComponent.tsx",
           "src/components/Visualization/ChartGrid/renderers/PieSvgRenderer.tsx",
-          "src/components/Visualization/CustomTooltip/addTooltipListeners.ts",
           "src/components/Visualization/DebugView.tsx",
           "src/components/Visualization/FieldChip/dragImageUtils.ts",
           "src/components/Visualization/Table/TableRowsPagination.tsx",
