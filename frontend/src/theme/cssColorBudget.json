@@ -3,10 +3,8 @@
   "src/components/Visualization/ChartArea/ChartArea.module.css": 6,
   "src/components/Visualization/ChartArea/components/BarSortControl.module.css": 6,
   "src/components/Visualization/ChartGrid/ChartGrid.module.css": 30,
-  "src/components/Visualization/CustomTooltip/CustomTooltip.css": 47,
   "src/components/Visualization/DebugView.module.css": 21,
   "src/components/Visualization/Legend/LegendPanel.module.css": 14,
   "src/components/Visualization/Legend/LegendStack.module.css": 4,
-  "src/components/Visualization/Properties/PropertySection.module.css": 6,
-  "src/index.css": 4
+  "src/components/Visualization/Properties/PropertySection.module.css": 6
 }

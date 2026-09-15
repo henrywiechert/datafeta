@@ -13,17 +13,25 @@
 import React from 'react';
 
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 // ---------------------------------------------------------------------------
 // Colour helpers
 // ---------------------------------------------------------------------------
 
+/*
+ * The values a browser reports for "no colour here". These are compared against
+ * getComputedStyle output to detect a transparent mark — they are not colours
+ * this app renders, which is why they stay literal. Both spacings occur because
+ * engines serialise rgba() differently.
+ */
+/* eslint-disable-next-line no-restricted-syntax */
+const TRANSPARENT_VALUES = ['none', 'transparent', 'rgba(0, 0, 0, 0)', 'rgba(0,0,0,0)'];
+
 /** Check whether a CSS colour string represents a visible (non-transparent) value. */
 function isVisibleColor(val: string | null): boolean {
   if (!val) return false;
-  const v = val.trim().toLowerCase();
-  return v !== 'none' && v !== 'transparent' && 
-         v !== 'rgba(0, 0, 0, 0)' && v !== 'rgba(0,0,0,0)';
+  return TRANSPARENT_VALUES.indexOf(val.trim().toLowerCase()) === -1;
 }
 
 /**
@@ -38,7 +46,7 @@ function resolveColorFromElement(el: Element): string | undefined {
   const resolveColor = (val: string | null): string | undefined => {
     if (!val) return undefined;
     const v = val.trim();
-    if (v === 'none' || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return undefined;
+    if (TRANSPARENT_VALUES.indexOf(v.toLowerCase()) !== -1) return undefined;
     if (v === 'currentColor') {
       const cc = cs.getPropertyValue('color');
       return cc && cc !== 'none' ? cc.trim() : undefined;
@@ -248,7 +256,7 @@ function updateVerticalGuideLine(
   guideLine.setAttribute('x2', String(cx));
   guideLine.setAttribute('y1', String(y1));
   guideLine.setAttribute('y2', String(y2));
-  guideLine.setAttribute('stroke', colorHex || 'rgba(0, 0, 0, 0.65)');
+  guideLine.setAttribute('stroke', colorHex || T.chartGuideLine);
   guideLine.setAttribute('stroke-width', '1');
   guideLine.setAttribute('stroke-dasharray', '3 3');
   guideLine.setAttribute('opacity', '0.9');

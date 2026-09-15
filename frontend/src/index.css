@@ -54,16 +54,16 @@ svg tspan,
   line-height: 1.5 !important;
   
   /* Colors */
-  background-color: rgba(20, 20, 20, 0.95) !important;
-  color: #ffffff !important;
+  background-color: var(--df-inverse-surface) !important;
+  color: var(--df-inverse-text) !important;
   
   /* Spacing */
   padding: 8px 12px !important;
   
   /* Border and shadow */
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid var(--df-inverse-border) !important;
   border-radius: 4px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 4px 12px var(--df-shadow-strong) !important;
   
   /* Font smoothing */
   -webkit-font-smoothing: antialiased;

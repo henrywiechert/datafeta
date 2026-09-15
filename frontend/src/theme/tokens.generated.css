@@ -117,11 +117,30 @@
   --df-inverse-text: #ffffff;
   --df-inverse-text-muted: #e0e0e0;
   --df-inverse-border: rgba(255, 255, 255, 0.2);
+  --df-inverse-fill-subtle: rgba(255, 255, 255, 0.04);
+  --df-inverse-fill: rgba(255, 255, 255, 0.08);
+  --df-inverse-fill-selected: rgba(255, 255, 255, 0.12);
+  --df-inverse-fill-hover: rgba(255, 255, 255, 0.14);
+  --df-inverse-border-subtle: rgba(255, 255, 255, 0.16);
+  --df-inverse-border-strong: rgba(255, 255, 255, 0.3);
+  --df-inverse-border-emphasis: rgba(255, 255, 255, 0.5);
+  --df-inverse-text-faint: rgba(255, 255, 255, 0.45);
+  --df-inverse-text-dim: rgba(255, 255, 255, 0.72);
+  --df-inverse-text-soft: rgba(255, 255, 255, 0.88);
+  --df-inverse-accent: #42a5f5;
+  --df-inverse-action-keep: #66bb6a;
+  --df-inverse-action-exclude: #ef5350;
+  --df-inverse-link: #7db8ff;
+  --df-inverse-link-hover: #a9d2ff;
   --df-overlay-scrim: rgba(0, 0, 0, 0.75);
   --df-shadow-soft: rgba(0, 0, 0, 0.1);
   --df-shadow-faint: rgba(0, 0, 0, 0.06);
   --df-shadow-medium: rgba(0, 0, 0, 0.2);
   --df-shadow-strong: rgba(0, 0, 0, 0.3);
+  --df-shadow-heavy: rgba(0, 0, 0, 0.45);
+  --df-chart-mark-highlight-stroke: rgba(0, 0, 0, 0.6);
+  --df-chart-mark-highlight-stroke-thin: rgba(0, 0, 0, 0.9);
+  --df-chart-guide-line: rgba(0, 0, 0, 0.65);
 }
 
 [data-df-color-scheme="dark"] {
@@ -235,9 +254,28 @@
   --df-inverse-text: #ffffff;
   --df-inverse-text-muted: #e0e0e0;
   --df-inverse-border: rgba(255, 255, 255, 0.2);
+  --df-inverse-fill-subtle: rgba(255, 255, 255, 0.04);
+  --df-inverse-fill: rgba(255, 255, 255, 0.08);
+  --df-inverse-fill-selected: rgba(255, 255, 255, 0.12);
+  --df-inverse-fill-hover: rgba(255, 255, 255, 0.14);
+  --df-inverse-border-subtle: rgba(255, 255, 255, 0.16);
+  --df-inverse-border-strong: rgba(255, 255, 255, 0.3);
+  --df-inverse-border-emphasis: rgba(255, 255, 255, 0.5);
+  --df-inverse-text-faint: rgba(255, 255, 255, 0.45);
+  --df-inverse-text-dim: rgba(255, 255, 255, 0.72);
+  --df-inverse-text-soft: rgba(255, 255, 255, 0.88);
+  --df-inverse-accent: #42a5f5;
+  --df-inverse-action-keep: #66bb6a;
+  --df-inverse-action-exclude: #ef5350;
+  --df-inverse-link: #7db8ff;
+  --df-inverse-link-hover: #a9d2ff;
   --df-overlay-scrim: rgba(0, 0, 0, 0.85);
   --df-shadow-soft: rgba(0, 0, 0, 0.6);
   --df-shadow-faint: rgba(0, 0, 0, 0.5);
   --df-shadow-medium: rgba(0, 0, 0, 0.65);
   --df-shadow-strong: rgba(0, 0, 0, 0.75);
+  --df-shadow-heavy: rgba(0, 0, 0, 0.8);
+  --df-chart-mark-highlight-stroke: rgba(255, 255, 255, 0.7);
+  --df-chart-mark-highlight-stroke-thin: rgba(255, 255, 255, 0.85);
+  --df-chart-guide-line: rgba(255, 255, 255, 0.7);
 }
