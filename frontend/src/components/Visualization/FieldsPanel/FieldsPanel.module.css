@@ -103,8 +103,9 @@
 }
 
 .dragOver {
-  background-color: rgba(244, 67, 54, 0.1);
-  border: 2px dashed #f44336;
+  /* Red, not blue: dropping a field back here REMOVES it from its shelf. */
+  background-color: var(--df-drop-reject-bg);
+  border: 2px dashed var(--df-drop-reject-border);
 }
 
 .normal {

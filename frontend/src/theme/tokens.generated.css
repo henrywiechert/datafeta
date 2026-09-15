@@ -48,6 +48,7 @@
   --df-drop-reject-bg: rgba(244, 67, 54, 0.1);
   --df-drop-ready-border: #4caf50;
   --df-drop-ready-bg: #f1f8e9;
+  --df-drop-caret: var(--mui-palette-primary-main, #1976d2);
   --df-drag-outline: rgba(0, 0, 0, 0.25);
   --df-input-underline: rgba(0, 0, 0, 0.2);
   --df-input-underline-hover: rgba(0, 0, 0, 0.35);
@@ -135,6 +136,7 @@
   --df-drop-reject-bg: rgba(239, 83, 80, 0.14);
   --df-drop-ready-border: #66bb6a;
   --df-drop-ready-bg: #1b3524;
+  --df-drop-caret: var(--mui-palette-primary-main, #90caf9);
   --df-drag-outline: rgba(255, 255, 255, 0.35);
   --df-input-underline: rgba(255, 255, 255, 0.25);
   --df-input-underline-hover: rgba(255, 255, 255, 0.45);

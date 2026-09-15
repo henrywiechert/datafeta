@@ -1,15 +1,15 @@
 .dropZone {
   min-height: 44px;
   padding: 1px;
-  border: 1px dashed #e0e0e0;
+  border: 1px dashed var(--df-border-hairline);
   border-radius: 4px;
-  background-color: #fafafa;
+  background-color: var(--df-surface-panel);
   transition: all 0.2s ease;
 }
 
 .dropZone.isOver {
-  border-color: #1976d2;
-  background-color: #e3f2fd;
+  border-color: var(--df-drop-accept-border);
+  background-color: var(--df-drop-accept-bg);
 }
 
 .placeholder {
@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  color: #757575;
+  color: var(--df-text-placeholder);
   font-size: 12px;
   font-weight: 400;
   font-style: normal;
