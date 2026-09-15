@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { DateTimeFilterMetadata } from '../../types';
 import styles from './DateTimeFilterControl.module.css';
+import { T } from '../../theme/tokens';
 
 interface DateTimeFilterControlProps {
   metadata: DateTimeFilterMetadata;
@@ -41,7 +42,7 @@ const compactFieldSx = {
     height: 14,
   },
   '& .MuiInput-underline:before': {
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: T.inputUnderline,
   },
 } as const;
 

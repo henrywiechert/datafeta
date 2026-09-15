@@ -106,8 +106,6 @@
         "files": [
           "src/components/ConnectionForms/HuggingFaceConnectionForm.tsx",
           "src/components/ConnectionForms/KaggleConnectionForm.tsx",
-          "src/components/DateTime/DateTimeFilterControl.tsx",
-          "src/components/DateTime/DateTimeRangeFilter.tsx",
           "src/components/DebugPanel/hints/FieldHintsList.tsx",
           "src/components/DebugPanel/optimizations/NoOptimizationsMessage.tsx",
           "src/components/Layout/layoutTokens.ts",
@@ -134,7 +132,6 @@
           "src/components/Visualization/FieldChip/dragImageUtils.ts",
           "src/components/Visualization/FieldsPanel/FieldsPanel.tsx",
           "src/components/Visualization/FieldsPanel/sourcePickerShared.ts",
-          "src/components/Visualization/Filters/ContinuousFilterControl.tsx",
           "src/components/Visualization/Overrides/BackgroundFieldControl.tsx",
           "src/components/Visualization/Overrides/ChartTypeControl.tsx",
           "src/components/Visualization/Overrides/DensityParametersSection.tsx",

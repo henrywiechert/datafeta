@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { ContinuousFilterMetadata } from '../../../types';
 import styles from './ContinuousFilterControl.module.css';
+import { T } from '../../../theme/tokens';
 
 interface ContinuousFilterControlProps {
   metadata: ContinuousFilterMetadata;
@@ -34,10 +35,10 @@ const compactFieldSx = {
     px: 0,
   },
   '& .MuiInput-underline:before': {
-    borderBottomColor: 'rgba(0,0,0,0.2)',
+    borderBottomColor: T.inputUnderline,
   },
   '& .MuiInput-underline:hover:not(.Mui-disabled):before': {
-    borderBottomColor: 'rgba(0,0,0,0.35)',
+    borderBottomColor: T.inputUnderlineHover,
   },
 } as const;
 
