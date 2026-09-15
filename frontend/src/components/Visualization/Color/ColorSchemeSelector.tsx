@@ -19,6 +19,7 @@ import {
   divergingSchemes,
 } from '../../../config/colorSchemes';
 import styles from './ColorSchemeSelector.module.css';
+import { T } from '../../../theme/tokens';
 
 interface ColorSchemeSelectorProps {
   currentSchemeId: string;
@@ -95,8 +96,8 @@ const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
             sx={{
               width: 28,
               height: 28,
-              color: '#1976d2',
-              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+              color: 'primary.main',
+              '&:hover': { backgroundColor: T.accentTintHover },
             }}
           >
             <PaletteIcon fontSize="small" />
@@ -111,9 +112,9 @@ const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
               padding: '2px 8px',
               textTransform: 'none',
               minWidth: 'auto',
-              color: '#1976d2',
+              color: 'primary.main',
               '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                backgroundColor: T.accentTintHover,
               },
             }}
           >
@@ -138,7 +139,7 @@ const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
           sx: {
             maxHeight: 400,
             width: 280,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: `0 4px 12px ${T.shadowMedium}`,
           },
         }}
       >
@@ -164,7 +165,7 @@ const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
                       {scheme.id === currentSchemeId && (
                         <CheckIcon
                           fontSize="small"
-                          sx={{ ml: 0.5, color: '#1976d2' }}
+                          sx={{ ml: 0.5, color: 'primary.main' }}
                         />
                       )}
                     </Box>

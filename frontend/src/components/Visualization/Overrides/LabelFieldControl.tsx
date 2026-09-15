@@ -6,6 +6,7 @@ import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+import { T } from '../../../theme/tokens';
 
 const TextInSquareIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
   <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
@@ -177,7 +178,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             >
               <Typography
                 variant="body2"
-                sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+                sx={{ fontSize: '0.7rem', fontWeight: 500, color: T.textControlLabel, lineHeight: 1.3 }}
               >
                 Show labels
               </Typography>
@@ -193,7 +194,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             <Box>
               <Typography
                 variant="body2"
-                sx={{ mb: 0.25, fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+                sx={{ mb: 0.25, fontSize: '0.7rem', fontWeight: 500, color: T.textControlLabel, lineHeight: 1.3 }}
               >
                 Mode
               </Typography>
@@ -229,12 +230,12 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                 px: 0.5,
                 py: 0.25,
                 borderRadius: 1,
-                backgroundColor: '#f9f9f9',
+                backgroundColor: T.surfaceSubtle,
               }}
             >
               <Typography
                 variant="body2"
-                sx={{ fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+                sx={{ fontSize: '0.7rem', fontWeight: 500, color: T.textControlLabel, lineHeight: 1.3 }}
               >
                 Font size: {labelFontSize}px
               </Typography>
@@ -264,7 +265,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
           )}
 
           {!showLabelsEnabled && !showDataLabelMode && !onLabelFontSizeChange && (
-            <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
+            <Typography variant="caption" sx={{ color: T.textMuted, fontSize: '0.7rem' }}>
               Label options (coming soon)
             </Typography>
           )}

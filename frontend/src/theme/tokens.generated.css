@@ -16,11 +16,14 @@
   --df-surface-accent-subtle: #f0f7ff;
   --df-surface-rail: #fafafa;
   --df-surface-raised-alpha: rgba(255, 255, 255, 0.92);
+  --df-surface-raised-scrim: rgba(255, 255, 255, 0.6);
   --df-border-divider: var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
   --df-border-hairline: #e0e0e0;
   --df-border-muted: #dddddd;
   --df-border-strong: #cccccc;
   --df-border-disabled: #9e9e9e;
+  --df-border-alpha: rgba(0, 0, 0, 0.2);
+  --df-border-swatch: rgba(0, 0, 0, 0.1);
   --df-border-subtle: #eeeeee;
   --df-border-accent: var(--mui-palette-primary-main, #1976d2);
   --df-border-accent-strong: var(--mui-palette-primary-dark, #1565c0);
@@ -38,11 +41,15 @@
   --df-text-placeholder: rgba(0, 0, 0, 0.5);
   --df-text-ghost: rgba(0, 0, 0, 0.55);
   --df-text-label: rgba(0, 0, 0, 0.7);
+  --df-text-control-label: #424242;
   --df-text-accent: var(--mui-palette-primary-main, #1976d2);
   --df-state-hover: var(--mui-palette-action-hover, rgba(0, 0, 0, 0.04));
   --df-state-selected: var(--mui-palette-action-selected, rgba(0, 0, 0, 0.08));
   --df-state-disabled-ink: var(--mui-palette-action-disabled, rgba(0, 0, 0, 0.26));
   --df-focus-ring: rgba(25, 118, 210, 0.1);
+  --df-accent-tint-hover: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.04);
+  --df-accent-tint-selected: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.08);
+  --df-accent-ring: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.9);
   --df-drop-accept-border: #2196f3;
   --df-drop-accept-bg: #e3f2fd;
   --df-drop-accept-subtle-bg: rgba(25, 118, 210, 0.08);
@@ -73,6 +80,7 @@
   --df-status-warning-strong: var(--mui-palette-warning-dark, #e65100);
   --df-status-success: var(--mui-palette-success-main, #2e7d32);
   --df-status-info: var(--mui-palette-info-main, #0288d1);
+  --df-marker-experimental: #ffb74d;
   --df-chart-canvas: #fcfcfc;
   --df-chart-cell-bg: #ffffff;
   --df-chart-plot-bg: #ffffff;
@@ -88,12 +96,15 @@
   --df-scroll-thumb: #888888;
   --df-scroll-thumb-hover: #555555;
   --df-scroll-track: #f1f1f1;
+  --df-slider-rail-disabled: #bdbdbd;
   --df-inverse-surface: rgba(20, 20, 20, 0.95);
   --df-inverse-text: #ffffff;
   --df-inverse-text-muted: #e0e0e0;
   --df-inverse-border: rgba(255, 255, 255, 0.2);
   --df-overlay-scrim: rgba(0, 0, 0, 0.75);
   --df-shadow-soft: rgba(0, 0, 0, 0.1);
+  --df-shadow-faint: rgba(0, 0, 0, 0.06);
+  --df-shadow-medium: rgba(0, 0, 0, 0.2);
   --df-shadow-strong: rgba(0, 0, 0, 0.3);
 }
 
@@ -107,11 +118,14 @@
   --df-surface-accent-subtle: #12243a;
   --df-surface-rail: #202020;
   --df-surface-raised-alpha: rgba(38, 38, 38, 0.92);
+  --df-surface-raised-scrim: rgba(38, 38, 38, 0.6);
   --df-border-divider: var(--mui-palette-divider, rgba(255, 255, 255, 0.12));
   --df-border-hairline: #3a3a3a;
   --df-border-muted: #333333;
   --df-border-strong: #4a4a4a;
   --df-border-disabled: #5a5a5a;
+  --df-border-alpha: rgba(255, 255, 255, 0.25);
+  --df-border-swatch: rgba(255, 255, 255, 0.18);
   --df-border-subtle: #2c2c2c;
   --df-border-accent: var(--mui-palette-primary-main, #90caf9);
   --df-border-accent-strong: var(--mui-palette-primary-dark, #42a5f5);
@@ -129,11 +143,15 @@
   --df-text-placeholder: rgba(255, 255, 255, 0.5);
   --df-text-ghost: rgba(255, 255, 255, 0.65);
   --df-text-label: rgba(255, 255, 255, 0.8);
+  --df-text-control-label: #d4d4d4;
   --df-text-accent: var(--mui-palette-primary-main, #90caf9);
   --df-state-hover: var(--mui-palette-action-hover, rgba(255, 255, 255, 0.08));
   --df-state-selected: var(--mui-palette-action-selected, rgba(255, 255, 255, 0.16));
   --df-state-disabled-ink: var(--mui-palette-action-disabled, rgba(255, 255, 255, 0.3));
   --df-focus-ring: rgba(144, 202, 249, 0.16);
+  --df-accent-tint-hover: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.04);
+  --df-accent-tint-selected: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.08);
+  --df-accent-ring: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.9);
   --df-drop-accept-border: #42a5f5;
   --df-drop-accept-bg: #15304a;
   --df-drop-accept-subtle-bg: rgba(144, 202, 249, 0.12);
@@ -164,6 +182,7 @@
   --df-status-warning-strong: var(--mui-palette-warning-dark, #f57c00);
   --df-status-success: var(--mui-palette-success-main, #66bb6a);
   --df-status-info: var(--mui-palette-info-main, #29b6f6);
+  --df-marker-experimental: #ffcc80;
   --df-chart-canvas: #1a1a1a;
   --df-chart-cell-bg: #1e1e1e;
   --df-chart-plot-bg: #1e1e1e;
@@ -179,11 +198,14 @@
   --df-scroll-thumb: #555555;
   --df-scroll-thumb-hover: #777777;
   --df-scroll-track: #262626;
+  --df-slider-rail-disabled: #4a4a4a;
   --df-inverse-surface: rgba(20, 20, 20, 0.95);
   --df-inverse-text: #ffffff;
   --df-inverse-text-muted: #e0e0e0;
   --df-inverse-border: rgba(255, 255, 255, 0.2);
   --df-overlay-scrim: rgba(0, 0, 0, 0.85);
   --df-shadow-soft: rgba(0, 0, 0, 0.6);
+  --df-shadow-faint: rgba(0, 0, 0, 0.5);
+  --df-shadow-medium: rgba(0, 0, 0, 0.65);
   --df-shadow-strong: rgba(0, 0, 0, 0.75);
 }

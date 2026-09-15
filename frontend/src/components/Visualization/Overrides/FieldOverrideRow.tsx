@@ -2,6 +2,7 @@
 import React from 'react';
 import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { T } from '../../../theme/tokens';
 
 interface FieldOverrideRowProps {
   id: string;
@@ -30,13 +31,13 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
     <Box
       sx={{
         // Subtle frame only when expanded (helps scan/understand the open "card")
-        border: isExpanded ? '1px solid rgba(0,0,0,0.18)' : undefined,
-        borderBottom: isExpanded ? undefined : '1px solid #e0e0e0',
+        border: isExpanded ? `1px solid ${T.borderAlpha}` : undefined,
+        borderBottom: isExpanded ? undefined : `1px solid ${T.borderHairline}`,
         borderRadius: isExpanded ? 2 : 0,
         overflow: isExpanded ? 'hidden' : 'visible',
         mb: isExpanded ? 0.75 : 0.5,
-        backgroundColor: isExpanded ? '#fafafa' : 'transparent',
-        boxShadow: isExpanded ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+        backgroundColor: isExpanded ? T.surfacePanel : 'transparent',
+        boxShadow: isExpanded ? `0 1px 2px ${T.shadowFaint}` : 'none',
       }}
     >
       <Box
@@ -48,7 +49,7 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
           py: 0.4,
           cursor: 'pointer',
           '&:hover': {
-            backgroundColor: '#f5f5f5',
+            backgroundColor: T.surfaceSunken,
           },
         }}
         onClick={onToggle}

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Slider } from '@mui/material';
 import styles from './ColorBiasControl.module.css';
+import { T } from '../../../theme/tokens';
 
 interface ColorBiasControlProps {
   colorBias: number;
@@ -39,13 +40,13 @@ const ColorBiasControl: React.FC<ColorBiasControlProps> = ({ colorBias, onChange
           mt: 0.5,
           mb: 0.25,
           '& .MuiSlider-mark': {
-            backgroundColor: '#bdbdbd',
+            backgroundColor: T.sliderRailDisabled,
             height: 6,
             width: 1,
           },
           '& .MuiSlider-markLabel': {
             fontSize: '0.65rem',
-            color: '#757575',
+            color: T.textPlaceholder,
           },
         }}
       />

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { LineSeriesLabelMode } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 interface SeriesLabelControlProps {
   value: LineSeriesLabelMode;
@@ -58,7 +59,7 @@ const SeriesLabelControl: React.FC<SeriesLabelControlProps> = ({ value, onChange
           sx={{
             width: 28,
             height: 28,
-            color: active ? '#1976d2' : 'text.secondary',
+            color: active ? 'primary.main' : 'text.secondary',
           }}
         >
           <LineSeriesLabelIcon fontSize="small" />
@@ -81,7 +82,7 @@ const SeriesLabelControl: React.FC<SeriesLabelControlProps> = ({ value, onChange
       >
         <Typography
           variant="body2"
-          sx={{ mb: 0.5, fontSize: '0.7rem', fontWeight: 500, color: '#424242', lineHeight: 1.3 }}
+          sx={{ mb: 0.5, fontSize: '0.7rem', fontWeight: 500, color: T.textControlLabel, lineHeight: 1.3 }}
         >
           Series labels
         </Typography>
@@ -112,7 +113,7 @@ const SeriesLabelControl: React.FC<SeriesLabelControlProps> = ({ value, onChange
         </ToggleButtonGroup>
         <Typography
           variant="caption"
-          sx={{ display: 'block', mt: 0.5, color: '#666', fontSize: '0.65rem', lineHeight: 1.3 }}
+          sx={{ display: 'block', mt: 0.5, color: T.textMuted, fontSize: '0.65rem', lineHeight: 1.3 }}
         >
           {OPTIONS.find((option) => option.value === value)?.hint}
         </Typography>

@@ -40,6 +40,8 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['borderStrong',         '#cccccc', 'DropZone.module.css, App.css inputs, DROPZONE_STYLES separator'],
   ['borderSubtle',         '#eeeeee', 'DataSourceSelectionPage disabled inputs'],
   ['borderDisabled',       '#9e9e9e', 'FilterFieldChip.module.css .disabled'],
+  ['borderAlpha',          'rgba(0, 0, 0, 0.2)', 'ManualColorSelector swatch, ChartTypeControl frame'],
+  ['borderSwatch',         'rgba(0, 0, 0, 0.1)', 'ColorPalettePopover / BackgroundFieldControl colour samples'],
   ['borderNeutralMid',     '#999999', 'FieldChip.module.css generic hover border'],
   ['borderNeutralDark',    '#666666', 'FieldChip.module.css selected border (!important)'],
   ['textStrong',           '#333333', '16 sites incl. FieldChip.module.css, LegendPanel .title'],
@@ -50,6 +52,7 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['textInverse',          '#ffffff', 'VirtualResizeLine badge, ChartGrid .keyboardNavHint'],
   ['textGhost',            'rgba(0, 0, 0, 0.55)', 'FilterFieldChip.module.css muted measure label'],
   ['textLabel',            'rgba(0, 0, 0, 0.7)', 'DiscreteFilterControl / ContinuousFilterControl row labels'],
+  ['textControlLabel',     '#424242', 'Label/SizeRange/SeriesLabel control captions (6 sites)'],
   ['flavourDiscreteBg',     '#e3f2fd', 'FieldChip.module.css + FilterFieldChip.module.css (2 dead JS copies deleted)'],
   ['flavourDiscreteBorder', '#1976d2', 'also the flavour glyph in FieldChip/FieldChipLabel.module.css'],
   ['flavourContinuousBg',     '#e8f5e8', 'FieldChip.module.css + FilterFieldChip.module.css'],
@@ -75,6 +78,11 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['inverseSurface',   'rgba(20, 20, 20, 0.95)', 'CustomTooltip.css and .plot-tip in index.css'],
   ['inverseBorder',    'rgba(255, 255, 255, 0.2)', 'CustomTooltip.css and .plot-tip in index.css'],
   ['overlayScrim',     'rgba(0, 0, 0, 0.75)', 'ChartGrid.module.css .keyboardNavHint'],
+  ['shadowFaint',      'rgba(0, 0, 0, 0.06)', 'FieldOverrideRow / OverlaysSection expanded rows'],
+  ['shadowMedium',     'rgba(0, 0, 0, 0.2)',  'ManualColorSelector swatch shadow, scheme popover'],
+  ['markerExperimental', '#ffb74d', 'ChartTypeControl EXPERIMENTAL badge'],
+  ['sliderRailDisabled', '#bdbdbd', 'ColorBiasControl disabled rail'],
+  ['surfaceRaisedScrim', 'rgba(255, 255, 255, 0.6)', 'ChartTypeControl framed selector'],
 ];
 
 /** Tokens intentionally identical in both schemes, with the reason. */
@@ -90,6 +98,14 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
 // The shade digits matter: `grey-50` and `primary-100` are exactly the
 // delegations that must be caught, since numbered ramps do not flip.
 const MUI_DELEGATION = /^var\(--mui-palette-([a-zA-Z0-9-]+), (.+)\)$/;
+
+/**
+ * Accent tints composite an alpha over an MUI *role* rather than naming a
+ * colour, using the `*Channel` variables `extendTheme` emits for exactly this
+ * purpose. The value string differs between schemes only in its fallback, so
+ * these are treated as delegating: the channel carries the scheme change.
+ */
+const CHANNEL_DELEGATION = /^rgba\(var\(--mui-palette-([a-zA-Z0-9-]+Channel), ([^)]+)\) \/ [\d.]+\)$/;
 const muiPath = (cssName: string) => cssName.replace('-', '.');
 const at = (node: unknown, p: string): unknown =>
   p.split('.').reduce<any>((acc, k) => (acc == null ? acc : acc[k]), node);
@@ -120,13 +136,32 @@ describe('token definitions', () => {
   });
 
   it('changes every other token between schemes, so nothing is forgotten', () => {
-    const invariant = new Set(SCHEME_INVARIANT.map(([name]) => name));
+    const invariant = SCHEME_INVARIANT.map(([name]) => name);
     const unchanged = DF_TOKEN_NAMES.filter(
-      (name) => !invariant.has(name)
+      (name) => invariant.indexOf(name) === -1
         && TOKENS.light[name] === TOKENS.dark[name]
-        && !MUI_DELEGATION.test(TOKENS.light[name]),
+        && !MUI_DELEGATION.test(TOKENS.light[name])
+        && !CHANNEL_DELEGATION.test(TOKENS.light[name]),
     );
     expect(unchanged).toEqual([]);
+  });
+
+  it('gives every channel-based tint a channel that flips between schemes', () => {
+    const channelTokens = DF_TOKEN_NAMES
+      .map((name) => [name, CHANNEL_DELEGATION.exec(TOKENS.light[name])] as const)
+      .filter((entry) => entry[1] !== null);
+
+    expect(channelTokens.length).toBeGreaterThan(0);
+    for (const [name, match] of channelTokens) {
+      const role = match![1].replace('Channel', '').replace('-', '.');
+      const light = at(themeFor('light'), `${role}Channel`);
+      const dark = at(themeFor('dark'), `${role}Channel`);
+      expect(`${name}: ${String(light)}`).not.toBe(`${name}: ${String(dark)}`);
+      // and the per-scheme fallback must be that scheme's channel value
+      expect(match![2]).toBe(String(light));
+      const darkMatch = CHANNEL_DELEGATION.exec(TOKENS.dark[name]);
+      expect(darkMatch![2]).toBe(String(dark));
+    }
   });
 });
 

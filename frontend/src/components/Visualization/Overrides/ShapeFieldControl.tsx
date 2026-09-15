@@ -14,6 +14,7 @@ import {
   resolveManualShapeOption,
 } from '../../../observable-plot-generator/utils/shapeUtils';
 import ShapeSymbolPreview from '../ShapeSymbolPreview';
+import { T } from '../../../theme/tokens';
 
 interface ShapeFieldControlProps {
   field: Field | null;
@@ -109,7 +110,7 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
               },
             }}
           >
-            <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 600, color: '#666' }}>
+            <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 600, color: T.textMuted }}>
               Shape
             </Typography>
             <Box
@@ -135,15 +136,15 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
                       width: 32,
                       height: 32,
                       borderRadius: 1,
-                      border: selected ? '2px solid rgba(25,118,210,0.9)' : '1px solid rgba(0,0,0,0.2)',
+                      border: selected ? `2px solid ${T.accentRing}` : `1px solid ${T.borderAlpha}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      color: selected ? '#1976d2' : '#4a4a4a',
-                      backgroundColor: selected ? 'rgba(25,118,210,0.06)' : '#fff',
+                      color: selected ? 'primary.main' : T.textControlLabel,
+                      backgroundColor: selected ? T.accentTintSelected : T.surfaceRaised,
                       '&:hover': {
-                        backgroundColor: 'rgba(25,118,210,0.06)',
+                        backgroundColor: T.accentTintSelected,
                       },
                       transition: 'all 0.15s ease',
                     }}

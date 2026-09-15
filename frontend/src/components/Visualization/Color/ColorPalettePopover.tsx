@@ -20,6 +20,7 @@ import {
   divergingSchemes,
   PREDEFINED_COLORS,
 } from '../../../config/colorSchemes';
+import { T } from '../../../theme/tokens';
 
 interface ColorPalettePopoverProps {
   /** When fieldFlavour is null, the palette acts as a manual color picker */
@@ -101,11 +102,11 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
           sx={{
             width: 28,
             height: 28,
-            color: '#1976d2',
-            '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+            color: 'primary.main',
+            '&:hover': { backgroundColor: T.accentTintHover },
           }}
         >
-          <PaletteIcon fontSize="small" sx={{ color: manualColor || '#1976d2' }} />
+          <PaletteIcon fontSize="small" sx={{ color: manualColor || 'primary.main' }} />
         </IconButton>
       </Tooltip>
 
@@ -123,7 +124,7 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
         {/* No field: manual color picker */}
         {fieldFlavour === null ? (
           <Box sx={{ p: 0.25 }}>
-            <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600, color: '#666' }}>
+            <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600, color: T.textMuted }}>
               Color
             </Typography>
             <Box
@@ -147,11 +148,11 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                     height: 28,
                     borderRadius: '50%',
                     backgroundColor: c,
-                    border: c === manualColor ? '2px solid rgba(25,118,210,0.9)' : '1px solid rgba(0,0,0,0.2)',
+                    border: c === manualColor ? `2px solid ${T.accentRing}` : `1px solid ${T.borderAlpha}`,
                     cursor: onManualColorChange ? 'pointer' : 'default',
                     '&:hover': {
                       transform: onManualColorChange ? 'scale(1.15)' : undefined,
-                      boxShadow: onManualColorChange ? '0 2px 4px rgba(0,0,0,0.2)' : undefined,
+                      boxShadow: onManualColorChange ? `0 2px 4px ${T.shadowMedium}` : undefined,
                     },
                     transition: 'all 0.15s ease',
                   }}
@@ -165,12 +166,12 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
             {schemeGroups.map((group, groupIdx) => (
               <Box key={group.label}>
                 {groupIdx > 0 && <Divider sx={{ my: 0.5 }} />}
-                <Box sx={{ px: 1, py: 0.5, backgroundColor: '#f5f5f5' }}>
+                <Box sx={{ px: 1, py: 0.5, backgroundColor: T.surfaceSunken }}>
                   <Typography
                     variant="caption"
                     sx={{
                       fontWeight: 600,
-                      color: '#666',
+                      color: T.textMuted,
                       textTransform: 'uppercase',
                       fontSize: '10px',
                       letterSpacing: '0.5px',
@@ -192,16 +193,16 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                       py: 0.5,
                       px: 1,
                       '&.Mui-selected': {
-                        backgroundColor: 'rgba(25,118,210,0.08)',
+                        backgroundColor: T.accentTintSelected,
                       },
                     }}
                   >
                     <Box sx={{ width: '100%' }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 500, color: '#212121' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 500, color: T.textInk }}>
                           {scheme.name}
                           {scheme.id === currentSchemeId && (
-                            <CheckIcon fontSize="small" sx={{ ml: 0.5, color: '#1976d2' }} />
+                            <CheckIcon fontSize="small" sx={{ ml: 0.5, color: 'primary.main' }} />
                           )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: '2px' }}>
@@ -213,7 +214,7 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                                 height: 10,
                                 borderRadius: 2,
                                 backgroundColor: color,
-                                border: '1px solid rgba(0, 0, 0, 0.1)',
+                                border: `1px solid ${T.borderSwatch}`,
                               }}
                             />
                           ))}
@@ -238,7 +239,7 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                     pb: 0.25,
                   }}
                 >
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#666' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: T.textMuted }}>
                     Gradient
                   </Typography>
                   <Tooltip title="Reverse palette">
@@ -247,8 +248,8 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                       onClick={() => onReverseChange(!colorReversed)}
                       aria-label="Reverse palette"
                       sx={{
-                        color: colorReversed ? '#1976d2' : '#757575',
-                        '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.08)' },
+                        color: colorReversed ? 'primary.main' : T.textPlaceholder,
+                        '&:hover': { backgroundColor: T.accentTintSelected },
                       }}
                     >
                       <SwapHorizIcon fontSize="small" />
@@ -257,7 +258,7 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                 </Box>
                 {typeof colorBias === 'number' && onBiasChange && (
                   <>
-                    <Typography variant="caption" sx={{ display: 'block', px: 1, pb: 0.25, fontWeight: 600, color: '#666' }}>
+                    <Typography variant="caption" sx={{ display: 'block', px: 1, pb: 0.25, fontWeight: 600, color: T.textMuted }}>
                       Bias
                     </Typography>
                     <ColorBiasControl colorBias={colorBias} onChange={onBiasChange} />
