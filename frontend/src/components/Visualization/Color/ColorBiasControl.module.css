@@ -1,6 +1,6 @@
 .container {
   padding: 4px 8px;
-  background-color: #f9f9f9;
+  background-color: var(--df-surface-subtle);
   margin-top: 4px;
   border-radius: 4px;
 }
@@ -8,7 +8,7 @@
 .label {
   font-size: 0.7rem;
   font-weight: 500;
-  color: #424242;
+  color: var(--df-text-control-label);
   display: block;
   margin-bottom: 2px;
 }

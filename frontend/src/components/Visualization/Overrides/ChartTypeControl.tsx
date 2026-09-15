@@ -11,6 +11,7 @@ import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
 import { DistributionVariant, LineVariant, UserChartType } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 const TickStripIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -107,7 +108,7 @@ const AreaChartIcon: React.FC<SvgIconProps> = (props) => (
  * (currently Table and Heatmap). Keeps the wording consistent across buttons.
  */
 const ExperimentalBadge: React.FC = () => (
-  <Box component="span" sx={{ color: '#ffb74d', fontWeight: 700 }}>
+  <Box component="span" sx={{ color: T.markerExperimental, fontWeight: 700 }}>
     EXPERIMENTAL
   </Box>
 );
@@ -170,7 +171,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const getAutoHighlightSx = (buttonValue: UserChartType) =>
     isAuto && autoSelectedType === buttonValue
       ? {
-          boxShadow: 'inset 0 0 0 2px rgba(25, 118, 210, 0.9)',
+          boxShadow: `inset 0 0 0 2px ${T.accentRing}`,
         }
       : undefined;
 
@@ -196,9 +197,9 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           display: 'inline-flex',
           alignItems: 'center',
           minWidth: 0,
-          border: '1px solid rgba(0, 0, 0, 0.18)',
+          border: `1px solid ${T.borderAlpha}`,
           borderRadius: '4px',
-          backgroundColor: 'rgba(255,255,255,0.6)',
+          backgroundColor: T.surfaceRaisedScrim,
           overflow: 'hidden',
           width: 'fit-content',
           maxWidth: '100%',
@@ -216,7 +217,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               padding: '2px 6px',
               minWidth: 28,
               height: 24,
-              border: '1px solid rgba(0, 0, 0, 0.14)',
+              border: `1px solid ${T.borderAlpha}`,
               borderRadius: 0,
               '&.Mui-selected': {
                 backgroundColor: 'primary.main',

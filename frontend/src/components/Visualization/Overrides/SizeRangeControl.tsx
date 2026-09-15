@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Slider, Typography, FormControl } from '@mui/material';
 import { Field } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 interface SizeRangeControlProps {
   sizeField: Field | null;
@@ -66,7 +67,7 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
       marginTop: '4px',
       padding: '4px 8px',
       borderRadius: '4px',
-      backgroundColor: '#f9f9f9'
+      backgroundColor: T.surfaceSubtle
     }}>
       {sizeField && !forceSingleSlider ? (
         <FormControl fullWidth>
@@ -74,7 +75,7 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             fontSize: '0.7rem',
             fontWeight: 500,
             marginBottom: '2px',
-            color: '#424242'
+            color: T.textControlLabel
           }}>
             Range: {localSizeRange[0]} - {localSizeRange[1]}
           </Typography>
@@ -95,7 +96,7 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             fontSize: '0.7rem',
             fontWeight: 500,
             marginBottom: '2px',
-            color: '#424242'
+            color: T.textControlLabel
           }}>
             Thickness
           </Typography>

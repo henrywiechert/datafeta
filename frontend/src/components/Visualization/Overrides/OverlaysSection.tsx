@@ -30,6 +30,8 @@ import { UserChartType, Field } from '../../../types';
 import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
 import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
+import { T } from '../../../theme/tokens';
+import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR } from '../../../config/colorSchemes';
 
 // --- Color picker (tiny inline swatch + native input) -----------------------
 
@@ -78,7 +80,7 @@ const RegressionControls: React.FC<{
           />
         )}
         {!perGroup && (
-          <InlineColorPicker value={params.color ?? '#e15759'} onChange={c => onUpdate({ color: c })} />
+          <InlineColorPicker value={params.color ?? DEFAULT_OVERLAY_COLOR} onChange={c => onUpdate({ color: c })} />
         )}
       </Box>
       {/* Line thickness */}
@@ -158,7 +160,7 @@ const MovingAverageControls: React.FC<{
         <MenuItem value="max">Max</MenuItem>
       </Select>
       {!perGroup && (
-        <InlineColorPicker value={params.color ?? '#4e79a7'} onChange={c => onUpdate({ color: c })} />
+        <InlineColorPicker value={params.color ?? DEFAULT_MANUAL_COLOR} onChange={c => onUpdate({ color: c })} />
       )}
     </Box>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -242,7 +244,7 @@ const DensityControls: React.FC<{
           sx={{ flex: 1, minWidth: 60 }}
         />
         {!perGroup && (
-          <InlineColorPicker value={params.color ?? '#4e79a7'} onChange={c => onUpdate({ color: c })} />
+          <InlineColorPicker value={params.color ?? DEFAULT_MANUAL_COLOR} onChange={c => onUpdate({ color: c })} />
         )}
       </Box>
       {/* Filled toggle + fill opacity */}
@@ -395,13 +397,13 @@ const OverlaysSection: React.FC = () => {
             <Box
               key={meta.type}
               sx={{
-                border: enabled ? '1px solid rgba(0,0,0,0.18)' : undefined,
-                borderBottom: enabled ? undefined : '1px solid #e0e0e0',
+                border: enabled ? `1px solid ${T.borderAlpha}` : undefined,
+                borderBottom: enabled ? undefined : `1px solid ${T.borderHairline}`,
                 borderRadius: enabled ? 2 : 0,
                 overflow: enabled ? 'hidden' : 'visible',
                 mb: enabled ? 0.75 : 0.5,
-                backgroundColor: enabled ? '#fafafa' : 'transparent',
-                boxShadow: enabled ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                backgroundColor: enabled ? T.surfacePanel : 'transparent',
+                boxShadow: enabled ? `0 1px 2px ${T.shadowFaint}` : 'none',
               }}
             >
               {/* Row header: icon + label + switch */}

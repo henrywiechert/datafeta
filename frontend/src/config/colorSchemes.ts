@@ -210,3 +210,11 @@ export const PREDEFINED_COLORS: string[] = categoricalSchemes[0].colors;
 
 // Default manual color (first color from predefined colors)
 export const DEFAULT_MANUAL_COLOR = PREDEFINED_COLORS[0]; // '#4e79a7'
+
+/**
+ * Default stroke for trend/regression overlays: Tableau 10's red, chosen to
+ * read against the blue that single-series marks default to.
+ *
+ * A data colour, not a theme token — see src/theme/THEMING.md.
+ */
+export const DEFAULT_OVERLAY_COLOR = PREDEFINED_COLORS[2]; // '#e15759'

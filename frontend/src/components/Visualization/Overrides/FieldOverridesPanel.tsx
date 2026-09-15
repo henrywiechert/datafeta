@@ -32,6 +32,7 @@ import SeriesLabelControl from './SeriesLabelControl';
 import { shouldShowLineColorModeControl, shouldShowSeriesLabelControl } from '../../../utils/lineColorEncoding';
 import { resolveColorChannel } from '../../../utils/colorChannel';
 import { getMeasureMemberLabel } from '../../../utils/syntheticFields';
+import { T } from '../../../theme/tokens';
 
 interface AreaFillOpacityControlProps {
   value: number;
@@ -277,7 +278,7 @@ const FieldOverridesPanel: React.FC = () => {
           flexDirection: 'column',
           // Visible separation between sections without boxy cards
           '& > * + *': {
-            borderTop: '1px solid rgba(0,0,0,0.18)',
+            borderTop: `1px solid ${T.borderAlpha}`,
             pt: 0.75,
             mt: 0.75,
           },
@@ -410,7 +411,7 @@ const FieldOverridesPanel: React.FC = () => {
           flexDirection: 'column',
           // Visible separation between sections without boxy cards
           '& > * + *': {
-            borderTop: '1px solid rgba(0,0,0,0.18)',
+            borderTop: `1px solid ${T.borderAlpha}`,
             pt: 0.75,
             mt: 0.75,
           },

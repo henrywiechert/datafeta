@@ -9,6 +9,7 @@ import React from 'react';
 import { Box, Slider, Switch, Typography } from '@mui/material';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { DEFAULT_DENSITY_PARAMS, DensityParams } from '../../../types';
+import { DEFAULT_MANUAL_COLOR } from '../../../config/colorSchemes';
 
 const InlineColorPicker: React.FC<{ value: string; onChange: (c: string) => void }> = ({ value, onChange }) => (
   <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
@@ -74,7 +75,7 @@ const DensityParametersSection: React.FC = () => {
           />
           {!hasDiscreteColor && (
             <InlineColorPicker
-              value={state.manualColor || '#4e79a7'}
+              value={state.manualColor || DEFAULT_MANUAL_COLOR}
               onChange={(color) => dispatch({ type: 'SET_MANUAL_COLOR', payload: color })}
             />
           )}

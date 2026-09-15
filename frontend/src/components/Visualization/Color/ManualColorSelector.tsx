@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button, Menu, Box, Tooltip, IconButton } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { PREDEFINED_COLORS } from '../../../config/colorSchemes';
+import { T } from '../../../theme/tokens';
 
 interface ManualColorSelectorProps {
   value: string;
@@ -37,8 +38,8 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
             sx={{
               width: 28,
               height: 28,
-              color: '#1976d2',
-              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+              color: 'primary.main',
+              '&:hover': { backgroundColor: T.accentTintHover },
             }}
           >
             <PaletteIcon fontSize="small" sx={{ color: value }} />
@@ -53,9 +54,9 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
               padding: '2px 8px',
               textTransform: 'none',
               minWidth: 'auto',
-              color: '#1976d2',
+              color: 'primary.main',
               '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                backgroundColor: T.accentTintHover,
               },
             }}
           >
@@ -98,11 +99,11 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
                 height: 28,
                 borderRadius: '50%',
                 backgroundColor: color,
-                border: '1px solid rgba(0,0,0,0.2)',
+                border: `1px solid ${T.borderAlpha}`,
                 cursor: 'pointer',
                 '&:hover': {
                   transform: 'scale(1.15)',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  boxShadow: `0 2px 4px ${T.shadowMedium}`,
                 },
                 transition: 'all 0.15s ease',
               }}

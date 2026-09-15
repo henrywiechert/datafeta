@@ -16,8 +16,9 @@ import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
-import { categoricalSchemes, getSchemeById } from '../../../config/colorSchemes';
+import { DEFAULT_MANUAL_COLOR, categoricalSchemes, getSchemeById } from '../../../config/colorSchemes';
 import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
+import { T } from '../../../theme/tokens';
 
 interface BackgroundFieldControlProps {
   field: Field | null;
@@ -69,7 +70,7 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
   // Get the first color from the current scheme for the icon preview
   const iconColor = useMemo(() => {
     const scheme = getSchemeById(colorScheme);
-    return scheme?.colors[0] || '#4e79a7';
+    return scheme?.colors[0] || DEFAULT_MANUAL_COLOR;
   }, [colorScheme]);
 
   return (
@@ -93,11 +94,11 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
             sx={{
               width: 28,
               height: 28,
-              color: '#1976d2',
-              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+              color: 'primary.main',
+              '&:hover': { backgroundColor: T.accentTintHover },
             }}
           >
-            <GridViewIcon fontSize="small" sx={{ color: field ? iconColor : '#1976d2' }} />
+            <GridViewIcon fontSize="small" sx={{ color: field ? iconColor : 'primary.main' }} />
           </IconButton>
         </Tooltip>
 
@@ -118,12 +119,12 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
         >
           {/* Categorical schemes only */}
           <Box>
-            <Box sx={{ px: 1, py: 0.5, backgroundColor: '#f5f5f5' }}>
+            <Box sx={{ px: 1, py: 0.5, backgroundColor: T.surfaceSunken }}>
               <Typography
                 variant="caption"
                 sx={{
                   fontWeight: 600,
-                  color: '#666',
+                  color: T.textMuted,
                   textTransform: 'uppercase',
                   fontSize: '10px',
                   letterSpacing: '0.5px',
@@ -141,16 +142,16 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
                   py: 0.5,
                   px: 1,
                   '&.Mui-selected': {
-                    backgroundColor: 'rgba(25,118,210,0.08)',
+                    backgroundColor: T.accentTintSelected,
                   },
                 }}
               >
                 <Box sx={{ width: '100%' }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 500, color: '#212121' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 500, color: T.textInk }}>
                       {scheme.name}
                       {scheme.id === colorScheme && (
-                        <CheckIcon fontSize="small" sx={{ ml: 0.5, color: '#1976d2' }} />
+                        <CheckIcon fontSize="small" sx={{ ml: 0.5, color: 'primary.main' }} />
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: '2px' }}>
@@ -162,7 +163,7 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
                             height: 10,
                             borderRadius: 2,
                             backgroundColor: color,
-                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            border: `1px solid ${T.borderSwatch}`,
                             // Show with current opacity to preview the pastel effect
                             opacity: opacity,
                           }}
@@ -182,7 +183,7 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
               variant="caption"
               sx={{
                 fontWeight: 600,
-                color: '#666',
+                color: T.textMuted,
                 display: 'block',
                 mb: 0.5,
               }}
@@ -205,7 +206,7 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
                 },
               }}
             />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#999' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textFaint }}>
               <span>Very light</span>
               <span>Stronger</span>
             </Box>
