@@ -5,8 +5,6 @@
 
 export interface ChartAreaState {
   isDebugOpen: boolean;
-  debugHeight: number;
-  maxDebugHeight: number;
   queryDescription: any | null;
   spec: any | null;
   chartInfo: any | null;
@@ -44,10 +42,6 @@ export interface ChartControlsProps {
 }
 
 export interface DebugPanelProps {
-  isDebugOpen: boolean;
-  debugHeight: number;
-  maxDebugHeight: number;
-  onDebugResize: (newHeight: number) => void;
   queryDescription: any | null;
   queryResult: any;
   queryError: string | null;

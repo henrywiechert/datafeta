@@ -5,6 +5,5 @@
   "src/components/Visualization/ChartGrid/ChartGrid.module.css": 30,
   "src/components/Visualization/DebugView.module.css": 21,
   "src/components/Visualization/Legend/LegendPanel.module.css": 14,
-  "src/components/Visualization/Legend/LegendStack.module.css": 4,
   "src/components/Visualization/Properties/PropertySection.module.css": 6
 }

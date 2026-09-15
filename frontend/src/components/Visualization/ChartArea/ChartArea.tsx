@@ -31,6 +31,16 @@ import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
+import { Panel, Group as PanelGroup } from 'react-resizable-panels';
+import type { PanelImperativeHandle } from 'react-resizable-panels';
+import SplitHandle from '../../Layout/SplitHandle';
+import { usePanelSplit } from '../../Layout/usePanelSplit';
+import {
+  CHART_COLUMN_PANELS,
+  DEFAULT_DEBUG_HEIGHT_PX,
+  DEFAULT_LEGEND_WIDTH_PX,
+  PLOT_MIN_PX,
+} from './chartColumnLayout';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
@@ -305,20 +315,41 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
 
   // Per-sheet panel layout. ChartArea is remounted on sheet switch (its provider
   // is keyed by sheet id), so these initial reads reflect the sheet we switch into.
-  const [initialDebugHeight] = useState(() => activeSheet?.panelLayout?.debugHeight);
-  const [initialLegendWidth] = useState(() => activeSheet?.panelLayout?.legendWidth);
-  const handleDebugHeightCommit = useCallback((height: number) => {
-    updateActiveSheetPanelLayout({ debugHeight: height });
+  const [initialDebugHeight] = useState(
+    () => activeSheet?.panelLayout?.debugHeight ?? DEFAULT_DEBUG_HEIGHT_PX,
+  );
+  const [initialLegendWidth] = useState(
+    () => activeSheet?.panelLayout?.legendWidth ?? DEFAULT_LEGEND_WIDTH_PX,
+  );
+
+  // The legend and debug drawer are Panels, so the group reports their size on
+  // every commit. Persist in pixels (matching the existing per-sheet fields)
+  // and guard against redundant dispatches.
+  const lastLegendWidthRef = useRef(initialLegendWidth);
+  const lastDebugHeightRef = useRef(initialDebugHeight);
+  const persistLegendWidth = useCallback((width: number) => {
+    const rounded = Math.round(width);
+    if (rounded > 0 && rounded !== lastLegendWidthRef.current) {
+      lastLegendWidthRef.current = rounded;
+      updateActiveSheetPanelLayout({ legendWidth: rounded });
+    }
   }, [updateActiveSheetPanelLayout]);
-  const handleLegendWidthCommit = useCallback((width: number) => {
-    updateActiveSheetPanelLayout({ legendWidth: width });
+  const persistDebugHeight = useCallback((height: number) => {
+    const rounded = Math.round(height);
+    if (rounded > 0 && rounded !== lastDebugHeightRef.current) {
+      lastDebugHeightRef.current = rounded;
+      updateActiveSheetPanelLayout({ debugHeight: rounded });
+    }
   }, [updateActiveSheetPanelLayout]);
-  const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView({
-    initialHeight: initialDebugHeight,
-    onHeightCommit: handleDebugHeightCommit,
-  });
+
+  const { isDebugOpen, toggleDebugView } = useDebugView();
+  const legendPanelRef = useRef<PanelImperativeHandle>(null);
+  const debugPanelRef = useRef<PanelImperativeHandle>(null);
+  const legendSplit = usePanelSplit(legendPanelRef, CHART_COLUMN_PANELS.legend);
+  const debugSplit = usePanelSplit(debugPanelRef, CHART_COLUMN_PANELS.debug);
   const { appConfig } = useAppConfig();
   const debugUiEnabled = appConfig.debugUiEnabled;
+  const debugVisible = debugUiEnabled && isDebugOpen;
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
   // ChartControls prop assembly — state-mutating toolbar handlers live in
@@ -518,7 +549,16 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
         ref={fullscreenWrapperRef}
         className={`${styles.fullscreenWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
       >
-        <div className={styles.chartWrapper}>
+        <PanelGroup orientation="horizontal">
+          {/*
+            The plot column. Its own vertical group holds the debug drawer, so
+            the drawer's boundary is a real panel boundary — which is what lets
+            the chart, the legend and the drawer each be sized independently.
+          */}
+          <Panel minSize={`${PLOT_MIN_PX}px`} style={{ overflow: 'hidden' }}>
+            <PanelGroup orientation="vertical">
+              <Panel style={{ overflow: 'hidden' }}>
+                <div className={styles.chartWrapper}>
           <ChartRenderer
             grid={gridWithTooltipAction}
             cellSizeOverrides={cellSizeOverrides}
@@ -544,22 +584,54 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
             <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
           )}
 
-          {debugUiEnabled && (
-            <DebugPanel
-              isDebugOpen={isDebugOpen}
-              debugHeight={debugHeight}
-              maxDebugHeight={maxDebugHeight}
-              onDebugResize={handleDebugResize}
-              debugData={debugData}
+                </div>
+              </Panel>
+
+              {debugVisible && (
+                <SplitHandle
+                  inGroup
+                  orientation="horizontal"
+                  panelSide="after"
+                  ariaLabel="Resize debug view"
+                  getBounds={debugSplit.getBounds}
+                  onCommitPx={debugSplit.onCommitPx}
+                />
+              )}
+              {debugVisible && (
+                <Panel
+                  panelRef={debugPanelRef}
+                  defaultSize={`${initialDebugHeight}px`}
+                  minSize={`${CHART_COLUMN_PANELS.debug.minPx}px`}
+                  maxSize={`${CHART_COLUMN_PANELS.debug.maxPercent}%`}
+                  style={{ overflow: 'hidden' }}
+                  onResize={(size) => persistDebugHeight(size.inPixels)}
+                >
+                  <DebugPanel debugData={debugData} />
+                </Panel>
+              )}
+            </PanelGroup>
+          </Panel>
+
+          {showLegend && (
+            <SplitHandle
+              inGroup
+              orientation="vertical"
+              panelSide="after"
+              ariaLabel="Resize legend"
+              getBounds={legendSplit.getBounds}
+              onCommitPx={legendSplit.onCommitPx}
             />
           )}
-        </div>
-
-        {showLegend && (
-          <LegendStack
-            defaultWidth={initialLegendWidth ?? undefined}
-            onWidthCommit={handleLegendWidthCommit}
-          >
+          {showLegend && (
+            <Panel
+              panelRef={legendPanelRef}
+              defaultSize={`${initialLegendWidth}px`}
+              minSize={`${CHART_COLUMN_PANELS.legend.minPx}px`}
+              maxSize={`${CHART_COLUMN_PANELS.legend.maxPercent}%`}
+              style={{ overflow: 'hidden' }}
+              onResize={(size) => persistLegendWidth(size.inPixels)}
+            >
+              <LegendStack>
             {showColorLegend && (
               <LegendPanel
                 colorField={channels.color.field}
@@ -591,8 +663,10 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
                 onFilterAction={handleShapeLegendFilterAction}
               />
             )}
-          </LegendStack>
-        )}
+              </LegendStack>
+            </Panel>
+          )}
+        </PanelGroup>
       </div>
 
       {/* Facet Limit Warning Dialog */}

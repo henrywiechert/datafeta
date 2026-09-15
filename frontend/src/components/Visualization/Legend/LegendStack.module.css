@@ -3,12 +3,10 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  flex-shrink: 0;
-  margin-left: 8px;
-  background-color: #fafafa;
-  /* No border-left: the SplitHandle in .handleSlot draws the boundary line,
-     so the legend edge matches every other split in the app. */
-  position: relative;
+  width: 100%;
+  background-color: var(--df-surface-panel);
+  /* No border and no margin: the legend is a Panel, so the gap and the
+     boundary line both come from the group's SplitHandle. */
   box-sizing: border-box;
 }
 
@@ -28,29 +26,14 @@
 }
 
 .stackContent::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--df-scroll-track);
 }
 
 .stackContent::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--df-scroll-thumb);
   border-radius: 4px;
 }
 
 .stackContent::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
-}
-
-/*
- * Holds the shared SplitHandle over the gap between chart and legend. Anchored
- * to the middle of the 8px margin-left above and centred on that point, so it
- * stays centred whatever SPLIT_HANDLE_THICKNESS_PX is set to.
- */
-.handleSlot {
-  position: absolute;
-  top: 0;
-  left: -4px;
-  transform: translateX(-50%);
-  height: 100%;
-  display: flex;
-  z-index: 2;
+  background: var(--df-scroll-thumb-hover);
 }
