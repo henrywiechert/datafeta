@@ -13,7 +13,6 @@ import { useFieldsPanelDrag } from '../../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 import { useSelectionStore } from '../../../stores/selectionStore';
 import { fetchFieldStats } from '../../../apiService';
-import { T } from '../../../theme/tokens';
 
 interface FieldsPanelProps {
   availableFields: Field[];
@@ -298,7 +297,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   ), [availableFields, filterBySearch]);
 
   return (
-    <div ref={containerRef} className={styles.container} onClick={handleContainerClick} style={{ border: `1px solid ${T.borderMuted}`, borderRadius: 6, padding: 0 }}>
+    <div ref={containerRef} className={styles.container} onClick={handleContainerClick}>
       {/* Metadata selector at the top */}
       <CompactMetadataSelector
         connectionType={connectionType}
