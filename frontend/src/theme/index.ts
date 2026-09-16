@@ -17,16 +17,19 @@
  * `alpha()`. `src/theme/palette.test.ts` locks that equivalence.
  *
  * Deliberately NO *light* `palette` block: the app's own semantic colors belong
- * in the `--df-*` token layer, not in MUI's namespace. See `THEMING.md`. The one
- * dark override is documented at the `colorSchemes` block below.
+ * in the `--df-*` token layer, not in MUI's namespace. See `THEMING.md`. The two
+ * dark overrides are documented at the `colorSchemes` block below.
  */
 import { experimental_extendTheme as extendTheme } from '@mui/material/styles';
 
 const denseTheme = extendTheme({
   colorSchemes: {
     /**
-     * The single palette value the app overrides, and the reason it has to be
+     * The two palette values the app overrides, and the reason they have to be
      * here rather than in the token layer.
+     *
+     * Both are leaves MUI's dark scheme puts at pure `#fff`, and between them
+     * they cover everything that names no colour of its own.
      *
      * MUI's stock dark `text.primary` is pure `#fff`. Two things read it: the
      * `html, body` rule in index.css (via `--df-text-primary`, since there is no
@@ -51,6 +54,27 @@ const denseTheme = extendTheme({
       palette: {
         text: {
           primary: '#e8eaed',
+        },
+        /**
+         * The icon half of the same problem. `action.active` is what an
+         * `IconButton` paints with when it is given no colour — `color="default"`
+         * or nothing at all, which is ~48 of the app's 79 IconButtons, plus the
+         * unselected branch of every `color={on ? 'primary' : 'default'}` toggle
+         * — and MUI's dark value for it is pure `#fff`.
+         *
+         * In light mode this is invisible: `rgba(0,0,0,0.54)` sits right next to
+         * `text.secondary`'s `0.6`, so a default icon and a `text.secondary` one
+         * weigh the same. In dark they were `#fff` against `0.7`, which is why
+         * the left half of the chart-config toolbar (terminal, fullscreen,
+         * table, title, swap — all `color="default"`) glared next to the right
+         * half (refresh, settings, axis links — all explicit `text.secondary`).
+         *
+         * Matched to `text.secondary` rather than split the difference: an icon
+         * and its label should carry the same weight, and it makes the toolbar
+         * read as one row instead of two groups.
+         */
+        action: {
+          active: 'rgba(255, 255, 255, 0.7)',
         },
       },
     },

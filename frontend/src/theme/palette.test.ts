@@ -146,26 +146,40 @@ describe('the app theme', () => {
     expect(denseTheme.colorSchemes.light.palette.text).toEqual(
       extendTheme().colorSchemes.light.palette.text,
     );
+    expect(denseTheme.colorSchemes.light.palette.action).toEqual(
+      extendTheme().colorSchemes.light.palette.action,
+    );
   });
 
-  it('softens only dark text.primary, and leaves the rest of the dark scheme stock', () => {
+  it('softens the two dark values that un-roled content inherits, and nothing else', () => {
     const dark = denseTheme.colorSchemes.dark.palette;
     const stockDark = extendTheme().colorSchemes.dark.palette;
 
-    // Stock dark text.primary is pure #fff, which is what every string that
-    // names no colour role inherits (body in index.css, and Typography's
-    // default `color: inherit`). See the comment in index.ts.
+    // Both stock values are pure #fff, and between them they cover everything
+    // that names no colour of its own: text.primary via body in index.css and
+    // Typography's `color: inherit`, action.active via IconButton's default.
+    // See the comments in index.ts.
     expect(stockDark.text.primary).toBe('#fff');
+    expect(stockDark.action.active).toBe('#fff');
     expect(dark.text.primary).not.toBe('#fff');
-    // The channel has to follow, or alpha compositing on text.primary would
-    // still resolve against white.
-    expect(dark.text.primaryChannel).not.toBe(stockDark.text.primaryChannel);
+    expect(dark.action.active).not.toBe('#fff');
 
-    // The override is a deep merge, so nothing else in the scheme moves — the
+    // An icon and a secondary label should weigh the same, which is the whole
+    // point of the action.active value.
+    expect(dark.action.active).toBe(dark.text.secondary);
+
+    // The channels have to follow, or alpha composited on either would still
+    // resolve against pure white.
+    expect(dark.text.primaryChannel).not.toBe(stockDark.text.primaryChannel);
+    expect(dark.action.activeChannel).toBe('255 255 255');
+
+    // The overrides are a deep merge, so nothing else in the scheme moves — the
     // secondary/disabled steps the FieldsPanel headers already look right in
-    // are untouched, and so are the surfaces.
+    // are untouched, and so are the surfaces and the rest of `action`.
     expect(dark.text.secondary).toBe(stockDark.text.secondary);
     expect(dark.text.disabled).toBe(stockDark.text.disabled);
+    expect(dark.action.hover).toBe(stockDark.action.hover);
+    expect(dark.action.disabled).toBe(stockDark.action.disabled);
     expect(dark.background.default).toBe('#121212');
     expect(dark.primary.main).toBe(stockDark.primary.main);
     expect(dark.mode).toBe('dark');
