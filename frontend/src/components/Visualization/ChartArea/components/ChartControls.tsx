@@ -246,9 +246,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               size="small"
               color={isFullscreen ? 'primary' : 'default'}
               sx={{ 
-                backgroundColor: isFullscreen ? 'primary.50' : 'transparent',
+                backgroundColor: isFullscreen ? T.accentTintStrong : 'transparent',
                 '&:hover': {
-                  backgroundColor: isFullscreen ? 'primary.100' : 'action.hover',
+                  backgroundColor: isFullscreen ? T.accentTintEmphasis : 'action.hover',
                 }
               }}
             >
@@ -264,9 +264,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               size="small"
               color={showTableRows ? 'primary' : 'default'}
               sx={{
-                backgroundColor: showTableRows ? 'primary.50' : 'transparent',
+                backgroundColor: showTableRows ? T.accentTintStrong : 'transparent',
                 '&:hover': {
-                  backgroundColor: showTableRows ? 'primary.100' : 'action.hover',
+                  backgroundColor: showTableRows ? T.accentTintEmphasis : 'action.hover',
                 }
               }}
             >
@@ -284,9 +284,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               aria-pressed={showChartCaption}
               aria-label={showChartCaption ? 'Hide chart title' : 'Show chart title'}
               sx={{
-                backgroundColor: showChartCaption ? 'primary.50' : 'transparent',
+                backgroundColor: showChartCaption ? T.accentTintStrong : 'transparent',
                 '&:hover': {
-                  backgroundColor: showChartCaption ? 'primary.100' : 'action.hover',
+                  backgroundColor: showChartCaption ? T.accentTintEmphasis : 'action.hover',
                 },
               }}
             >
@@ -451,9 +451,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               onClick={() => onToggleIndependentXAxis(!independentXAxis)}
               sx={{
                 color: independentXAxis ? 'primary.main' : 'text.secondary',
-                backgroundColor: independentXAxis ? 'primary.50' : 'transparent',
+                backgroundColor: independentXAxis ? T.accentTintStrong : 'transparent',
                 '&:hover': {
-                  backgroundColor: independentXAxis ? 'primary.100' : 'action.hover',
+                  backgroundColor: independentXAxis ? T.accentTintEmphasis : 'action.hover',
                 },
                 fontSize: '0.7rem',
                 minWidth: 32,
@@ -476,9 +476,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               onClick={() => onToggleIndependentYAxis(!independentYAxis)}
               sx={{
                 color: independentYAxis ? 'primary.main' : 'text.secondary',
-                backgroundColor: independentYAxis ? 'primary.50' : 'transparent',
+                backgroundColor: independentYAxis ? T.accentTintStrong : 'transparent',
                 '&:hover': {
-                  backgroundColor: independentYAxis ? 'primary.100' : 'action.hover',
+                  backgroundColor: independentYAxis ? T.accentTintEmphasis : 'action.hover',
                 },
                 fontSize: '0.7rem',
                 minWidth: 32,

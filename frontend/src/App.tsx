@@ -11,6 +11,7 @@ import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
 import { useSheetManagement } from './hooks/useSheetManagement';
 import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
+import ThemeModeToggle from './theme/ThemeModeToggle';
 import ConnectionRestoreDialog, { ClickHouseOverrides, ConnectionRestoreOptions } from './components/ConnectionRestoreDialog';
 import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
 import SnapshotSaveAsDialog from './components/SnapshotSaveAsDialog';
@@ -774,6 +775,7 @@ function AppContent() {
           </IconButton>
         </Tooltip>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', pr: 2 }}>
+          <ThemeModeToggle />
           {currentSnapshot.current && (
             <Tooltip title={currentSnapshot.isDirty ? 'Unsaved changes' : 'Saved configuration'}>
               <Typography

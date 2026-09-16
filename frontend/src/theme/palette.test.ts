@@ -9,6 +9,8 @@
  * all). So the 861-test suite would not notice a palette regression. These
  * assertions are the substitute.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 import { createTheme, experimental_extendTheme as extendTheme } from '@mui/material/styles';
 import denseTheme from './index';
 
@@ -43,17 +45,45 @@ const REFERENCED_PATHS = [
 ];
 
 /**
- * Palette paths the app references that do NOT exist in MUI's default palette:
- * only `grey` ships a 50–900 ramp, so these resolve to `undefined` and apply no
- * style at all today. They are the active state of five toggles in
- * ChartControls.tsx (fullscreen, table rows, caption, independent X,
- * independent Y) and two backgrounds in SqlQueryViewerDialog.tsx.
+ * Every MUI palette path referenced anywhere in `src`, discovered by scanning
+ * rather than listed by hand.
  *
- * Defining these shades would make those highlights suddenly appear — a visual
- * change disguised as a no-op. Fixing them is a deliberate, separately
- * reviewable commit; until then this test keeps them dead on purpose.
+ * This exists because of a real bug: five toggles in ChartControls and two
+ * backgrounds in SqlQueryViewerDialog referenced `primary.50` / `primary.100` /
+ * `info.50` / `success.50`, which MUI's default palette does not define (only
+ * `grey` ships a 50–900 ramp). `sx` passes an unresolvable string through as a
+ * raw CSS value, so `background-color: primary.50` was simply invalid and those
+ * active states had no background at all — silently, for as long as the code
+ * existed. Nothing failed; the styling just did not happen.
+ *
+ * The fix was not to define those shades: MUI's numbered ramps are shared
+ * across colour schemes, so a literal light blue would have become a pale slab
+ * on a dark toolbar. They now use channel-backed accent tints instead.
  */
-const INTENTIONALLY_UNDEFINED = ['primary.50', 'primary.100', 'info.50', 'success.50'];
+const PALETTE_PATH = /'((?:primary|secondary|error|warning|info|success|grey|text|action|background|common)\.[A-Za-z0-9]+)'/g;
+
+const collectSourceFiles = (dir: string, found: string[] = []): string[] => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collectSourceFiles(full, found);
+    else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) found.push(full);
+  }
+  return found;
+};
+
+const referencedPalettePaths = (): Map<string, string[]> => {
+  const refs = new Map<string, string[]>();
+  for (const file of collectSourceFiles(path.resolve(__dirname, '..'))) {
+    const source = fs.readFileSync(file, 'utf8');
+    let match: RegExpExecArray | null;
+    PALETTE_PATH.lastIndex = 0;
+    while ((match = PALETTE_PATH.exec(source)) !== null) {
+      const rel = `src/${path.relative(path.resolve(__dirname, '..'), file).split(path.sep).join('/')}`;
+      refs.set(match[1], (refs.get(match[1]) ?? []).concat(rel));
+    }
+  }
+  return refs;
+};
 
 describe('extendTheme light scheme is the stock MUI palette', () => {
   it('reproduces every leaf value createTheme defines', () => {
@@ -77,9 +107,20 @@ describe('extendTheme light scheme is the stock MUI palette', () => {
     expect(at(lightPalette, path)).not.toBeUndefined();
   });
 
-  it.each(INTENTIONALLY_UNDEFINED)('leaves %s undefined, as it is today', (path) => {
-    expect(at(stockPalette, path)).toBeUndefined();
-    expect(at(lightPalette, path)).toBeUndefined();
+  it('references no palette path the theme does not define', () => {
+    const unresolved: string[] = [];
+    referencedPalettePaths().forEach((files, palettePath) => {
+      if (at(lightPalette, palettePath) === undefined) {
+        unresolved.push(`  ${palettePath} referenced in ${Array.from(new Set(files)).join(', ')}`);
+      }
+    });
+    expect(unresolved.join('\n')).toBe('');
+  });
+
+  it('actually finds the palette references, so the scan cannot pass vacuously', () => {
+    const found = referencedPalettePaths();
+    expect(found.size).toBeGreaterThan(15);
+    expect(found.has('text.secondary')).toBe(true);
   });
 });
 

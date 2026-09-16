@@ -321,3 +321,97 @@ describe('token references across the app', () => {
     expect(T.chartGridDivider).toBe('var(--df-chart-grid-divider)');
   });
 });
+
+/**
+ * Relative luminance of an opaque hex colour, per WCAG. Returns null for
+ * anything else (var() references, rgba) — those delegate or composite, so
+ * their resolved value is not knowable here.
+ */
+const luminance = (value: string): number | null => {
+  const match = /^#([0-9a-f]{6})$/i.exec(value.trim());
+  if (!match) return null;
+  const channels = [0, 2, 4].map((i) => parseInt(match[1].substr(i, 2), 16) / 255);
+  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+describe('the dark scheme is actually dark', () => {
+  /** Surfaces must be dark in dark mode — the `grey.50` trap, for literals. */
+  const SURFACES: DfTokenName[] = [
+    'surfaceShell', 'surfacePanel', 'surfaceRaised', 'surfaceSunken',
+    'surfaceSubtle', 'chartCanvas', 'chartCellBg', 'chartPlotBg', 'chartHalo',
+  ];
+  /**
+   * Foregrounds are checked by *contrast* rather than by lightness: `textMuted`
+   * and `textDim` are deliberately mid-greys, so "is it light?" is the wrong
+   * question. What must hold is that each one reads against the surface it sits
+   * on — in both schemes, which is exactly what a hand-written dark palette
+   * tends to get wrong.
+   */
+  const FOREGROUNDS: Array<[DfTokenName, number]> = [
+    ['textStrong', 4.5],
+    ['textInk', 4.5],
+    ['chartInk', 4.5],
+    ['chartLabelInk', 4.5],
+    ['textDim', 3],
+    ['textMuted', 3],
+  ];
+
+  /** WCAG contrast ratio between two opaque colours. */
+  const contrast = (a: string, b: string): number => {
+    const la = luminance(a)!;
+    const lb = luminance(b)!;
+    const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it.each(SURFACES)('%s is a dark surface in the dark scheme', (name) => {
+    const dark = luminance(TOKENS.dark[name]);
+    const light = luminance(TOKENS.light[name]);
+    expect(dark).not.toBeNull();
+    expect(dark!).toBeLessThan(0.1);
+    expect(light!).toBeGreaterThan(0.8);
+  });
+
+  it.each(FOREGROUNDS)('%s stays readable on the panel surface (>= %s:1) in both schemes', (name, minRatio) => {
+    for (const scheme of ['light', 'dark'] as const) {
+      const ratio = contrast(TOKENS[scheme][name], TOKENS[scheme].surfacePanel);
+      expect({ scheme, name, ratio: Math.round(ratio * 10) / 10 })
+        .toEqual({ scheme, name, ratio: expect.any(Number) });
+      expect(ratio).toBeGreaterThanOrEqual(minRatio);
+    }
+  });
+
+  it('keeps chart ink readable on the chart cell, not just the panel', () => {
+    for (const scheme of ['light', 'dark'] as const) {
+      expect(contrast(TOKENS[scheme].chartInk, TOKENS[scheme].chartCellBg)).toBeGreaterThanOrEqual(4.5);
+      // Data labels sit on marks but their halo is the cell, so the halo must
+      // contrast with the ink it surrounds.
+      expect(contrast(TOKENS[scheme].chartLabelInk, TOKENS[scheme].chartHalo)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('keeps the elevation ramp ordered in both schemes', () => {
+    // Cards must read against the canvas: in light the canvas is the darkest
+    // of the three, in dark it is the darkest too (i.e. the order inverts).
+    const order = (scheme: 'light' | 'dark') =>
+      (['surfaceShell', 'surfacePanel', 'surfaceRaised'] as DfTokenName[])
+        .map((n) => luminance(TOKENS[scheme][n])!);
+
+    const [lightShell, lightPanel, lightRaised] = order('light');
+    expect(lightShell).toBeLessThan(lightPanel);
+    expect(lightPanel).toBeLessThan(lightRaised);
+
+    const [darkShell, darkPanel, darkRaised] = order('dark');
+    expect(darkShell).toBeLessThan(darkPanel);
+    expect(darkPanel).toBeLessThan(darkRaised);
+  });
+
+  it('gives the canvas and a card enough separation to be distinguishable', () => {
+    for (const scheme of ['light', 'dark'] as const) {
+      const shell = luminance(TOKENS[scheme].surfaceShell)!;
+      const raised = luminance(TOKENS[scheme].surfaceRaised)!;
+      expect(Math.abs(raised - shell)).toBeGreaterThan(0.01);
+    }
+  });
+});

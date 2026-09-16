@@ -526,6 +526,11 @@ const VisualizationPageContent = () => {
                         maxSize={`${SHELL_PANELS.left.maxPercent}%`}
                         collapsible
                         collapsedSize={`${COLLAPSE_RAIL_THICKNESS_PX}px`}
+                        // The panel element is not a scroll container: its
+                        // content decides what scrolls. Without this the
+                        // library's default overflow:auto adds a second
+                        // scrollbar outside the one the content already has.
+                        style={{ overflow: 'hidden' }}
                         onResize={(size) => {
                             const collapsed = size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
                             setLeftPanelCollapsed(collapsed);
@@ -665,6 +670,7 @@ const VisualizationPageContent = () => {
                         maxSize={`${SHELL_PANELS.middle.maxPercent}%`}
                         collapsible
                         collapsedSize={`${COLLAPSE_RAIL_THICKNESS_PX}px`}
+                        style={{ overflow: 'hidden' }}
                         onResize={(size) => {
                             const collapsed = size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
                             setMiddlePanelCollapsed(collapsed);
@@ -676,6 +682,10 @@ const VisualizationPageContent = () => {
                         ) : (
                           <Box sx={{
                               height: '100%',
+                              // No CssBaseline in this app, so box-sizing is
+                              // content-box: without this the padding below is
+                              // added to 100% and the panel always overflows.
+                              boxSizing: 'border-box',
                               display: 'flex',
                               flexDirection: 'column',
                               overflow: 'auto',
@@ -723,7 +733,11 @@ const VisualizationPageContent = () => {
                     />
 
                     {/* Main Content - Chart */}
-                    <Panel defaultSize={`${initialChartSize}%`} minSize={`${CHART_PANEL_MIN_PX}px`}>
+                    <Panel
+                        defaultSize={`${initialChartSize}%`}
+                        minSize={`${CHART_PANEL_MIN_PX}px`}
+                        style={{ overflow: 'hidden' }}
+                    >
                         <Box sx={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
                         <ChartPanel
                             xAxisFields={xAxisFields}

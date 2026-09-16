@@ -6,6 +6,31 @@
     <link rel="alternate icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <script>
+      /*
+       * Resolve the colour scheme before the first paint.
+       *
+       * MUI's CssVarsProvider sets this attribute itself, but only once React
+       * commits — and html/body sit outside the provider, so without this the
+       * page paints light and then snaps to dark on reload. MUI ships
+       * InitColorSchemeScript for exactly this, but it is a React component
+       * meant for server rendering and cannot run in a CRA static shell.
+       *
+       * Keys must match ThemeRoot's modeStorageKey / colorSchemeStorageKey.
+       */
+      (function () {
+        try {
+          var mode = localStorage.getItem('dataslicer.themeMode') || 'system';
+          var scheme = mode;
+          if (mode === 'system') {
+            scheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-df-color-scheme', scheme);
+        } catch (e) {
+          /* private browsing, or no matchMedia: light is the default anyway */
+        }
+      })();
+    </script>
     <meta
       name="description"
       content="Web site created using create-react-app"
