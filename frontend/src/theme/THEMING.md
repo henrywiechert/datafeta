@@ -35,24 +35,40 @@ compositing work, so it is the only viable route.
 `drag-over`, `active-toggle`, `field-flavour-discrete`, `chart-grid-divider` or
 `label-halo`. Those are app concepts and live in `--df-*`.
 
-### The one palette value the app overrides
+### The two palette values the app overrides
 
-`index.ts` sets dark `text.primary` to `#e8eaed` instead of MUI's `#fff`. It is
-the only palette leaf the app defines, and it is in the MUI layer on purpose:
-**a `--df-*` token cannot reach text that names no token.**
+MUI's dark scheme puts **pure `#fff`** at the top of two ramps, and between them
+they cover everything in the app that does not choose a colour of its own. Both
+overrides live in `index.ts`, in the MUI layer on purpose: **a `--df-*` token
+cannot reach content that names no token.**
 
-Two things read `text.primary`, and between them they cover every string in the
-app that does not choose a colour: the `html, body` rule in `index.css` (via
-`--df-text-primary`, since there is no `CssBaseline`) and MUI `Typography`,
-whose default `color` is `inherit`. Stock dark `text.primary` is pure white, so
-un-roled text rendered at the very top of the ramp while text that *did* name a
-role — `--df-text-secondary` on the FieldsPanel category headers — sat at 70%
-and read as a calm grey. Light mode hid the split: un-roled text was
-`rgba(0,0,0,0.87)` next to `#333`/`#666` tokens, three shades of "dark grey".
+| dark leaf | stock | ours | what inherits it |
+|---|---|---|---|
+| `text.primary` | `#fff` | `#e8eaed` | `html, body` in `index.css` via `--df-text-primary` (there is no `CssBaseline`), and every `Typography`, whose default `color` is `inherit` |
+| `action.active` | `#fff` | `rgba(255,255,255,0.7)` | every `IconButton` given `color="default"` or no colour — ~48 of the app's 79, plus the `default` branch of every `color={x ? 'primary' : 'default'}` toggle |
 
-Softening the top of the ramp is a one-line fix for the whole app; assigning
-explicit roles to that text is the separate, larger pass. Light is untouched, so
-`palette.test.ts`'s lock on every light leaf still holds.
+Light mode hid both splits. Un-roled text was `rgba(0,0,0,0.87)` next to
+`#333`/`#666` tokens — three shades of "dark grey" — and `action.active`'s
+`rgba(0,0,0,0.54)` sits right next to `text.secondary`'s `0.6`, so a default
+icon and a `text.secondary` icon weighed the same. In dark they were `#fff`
+against `0.7`: un-roled text glared beside `--df-text-secondary` (the FieldsPanel
+category headers), and the left half of the chart-config toolbar (terminal,
+fullscreen, table, title, swap — all `color="default"`) glared beside the right
+half (refresh, settings, axis links — all explicit `text.secondary`).
+
+`action.active` is matched to `text.secondary` exactly, so an icon and its label
+carry the same weight. Softening the top of both ramps is a two-line fix for the
+whole app; assigning explicit roles to the content underneath is the separate,
+larger pass. Light is untouched, so `palette.test.ts`'s lock on every light leaf
+still holds.
+
+**When adding a dark override, check the `*Channel` value survives.** MUI
+composites alpha as `rgba(var(--mui-palette-X-channel) / opacity)`, so a leaf
+whose channel silently kept pointing at white would undo the change for every
+hover and tint built on it. `extendTheme` recomputes the channel from an `rgba()`
+string correctly (`text.primaryChannel` becomes `232 234 237`;
+`action.activeChannel` stays `255 255 255`, which is right — the alpha moved, not
+the hue), and `palette.test.ts` asserts it.
 
 One consequence for the token layer: `--df-text-primary`'s dark **fallback** is
 `#e8eaed`, not MUI's `#fff`. A delegating token's fallback is what paints before
