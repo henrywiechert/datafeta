@@ -16,12 +16,45 @@
  * values that let MUI internals composite alpha via `var()` instead of
  * `alpha()`. `src/theme/palette.test.ts` locks that equivalence.
  *
- * Deliberately NO `palette` block: the app's own semantic colors belong in the
- * `--df-*` token layer, not in MUI's namespace. See `THEMING.md`.
+ * Deliberately NO *light* `palette` block: the app's own semantic colors belong
+ * in the `--df-*` token layer, not in MUI's namespace. See `THEMING.md`. The one
+ * dark override is documented at the `colorSchemes` block below.
  */
 import { experimental_extendTheme as extendTheme } from '@mui/material/styles';
 
 const denseTheme = extendTheme({
+  colorSchemes: {
+    /**
+     * The single palette value the app overrides, and the reason it has to be
+     * here rather than in the token layer.
+     *
+     * MUI's stock dark `text.primary` is pure `#fff`. Two things read it: the
+     * `html, body` rule in index.css (via `--df-text-primary`, since there is no
+     * CssBaseline) and every MUI `Typography`, whose default `color` is
+     * `inherit`. So *any* text that does not name a role rendered at maximum
+     * white, while text that does name one — `--df-text-secondary` on the
+     * FieldsPanel category headers, say — sat at 70% and looked calm. Light mode
+     * hid the split: unstyled text was `rgba(0,0,0,0.87)` against `#333`/`#666`
+     * tokens, three shades of "dark grey". Dark mode put the un-roled half at
+     * the glaring top of the ramp.
+     *
+     * Softening the top of the ramp is therefore a one-line fix for the whole
+     * app, and it belongs in the MUI layer precisely because MUI's own default
+     * is what every un-roled string inherits — a `--df-*` token cannot reach
+     * text that names no token. Assigning explicit roles to that text is the
+     * separate, larger pass; this makes the default tolerable in the meantime.
+     *
+     * Light is untouched: `palette.test.ts` locks every light leaf to
+     * `createTheme`'s value, and a dark-only override does not disturb it.
+     */
+    dark: {
+      palette: {
+        text: {
+          primary: '#e8eaed',
+        },
+      },
+    },
+  },
   shape: {
     borderRadius: 4,
   },

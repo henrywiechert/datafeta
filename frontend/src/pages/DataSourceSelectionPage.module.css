@@ -80,7 +80,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--df-text-inverse);
+  color: var(--df-text-on-warning);
   background: var(--df-status-warning-strong);
   border-radius: 3px;
   padding: 1px 6px;
@@ -331,7 +331,7 @@
 
 .button {
   background: var(--df-text-accent);
-  color: var(--df-text-inverse);
+  color: var(--df-text-on-accent);
   border: none;
   border-radius: 4px;
   padding: 10px 24px;

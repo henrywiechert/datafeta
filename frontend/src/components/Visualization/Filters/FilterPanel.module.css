@@ -21,7 +21,7 @@
 
 .applyButtonPending {
   background-color: var(--df-status-warning) !important;
-  color: var(--df-text-inverse) !important;
+  color: var(--df-text-on-warning) !important;
   box-shadow: none !important;
 }
 
@@ -33,7 +33,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--df-text-inverse);
+  background: var(--df-text-on-warning);
   display: inline-block;
   flex-shrink: 0;
 }

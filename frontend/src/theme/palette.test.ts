@@ -39,9 +39,13 @@ const REFERENCED_PATHS = [
   'text.secondary', 'action.hover', 'divider', 'primary.main', 'text.primary',
   'background.paper', 'action.selected', 'action.disabled', 'text.disabled',
   'grey.50', 'error.main', 'primary.dark', 'warning.main', 'success.main',
-  'common.white', 'warning.light', 'warning.dark', 'secondary.main',
+  'warning.light', 'warning.dark', 'secondary.main',
   'secondary.light', 'secondary.contrastText', 'primary.contrastText',
   'background.default', 'action.disabledBackground',
+  // Ink on a filled status role. These replaced the app's last two
+  // `common.white` references: `common.*` is shared by both schemes, so white
+  // ink stayed white on a fill that dark mode lightens. THEMING.md has the rule.
+  'success.contrastText', 'error.contrastText', 'warning.contrastText',
 ];
 
 /**
@@ -137,15 +141,47 @@ describe('the app theme', () => {
     expect((denseTheme.components?.MuiDialogTitle?.styleOverrides?.root as any).fontSize).toBe('0.875rem');
   });
 
-  it('defines no palette of its own, so app semantics stay in the --df-* layer', () => {
+  it('defines no light palette of its own, so app semantics stay in the --df-* layer', () => {
     expect(denseTheme.colorSchemes.light.palette.primary.main).toBe(stockPalette.primary.main);
+    expect(denseTheme.colorSchemes.light.palette.text).toEqual(
+      extendTheme().colorSchemes.light.palette.text,
+    );
   });
 
-  it('ships a stock dark scheme, unreachable until ThemeRoot offers a toggle', () => {
-    // ThemeRoot pins defaultMode="light" and nothing can change it yet, so
-    // these values are inert. They become the starting point for P12.
-    expect(denseTheme.colorSchemes.dark.palette.mode).toBe('dark');
-    expect(denseTheme.colorSchemes.dark.palette.background.default).toBe('#121212');
+  it('softens only dark text.primary, and leaves the rest of the dark scheme stock', () => {
+    const dark = denseTheme.colorSchemes.dark.palette;
+    const stockDark = extendTheme().colorSchemes.dark.palette;
+
+    // Stock dark text.primary is pure #fff, which is what every string that
+    // names no colour role inherits (body in index.css, and Typography's
+    // default `color: inherit`). See the comment in index.ts.
+    expect(stockDark.text.primary).toBe('#fff');
+    expect(dark.text.primary).not.toBe('#fff');
+    // The channel has to follow, or alpha compositing on text.primary would
+    // still resolve against white.
+    expect(dark.text.primaryChannel).not.toBe(stockDark.text.primaryChannel);
+
+    // The override is a deep merge, so nothing else in the scheme moves — the
+    // secondary/disabled steps the FieldsPanel headers already look right in
+    // are untouched, and so are the surfaces.
+    expect(dark.text.secondary).toBe(stockDark.text.secondary);
+    expect(dark.text.disabled).toBe(stockDark.text.disabled);
+    expect(dark.background.default).toBe('#121212');
+    expect(dark.primary.main).toBe(stockDark.primary.main);
+    expect(dark.mode).toBe('dark');
     expect(denseTheme.colorSchemes.light.palette.mode).toBe('light');
+  });
+
+  it('keeps contrastText flipping, which is what the on-fill ink tokens ride on', () => {
+    // --df-text-on-accent / --df-text-on-warning replaced a token that was
+    // #ffffff in both schemes, so white ink landed on dark mode's *lightened*
+    // primary.main (#90caf9) and warning.main (#ffa726) — 1.7:1 and 1.9:1.
+    const light = denseTheme.colorSchemes.light.palette;
+    const dark = denseTheme.colorSchemes.dark.palette;
+
+    expect(light.primary.contrastText).toBe('#fff');
+    expect(light.warning.contrastText).toBe('#fff');
+    expect(dark.primary.contrastText).not.toBe('#fff');
+    expect(dark.warning.contrastText).not.toBe('#fff');
   });
 });

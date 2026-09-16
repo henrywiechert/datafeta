@@ -45,6 +45,8 @@
   --df-text-label: rgba(0, 0, 0, 0.7);
   --df-text-control-label: #424242;
   --df-text-accent: var(--mui-palette-primary-main, #1976d2);
+  --df-text-on-accent: var(--mui-palette-primary-contrastText, #fff);
+  --df-text-on-warning: var(--mui-palette-warning-contrastText, #fff);
   --df-state-hover: var(--mui-palette-action-hover, rgba(0, 0, 0, 0.04));
   --df-state-selected: var(--mui-palette-action-selected, rgba(0, 0, 0, 0.08));
   --df-state-disabled-ink: var(--mui-palette-action-disabled, rgba(0, 0, 0, 0.26));
@@ -193,7 +195,7 @@
   --df-border-accent-strong: var(--mui-palette-primary-dark, #42a5f5);
   --df-border-neutral-mid: #6a6a6a;
   --df-border-neutral-dark: #8a8a8a;
-  --df-text-primary: var(--mui-palette-text-primary, #fff);
+  --df-text-primary: var(--mui-palette-text-primary, #e8eaed);
   --df-text-secondary: var(--mui-palette-text-secondary, rgba(255, 255, 255, 0.7));
   --df-text-disabled: var(--mui-palette-text-disabled, rgba(255, 255, 255, 0.5));
   --df-text-strong: #e6e6e6;
@@ -207,6 +209,8 @@
   --df-text-label: rgba(255, 255, 255, 0.8);
   --df-text-control-label: #d4d4d4;
   --df-text-accent: var(--mui-palette-primary-main, #90caf9);
+  --df-text-on-accent: var(--mui-palette-primary-contrastText, rgba(0, 0, 0, 0.87));
+  --df-text-on-warning: var(--mui-palette-warning-contrastText, rgba(0, 0, 0, 0.87));
   --df-state-hover: var(--mui-palette-action-hover, rgba(255, 255, 255, 0.08));
   --df-state-selected: var(--mui-palette-action-selected, rgba(255, 255, 255, 0.16));
   --df-state-disabled-ink: var(--mui-palette-action-disabled, rgba(255, 255, 255, 0.3));

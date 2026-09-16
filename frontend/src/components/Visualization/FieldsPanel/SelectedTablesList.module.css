@@ -102,7 +102,7 @@
 
 .badgeP {
   background-color: var(--df-border-accent);
-  color: var(--df-text-inverse);
+  color: var(--df-text-on-accent);
 }
 
 .badgeU {
