@@ -18,13 +18,14 @@ interface ChartPanelProps {
   onYAxisDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveField: (fieldId: string) => void;
+  onRemoveMultipleFields: (fieldIds: string[]) => void;
   onReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
   onMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
   // Table view (raw rows) column zone
   showTableRows: boolean;
   tableColumnFields: Field[];
   onTableColumnsDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
-  onRemoveTableColumn: (fieldId: string) => void;
+  onRemoveTableColumn: (fieldIds: string[]) => void;
   onReorderTableColumns: (fromIndex: number, toIndex: number) => void;
   axisDropFieldIdsRef?: React.MutableRefObject<string[] | null>;
 }
@@ -36,6 +37,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onYAxisDrop,
   onFieldUpdate,
   onRemoveField,
+  onRemoveMultipleFields,
   onReorderFields,
   onMoveFieldBetweenAxes,
   showTableRows,
@@ -113,6 +115,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
               fields={xAxisFields}
               onFieldUpdate={onFieldUpdate}
               onRemoveField={onRemoveField}
+              onRemoveMultipleFields={onRemoveMultipleFields}
               onReorderFields={onReorderFields}
               onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
             >
@@ -126,6 +129,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
               fields={yAxisFields}
               onFieldUpdate={onFieldUpdate}
               onRemoveField={onRemoveField}
+              onRemoveMultipleFields={onRemoveMultipleFields}
               onReorderFields={onReorderFields}
               onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
             >

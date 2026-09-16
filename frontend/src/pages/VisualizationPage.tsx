@@ -682,6 +682,7 @@ const VisualizationPageContent = () => {
                                     onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
                                     onRemoveFromBackground={handleRemoveFromBackground}
                                     onRemoveFromShape={dragDropHandlers.handleRemoveFromShape}
+                                    onRemoveFromTableColumns={handleRemoveFromTableColumns}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
                                     virtualColumns={virtualColumns}
@@ -797,6 +798,7 @@ const VisualizationPageContent = () => {
                             onYAxisDrop={handleYAxisDrop}
                             onFieldUpdate={handleFieldUpdate}
                             onRemoveField={handleRemoveFromAxis}
+                            onRemoveMultipleFields={handleRemoveMultipleFromAxis}
                             onReorderFields={handleReorderFields}
                             onMoveFieldBetweenAxes={handleMoveFieldBetweenAxes}
                             showTableRows={state.showTableRows}
