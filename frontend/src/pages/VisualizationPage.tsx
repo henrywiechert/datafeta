@@ -13,7 +13,7 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { useUndoRedo } from '../hooks/useUndoRedo';
 import { useFilterController } from '../hooks/useFilterController';
-import FieldsPanel from '../components/Visualization/FieldsPanel';
+import FieldsPanel, { CompactMetadataSelector } from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
@@ -542,11 +542,11 @@ const VisualizationPageContent = () => {
                         ) : (
                             /*
                               A well rather than a card, like the Properties
-                              column below: it holds two cards — the brand
-                              header and the Fields panel — so the canvas shows
-                              between them and neither card nests inside the
-                              other. No padding, unlike Properties, so the
-                              Fields card keeps its edge-to-edge position in the
+                              column below: it holds three cards — the brand
+                              header, Data Source and Fields — so the canvas
+                              shows between them and none of them nests inside
+                              another. No padding, unlike Properties, so the
+                              cards keep their edge-to-edge position in the
                               column and the vertical gap is the only new space.
                             */
                             <Box sx={{
@@ -608,8 +608,58 @@ const VisualizationPageContent = () => {
                                         <AppInfoDisplay />
                                     </Box>
                                 </Box>
-                                {/* The Fields card. `overflow: hidden` clips the
-                                    panel's own Data Source header to the radius. */}
+                                {/*
+                                  The Data Source card. Its own card rather than
+                                  a band inside the Fields card below, matching
+                                  the Properties well, where each independently
+                                  collapsible section is a card: the canvas gap
+                                  is the separation, so the selector no longer
+                                  needs the surface tint and hairline it used to
+                                  draw. `flexShrink: 0` keeps it at its natural
+                                  height and leaves the rest of the column to
+                                  Fields — the same split the two had inside one
+                                  card.
+                                */}
+                                <Box sx={{
+                                    flexShrink: 0,
+                                    backgroundColor: T.surfaceRaised,
+                                    borderRadius: `${PANEL_RADIUS_PX}px`,
+                                    overflow: 'hidden',
+                                }}>
+                                    <CompactMetadataSelector
+                                        connectionType={connectionDetails?.type || ''}
+                                        selectedDatabase={selectedDatabase}
+                                        selectedTable={selectedTable}
+                                        databases={databases}
+                                        tables={tables}
+                                        isLoadingMetadata={isLoadingMetadata}
+                                        metadataError={metadataError}
+                                        onDatabaseSelect={handleDatabaseSelect}
+                                        onTableSelect={handleTableSelect}
+                                        onRefreshMetadata={handleRefreshMetadata}
+                                        availableFields={dataSourceAvailableFields}
+                                        suggestedJoinableTables={suggestedJoinableTables}
+                                        joinedTables={joinedTables}
+                                        onToggleJoinedTable={toggleJoinedTable}
+                                        unionTables={unionTables}
+                                        onAddUnionTable={addUnionTable}
+                                        onRemoveUnionTable={removeUnionTable}
+                                        tablesCache={tablesCache}
+                                        onLoadTablesForDatabase={handleLoadTablesForDatabase}
+                                        loadedPartitions={loadedPartitions}
+                                        isLoadingPartition={isLoadingPartition}
+                                        onLoadPartition={handleLoadPartition}
+                                        onAddFiles={handleAddFiles}
+                                        dbSwitchEnabled={dbSwitchEnabled}
+                                        onDbSwitchEnabledChange={setDbSwitchEnabled}
+                                        onDatabaseSwitch={handleDatabaseSwitch}
+                                        dbSwitchDisabled={dbSwitchDisabled}
+                                        dbSwitchDisabledReason={dbSwitchDisabledReason}
+                                        isSwitchingDatabase={isSwitchingDatabase}
+                                    />
+                                </Box>
+                                {/* The Fields card. `overflow: hidden` clips its
+                                    own header to the radius. */}
                                 <Box sx={{
                                     flex: 1,
                                     minHeight: 0,
@@ -632,34 +682,8 @@ const VisualizationPageContent = () => {
                                     onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
                                     onRemoveFromBackground={handleRemoveFromBackground}
                                     onRemoveFromShape={dragDropHandlers.handleRemoveFromShape}
-                                    connectionType={connectionDetails?.type || ''}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
-                                    databases={databases}
-                                    tables={tables}
-                                    isLoadingMetadata={isLoadingMetadata}
-                                    metadataError={metadataError}
-                                    onDatabaseSelect={handleDatabaseSelect}
-                                    onTableSelect={handleTableSelect}
-                                    onRefreshMetadata={handleRefreshMetadata}
-                                    suggestedJoinableTables={suggestedJoinableTables}
-                                    joinedTables={joinedTables}
-                                    onToggleJoinedTable={toggleJoinedTable}
-                                    unionTables={unionTables}
-                                    onAddUnionTable={addUnionTable}
-                                    onRemoveUnionTable={removeUnionTable}
-                                    tablesCache={tablesCache}
-                                    onLoadTablesForDatabase={handleLoadTablesForDatabase}
-                                    loadedPartitions={loadedPartitions}
-                                    isLoadingPartition={isLoadingPartition}
-                                    onLoadPartition={handleLoadPartition}
-                                    onAddFiles={handleAddFiles}
-                                    dbSwitchEnabled={dbSwitchEnabled}
-                                    onDbSwitchEnabledChange={setDbSwitchEnabled}
-                                    onDatabaseSwitch={handleDatabaseSwitch}
-                                    dbSwitchDisabled={dbSwitchDisabled}
-                                    dbSwitchDisabledReason={dbSwitchDisabledReason}
-                                    isSwitchingDatabase={isSwitchingDatabase}
                                     virtualColumns={virtualColumns}
                                     onAddVirtualColumn={handleAddVirtualColumn}
                                     onUpdateVirtualColumn={handleUpdateVirtualColumn}

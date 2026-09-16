@@ -5,10 +5,9 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
-import CompactMetadataSelector from './CompactMetadataSelector';
 import VirtualColumnManager from '../../VirtualColumns/VirtualColumnManager';
 import BinConfigDialog, { FieldStats } from '../../VirtualColumns/BinConfigDialog';
-import { Field, Database, Table, VirtualColumnDefinition } from '../../../types';
+import { Field, VirtualColumnDefinition } from '../../../types';
 import { useFieldsPanelDrag } from '../../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 import { useSelectionStore } from '../../../stores/selectionStore';
@@ -29,40 +28,13 @@ interface FieldsPanelProps {
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void;
   onRemoveFromBackground?: (fieldIds: string[]) => void;
   onRemoveFromShape?: (fieldIds: string[]) => void;
-  // New props for metadata selection
-  connectionType: string;
+  /**
+   * Names the table the "Create Bins..." action fetches column statistics
+   * from. Everything else about picking a data source now lives in the
+   * Data Source card beside this one — see VisualizationPage.
+   */
   selectedDatabase: string;
   selectedTable: string;
-  databases: Database[];
-  tables: Table[];
-  isLoadingMetadata: boolean;
-  metadataError: string | null;
-  onDatabaseSelect: (database: string) => void;
-  onTableSelect: (table: string) => void;
-  onRefreshMetadata?: () => void;
-  // Multi-table join props
-  suggestedJoinableTables?: string[];
-  joinedTables?: string[];
-  onToggleJoinedTable?: (tableName: string) => void;
-  // Multi-table union props (cross-database)
-  unionTables?: Array<{database: string, table_name: string}>;
-  onAddUnionTable?: (database: string, tableName: string) => void;
-  onRemoveUnionTable?: (database: string, tableName: string) => void;
-  tablesCache?: Record<string, Table[]>;
-  onLoadTablesForDatabase?: (database: string) => void;
-  // Hive Parquet partition loading
-  loadedPartitions?: Set<string>;
-  isLoadingPartition?: boolean;
-  onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
-  // Add files to existing CSV/Parquet connection
-  onAddFiles?: (files: File[]) => Promise<void>;
-  // DB switch (ClickHouse)
-  dbSwitchEnabled?: boolean;
-  onDbSwitchEnabledChange?: (enabled: boolean) => void;
-  onDatabaseSwitch?: (database: string) => void;
-  dbSwitchDisabled?: boolean;
-  dbSwitchDisabledReason?: string;
-  isSwitchingDatabase?: boolean;
   // Virtual columns props
   virtualColumns?: VirtualColumnDefinition[];
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
@@ -87,39 +59,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveFromMeasureGroup,
   onRemoveFromBackground,
   onRemoveFromShape,
-  // New props for metadata selection
-  connectionType,
   selectedDatabase,
   selectedTable,
-  databases,
-  tables,
-  isLoadingMetadata,
-  metadataError,
-  onDatabaseSelect,
-  onTableSelect,
-  onRefreshMetadata,
-  // Multi-table join props
-  suggestedJoinableTables,
-  joinedTables,
-  onToggleJoinedTable,
-  // Multi-table union props
-  unionTables,
-  onAddUnionTable,
-  onRemoveUnionTable,
-  tablesCache,
-  onLoadTablesForDatabase,
-  // Hive Parquet partition loading
-  loadedPartitions,
-  isLoadingPartition,
-  onLoadPartition,
-  // Add files to existing CSV/Parquet connection
-  onAddFiles,
-  dbSwitchEnabled,
-  onDbSwitchEnabledChange,
-  onDatabaseSwitch,
-  dbSwitchDisabled,
-  dbSwitchDisabledReason,
-  isSwitchingDatabase,
   // Virtual columns props
   virtualColumns = [],
   onAddVirtualColumn,
@@ -298,41 +239,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 
   return (
     <div ref={containerRef} className={styles.container} onClick={handleContainerClick}>
-      {/* Metadata selector at the top */}
-      <CompactMetadataSelector
-        connectionType={connectionType}
-        selectedDatabase={selectedDatabase}
-        selectedTable={selectedTable}
-        databases={databases}
-        tables={tables}
-        isLoadingMetadata={isLoadingMetadata}
-        metadataError={metadataError}
-        onDatabaseSelect={onDatabaseSelect}
-        onTableSelect={onTableSelect}
-        onRefreshMetadata={onRefreshMetadata}
-        availableFields={availableFields}
-        suggestedJoinableTables={suggestedJoinableTables}
-        joinedTables={joinedTables}
-        onToggleJoinedTable={onToggleJoinedTable}
-        unionTables={unionTables}
-        onAddUnionTable={onAddUnionTable}
-        onRemoveUnionTable={onRemoveUnionTable}
-        tablesCache={tablesCache}
-        onLoadTablesForDatabase={onLoadTablesForDatabase}
-        loadedPartitions={loadedPartitions}
-        isLoadingPartition={isLoadingPartition}
-        onLoadPartition={onLoadPartition}
-        onAddFiles={onAddFiles}
-        dbSwitchEnabled={dbSwitchEnabled}
-        onDbSwitchEnabledChange={onDbSwitchEnabledChange}
-        onDatabaseSwitch={onDatabaseSwitch}
-        dbSwitchDisabled={dbSwitchDisabled}
-        dbSwitchDisabledReason={dbSwitchDisabledReason}
-        isSwitchingDatabase={isSwitchingDatabase}
-      />
-      
       <div className={`${styles.fieldsSection} ${fieldsExpanded ? '' : styles.fieldsSectionCollapsed}`}>
-      {/* Fields search below metadata */}
+      {/* Title row and search, above the field lists */}
       <div className={styles.header}>
         <Box
           className={styles.headerTitleRow}
@@ -446,25 +354,11 @@ export default React.memo(FieldsPanel, (prevProps, nextProps) => {
   return (
     prevProps.availableFields === nextProps.availableFields &&
     prevProps.fieldsSearch === nextProps.fieldsSearch &&
-    prevProps.connectionType === nextProps.connectionType &&
     prevProps.selectedDatabase === nextProps.selectedDatabase &&
     prevProps.selectedTable === nextProps.selectedTable &&
-    prevProps.databases === nextProps.databases &&
-    prevProps.tables === nextProps.tables &&
-    prevProps.isLoadingMetadata === nextProps.isLoadingMetadata &&
-    prevProps.metadataError === nextProps.metadataError &&
-    // Multi-table props must trigger rerender so JOIN/UNION UIs update correctly
-    prevProps.suggestedJoinableTables === nextProps.suggestedJoinableTables &&
-    prevProps.joinedTables === nextProps.joinedTables &&
-    prevProps.unionTables === nextProps.unionTables &&
-    prevProps.tablesCache === nextProps.tablesCache &&
-    prevProps.virtualColumns === nextProps.virtualColumns &&
-    // Hive Parquet partition loading props
-    prevProps.loadedPartitions === nextProps.loadedPartitions &&
-    prevProps.isLoadingPartition === nextProps.isLoadingPartition &&
-    prevProps.dbSwitchEnabled === nextProps.dbSwitchEnabled &&
-    prevProps.dbSwitchDisabled === nextProps.dbSwitchDisabled &&
-    prevProps.isSwitchingDatabase === nextProps.isSwitchingDatabase
+    prevProps.virtualColumns === nextProps.virtualColumns
     // Callbacks NOT compared - they are now stable (see useDragDrop.ts, useFieldOperations.ts)
+    // The metadata/JOIN/UNION/partition props moved out with the Data Source
+    // card, which is memo-free, so they no longer need a clause here.
   );
 });

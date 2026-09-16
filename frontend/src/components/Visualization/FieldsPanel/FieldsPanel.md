@@ -1,6 +1,8 @@
 # FieldsPanel Module
 
-The `FieldsPanel` module provides the left sidebar for data source selection and field browsing. It combines metadata selection (database/table), multi-table operations (JOIN/UNION), virtual columns, and categorized field lists.
+The `FieldsPanel` module provides the left sidebar for data source selection and field browsing: metadata selection (database/table), multi-table operations (JOIN/UNION), virtual columns, and categorized field lists.
+
+The module fills **two cards** of the Fields well, not one. `CompactMetadataSelector` is mounted by `VisualizationPage` as the Data Source card, and `FieldsPanel` is the Fields card below it — so `FieldsPanel` does not render the selector and is not passed any of the metadata, JOIN/UNION or partition props. They are siblings separated by the canvas gap; see `src/theme/THEMING.md`, "The card layout".
 
 ## Module Structure
 
@@ -28,28 +30,30 @@ FieldsPanel/
 
 ## Visual Layout
 
+Two cards, with the shell canvas between them:
+
 ```
 ┌─────────────────────────────────────┐
 │  Data Source                        │  ← CompactMetadataSelector
-│  ┌─────────────────────────┬──┐     │
+│  ┌─────────────────────────┬──┐     │     (the Data Source card)
 │  │ [Database Dropdown    ▼]│  │     │  ← TableAddPicker (ClickHouse)
 │  └─────────────────────────┴──┘     │
 │  ┌─────────────────────────┬──┐     │
 │  │ [Table Dropdown       ▼]│ +│     │
 │  └─────────────────────────┴──┘     │
-├─────────────────────────────────────┤
 │  Selected Tables                    │  ← SelectedTablesList
 │  ┌─────────────────────────────┐    │
 │  │ [Primary] db.table      🗑️ │    │
 │  │ [UNION]   db2.table2    🗑️ │    │
 │  └─────────────────────────────┘    │
-├─────────────────────────────────────┤
 │  Related Tables              [▼]    │  ← JoinTableSelector (collapsible)
 │  ┌─────────────────────────────┐    │
 │  │ [🔗 table1] [🔗 table2]     │    │
 │  └─────────────────────────────┘    │
-├─────────────────────────────────────┤
-│  Fields                             │
+└─────────────────────────────────────┘
+      (4px canvas gap)
+┌─────────────────────────────────────┐
+│  Fields                             │  ← the Fields card: FieldsPanel
 │  [Search fields...]                 │  ← FieldsSearch
 ├─────────────────────────────────────┤
 │  Virtual Columns                    │  ← VirtualColumnManager
@@ -77,7 +81,7 @@ FieldsPanel/
 | Component | Role |
 |-----------|------|
 | `FieldsPanel` | Main orchestrator; manages drop-to-remove, search filtering, field categorization, keyboard shortcuts (Escape clears selection) |
-| `CompactMetadataSelector` | Routes to appropriate table selection UI based on connection type; handles JOIN/UNION coordination |
+| `CompactMetadataSelector` | The Data Source card, mounted by `VisualizationPage` rather than by `FieldsPanel`. Routes to appropriate table selection UI based on connection type; handles JOIN/UNION coordination |
 | `TableAddPicker` | Staged DB+table selection for adding tables (ClickHouse UNION mode) |
 | `SelectedTablesList` | Displays primary table + union secondaries with remove actions |
 | `JoinTableSelector` | Collapsible panel showing related/joinable tables with toggle chips |
