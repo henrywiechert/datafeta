@@ -14,7 +14,8 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { createTheme, experimental_extendTheme as extendTheme } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
+import denseTheme from './index';
 import { TOKENS, DF_TOKEN_NAMES, DfTokenName } from './tokens.def';
 import { T, cssVarName } from './tokens';
 
@@ -50,7 +51,7 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['textDim',              '#555555', 'LegendPanel .gradientLabels / .legendLabel'],
   ['textMuted',            '#666666', '43 sites — the most duplicated literal in the app'],
   ['textFaint',            '#999999', 'ContextMenu disabled, DataSourceSelectionPage hints'],
-  ['textInverse',          '#ffffff', 'VirtualResizeLine badge, ChartGrid .keyboardNavHint'],
+  ['textInverse',          '#ffffff', 'the bare <button> in App.css and the load-demo button; ink on an MUI *.main fill uses textOnAccent/textOnWarning instead'],
   ['textGhost',            'rgba(0, 0, 0, 0.55)', 'FilterFieldChip.module.css muted measure label'],
   ['textLabel',            'rgba(0, 0, 0, 0.7)', 'DiscreteFilterControl / ContinuousFilterControl row labels'],
   ['textControlLabel',     '#424242', 'Label/SizeRange/SeriesLabel control captions (6 sites)'],
@@ -138,7 +139,7 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
   ['inverseActionExclude', 'part of the inverse slab: dark in both themes'],
   ['inverseLink', 'part of the inverse slab: dark in both themes'],
   ['inverseLinkHover', 'part of the inverse slab: dark in both themes'],
-  ['textInverse',      'text on a dark badge/chip stays white in both themes'],
+  ['textInverse',      'ink on a fill that stays saturated in both themes (the bare <button> in App.css, the load-demo button)'],
   ['flavourInvalidBorder', 'the invalid-field red reads on both surfaces'],
 ];
 
@@ -164,8 +165,17 @@ const muiPath = (cssName: string) => cssName.replace('-', '.');
 const at = (node: unknown, p: string): unknown =>
   p.split('.').reduce<any>((acc, k) => (acc == null ? acc : acc[k]), node);
 
+/**
+ * The palette a delegating token actually resolves against: the *app's* theme,
+ * not stock MUI. These were the same thing until the app began overriding a
+ * dark palette value (`text.primary`, see index.ts), and the fallback inside
+ * `var(--mui-palette-X, …)` has to match what the provider will inject — that
+ * is the whole point of the fallback, which is what paints before the
+ * provider's <style> lands. Light is still byte-identical to `createTheme`, and
+ * the test below keeps checking the light fallbacks against it directly.
+ */
 const themeFor = (scheme: 'light' | 'dark') =>
-  extendTheme().colorSchemes[scheme].palette;
+  denseTheme.colorSchemes[scheme].palette;
 
 describe('token definitions', () => {
   it('defines the same tokens in both schemes', () => {
@@ -240,7 +250,7 @@ describe('tokens that delegate to the MUI palette', () => {
   );
 
   it.each(delegating.map(([name]) => [name]))(
-    '%s carries the stock MUI value as its per-scheme fallback',
+    '%s carries the app theme\'s own value as its per-scheme fallback',
     (name) => {
       for (const scheme of ['light', 'dark'] as const) {
         const match = MUI_DELEGATION.exec(TOKENS[scheme][name as DfTokenName]);

@@ -35,6 +35,30 @@ compositing work, so it is the only viable route.
 `drag-over`, `active-toggle`, `field-flavour-discrete`, `chart-grid-divider` or
 `label-halo`. Those are app concepts and live in `--df-*`.
 
+### The one palette value the app overrides
+
+`index.ts` sets dark `text.primary` to `#e8eaed` instead of MUI's `#fff`. It is
+the only palette leaf the app defines, and it is in the MUI layer on purpose:
+**a `--df-*` token cannot reach text that names no token.**
+
+Two things read `text.primary`, and between them they cover every string in the
+app that does not choose a colour: the `html, body` rule in `index.css` (via
+`--df-text-primary`, since there is no `CssBaseline`) and MUI `Typography`,
+whose default `color` is `inherit`. Stock dark `text.primary` is pure white, so
+un-roled text rendered at the very top of the ramp while text that *did* name a
+role — `--df-text-secondary` on the FieldsPanel category headers — sat at 70%
+and read as a calm grey. Light mode hid the split: un-roled text was
+`rgba(0,0,0,0.87)` next to `#333`/`#666` tokens, three shades of "dark grey".
+
+Softening the top of the ramp is a one-line fix for the whole app; assigning
+explicit roles to that text is the separate, larger pass. Light is untouched, so
+`palette.test.ts`'s lock on every light leaf still holds.
+
+One consequence for the token layer: `--df-text-primary`'s dark **fallback** is
+`#e8eaed`, not MUI's `#fff`. A delegating token's fallback is what paints before
+the provider's `<style>` lands, so it has to match the app's theme rather than
+stock MUI — which is what `themeFor()` in `tokens.test.ts` now checks against.
+
 ## The invariant
 
 > **Naming a literal is not the same as unifying it.**
@@ -75,6 +99,31 @@ literals in `tokens.def.json`.
 
 `tokens.test.ts` enforces this: every delegating token is checked to point at a
 role whose light and dark values actually differ.
+
+### Ink on a filled surface names the fill, not a colour
+
+A token for text sitting on a *filled* surface has to flip with that fill, and
+MUI already has the role for it: `X.contrastText`. Hence
+
+| token | ink for | delegates to |
+|---|---|---|
+| `--df-text-on-accent` | anything filled with `primary.main` — `--df-text-accent`, `--df-border-accent`, `--df-profile-valid` | `primary.contrastText` |
+| `--df-text-on-warning` | anything filled with `warning.main` / `warning.dark` | `warning.contrastText` |
+| `--df-text-inverse` | a fill that stays saturated in *both* schemes: the bare `<button>` in `App.css`, the load-demo button | nothing — literal `#ffffff` |
+
+The first two exist because the third was being used for all three jobs. `#ffffff`
+in both schemes is right for a dark fill and wrong for an MUI role, because
+dark mode *lightens* those roles: `primary.main` becomes `#90caf9` and
+`warning.main` `#ffa726`, so white ink landed at 1.7:1 and 1.9:1 — illegible,
+in eight places. `contrastText` flips to `rgba(0,0,0,0.87)` for exactly this
+reason, and in light mode it is `#fff`, so the migration is a no-op there.
+
+**So: never reach for `--df-text-inverse` on a fill that is an MUI palette
+role.** The remaining two `textInverse` sites sit on `--df-plain-button-bg` and
+`--df-action-success-bg`, which are app literals rather than MUI roles — their
+dark values (`#3d8bfd`, `#43a047`) are lightened enough to put white ink at
+~3.3:1. Darkening those two fills is a tone decision, not a token bug, and is
+still open.
 
 Collapsing the grey ladder into ~6 roles is a later, separately reviewed change
 with a screenshot diff behind it. A token named after a literal's role can be

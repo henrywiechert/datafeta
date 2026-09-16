@@ -70,7 +70,10 @@ const DatasetStatus: React.FC<DatasetStatusProps> = ({ tableOverride }) => {
             justifyContent: 'center',
             lineHeight: 1,
             bgcolor: sampled ? 'warning.main' : 'transparent',
-            color: sampled ? 'common.white' : 'text.disabled',
+            // Not `common.white`: that role is shared by both schemes, and dark
+            // mode lightens warning.main to #ffa726. contrastText flips, and is
+            // #fff in light. See src/theme/THEMING.md.
+            color: sampled ? 'warning.contrastText' : 'text.disabled',
             border: sampled ? 'none' : '1.5px solid',
             borderColor: sampled ? undefined : 'action.disabled',
             transition: 'background-color 0.2s, color 0.2s',

@@ -19,11 +19,18 @@ const QueryStatusIndicator: React.FC<{ size?: number; onClick?: () => void }> = 
   if (queryError) status = 'error';
   else if (queryResult) status = 'ok';
 
-  const getColor = (s: Status) => {
+  /**
+   * Fill and ink travel together: dark mode *lightens* the status roles
+   * (`success.main` becomes `#66bb6a`), so a fixed `common.white` label — which
+   * is scheme-invariant by design — drops to ~2:1 there. `contrastText` is the
+   * role that flips, and it is `#fff` in light mode for both statuses, so this
+   * changes nothing in light. See src/theme/THEMING.md.
+   */
+  const getColors = (s: Status): { bgcolor: string; color: string } => {
     switch (s) {
-      case 'ok': return 'success.main';
-      case 'error': return 'error.main';
-      default: return 'action.disabledBackground';
+      case 'ok': return { bgcolor: 'success.main', color: 'success.contrastText' };
+      case 'error': return { bgcolor: 'error.main', color: 'error.contrastText' };
+      default: return { bgcolor: 'action.disabledBackground', color: 'text.primary' };
     }
   };
 
@@ -56,8 +63,7 @@ const QueryStatusIndicator: React.FC<{ size?: number; onClick?: () => void }> = 
             py: 0.2,
             borderRadius: '999px',
             fontWeight: 700,
-            bgcolor: getColor(status),
-            color: status === 'unknown' ? 'text.primary' : 'common.white',
+            ...getColors(status),
             ariaLive: 'polite',
             display: 'inline-block',
             textTransform: 'none',
