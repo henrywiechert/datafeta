@@ -17,5 +17,6 @@ import '@mui/material/themeCssVarsAugmentation';
 declare module '@mui/material/styles' {
   interface ColorSchemeOverrides {
     dim: true;
+    solarized: true;
   }
 }

@@ -31,7 +31,7 @@ describe('ThemeModeToggle', () => {
     fireEvent.click(screen.getByRole('button'));
 
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent))
-      .toEqual(['Follow system', 'Light', 'Dark', 'Dim']);
+      .toEqual(['Follow system', 'Light', 'Solarized', 'Dark', 'Dim']);
   });
 
   it('starts on follow-system, which the matchMedia stub resolves to light', () => {
@@ -72,6 +72,30 @@ describe('ThemeModeToggle', () => {
 
     expect(document.documentElement.getAttribute(SCHEME_ATTRIBUTE)).toBe('dark');
     expect(localStorage.getItem(`${SCHEME_STORAGE_KEY}-dark`)).toBe('dark');
+  });
+
+  it('selects a light variant without leaving light mode', () => {
+    // The mirror of the dim case: two schemes behind the light mode.
+    renderToggle();
+
+    pick('Solarized');
+
+    expect(document.documentElement.getAttribute(SCHEME_ATTRIBUTE)).toBe('solarized');
+    expect(screen.getByLabelText('Theme: solarized')).toBeInTheDocument();
+    expect(localStorage.getItem(MODE_STORAGE_KEY)).toBe('light');
+    expect(localStorage.getItem(`${SCHEME_STORAGE_KEY}-light`)).toBe('solarized');
+  });
+
+  it('keeps the two modes\' schemes independent', () => {
+    // Each mode remembers its own scheme, so switching mode must not reset the
+    // other side's choice.
+    renderToggle();
+
+    pick('Solarized');
+    pick('Dim');
+
+    expect(localStorage.getItem(`${SCHEME_STORAGE_KEY}-light`)).toBe('solarized');
+    expect(localStorage.getItem(`${SCHEME_STORAGE_KEY}-dark`)).toBe('dim');
   });
 
   it('persists the choice under the app-prefixed keys', () => {

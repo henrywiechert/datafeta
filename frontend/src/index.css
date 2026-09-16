@@ -96,10 +96,48 @@ svg tspan,
  * `accent-color` likewise inherits, so one declaration tints every native
  * checkbox and radio in the app with the app's own accent instead of the
  * browser's default blue.
+ *
+ * So do `scrollbar-width` and `scrollbar-color`, which is why the app's
+ * scrollbar lives here rather than in each panel. `color-scheme` alone only
+ * picks the browser's light or dark scrollbar, and its light thumb is a pale
+ * grey that disappears against a tinted panel — visibly so in `solarized`.
+ * Declaring the token pair once covers every scroll area in the app; the four
+ * CSS modules that style `::-webkit-scrollbar` for themselves (ChartGrid,
+ * LegendPanel, LegendStack) keep their own, since a class beats a bare
+ * pseudo-element.
  */
 html {
   color-scheme: light;
   accent-color: var(--df-text-accent);
+  scrollbar-width: thin;
+  scrollbar-color: var(--df-scroll-thumb-subtle) transparent;
+}
+
+/*
+ * The WebKit half of the same declaration. Pseudo-elements are not inherited,
+ * but a bare selector matches every element, so this is still one rule for the
+ * whole app rather than a copy per panel.
+ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--df-scroll-thumb-subtle);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--df-scroll-thumb-subtle-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /*

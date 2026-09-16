@@ -59,6 +59,61 @@ const dimPalette = createTheme({
   },
 }).palette;
 
+/**
+ * The `solarized` scheme's MUI palette — Ethan Schoonover's Solarized Light.
+ *
+ * Same `createTheme` pre-augmentation as `dimPalette`, and the same reason.
+ * Unlike `dim`, this one carries its own hues: Solarized is recognisable for
+ * its blue and its cream, and a Solarized scheme wearing Material's #1976d2
+ * would just be a beige light theme. So `primary` and the four status roles are
+ * the Solarized accents, and `createTheme` derives their light/dark/contrastText
+ * ramps — which is what the `--df-*` fallbacks for those roles are generated
+ * from. See THEMING.md.
+ *
+ * `overlays` is assigned below the theme, not here: see the note there.
+ */
+const solarizedPalette = createTheme({
+  palette: {
+    mode: 'light',
+    // base3 is reserved for the chart paper — the surface data is drawn on,
+    // which is what it is in Solarized proper (the editor background). The UI
+    // chrome sits below it: base2 for panels, an interpolated step above for
+    // cards, and below base2 for the canvas. See THEMING.md on inventing
+    // inside a ramp rather than past its lightest end.
+    background: {
+      default: '#e7e0ca',
+      paper: '#f5efdc',
+    },
+    // base01 emphasized / base00 body / base1 secondary.
+    text: {
+      primary: '#586e75',
+      secondary: '#657b83',
+      disabled: '#93a1a1',
+    },
+    // `dark` shades are named rather than derived: MUI's darken() returns an
+    // `rgb()` string, and these values are copied into the token fallbacks by
+    // hand, where a hex keeps the generated CSS readable. Same colours either
+    // way — they are exactly what augmentColor would have computed.
+    /*
+     * Seeded because `extendTheme` decides these by scheme *name*, not palette
+     * mode: `key === 'light' ? ['#fff', '#000'] : ['#000', '#fff']`. Any custom
+     * scheme therefore gets the dark pair — and `common.onBackgroundChannel` is
+     * what MUI composites the resting border of OutlinedInput, the underline of
+     * Input, the fill of FilledInput, and the dividers of ButtonGroup and
+     * PaginationItem from. Left alone, every one of those renders
+     * `rgba(255 255 255 / 0.23)` on cream: invisible until focused, which is
+     * precisely how the bug showed up. `setColor` only assigns when the key is
+     * absent, so naming them here is enough.
+     */
+    common: { background: '#fff', onBackground: '#000' },
+    primary: { main: '#268bd2', dark: '#1a6193' },
+    error: { main: '#dc322f', dark: '#9a2320' },
+    warning: { main: '#cb4b16', dark: '#8e340f' },
+    success: { main: '#859900' },
+    info: { main: '#2aa198' },
+  },
+}).palette;
+
 const denseTheme = extendTheme({
   colorSchemes: {
     /**
@@ -121,6 +176,10 @@ const denseTheme = extendTheme({
      */
     dim: {
       palette: dimPalette,
+    },
+    /** Solarized Light. Built above; a patch over `light` in the token layer. */
+    solarized: {
+      palette: solarizedPalette,
     },
   },
   shape: {
@@ -245,5 +304,9 @@ const denseTheme = extendTheme({
  * paper colour, so `dark`'s is exactly the one `dim` should have.
  */
 denseTheme.colorSchemes.dim.overlays = denseTheme.colorSchemes.dark.overlays;
+// `solarized` takes `light`'s, which is the empty list: the elevation tint is a
+// dark-mode device. Assigned rather than written as `[]` in the block above
+// because the type is a fixed 25-tuple.
+denseTheme.colorSchemes.solarized.overlays = denseTheme.colorSchemes.light.overlays;
 
 export default denseTheme;

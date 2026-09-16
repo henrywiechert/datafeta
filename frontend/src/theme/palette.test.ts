@@ -186,6 +186,35 @@ describe('the app theme', () => {
     expect(denseTheme.colorSchemes.light.palette.mode).toBe('light');
   });
 
+  it('gives every scheme the common pair that matches its mode, not its name', () => {
+    /*
+     * `extendTheme` sets `common.background` / `common.onBackground` from
+     * `key === 'light'` — the scheme's *name* — so every custom scheme gets the
+     * dark pair regardless of its palette mode. `common.onBackgroundChannel` is
+     * what MUI composites the resting border of OutlinedInput, the underline of
+     * Input, the fill of FilledInput and the dividers of ButtonGroup and
+     * PaginationItem from, so a light-mode scheme that inherits `#fff` has
+     * invisible input borders until focus. Custom schemes seed the pair in
+     * index.ts; this is the check that a future one does too.
+     */
+    const schemes = Object.keys(denseTheme.colorSchemes) as Array<'light' | 'dark' | 'dim' | 'solarized'>;
+    expect(schemes.length).toBeGreaterThan(2);
+
+    for (const scheme of schemes) {
+      const palette = denseTheme.colorSchemes[scheme].palette;
+      const expected = palette.mode === 'light'
+        ? { background: '#fff', onBackground: '#000', channel: '0 0 0' }
+        : { background: '#000', onBackground: '#fff', channel: '255 255 255' };
+
+      expect({
+        scheme,
+        background: palette.common.background,
+        onBackground: palette.common.onBackground,
+        channel: palette.common.onBackgroundChannel,
+      }).toEqual({ scheme, ...expected });
+    }
+  });
+
   it('keeps contrastText flipping, which is what the on-fill ink tokens ride on', () => {
     // --df-text-on-accent / --df-text-on-warning replaced a token that was
     // #ffffff in both schemes, so white ink landed on dark mode's *lightened*
