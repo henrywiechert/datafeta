@@ -20,9 +20,22 @@ import {
   useSplitDrag,
 } from './useSplitDrag';
 
+/**
+ * Whether the handle sits between two panel *cards* or divides two regions of
+ * one card.
+ *
+ * Between cards the canvas gap already reads as the boundary, so drawing a line
+ * on top of it just adds noise — the handle stays invisible until hovered.
+ * Within a card there is no gap, so the resting line is what tells you the
+ * boundary is draggable at all.
+ */
+export type SplitHandleVariant = 'gap' | 'divider';
+
 export interface SplitHandleProps {
   /** `vertical` = a vertical divider between columns. */
   orientation: SplitOrientation;
+  /** Defaults to `divider`; use `gap` between panel cards. */
+  variant?: SplitHandleVariant;
   /** Which side of the handle the resized panel is on. Default `before`. */
   panelSide?: SplitPanelSide;
   /** Screen-reader name, e.g. "Resize Fields panel". */
@@ -54,6 +67,7 @@ export interface SplitHandleProps {
  */
 const SplitHandle: React.FC<SplitHandleProps> = ({
   orientation,
+  variant = 'divider',
   panelSide = 'before',
   ariaLabel,
   getBounds,
@@ -149,11 +163,13 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
               : { height: SPLIT_LINE_ACTIVE_THICKNESS_PX }),
           },
         }),
-        // The resting divider: always visible, so a split boundary never hides.
+        // The resting divider. Transparent in `gap` variant: between two cards
+        // the canvas showing through is the boundary, and the accent still
+        // appears on hover.
         '&::after': {
           content: '""',
           position: 'absolute',
-          backgroundColor: SPLIT_LINE_COLOR,
+          backgroundColor: variant === 'gap' ? 'transparent' : SPLIT_LINE_COLOR,
           transition: isDragging ? 'none' : 'background-color 0.15s, width 0.15s, height 0.15s',
           ...(isVertical
             ? {

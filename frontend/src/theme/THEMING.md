@@ -122,6 +122,41 @@ and offers no toggle yet. They are a first pass, authored so that token *names*
 had to survive contact with a second scheme; expect to tune them when dark mode
 actually ships.
 
+## The card layout
+
+Panels are cards floating on a shell canvas, and that only works if three
+things agree:
+
+1. **`--df-surface-shell` is darker than every panel surface.** The contrast
+   between canvas and card is the entire effect; if they converge, the layout
+   reads as a flat list again.
+2. **The gaps are the same size everywhere.** Gaps *between* cards are
+   `SPLIT_HANDLE_THICKNESS_PX` (the handle's own footprint); the gap at the
+   window edge is `SHELL_GUTTER_PX`. They are equal on purpose.
+3. **Cards do not nest.** A card inside a card is the "Russian doll" look that
+   makes dense UIs noisy. Where a column holds a *list* of cards — the
+   Properties column — the column itself is a **well** (`--df-surface-shell`,
+   the same colour as the canvas) rather than a card.
+
+`SplitHandle` has a `variant` for the two situations this creates:
+
+| variant | where | resting appearance |
+|---|---|---|
+| `gap` | between two panel cards | invisible — the canvas gap is the boundary |
+| `divider` (default) | between regions of one card | a 1px line, as before |
+
+So the shell's two handles use `gap`, while the legend and debug-drawer handles
+inside the chart card keep `divider` — without a canvas gap behind them, a line
+is the only thing that says "draggable".
+
+Radius comes from `PANEL_RADIUS_PX` (6), deliberately *not* from
+`theme.shape.borderRadius` (4): the theme's radius is pinned to 4 by the
+Menu/Dialog/Popover overrides, and a panel is a bigger surface that carries a
+little more curve. `--df-panel-radius` mirrors it for CSS modules.
+
+A card must set `overflow: hidden`, or its own children (a branded header, a
+scrollbar) will square off the corners it just rounded.
+
 ## Guardrails
 
 Two halves of one contract, both enforced in CI:

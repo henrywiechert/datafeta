@@ -1,5 +1,7 @@
 {
   "light": {
+    "surfaceShell": "#edeef0",
+    "panelRadius": "6px",
     "surfaceCanvas": "#fcfcfc",
     "surfacePanel": "#fafafa",
     "surfaceRaised": "#ffffff",
@@ -158,6 +160,8 @@
     "chartBadgeSurface": "rgba(0, 0, 0, 0.8)"
   },
   "dark": {
+    "surfaceShell": "#121212",
+    "panelRadius": "6px",
     "surfaceCanvas": "#1a1a1a",
     "surfacePanel": "#202020",
     "surfaceRaised": "#262626",

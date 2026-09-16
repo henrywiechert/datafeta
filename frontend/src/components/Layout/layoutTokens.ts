@@ -34,6 +34,23 @@ export const SPLIT_LINE_THICKNESS_PX = 1;
 /** The same line while hovered or dragging. */
 export const SPLIT_LINE_ACTIVE_THICKNESS_PX = 2;
 
+/**
+ * Corner radius of a panel card.
+ *
+ * Slightly rounder than `theme.shape.borderRadius` (4), which stays put: the
+ * theme's radius is pinned to 4 by the Menu/Dialog/Popover overrides, and a
+ * panel is a larger surface that reads better with a touch more curve. One
+ * token so the whole layout curves together.
+ */
+export const PANEL_RADIUS_PX = 6;
+
+/**
+ * Gutter between a panel card and the window edge. The gutters *between* cards
+ * come from SPLIT_HANDLE_THICKNESS_PX, so a handle and an outer margin read as
+ * the same gap.
+ */
+export const SHELL_GUTTER_PX = 4;
+
 /** Width of the strip a collapsed panel leaves behind. */
 export const COLLAPSE_RAIL_THICKNESS_PX = 28;
 
