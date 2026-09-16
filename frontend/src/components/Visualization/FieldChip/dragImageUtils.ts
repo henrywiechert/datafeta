@@ -55,7 +55,13 @@ export const createDragImageWithBadge = (
 };
 
 /**
- * Sets the drag image and cleans it up after the drag starts
+ * Attaches the drag image to the document and hands it to the DataTransfer.
+ *
+ * The wrapper stays in the DOM for the whole gesture — the caller removes it on
+ * `dragend` via `removeDragImage`. It used to be dropped in a 0ms timeout, which
+ * races Chromium's drag initialisation: the timer can fire before the browser
+ * has rasterised the image, and a drag started against a detached image can
+ * leave the page wedged in a drag that never ends (grab cursor, dead input).
  */
 export const setDragImage = (
   e: React.DragEvent,
@@ -65,7 +71,11 @@ export const setDragImage = (
 ): void => {
   document.body.appendChild(dragImageWrapper);
   e.dataTransfer.setDragImage(dragImageWrapper, offsetX, offsetY);
-  setTimeout(() => document.body.removeChild(dragImageWrapper), 0);
+};
+
+/** Removes a drag image previously attached by `setDragImage`. Safe to call twice. */
+export const removeDragImage = (dragImageWrapper: HTMLElement | null): void => {
+  dragImageWrapper?.parentNode?.removeChild(dragImageWrapper);
 };
 
 /**
