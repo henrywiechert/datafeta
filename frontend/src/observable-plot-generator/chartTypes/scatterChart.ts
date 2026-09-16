@@ -86,14 +86,24 @@ function stratifiedSampleRows(rows: any[], stratifyBy: string, maxPoints: number
 
   for (const t of targets) {
     const arr = shuffle(t.arr.slice());
-    picks.push(...arr.slice(0, t.target));
+    // `push(...arr)` spreads one argument per row, which overflows the call
+    // stack somewhere north of 100k arguments — exactly the size this sampler
+    // exists to handle.
+    for (const row of arr.slice(0, t.target)) {
+      picks.push(row);
+    }
   }
 
-  // If we undershot due to rounding, top up uniformly
+  // If we undershot due to rounding, top up uniformly. Membership goes through
+  // a Set: `picks.includes` inside a filter over every row is quadratic, and at
+  // the row counts that reach this branch (>maxPoints) that alone wedges the tab.
   if (picks.length < maxPoints) {
-    const remaining = rows.filter(r => !picks.includes(r));
+    const picked = new Set(picks);
+    const remaining = rows.filter(r => !picked.has(r));
     shuffle(remaining);
-    picks.push(...remaining.slice(0, maxPoints - picks.length));
+    for (const row of remaining.slice(0, maxPoints - picks.length)) {
+      picks.push(row);
+    }
   }
 
   return picks;

@@ -1,9 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Field } from '../../../types';
 import { DragSource } from './types';
 import { useSelectionStore, SelectedField } from '../../../stores/selectionStore';
-import { createDragImageWithBadge, setDragImage, createDragPayload } from './dragImageUtils';
+import { createDragImageWithBadge, setDragImage, removeDragImage, createDragPayload } from './dragImageUtils';
 import { setDragData, clearDragData } from '../../../utils/dragDataStore';
 
 interface UseDragHandlersProps {
@@ -33,6 +33,8 @@ export const useDragHandlers = ({
   allFields,
 }: UseDragHandlersProps): UseDragHandlersReturn => {
   const [isDragging, setIsDragging] = useState(false);
+  // The element handed to `setDragImage`, alive until this drag ends.
+  const dragImageRef = useRef<HTMLElement | null>(null);
   
   // Use refs to avoid recreating callbacks when field/source/index change
   const fieldRef = useRef(field);
@@ -71,10 +73,13 @@ export const useDragHandlers = ({
       indices = indexRef.current !== undefined ? [indexRef.current] : [-1];
     }
     
-    // Create and set custom drag image
+    // Create and set custom drag image. Any leftover from a gesture that never
+    // reported its end goes first, so at most one is ever attached.
+    removeDragImage(dragImageRef.current);
     const chipElement = e.currentTarget as HTMLElement;
     const dragImageWrapper = createDragImageWithBadge(chipElement, fields.length);
     setDragImage(e, dragImageWrapper);
+    dragImageRef.current = dragImageWrapper;
     
     // Primary channel: store drag data in memory (immune to browser dataTransfer bugs)
     setDragData({ fields, source: sourceRef.current, indices });
@@ -88,14 +93,24 @@ export const useDragHandlers = ({
       try { e.dataTransfer.setData('text/plain', payload); } catch { /* ignore */ }
     }
     e.dataTransfer.effectAllowed = 'copyMove';
-    
-    // Clear selection after starting drag
-    setTimeout(() => store.clearSelection(), 0);
   }, [field, source, allFields]);
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
+    removeDragImage(dragImageRef.current);
+    dragImageRef.current = null;
     clearDragData();
+    // Cleared here rather than in a 0ms timer at drag start: that timer fires
+    // while the browser is still setting the gesture up, and `clearSelection`
+    // flushes a synchronous re-render of every chip right into it.
+    useSelectionStore.getState().clearSelection();
+  }, []);
+
+  // A chip unmounted mid-drag (a drop that rebuilt the zone, a sheet switch)
+  // would otherwise leave its drag image parked on <body>.
+  useEffect(() => () => {
+    removeDragImage(dragImageRef.current);
+    dragImageRef.current = null;
   }, []);
 
   return {

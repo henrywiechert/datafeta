@@ -37,7 +37,10 @@ export const getChipClassNames = (
     source === 'AVAILABLE_FIELDS' ? baseStyles.textOnly : baseStyles.framed,
     isAxis ? baseStyles.axis : '',
     isInvalidOnAxis ? baseStyles.invalidAxisField : '',
-    isSelected ? baseStyles.selected : '',
+    // An invalid chip keeps its red fill while selected. The flavour `selected`
+    // backgrounds are more specific than `.invalidAxisField`, so letting both
+    // classes land repaints the chip blue/green on click and back to red on Esc.
+    isSelected && !isInvalidOnAxis ? baseStyles.selected : '',
     'field-chip'
   ];
   
