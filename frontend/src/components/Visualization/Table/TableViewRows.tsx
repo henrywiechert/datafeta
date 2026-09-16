@@ -48,6 +48,14 @@ const dfGridTheme = themeQuartz.withParams({
   accentColor: T.textAccent,
   // Let the ambient `color-scheme` drive native scrollbars and form controls.
   browserColorScheme: 'inherit',
+  // Quartz sizes rows off `spacing` (~42px at the default 8px), which wastes
+  // vertical space in a dense raw-rows table. Halving the spacing tightens the
+  // cell padding, and the explicit heights pin the rest.
+  spacing: 4,
+  rowHeight: 26,
+  headerHeight: 30,
+  dataFontSize: 12,
+  headerFontSize: 12,
 });
 
 /** Payload emitted by the table context menu filter action. */
