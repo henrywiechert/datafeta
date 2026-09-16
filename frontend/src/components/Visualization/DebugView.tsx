@@ -9,6 +9,7 @@ import { columnCacheManager, CachedColumnInfo, ColumnCacheStats } from '../../se
 import { filterTierManager } from '../../services/filterTierManager';
 import { queryDecisionEngine, QueryDecision } from '../../services/queryDecisionEngine';
 import { ViewSpec } from '../../viewPlanner';
+import { T } from '../../theme/tokens';
 
 export interface DebugData {
   queryDescription: QueryDescription | null;
@@ -255,14 +256,14 @@ const DuckDBCacheInfo: React.FC = () => {
       <p>
         DuckDB WASM: {' '}
         {status === 'ready' && <span className={styles.statusReady}>Ready</span>}
-        {status === 'initializing' && <span style={{ color: '#ff9800' }}>Initializing...</span>}
-        {status === 'error' && <span style={{ color: '#f44336' }}>Error</span>}
+        {status === 'initializing' && <span style={{ color: T.statusWarning }}>Initializing...</span>}
+        {status === 'error' && <span style={{ color: T.statusError }}>Error</span>}
         {status === 'not_initialized' && <span className={styles.statusNotReady}>Not initialized</span>}
       </p>
       
       {status === 'not_initialized' && (
         <div style={{ marginTop: '8px' }}>
-          <p style={{ fontSize: '11px', color: '#666', margin: '0 0 8px 0' }}>
+          <p style={{ fontSize: '11px', color: T.textMuted, margin: '0 0 8px 0' }}>
             DuckDB WASM will initialize automatically on first query.
           </p>
           <button 
@@ -271,8 +272,8 @@ const DuckDBCacheInfo: React.FC = () => {
               padding: '4px 12px',
               fontSize: '11px',
               cursor: 'pointer',
-              backgroundColor: '#1976d2',
-              color: 'white',
+              backgroundColor: T.textAccent,
+              color: T.surfaceRaised,
               border: 'none',
               borderRadius: '4px',
             }}
@@ -283,7 +284,7 @@ const DuckDBCacheInfo: React.FC = () => {
       )}
       
       {error && (
-        <p style={{ fontSize: '11px', color: '#f44336', marginTop: '4px' }}>
+        <p style={{ fontSize: '11px', color: T.statusError, marginTop: '4px' }}>
           Error: {error}
         </p>
       )}
@@ -323,7 +324,7 @@ const DuckDBCacheInfo: React.FC = () => {
                       >
                         <span style={{ marginRight: '6px' }}>{isOpen ? '▼' : '▶'}</span>
                         <strong>{table.tableName}</strong>
-                        <span style={{ color: '#666', marginLeft: '8px' }}>
+                        <span style={{ color: T.textMuted, marginLeft: '8px' }}>
                           ({(table.columns[0]?.rowCount || 0).toLocaleString()} rows, {table.columns.length} cols)
                         </span>
                       </div>
@@ -334,17 +335,17 @@ const DuckDBCacheInfo: React.FC = () => {
                           marginTop: '4px',
                           fontSize: '11px',
                           fontFamily: 'monospace',
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: T.surfaceSunken,
                           padding: '6px',
                           borderRadius: '4px'
                         }}>
-                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                          <div style={{ color: T.textMuted, marginBottom: '4px' }}>
                             Source: {table.columns[0]?.sourceDatabase ? `${table.columns[0].sourceDatabase}.` : ''}{table.columns[0]?.sourceTable || ''}
                           </div>
-                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                          <div style={{ color: T.textMuted, marginBottom: '4px' }}>
                             Base filter hash: {table.columns[0]?.baseFilterHash || '(none)'}
                           </div>
-                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                          <div style={{ color: T.textMuted, marginBottom: '4px' }}>
                             Cached: {table.columns[0]?.cachedAt?.toLocaleTimeString?.() || ''}
                           </div>
                           <div>
@@ -359,13 +360,13 @@ const DuckDBCacheInfo: React.FC = () => {
                                 <span 
                                   key={col.columnName}
                                   style={{
-                                    backgroundColor: '#e3f2fd',
+                                    backgroundColor: T.statusInfoSurface,
                                     padding: '2px 6px',
                                     borderRadius: '3px',
                                     fontSize: '10px'
                                   }}
                                 >
-                                  {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
+                                  {col.columnName} <span style={{ color: T.textFaint }}>({col.dataType})</span>
                                 </span>
                               ))}
                             </div>
@@ -378,7 +379,7 @@ const DuckDBCacheInfo: React.FC = () => {
               </div>
             </div>
           ) : (
-            <p style={{ fontSize: '11px', color: '#888' }}>
+            <p style={{ fontSize: '11px', color: T.textFaint }}>
               No data cached yet. Run a query to populate the cache.
             </p>
           )}
@@ -392,10 +393,10 @@ const DuckDBCacheInfo: React.FC = () => {
                   padding: '4px 10px',
                   fontSize: '11px',
                   cursor: 'pointer',
-                  backgroundColor: '#e3f2fd',
-                  border: '1px solid #90caf9',
+                  backgroundColor: T.statusInfoSurface,
+                  border: `1px solid ${T.statusInfoBorder}`,
                   borderRadius: '4px',
-                  color: '#333',
+                  color: T.textStrong,
                 }}
               >
                 🧪 COUNT(*)
@@ -406,10 +407,10 @@ const DuckDBCacheInfo: React.FC = () => {
                   padding: '4px 10px',
                   fontSize: '11px',
                   cursor: 'pointer',
-                  backgroundColor: '#e8f5e9',
-                  border: '1px solid #a5d6a7',
+                  backgroundColor: T.statusSuccessSurface,
+                  border: `1px solid ${T.statusSuccessBorder}`,
                   borderRadius: '4px',
-                  color: '#333',
+                  color: T.textStrong,
                 }}
               >
                 🧪 DISTINCT
@@ -420,10 +421,10 @@ const DuckDBCacheInfo: React.FC = () => {
                   padding: '4px 10px',
                   fontSize: '11px',
                   cursor: 'pointer',
-                  backgroundColor: '#fff3e0',
-                  border: '1px solid #ffcc80',
+                  backgroundColor: T.statusWarningSurface,
+                  border: `1px solid ${T.statusWarningBorder}`,
                   borderRadius: '4px',
-                  color: '#333',
+                  color: T.textStrong,
                 }}
               >
                 🔬 Stats
@@ -434,10 +435,10 @@ const DuckDBCacheInfo: React.FC = () => {
                   padding: '4px 10px',
                   fontSize: '11px',
                   cursor: 'pointer',
-                  backgroundColor: '#fce4ec',
-                  border: '1px solid #f48fb1',
+                  backgroundColor: T.calloutSurfaceAlt,
+                  border: `1px solid ${T.borderHairline}`,
                   borderRadius: '4px',
-                  color: '#333',
+                  color: T.textStrong,
                 }}
               >
                 📋 Sample Rows
@@ -450,14 +451,14 @@ const DuckDBCacheInfo: React.FC = () => {
             <div style={{ 
               marginTop: '12px', 
               padding: '8px', 
-              backgroundColor: '#fafafa', 
+              backgroundColor: T.surfacePanel, 
               borderRadius: '4px',
-              border: '1px solid #e0e0e0'
+              border: `1px solid ${T.borderHairline}`
             }}>
               <div style={{ 
                 fontSize: '10px', 
                 fontFamily: 'monospace', 
-                color: '#666',
+                color: T.textMuted,
                 marginBottom: '8px',
                 wordBreak: 'break-all'
               }}>
@@ -470,12 +471,12 @@ const DuckDBCacheInfo: React.FC = () => {
                 fontFamily: 'monospace'
               }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#e3f2fd' }}>
+                  <tr style={{ backgroundColor: T.statusInfoSurface }}>
                     {lastResult.columns.map(col => (
                       <th key={col} style={{ 
                         padding: '4px 8px', 
                         textAlign: 'left',
-                        borderBottom: '1px solid #90caf9'
+                        borderBottom: `1px solid ${T.statusInfoBorder}`
                       }}>
                         {col}
                       </th>
@@ -484,11 +485,11 @@ const DuckDBCacheInfo: React.FC = () => {
                 </thead>
                 <tbody>
                   {lastResult.rows.map((row, idx) => (
-                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f5f5f5' }}>
+                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? T.surfaceRaised : T.surfaceSunken }}>
                       {lastResult.columns.map(col => (
                         <td key={col} style={{ 
                           padding: '4px 8px',
-                          borderBottom: '1px solid #eee'
+                          borderBottom: `1px solid ${T.borderSubtle}`
                         }}>
                           {typeof row[col] === 'number' 
                             ? row[col].toLocaleString(undefined, { maximumFractionDigits: 6 })
@@ -506,10 +507,10 @@ const DuckDBCacheInfo: React.FC = () => {
                   padding: '2px 8px',
                   fontSize: '10px',
                   cursor: 'pointer',
-                  backgroundColor: '#eee',
-                  border: '1px solid #ccc',
+                  backgroundColor: T.borderSubtle,
+                  border: `1px solid ${T.borderStrong}`,
                   borderRadius: '3px',
-                  color: '#333',
+                  color: T.textStrong,
                 }}
               >
                 Clear Result
@@ -530,10 +531,10 @@ const DuckDBCacheInfo: React.FC = () => {
                       padding: '2px 6px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      backgroundColor: '#eee',
-                      border: '1px solid #ccc',
+                      backgroundColor: T.borderSubtle,
+                      border: `1px solid ${T.borderStrong}`,
                       borderRadius: '3px',
-                      color: '#333',
+                      color: T.textStrong,
                     }}
                   >
                     Clear
@@ -544,10 +545,10 @@ const DuckDBCacheInfo: React.FC = () => {
                       padding: '2px 6px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      backgroundColor: '#e3f2fd',
-                      border: '1px solid #90caf9',
+                      backgroundColor: T.statusInfoSurface,
+                      border: `1px solid ${T.statusInfoBorder}`,
                       borderRadius: '3px',
-                      color: '#333',
+                      color: T.textStrong,
                     }}
                   >
                     {showAllLocalQueries ? 'Show last 10' : 'Show all'}
@@ -557,7 +558,7 @@ const DuckDBCacheInfo: React.FC = () => {
             </div>
             <div style={{ marginTop: '8px', maxHeight: '300px', overflow: 'auto' }}>
               {queryLog.length === 0 ? (
-                <p style={{ fontSize: '11px', color: '#888', margin: '4px 0' }}>
+                <p style={{ fontSize: '11px', color: T.textFaint, margin: '4px 0' }}>
                   No local queries executed yet.
                 </p>
               ) : (
@@ -567,9 +568,9 @@ const DuckDBCacheInfo: React.FC = () => {
                     style={{
                       marginBottom: '8px',
                       padding: '8px',
-                      backgroundColor: entry.error ? '#ffebee' : '#f5f5f5',
+                      backgroundColor: entry.error ? T.statusErrorSurface : T.surfaceSunken,
                       borderRadius: '4px',
-                      borderLeft: entry.error ? '3px solid #f44336' : '3px solid #4caf50',
+                      borderLeft: entry.error ? `3px solid ${T.statusError}` : `3px solid ${T.statusSuccess}`,
                       fontSize: '11px',
                     }}
                   >
@@ -577,7 +578,7 @@ const DuckDBCacheInfo: React.FC = () => {
                       display: 'flex', 
                       justifyContent: 'space-between',
                       marginBottom: '4px',
-                      color: '#666'
+                      color: T.textMuted
                     }}>
                       <span>{formatTime(entry.timestamp)}</span>
                       <span>
@@ -596,7 +597,7 @@ const DuckDBCacheInfo: React.FC = () => {
                       {entry.sql}
                     </pre>
                     {entry.error && (
-                      <div style={{ color: '#f44336', marginTop: '4px' }}>
+                      <div style={{ color: T.statusError, marginTop: '4px' }}>
                         Error: {entry.error}
                       </div>
                     )}
@@ -657,20 +658,20 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
         {lastQueryDecision ? (
           <div style={{ 
             padding: '8px', 
-            backgroundColor: lastQueryDecision.strategy === 'cache_hit' ? '#e8f5e9' : 
-                            lastQueryDecision.strategy === 'raw_columns' ? '#e3f2fd' : '#fff3e0',
+            backgroundColor: lastQueryDecision.strategy === 'cache_hit' ? T.statusSuccessSurface : 
+                            lastQueryDecision.strategy === 'raw_columns' ? T.statusInfoSurface : T.statusWarningSurface,
             borderRadius: '4px',
             marginBottom: '12px'
           }}>
             <div style={{ fontWeight: 500 }}>
               Strategy: <span style={{ 
-                color: lastQueryDecision.strategy === 'cache_hit' ? '#2e7d32' : 
-                       lastQueryDecision.strategy === 'raw_columns' ? '#1565c0' : '#ef6c00'
+                color: lastQueryDecision.strategy === 'cache_hit' ? T.statusSuccess : 
+                       lastQueryDecision.strategy === 'raw_columns' ? T.borderAccentStrong : T.statusWarningStrong
               }}>
                 {lastQueryDecision.strategy.toUpperCase().replace('_', ' ')}
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+            <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '4px' }}>
               {lastQueryDecision.reason}
             </div>
             {lastQueryDecision.estimatedRowCount && (
@@ -696,7 +697,7 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
             )}
           </div>
         ) : (
-          <p style={{ color: '#999', fontSize: '11px' }}>No query decision yet.</p>
+          <p style={{ color: T.textFaint, fontSize: '11px' }}>No query decision yet.</p>
         )}
       </details>
       
@@ -706,10 +707,10 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
           🔐 Filter Tiers
         </summary>
         {filterTierStats && (
-          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px', marginBottom: '12px' }}>
+          <div style={{ padding: '8px', backgroundColor: T.surfaceSunken, borderRadius: '4px', marginBottom: '12px' }}>
             <div style={{ marginBottom: '8px' }}>
               <strong>Base Filter Hash:</strong>{' '}
-              <code style={{ backgroundColor: '#e0e0e0', padding: '2px 4px', borderRadius: '2px' }}>
+              <code style={{ backgroundColor: T.borderHairline, padding: '2px 4px', borderRadius: '2px' }}>
                 {filterTierStats.currentBaseFilterHash || '(none)'}
               </code>
             </div>
@@ -719,8 +720,8 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                   {filterTierStats.baseFilterColumns.map(col => (
                     <span key={col} style={{
-                      backgroundColor: '#bbdefb',
-                      color: '#0d47a1',
+                      backgroundColor: T.statusInfoSurface,
+                      color: T.statusInfoInk,
                       padding: '2px 6px',
                       borderRadius: '10px',
                       fontSize: '10px'
@@ -731,7 +732,7 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: '11px', color: '#999' }}>
+              <p style={{ fontSize: '11px', color: T.textFaint }}>
                 All filters are base filters by default. Toggle the lock icon on filter chips to mark as refinement.
               </p>
             )}
@@ -745,12 +746,12 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
           ⚙️ Decision Engine Config
         </summary>
         {decisionEngineStats && (
-          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px', marginBottom: '12px' }}>
+          <div style={{ padding: '8px', backgroundColor: T.surfaceSunken, borderRadius: '4px', marginBottom: '12px' }}>
             <div>
               <strong>Size Threshold:</strong>{' '}
               {decisionEngineStats.sizeThreshold.toLocaleString()} rows
             </div>
-            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+            <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '4px' }}>
               Below threshold → fetch raw columns | Above → pre-aggregate
             </div>
             <div style={{ marginTop: '8px' }}>
@@ -766,36 +767,36 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
           📊 Column Cache ({columnCacheInfo.length} tables)
         </summary>
         {columnCacheInfo.length > 0 ? (
-          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+          <div style={{ padding: '8px', backgroundColor: T.surfaceSunken, borderRadius: '4px' }}>
             {columnCacheInfo.map(cache => (
               <div key={cache.cacheKey} style={{ 
                 marginBottom: '8px', 
                 padding: '6px', 
-                backgroundColor: '#fff',
+                backgroundColor: T.surfaceRaised,
                 borderRadius: '4px',
-                border: '1px solid #e0e0e0'
+                border: `1px solid ${T.borderHairline}`
               }}>
                 <div style={{ fontWeight: 500, marginBottom: '4px' }}>
                   {cache.tableName}
                 </div>
-                <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px' }}>
+                <div style={{ fontSize: '10px', color: T.textMuted, marginBottom: '4px' }}>
                   Key: {cache.cacheKey}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {cache.columns.map(col => (
                     <span key={col.columnName} style={{
-                      backgroundColor: '#e8f5e9',
-                      color: '#2e7d32',
+                      backgroundColor: T.statusSuccessSurface,
+                      color: T.statusSuccess,
                       padding: '2px 6px',
                       borderRadius: '10px',
                       fontSize: '10px'
                     }}>
-                      {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
+                      {col.columnName} <span style={{ color: T.textFaint }}>({col.dataType})</span>
                     </span>
                   ))}
                 </div>
                 {cache.columns.length > 0 && (
-                  <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+                  <div style={{ fontSize: '10px', color: T.textMuted, marginTop: '4px' }}>
                     {cache.columns[0].rowCount.toLocaleString()} rows • 
                     Cached: {cache.columns[0].cachedAt.toLocaleTimeString()}
                   </div>
@@ -804,7 +805,7 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: '11px', color: '#999', padding: '8px' }}>
+          <p style={{ fontSize: '11px', color: T.textFaint, padding: '8px' }}>
             No column-level cache data. Run a query to populate the cache.
           </p>
         )}
@@ -826,7 +827,7 @@ const ViewSpecInspector: React.FC<{
   safeStringify: (obj: any, indent?: number) => string;
 }> = ({ viewSpec, safeStringify }) => {
   if (!viewSpec) {
-    return <p style={{ fontSize: '12px', color: '#777' }}>No ViewSpec available yet.</p>;
+    return <p style={{ fontSize: '12px', color: T.textMuted }}>No ViewSpec available yet.</p>;
   }
 
   return (
@@ -864,7 +865,7 @@ const ViewSpecInspector: React.FC<{
         <div style={{ marginBottom: '12px' }}>
           <strong>Measure Groups</strong>
           {viewSpec.measureGroups.map((group, index) => (
-            <div key={index} style={{ marginTop: '6px', padding: '6px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+            <div key={index} style={{ marginTop: '6px', padding: '6px', backgroundColor: T.surfaceSunken, borderRadius: '4px' }}>
               <div>Can share pane: {group.compatibility.canSharePane ? 'yes' : 'no'}</div>
               <div>Uses MeasureValues: {group.usesSyntheticMeasureValues ? 'yes' : 'no'}</div>
               <div>Value axis: {group.valueAxis ? group.valueAxis.toUpperCase() : 'none'}</div>

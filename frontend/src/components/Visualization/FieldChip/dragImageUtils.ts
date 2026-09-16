@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field } from '../../../types';
+import { T } from '../../../theme/tokens';
 
 /**
  * Creates a custom drag image with a badge showing the count of items being dragged
@@ -33,8 +34,10 @@ export const createDragImageWithBadge = (
     badge.style.position = 'absolute';
     badge.style.top = '-8px';
     badge.style.right = '-8px';
-    badge.style.backgroundColor = '#1976d2';
-    badge.style.color = 'white';
+    // The wrapper is attached to document.body before the browser rasterizes
+    // the drag image (see setDragImage below), so var() references resolve.
+    badge.style.backgroundColor = T.dropCaret;
+    badge.style.color = T.inverseText;
     badge.style.borderRadius = '50%';
     badge.style.width = '20px';
     badge.style.height = '20px';

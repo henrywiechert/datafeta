@@ -7,6 +7,7 @@
 import React from 'react';
 import { OptimizationHints } from '../../../types';
 import { formatReason } from '../utils/formatters';
+import { T } from '../../../theme/tokens';
 
 interface FieldHintsListProps {
     hints: OptimizationHints;
@@ -36,7 +37,7 @@ export const FieldHintsList: React.FC<FieldHintsListProps> = ({ hints }) => {
                                 </span>
                             )}
                             {!fieldHint.enable_rounding && (
-                                <span className="field-hint-badge" style={{ background: '#f8f9fa', color: '#6c757d', border: '1px solid #dee2e6' }}>
+                                <span className="field-hint-badge" style={{ background: T.surfaceSubtle, color: T.textMuted, border: `1px solid ${T.borderHairline}` }}>
                                     ✗ Rounding disabled
                                 </span>
                             )}
