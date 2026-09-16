@@ -32,8 +32,10 @@ import {
 import {
     COLLAPSE_RAIL_THICKNESS_PX,
     PANEL_HEADER_SURFACE,
-    PANEL_SURFACE,
+    PANEL_RADIUS_PX,
+    SHELL_GUTTER_PX,
 } from '../components/Layout/layoutTokens';
+import { T } from '../theme/tokens';
 import AppInfoDisplay from '../components/AppInfoDisplay';
 import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -502,8 +504,19 @@ const VisualizationPageContent = () => {
             flexDirection: 'column',
             overflow: 'hidden' 
         }}>
-                {/* Main Layout with react-resizable-panels */}
-                <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                {/*
+                  Main layout. The group sits on the shell canvas with a gutter
+                  all round, so each panel below reads as a card floating on it:
+                  the gaps between cards are the SplitHandles, and this padding
+                  is the matching gap at the window edge.
+                */}
+                <Box sx={{
+                    flex: 1,
+                    overflow: 'hidden',
+                    minHeight: 0,
+                    backgroundColor: T.surfaceShell,
+                    p: `${SHELL_GUTTER_PX}px`,
+                }}>
                     <PanelGroup orientation="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
                     <Panel
@@ -522,7 +535,16 @@ const VisualizationPageContent = () => {
                         {leftPanelCollapsed ? (
                             <CollapseRail label="Fields" onExpand={toggleLeftPanel} side="left" />
                         ) : (
-                            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                            <Box sx={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                minHeight: 0,
+                                backgroundColor: T.surfaceRaised,
+                                borderRadius: `${PANEL_RADIUS_PX}px`,
+                                // Clips the branded header's top corners to the card.
+                                overflow: 'hidden',
+                            }}>
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -626,6 +648,7 @@ const VisualizationPageContent = () => {
 
                     <SplitHandle
                         inGroup
+                        variant="gap"
                         orientation="vertical"
                         panelSide="before"
                         ariaLabel="Resize Fields panel"
@@ -656,7 +679,13 @@ const VisualizationPageContent = () => {
                               display: 'flex',
                               flexDirection: 'column',
                               overflow: 'auto',
-                              backgroundColor: PANEL_SURFACE,
+                              // A well rather than a card: the sections inside are
+                              // the cards, so stacking one card inside another is
+                              // avoided. See PropertySection.module.css.
+                              backgroundColor: T.surfaceShell,
+                              borderRadius: `${PANEL_RADIUS_PX}px`,
+                              gap: `${SHELL_GUTTER_PX}px`,
+                              p: `${SHELL_GUTTER_PX}px`,
                           }}>
                               <FilterPanel
                                   filterFields={filterController.effective.fields}
@@ -684,6 +713,7 @@ const VisualizationPageContent = () => {
 
                     <SplitHandle
                         inGroup
+                        variant="gap"
                         orientation="vertical"
                         panelSide="before"
                         ariaLabel="Resize Properties panel"

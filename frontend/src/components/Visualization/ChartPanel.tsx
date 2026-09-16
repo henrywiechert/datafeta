@@ -9,6 +9,7 @@ import { Field, DragSource } from '../../types';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
 import { T } from '../../theme/tokens';
+import { PANEL_RADIUS_PX } from '../Layout/layoutTokens';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
@@ -84,6 +85,11 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
+        // The chart column's card. The plot, legend and debug drawer are
+        // regions of this one surface rather than cards of their own, which is
+        // why their handles keep the `divider` variant.
+        backgroundColor: T.surfaceRaised,
+        borderRadius: `${PANEL_RADIUS_PX}px`,
       }}
     >
       {showTableRows ? (

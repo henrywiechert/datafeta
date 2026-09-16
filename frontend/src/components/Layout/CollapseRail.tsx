@@ -3,7 +3,7 @@ import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import { COLLAPSE_RAIL_THICKNESS_PX, PANEL_SURFACE } from './layoutTokens';
+import { COLLAPSE_RAIL_THICKNESS_PX, PANEL_RADIUS_PX, PANEL_SURFACE } from './layoutTokens';
 
 interface CollapseRailProps {
   label: string;
@@ -36,9 +36,9 @@ const CollapseRail: React.FC<CollapseRailProps> = ({ label, onExpand, side = 'le
         flexDirection: 'column',
         alignItems: 'center',
         backgroundColor: PANEL_SURFACE,
-        borderRight: side === 'left' ? '1px solid' : undefined,
-        borderLeft: side === 'right' ? '1px solid' : undefined,
-        borderColor: 'divider',
+        // A collapsed panel is still a card: same curve, no border — the shell
+        // canvas around it is the boundary.
+        borderRadius: `${PANEL_RADIUS_PX}px`,
         userSelect: 'none',
         overflow: 'hidden',
       }}

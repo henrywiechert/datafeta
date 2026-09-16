@@ -1,6 +1,13 @@
+/*
+ * Each section is a card floating on the Properties well, rather than a row in
+ * a flat list. The stack supplies the gap between them (see VisualizationPage),
+ * so the card edges are the separation and the old border-bottom is gone.
+ */
 .section {
-  background-color: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: var(--df-surface-raised);
+  border-radius: var(--df-panel-radius);
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .header {
@@ -9,13 +16,13 @@
   justify-content: space-between;
   height: 40px;
   padding: 0 12px;
-  background-color: #ffffff;
+  background-color: var(--df-surface-raised);
   transition: background-color 0.15s ease;
   user-select: none;
 }
 
 .header:hover {
-  background-color: #f9f9f9;
+  background-color: var(--df-surface-subtle);
 }
 
 .titleContainer {
@@ -34,14 +41,14 @@
 .icon {
   display: flex;
   align-items: center;
-  color: #757575;
+  color: var(--df-text-placeholder);
 }
 
 .title {
   font-size: 13px;
   font-weight: 600;
   margin: 0;
-  color: #212121;
+  color: var(--df-text-ink);
 }
 
 .actions {

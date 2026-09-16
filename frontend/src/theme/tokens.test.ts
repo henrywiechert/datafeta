@@ -29,6 +29,7 @@ const GENERATED_CSS = path.join(__dirname, 'tokens.generated.css');
  */
 const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['surfaceCanvas',        '#fcfcfc', 'ChartGrid.module.css .container, ChartArea.module.css .container'],
+  ['surfaceShell',         '#edeef0', 'the canvas panel cards float on (new in the card layout)'],
   ['surfacePanel',         '#fafafa', 'layoutTokens.PANEL_SURFACE, LegendStack/LegendPanel .container'],
   ['surfaceSunken',        '#f5f5f5', 'FilterFieldChip .disabled, DataSourceSelectionPage blocks'],
   ['surfaceSubtle',        '#f9f9f9', 'DropZone.module.css resting background'],
@@ -125,6 +126,7 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
   ['statusErrorBorder', 'delegates to MUI\'s Alert palette, which flips on its own'],
   ['calloutPlate', 'a translucent white plate on a tinted callout, both themes'],
   ['calloutPlateSoft', 'a translucent white plate on a tinted callout, both themes'],
+  ['panelRadius', 'geometry, not colour: the same curve in both themes'],
   ['inverseBorderSubtle', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderStrong', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderEmphasis', 'part of the inverse slab: dark in both themes'],
@@ -142,6 +144,13 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
 
 // The shade digits matter: `grey-50` and `primary-100` are exactly the
 // delegations that must be caught, since numbered ramps do not flip.
+/**
+ * Tokens that are not colours. The layout needs its card radius readable from
+ * CSS as well as TypeScript, and this is the one place both views are generated
+ * from — so it rides along rather than living in a second mechanism.
+ */
+const NON_COLOR_TOKENS: DfTokenName[] = ['panelRadius'];
+
 const MUI_DELEGATION = /^var\(--mui-palette-([a-zA-Z0-9-]+), (.+)\)$/;
 
 /**
@@ -166,7 +175,9 @@ describe('token definitions', () => {
 
   it('has no empty or obviously malformed values', () => {
     const bad = (['light', 'dark'] as const).flatMap((scheme) =>
-      DF_TOKEN_NAMES.filter((name) => !/^(#[0-9a-f]{3,8}|rgba?\(|hsla?\(|var\()/i.test(TOKENS[scheme][name]))
+      DF_TOKEN_NAMES
+        .filter((name) => NON_COLOR_TOKENS.indexOf(name) === -1)
+        .filter((name) => !/^(#[0-9a-f]{3,8}|rgba?\(|hsla?\(|var\()/i.test(TOKENS[scheme][name]))
         .map((name) => `  ${scheme}.${name} = ${TOKENS[scheme][name]}`),
     );
     expect(bad.join('\n')).toBe('');
