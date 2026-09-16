@@ -2,6 +2,10 @@
 
 The `FieldsPanel` module provides the left sidebar for data source selection and field browsing: metadata selection (database/table), multi-table operations (JOIN/UNION), virtual columns, and categorized field lists.
 
+Both cards collapse through `../Properties/SectionHeader`, the same header the
+Properties sections use, so the chevron sits on the left and rotates in all of
+them.
+
 The module fills **two cards** of the Fields well, not one. `CompactMetadataSelector` is mounted by `VisualizationPage` as the Data Source card, and `FieldsPanel` is the Fields card below it — so `FieldsPanel` does not render the selector and is not passed any of the metadata, JOIN/UNION or partition props. They are siblings separated by the canvas gap; see `src/theme/THEMING.md`, "The card layout".
 
 ## Module Structure
@@ -25,6 +29,7 @@ FieldsPanel/
 │
 ├── FieldCategory.tsx            # Renders Dimensions or Measures list
 ├── FieldsSearch.tsx             # Search input for filtering fields
+├── (uses ../Properties/SectionHeader)  # The shared collapse header
 └── (uses ../FieldChip/)         # Individual field chips
 ```
 

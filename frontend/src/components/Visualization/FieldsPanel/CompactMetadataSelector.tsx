@@ -5,13 +5,12 @@ import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
 import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
+import SectionHeader from '../Properties/SectionHeader';
 import styles from './CompactMetadataSelector.module.css';
 import {
   compactAutocompleteClassName,
@@ -306,25 +305,14 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 
   return (
     <div className={styles.metadataSelector}>
-      <Box className={styles.headerRow} onClick={handleToggleExpanded}>
-        <Box className={styles.headerTitle}>
-          <Typography 
-            variant="subtitle2"
-            fontWeight="bold"
-            align="left"
-            fontSize="0.85rem"
-            gutterBottom
-            sx={{ marginBottom: 0.2, flexShrink: 0 }}
-          >
-            Data Source
-          </Typography>
-          {!expanded && collapsedHint && (
-            <Typography component="span" variant="caption" className={styles.collapsedHint}>
-              {collapsedHint}
-            </Typography>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }} onClick={(e) => e.stopPropagation()}>
+      <SectionHeader
+        title="Data Source"
+        hint={collapsedHint}
+        expanded={expanded}
+        onToggle={handleToggleExpanded}
+        controls="data-source-content"
+        actions={
+          <>
           {connectionType === 'csv' && onAddFiles && (
             <>
               <input
@@ -388,19 +376,9 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               </IconButton>
             </span>
           </Tooltip>
-          <IconButton
-            size="small"
-            className={styles.expandButton}
-            aria-expanded={expanded}
-            aria-controls="data-source-content"
-            aria-label={expanded ? 'Collapse data source' : 'Expand data source'}
-            onClick={handleToggleExpanded}
-            sx={{ width: 20, height: 20 }}
-          >
-            {expanded ? <ExpandLessIcon fontSize="inherit" /> : <ExpandMoreIcon fontSize="inherit" />}
-          </IconButton>
-        </Box>
-      </Box>
+          </>
+        }
+      />
 
       <Collapse in={expanded} timeout={200}>
         <div id="data-source-content" className={styles.content}>

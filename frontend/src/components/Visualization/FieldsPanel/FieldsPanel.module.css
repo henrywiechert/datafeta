@@ -39,38 +39,22 @@
   min-height: 0;
 }
 
+/*
+ * Holds SectionHeader plus the search box. Unpadded and untinted: the header is
+ * full-bleed so its hover tint reaches the card's edges, and the surface is the
+ * card's --df-surface-raised, matching the Properties sections. It used to be a
+ * --df-surface-panel band. The border-bottom stays — it divides two regions of
+ * one card, which is what a divider is for. See src/theme/THEMING.md.
+ */
 .header {
-    padding: 10px 10px 6px 10px;
     border-bottom: 1px solid var(--df-border-hairline);
     flex-shrink: 0;
-    background-color: var(--df-surface-panel);
 }
 
-.headerTitleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  margin: -4px -6px 0;
-  padding: 4px 6px;
-  border-radius: 4px;
-}
-
-.headerTitleRow:hover {
-  background-color: var(--df-state-hover);
-}
-
-.headerActions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.expandButton {
-  padding: 2px;
+/* 12px to match SectionHeader's inset, so the search box lines up with the
+ * title above it. */
+.headerSearch {
+  padding: 0 12px 8px;
 }
 
 .regexToggle {

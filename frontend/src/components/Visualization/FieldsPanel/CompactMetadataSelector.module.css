@@ -4,57 +4,23 @@
  * and the canvas gap below it is what separates it from the Fields card. It
  * used to be a --df-surface-subtle band with a hairline under it, back when
  * both sections shared one card.
+ *
+ * Unpadded, because SectionHeader is full-bleed — its hover tint has to reach
+ * the card's edges. The inset below the header is `.content`'s.
  */
 .metadataSelector {
-  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   flex-shrink: 0;
 }
 
-.headerRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  user-select: none;
-  margin: -4px -6px 0;
-  padding: 4px 6px;
-  border-radius: 4px;
-}
-
-.headerRow:hover {
-  background-color: var(--df-state-hover);
-}
-
-.headerTitle {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1;
-  gap: 6px;
-}
-
-.collapsedHint {
-  font-size: 0.65rem;
-  color: var(--df-text-placeholder);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.expandButton {
-  padding: 2px;
-  flex-shrink: 0;
-}
-
+/* 12px to sit under SectionHeader's own inset, so the title and the pickers
+ * below it share one left edge. */
 .content {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 0 12px 10px;
 }
 
 .field {

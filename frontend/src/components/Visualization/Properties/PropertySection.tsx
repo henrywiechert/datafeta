@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Collapse } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Box, Collapse } from '@mui/material';
+import SectionHeader from './SectionHeader';
 import styles from './PropertySection.module.css';
 
 export interface PropertySectionProps {
@@ -64,38 +64,14 @@ export const PropertySection: React.FC<PropertySectionProps> = ({
 
   return (
     <Box className={styles.section}>
-      <Box
-        className={styles.header}
-        onClick={handleToggle}
-        sx={{ cursor: collapsible ? 'pointer' : 'default' }}
-      >
-        <Box className={styles.titleContainer}>
-          {collapsible && (
-            <IconButton
-              size="small"
-              className={styles.expandIcon}
-              sx={{
-                transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                transition: 'transform 0.2s ease-in-out',
-              }}
-            >
-              <ExpandMoreIcon fontSize="small" />
-            </IconButton>
-          )}
-          <Box className={styles.icon}>{icon}</Box>
-          <Typography variant="subtitle2" className={styles.title}>
-            {title}
-          </Typography>
-        </Box>
-        {headerActions && (
-          <Box
-            className={styles.actions}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {headerActions}
-          </Box>
-        )}
-      </Box>
+      <SectionHeader
+        title={title}
+        icon={icon}
+        expanded={expanded}
+        onToggle={handleToggle}
+        collapsible={collapsible}
+        actions={headerActions}
+      />
       <Collapse in={expanded} timeout={200}>
         <Box className={styles.content}>{children}</Box>
       </Collapse>
