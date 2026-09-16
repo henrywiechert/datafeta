@@ -222,3 +222,15 @@
 .chip.framed.continuous.selected {
     background-color: var(--df-flavour-continuous-selected-bg) !important;
 }
+
+/*
+ * Invalid state must survive selection: the flavour selected-background rules above
+ * are more specific than .invalidAxisField, so an invalid chip would turn blue/green
+ * on click. Keep the red fill and let the selection show through the border only.
+ */
+.chip.framed.discrete.selected.invalidAxisField,
+.chip.framed.continuous.selected.invalidAxisField,
+.chip.textOnly.discrete.selected.invalidAxisField,
+.chip.textOnly.continuous.selected.invalidAxisField {
+    background-color: var(--df-flavour-invalid-bg) !important;
+}
