@@ -35,6 +35,75 @@ compositing work, so it is the only viable route.
 `drag-over`, `active-toggle`, `field-flavour-discrete`, `chart-grid-divider` or
 `label-halo`. Those are app concepts and live in `--df-*`.
 
+### Adding a scheme
+
+`tokens.def.json` holds one entry per scheme. `light` is the base and becomes
+`:root`; every other scheme gets `[data-df-color-scheme="<name>"]`, which is the
+same attribute value MUI's provider writes, so the two layers cannot disagree
+about which scheme is active.
+
+A scheme is either a full table of values (`light`, `dark`) or a **patch** over
+another:
+
+```json
+"dim": { "extends": "dark", "values": { "surfacePanel": "#1e2531", … } }
+```
+
+A variant that only lifts the surfaces has no business restating the other ~140
+tokens. The patch form says what the variant *is*, and — more importantly — a
+re-tune of `dark` reaches its variants instead of silently skipping them.
+`tokens.test.ts` enforces both halves: a patch may not restate a value it would
+inherit, and nothing outside the patch may differ from the base.
+
+The merge is implemented twice (`scripts/generate-tokens.js` and
+`tokens.def.ts`), for the same reason as the kebab-case transform — a build
+script cannot import TypeScript. The "generated CSS is in step" test compares
+resolved values, which is what keeps the two honest.
+
+**Five things outside the token layer have to learn the new name.** All are
+tested, because every one of them fails silently:
+
+| where | what | test |
+|---|---|---|
+| `theme/index.ts` | the MUI palette for the scheme | `palette.test.ts` |
+| `muiThemeAugmentation.d.ts` | `ColorSchemeOverrides`, or `colorSchemes.<name>` is a type error | `tokens.test.ts` scheme-parity |
+| `index.css` | `color-scheme: dark` selector list — CSS keywords only, so it cannot be a token | `tokens.test.ts` native-chrome |
+| `public/index.html` | the pre-paint script, which reads `<colorSchemeStorageKey>-<mode>` | `ThemeModeToggle.test.tsx` |
+| `ThemeModeToggle.tsx` | a menu entry, or the scheme is unreachable | `ThemeModeToggle.test.tsx` |
+
+**A custom scheme's MUI palette must be pre-augmented.** `extendTheme` only
+augments `light` and `dark`: it iterates every scheme but ran just those two
+through augmentation, so handing it a bare palette throws
+`Cannot read properties of undefined (reading 'background')` from its own
+`setColor` — `palette.common` was never built. Build it with
+`createTheme({ palette: { mode: 'dark', … } }).palette` and pass the result.
+`mode: 'dark'` then derives everything you do not name, so `primary.main` and
+friends stay shared.
+
+Two things that pre-augmentation does *not* give you, both silent:
+
+- **`overlays`** — MUI's dark elevation tint for `Paper` — is defaulted for
+  `light`/`dark` only. Copy `dark`'s array; it is a ladder of white alphas,
+  independent of the paper colour.
+- **`background.paper`** is what Menu, Dialog and Popover paint with, and stock
+  dark leaves it at `#121212`, *darker* than the panels it opens over. A lifted
+  scheme has to lift it too, or every menu reads as a hole punched in the card.
+  (`dark` still has this mismatch. It predates the variant and wants its own
+  screenshot.)
+
+### Modes and schemes are different axes
+
+MUI's `mode` is `light | dark | system`. Which *scheme* serves a mode is a
+second, independently stored choice (`<colorSchemeStorageKey>-<mode>`), which is
+exactly what makes two dark schemes possible: both `dark` and `dim` are the dark
+*mode*, differing only in scheme. So the toggle sets both —
+`setColorScheme({ dark: 'dim' })` and `setMode('dark')` — and the pre-paint
+script has to read the scheme key rather than assume `scheme === mode`, or
+picking Dim would flash plain dark on every reload.
+
+The dark variant is remembered independently of the mode, so picking Dim and
+later Follow system means a system that reports dark gets dim.
+
 ### The two palette values the app overrides
 
 MUI's dark scheme puts **pure `#fff`** at the top of two ramps, and between them
@@ -182,10 +251,8 @@ Token names are camelCase in TypeScript and kebab-case in CSS
 once in `tokens.ts`, once in the generator — and `tokens.test.ts` asserts the
 two agree, which is cheaper than making a build script import TypeScript.
 
-Dark values exist but are **unreachable**: `ThemeRoot` pins `defaultMode="light"`
-and offers no toggle yet. They are a first pass, authored so that token *names*
-had to survive contact with a second scheme; expect to tune them when dark mode
-actually ships.
+The schemes today are `light`, `dark`, and `dim` — a lifted, cooled, softer dark
+that is defined as a patch over `dark`. See "Adding a scheme" above.
 
 ## The card layout
 

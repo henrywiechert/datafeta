@@ -17,28 +17,86 @@ const path = require('path');
 
 const DEF_PATH = path.join(__dirname, '..', 'src', 'theme', 'tokens.def.json');
 const OUT_PATH = path.join(__dirname, '..', 'src', 'theme', 'tokens.generated.css');
-const DARK_SELECTOR = '[data-df-color-scheme="dark"]';
+
+/**
+ * `light` is the base scheme and lands in `:root`; every other scheme gets an
+ * attribute block. The attribute value is the scheme's own key, which is also
+ * what MUI's CssVarsProvider writes, so the two layers cannot disagree.
+ */
+const BASE_SCHEME = 'light';
+const selectorFor = (scheme) => `[data-df-color-scheme="${scheme}"]`;
 
 /** camelCase token name -> kebab-case custom property name. Mirrored in
  *  src/theme/tokens.ts; tokens.test.ts asserts the two agree. */
 const cssVarName = (token) => `--df-${token.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 
 const definitions = JSON.parse(fs.readFileSync(DEF_PATH, 'utf8'));
-const lightKeys = Object.keys(definitions.light);
-const darkKeys = Object.keys(definitions.dark);
 
-const missingInDark = lightKeys.filter((k) => !darkKeys.includes(k));
-const missingInLight = darkKeys.filter((k) => !lightKeys.includes(k));
-if (missingInDark.length || missingInLight.length) {
-  console.error('tokens.def.json: light and dark must define the same tokens.');
-  if (missingInDark.length) console.error('  missing from dark:', missingInDark.join(', '));
-  if (missingInLight.length) console.error('  missing from light:', missingInLight.join(', '));
+const fail = (...lines) => {
+  lines.forEach((line) => console.error(line));
   process.exit(1);
+};
+
+/**
+ * A scheme is either a full table of values or a *patch* over another scheme:
+ * `{ "extends": "dark", "values": { ... } }`. A variant that only lifts the
+ * surfaces has no business restating the other ~140 tokens — the patch form
+ * says what the variant *is*, and keeps a re-tune of the base from silently
+ * skipping its variants.
+ *
+ * Mirrored in src/theme/tokens.def.ts; tokens.test.ts asserts the generated
+ * CSS matches what that module resolves, which is what keeps the two honest.
+ */
+const isPatch = (def) => def !== null && typeof def === 'object' && 'extends' in def;
+
+const resolve = (scheme, seen = []) => {
+  const def = definitions[scheme];
+  if (!def) fail(`tokens.def.json: scheme "${scheme}" is extended but not defined.`);
+  if (!isPatch(def)) return def;
+
+  if (seen.indexOf(scheme) !== -1) {
+    fail(`tokens.def.json: circular extends (${seen.concat(scheme).join(' -> ')}).`);
+  }
+  const base = resolve(def.extends, seen.concat(scheme));
+  const unknown = Object.keys(def.values).filter((k) => !(k in base));
+  if (unknown.length) {
+    // Without this a typo'd key would define a brand-new token for one scheme
+    // only, which the parity check below reports as a missing token elsewhere
+    // — a confusing way to hear about a misspelling.
+    fail(
+      `tokens.def.json: scheme "${scheme}" patches tokens that "${def.extends}" does not define:`,
+      `  ${unknown.join(', ')}`,
+    );
+  }
+  return Object.assign({}, base, def.values);
+};
+
+const schemes = Object.keys(definitions);
+if (schemes[0] !== BASE_SCHEME) {
+  fail(`tokens.def.json: "${BASE_SCHEME}" must be the first scheme, since it becomes :root.`);
 }
+
+const resolved = {};
+schemes.forEach((scheme) => { resolved[scheme] = resolve(scheme); });
+
+const baseKeys = Object.keys(resolved[BASE_SCHEME]);
+schemes.forEach((scheme) => {
+  if (scheme === BASE_SCHEME) return;
+  const keys = Object.keys(resolved[scheme]);
+  const missing = baseKeys.filter((k) => keys.indexOf(k) === -1);
+  const extra = keys.filter((k) => baseKeys.indexOf(k) === -1);
+  if (missing.length || extra.length) {
+    fail(
+      `tokens.def.json: every scheme must define the same tokens as "${BASE_SCHEME}".`,
+      ...(missing.length ? [`  missing from ${scheme}: ${missing.join(', ')}`] : []),
+      ...(extra.length ? [`  only in ${scheme}: ${extra.join(', ')}`] : []),
+    );
+  }
+});
 
 const block = (selector, values) => [
   `${selector} {`,
-  ...lightKeys.map((token) => `  ${cssVarName(token)}: ${values[token]};`),
+  ...baseKeys.map((token) => `  ${cssVarName(token)}: ${values[token]};`),
   '}',
 ].join('\n');
 
@@ -51,11 +109,14 @@ const css = [
   ' * --mui-palette-* together. See src/theme/THEMING.md.',
   ' */',
   '',
-  block(':root', definitions.light),
-  '',
-  block(DARK_SELECTOR, definitions.dark),
-  '',
+  ...schemes.flatMap((scheme) => [
+    block(scheme === BASE_SCHEME ? ':root' : selectorFor(scheme), resolved[scheme]),
+    '',
+  ]),
 ].join('\n');
 
 fs.writeFileSync(OUT_PATH, css);
-console.log(`generate-tokens: wrote ${lightKeys.length} tokens x 2 schemes to ${path.relative(process.cwd(), OUT_PATH)}`);
+console.log(
+  `generate-tokens: wrote ${baseKeys.length} tokens x ${schemes.length} schemes `
+  + `(${schemes.join(', ')}) to ${path.relative(process.cwd(), OUT_PATH)}`,
+);
