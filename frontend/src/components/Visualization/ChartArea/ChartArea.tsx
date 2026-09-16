@@ -517,9 +517,13 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     lastQueryDecision,
   };
 
-  const showColorLegend = Boolean(channels.color.field && queryResult?.rows?.length);
-  const showBackgroundLegend = Boolean(channels.facetBackground.field && queryResult?.rows?.length);
-  const showShapeLegend = Boolean(channels.shape.field && queryResult?.rows?.length);
+  // The raw-rows table encodes nothing, so a colour/shape channel left over
+  // from the chart view has no marks to explain there — the stack would just
+  // take width off the grid.
+  const showColorLegend = Boolean(channels.color.field && queryResult?.rows?.length) && !showTableRows;
+  const showBackgroundLegend =
+    Boolean(channels.facetBackground.field && queryResult?.rows?.length) && !showTableRows;
+  const showShapeLegend = Boolean(channels.shape.field && queryResult?.rows?.length) && !showTableRows;
   const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend;
 
   // Grouped prop bags forwarded to ChartRenderer (and on to ChartGrid). Memoized

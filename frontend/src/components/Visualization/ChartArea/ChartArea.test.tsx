@@ -348,4 +348,27 @@ describe('ChartArea', () => {
     expect(screen.queryByTestId('shape-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('facet-limit-dialog')).not.toBeInTheDocument();
   });
+
+  test('suppresses legends in the raw-rows table view even with rows and channels set', () => {
+    mockUseVisualizationContext.mockReturnValue({
+      state: {
+        ...initialState,
+        globalChartType: 'heatmap',
+        queryResult: { rows: [{ category: 'A' }], columns: [] },
+        showTableRows: true,
+      } as any,
+      dispatch: jest.fn(),
+      startOperation: jest.fn(),
+      completeOperation: jest.fn(),
+      getUndoableSnapshot: jest.fn(() => ({ snapshot: true })),
+    } as any);
+
+    render(<ChartArea />);
+
+    expect(screen.getByTestId('chart-renderer')).toBeInTheDocument();
+    expect(screen.queryByTestId('legend-stack')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('color-legend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('background-legend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('shape-legend')).not.toBeInTheDocument();
+  });
 });
