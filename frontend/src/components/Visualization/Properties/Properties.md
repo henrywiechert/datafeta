@@ -10,6 +10,8 @@ The **Properties** module provides reusable UI building blocks for sidebar prope
 Properties/
 ├── PropertySection.tsx         # Collapsible panel wrapper
 ├── PropertySection.module.css  # Section styling
+├── SectionHeader.tsx           # The collapse header, shared with the Fields well
+├── SectionHeader.module.css    # Header row styling
 ├── PropertyDropZone.tsx        # Generic drag-and-drop target
 ├── PropertyDropZone.module.css # Drop zone styling
 └── index.ts                    # Barrel exports
@@ -18,6 +20,33 @@ Properties/
 ---
 
 ## Components
+
+### SectionHeader
+
+The collapse affordance, and the only place it is defined: a 40px row, a
+chevron on the left that rotates rather than swapping glyphs, the whole row as
+the click target, and a hover tint across its full width.
+
+`PropertySection` renders it, and so do the Fields well's two cards — the Data
+Source card (`CompactMetadataSelector`) and the Fields card (`FieldsPanel`),
+which each used to draw their own version with the chevron on the far right and
+no rotation. Those cards keep their own bodies; only the header is shared.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `title` | `string` | — | Section title. Also the source of the chevron's `aria-label`, as `Collapse {title.toLowerCase()}` |
+| `icon` | `ReactNode` | — | Optional glyph between chevron and title. The Fields well's cards pass none |
+| `hint` | `ReactNode` | — | Summary shown beside the title while collapsed. Data Source uses it for the selected table |
+| `expanded` | `boolean` | — | Controlled — the caller owns the state and its persistence |
+| `onToggle` | `() => void` | — | Called on row click when `collapsible` |
+| `collapsible` | `boolean` | `true` | When false, renders flat: no chevron, no hover, no click |
+| `actions` | `ReactNode` | — | Right-end buttons, wrapped in `stopPropagation` so they don't toggle the card |
+| `controls` | `string` | — | `id` of the collapsed region, for `aria-controls` |
+
+**It is full-bleed on purpose.** The hover tint has to reach the card's edges,
+so the horizontal inset (12px) lives in the header and each card's content
+supplies its own to match. A card that pads its own container will push the
+header in and break the tint.
 
 ### PropertySection
 

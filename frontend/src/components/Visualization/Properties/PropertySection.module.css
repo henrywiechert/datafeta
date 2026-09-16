@@ -10,52 +10,8 @@
   flex-shrink: 0;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 40px;
-  padding: 0 12px;
-  background-color: var(--df-surface-raised);
-  transition: background-color 0.15s ease;
-  user-select: none;
-}
-
-.header:hover {
-  background-color: var(--df-surface-subtle);
-}
-
-.titleContainer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.expandIcon {
-  padding: 4px;
-  margin-left: -4px;
-}
-
-.icon {
-  display: flex;
-  align-items: center;
-  color: var(--df-text-placeholder);
-}
-
-.title {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--df-text-ink);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+/* The header row itself now lives in SectionHeader.module.css, shared with
+ * the Fields well's cards. */
 
 .content {
   padding: 12px;

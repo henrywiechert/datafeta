@@ -1,10 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react';
-import { Box, Button, Collapse, Typography, IconButton } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { Button, Collapse } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
+import SectionHeader from '../Properties/SectionHeader';
 import VirtualColumnManager from '../../VirtualColumns/VirtualColumnManager';
 import BinConfigDialog, { FieldStats } from '../../VirtualColumns/BinConfigDialog';
 import { Field, VirtualColumnDefinition } from '../../../types';
@@ -242,21 +241,13 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
       <div className={`${styles.fieldsSection} ${fieldsExpanded ? '' : styles.fieldsSectionCollapsed}`}>
       {/* Title row and search, above the field lists */}
       <div className={styles.header}>
-        <Box
-          className={styles.headerTitleRow}
-          onClick={() => setFieldsExpanded((current) => !current)}
-        >
-          <Typography
-              variant="subtitle2"
-              fontWeight="bold"
-              align="left"
-              fontSize="0.85rem"
-              gutterBottom
-          >
-              Fields
-          </Typography>
-          <Box className={styles.headerActions} onClick={(e) => e.stopPropagation()}>
-            {fieldsExpanded && (
+        <SectionHeader
+          title="Fields"
+          expanded={fieldsExpanded}
+          onToggle={() => setFieldsExpanded((current) => !current)}
+          controls="fields-panel-content"
+          actions={
+            fieldsExpanded && (
               <Button
                 size="small"
                 variant="text"
@@ -268,26 +259,18 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
               >
                 Regex
               </Button>
-            )}
-            <IconButton
-              size="small"
-              className={styles.expandButton}
-              aria-expanded={fieldsExpanded}
-              aria-controls="fields-panel-content"
-              aria-label={fieldsExpanded ? 'Collapse fields' : 'Expand fields'}
-              onClick={() => setFieldsExpanded((current) => !current)}
-            >
-              {fieldsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </IconButton>
-          </Box>
-        </Box>
+            )
+          }
+        />
         {fieldsExpanded && (
-          <FieldsSearch
-            value={fieldsSearch}
-            onChange={onFieldsSearchChange}
-            error={useRegex && !!regexError}
-            helperText={useRegex ? regexError || '' : ''}
-          />
+          <div className={styles.headerSearch}>
+            <FieldsSearch
+              value={fieldsSearch}
+              onChange={onFieldsSearchChange}
+              error={useRegex && !!regexError}
+              helperText={useRegex ? regexError || '' : ''}
+            />
+          </div>
         )}
       </div>
       <Collapse in={fieldsExpanded} timeout={200} className={styles.fieldsCollapse}>

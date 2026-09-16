@@ -1,0 +1,74 @@
+/*
+ * The collapse affordance shared by every card that has one: a fixed-height
+ * row, a chevron on the left that rotates rather than swapping glyphs, the
+ * whole row as the click target, and a hover tint across its full width.
+ *
+ * Extracted from PropertySection so the Fields well's Data Source and Fields
+ * cards read the same as the Properties sections. It is full-bleed on purpose —
+ * the hover tint has to reach the card's edges, so the horizontal inset lives
+ * here and the card's content supplies its own.
+ */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 12px;
+  background-color: var(--df-surface-raised);
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  background-color: var(--df-surface-subtle);
+}
+
+.titleContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Negative margin pulls the 4px-padded button back to the row's 12px inset. */
+.expandIcon {
+  padding: 4px;
+  margin-left: -4px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  color: var(--df-text-placeholder);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--df-text-ink);
+  flex-shrink: 0;
+}
+
+/* Summary of what is inside while the card is collapsed (e.g. the table name). */
+.hint {
+  font-size: 0.65rem;
+  color: var(--df-text-placeholder);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
