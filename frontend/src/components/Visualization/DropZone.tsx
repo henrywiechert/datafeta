@@ -42,6 +42,14 @@ interface DropZoneProps {
   fields: Field[];
   onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveField: (fieldId: string) => void;
+  /**
+   * Batched removal, used for the context menu's multi-field "Remove from this
+   * zone". Calling `onRemoveField` per id cannot do the job: it reads the axis
+   * fields from a ref that is only resynced after the dispatch commits, so
+   * every call but the first sees the pre-removal list and the last dispatch
+   * wins, removing one chip.
+   */
+  onRemoveMultipleFields?: (fieldIds: string[]) => void;
   onReorderFields?: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
   onMoveFieldBetweenAxes?: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
 }
@@ -53,6 +61,7 @@ const DropZone: React.FC<DropZoneProps> = ({
   fields, 
   onFieldUpdate,
   onRemoveField,
+  onRemoveMultipleFields,
   onReorderFields,
   onMoveFieldBetweenAxes
 }) => {
@@ -335,7 +344,11 @@ const DropZone: React.FC<DropZoneProps> = ({
                   allFields={fields}
                   onRemoveFromZone={(ids) => {
                     // Axis drop zones: remove from axis (context menu action)
-                    ids.forEach(onRemoveField);
+                    if (onRemoveMultipleFields) {
+                      onRemoveMultipleFields(ids);
+                    } else {
+                      ids.forEach(onRemoveField);
+                    }
                   }}
                 />
               </React.Fragment>
@@ -365,6 +378,7 @@ export default React.memo(DropZone, (prevProps, nextProps) => {
     prevProps.onDrop === nextProps.onDrop &&
     prevProps.onFieldUpdate === nextProps.onFieldUpdate &&
     prevProps.onRemoveField === nextProps.onRemoveField &&
+    prevProps.onRemoveMultipleFields === nextProps.onRemoveMultipleFields &&
     prevProps.onReorderFields === nextProps.onReorderFields &&
     prevProps.onMoveFieldBetweenAxes === nextProps.onMoveFieldBetweenAxes
   );

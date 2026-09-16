@@ -7,6 +7,9 @@ import { getDragData, readDragPayload } from '../utils/dragDataStore';
  * Custom hook to handle drag and drop operations in the fields panel
  * @param onRemoveFromAxis Function to call when removing a single field from an axis
  * @param onRemoveMultipleFromAxis Optional function to call when removing multiple fields (batched)
+ *
+ * Every zone other than the axes removes its whole batch in one call, so a
+ * multi-field drag out of a zone lands as a single state update.
  */
 export function useFieldsPanelDrag(
   onRemoveFromAxis: (fieldId: string) => void,
@@ -18,7 +21,8 @@ export function useFieldsPanelDrag(
   onRemoveFromTooltip?: (fieldIds: string[]) => void,
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void,
   onRemoveFromBackground?: (fieldIds: string[]) => void,
-  onRemoveFromShape?: (fieldIds: string[]) => void
+  onRemoveFromShape?: (fieldIds: string[]) => void,
+  onRemoveFromTableColumns?: (fieldIds: string[]) => void
 ) {
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -92,6 +96,8 @@ export function useFieldsPanelDrag(
         onRemoveFromBackground?.(fieldIds);
       } else if (source === 'SHAPE_ZONE') {
         onRemoveFromShape?.(fieldIds);
+      } else if (source === 'TABLE_ZONE') {
+        onRemoveFromTableColumns?.(fieldIds);
       }
 
       // Clear selection after successful removal

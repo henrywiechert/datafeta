@@ -28,6 +28,8 @@ interface FieldsPanelProps {
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void;
   onRemoveFromBackground?: (fieldIds: string[]) => void;
   onRemoveFromShape?: (fieldIds: string[]) => void;
+  /** Removes columns from the table view's "Columns" zone (raw rows mode). */
+  onRemoveFromTableColumns?: (fieldIds: string[]) => void;
   /**
    * Names the table the "Create Bins..." action fetches column statistics
    * from. Everything else about picking a data source now lives in the
@@ -59,6 +61,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveFromMeasureGroup,
   onRemoveFromBackground,
   onRemoveFromShape,
+  onRemoveFromTableColumns,
   selectedDatabase,
   selectedTable,
   // Virtual columns props
@@ -102,7 +105,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     onRemoveFromTooltip,
     onRemoveFromMeasureGroup,
     onRemoveFromBackground,
-    onRemoveFromShape
+    onRemoveFromShape,
+    onRemoveFromTableColumns
   );
   
   // Handle keyboard shortcuts

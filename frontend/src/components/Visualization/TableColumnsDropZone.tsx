@@ -44,7 +44,8 @@ interface TableColumnsDropZoneProps {
   fields: Field[];
   onDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   onFieldUpdate: (fields: Field | Field[]) => void;
-  onRemoveField: (fieldId: string) => void;
+  /** Removes the given columns in one batch (see handleRemoveFromTableColumns). */
+  onRemoveField: (fieldIds: string[]) => void;
   onReorderFields: (fromIndex: number, toIndex: number) => void;
 }
 
@@ -173,9 +174,7 @@ const TableColumnsDropZone: React.FC<TableColumnsDropZoneProps> = ({
                 source="TABLE_ZONE"
                 index={index}
                 allFields={fields}
-                onRemoveFromZone={(ids) => {
-                  ids.forEach(onRemoveField);
-                }}
+                onRemoveFromZone={onRemoveField}
               />
             </React.Fragment>
           ))}

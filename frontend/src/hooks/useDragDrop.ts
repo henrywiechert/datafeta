@@ -527,10 +527,20 @@ export function useDragDrop(
     dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: newColumns });
   }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
 
-  const handleRemoveFromTableColumns = useCallback((fieldId: string) => {
+  /**
+   * Remove one or more columns from the table view's "Columns" zone.
+   *
+   * Takes the whole batch in one call: `tableColumnFieldsRef` is only resynced
+   * by an effect after the dispatch commits, so removing ids one at a time
+   * would have every call but the first read the same pre-removal list and the
+   * last dispatch would win, dropping a single column.
+   */
+  const handleRemoveFromTableColumns = useCallback((fieldIds: string[]) => {
+    if (fieldIds.length === 0) return;
     recordUndoPoint();
     const currentColumns = tableColumnFieldsRef.current;
-    const newColumns = currentColumns.filter(f => f.id !== fieldId);
+    const removedIds = new Set(fieldIds);
+    const newColumns = currentColumns.filter(f => !removedIds.has(f.id));
     if (newColumns.length === currentColumns.length) return;
     dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: newColumns });
   }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
