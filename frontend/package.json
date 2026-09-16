@@ -99,22 +99,9 @@
       },
       {
         "files": [
+          "src/components/icons/DataSlicerIcon.tsx",
           "src/config/colorSchemes.ts",
           "src/theme/**"
-        ],
-        "rules": {
-          "no-restricted-syntax": "off"
-        }
-      },
-      {
-        "files": [
-          "src/components/DebugPanel/hints/FieldHintsList.tsx",
-          "src/components/DebugPanel/optimizations/NoOptimizationsMessage.tsx",
-          "src/components/Visualization/ChartArea/components/ChartControls.tsx",
-          "src/components/Visualization/ChartArea/components/HeatmapSizeBar.tsx",
-          "src/components/Visualization/DebugView.tsx",
-          "src/components/Visualization/FieldChip/dragImageUtils.ts",
-          "src/components/icons/DataSlicerIcon.tsx"
         ],
         "rules": {
           "no-restricted-syntax": "off"

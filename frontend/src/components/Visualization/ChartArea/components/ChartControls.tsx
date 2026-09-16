@@ -22,6 +22,7 @@ import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
 import OptimizationSettingsDialog from './OptimizationSettingsDialog';
 import { resolveChartControlsVisibility } from './chartControlsLayout';
+import { T } from '../../../../theme/tokens';
 
 const DevSqlViewerControl =
   process.env.NODE_ENV !== 'production'
@@ -228,7 +229,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       pt: 0.5,
       pb: 0.5,
       px: 1,
-      borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none',
+      borderTop: isDebugOpen ? `1px solid ${T.borderHairline}` : 'none',
       flexShrink: 0
     }}
     >

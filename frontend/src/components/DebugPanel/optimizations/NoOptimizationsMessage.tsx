@@ -5,13 +5,14 @@
  */
 
 import React from 'react';
+import { T } from '../../../theme/tokens';
 
 export const NoOptimizationsMessage: React.FC = () => {
     return (
         <div className="debug-section">
             <div className="no-optimizations">
                 <strong>No optimizations were applied to this query.</strong>
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#6c757d' }}>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: T.textMuted }}>
                     This usually means:
                     <ul style={{ marginTop: '4px', paddingLeft: '20px' }}>
                         <li>Dataset is too small (below threshold)</li>

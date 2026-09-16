@@ -2,6 +2,7 @@
 import React from 'react';
 import { Box, Button, Divider, Typography } from '@mui/material';
 import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
+import { T } from '../../../../theme/tokens';
 
 interface HeatmapSizeBarProps {
   toolbarState: HeatmapSizeToolbarState | null;
@@ -67,7 +68,7 @@ const HeatmapSizeBar: React.FC<HeatmapSizeBarProps> = ({ toolbarState }) => {
         py: 0.75,
         borderBottom: '1px solid',
         borderColor: 'divider',
-        backgroundColor: '#fafafa',
+        backgroundColor: T.surfacePanel,
         minHeight: 42,
         flexShrink: 0,
       }}
