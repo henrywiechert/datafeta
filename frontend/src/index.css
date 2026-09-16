@@ -3,6 +3,13 @@ html, body {
   padding: 0;
   height: 100%;
   overflow: hidden;
+  /*
+   * html/body live outside ThemeRoot, so they cannot use MUI's palette. The
+   * --df-* layer is a real stylesheet (generated, imported first in index.tsx),
+   * which is why it resolves here and before the first paint.
+   */
+  background-color: var(--df-surface-shell);
+  color: var(--df-text-primary);
   font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial,
     sans-serif;
@@ -74,4 +81,27 @@ svg tspan,
   max-width: 400px !important;
   white-space: pre-wrap !important;
   word-wrap: break-word !important;
+}
+
+/*
+ * Native chrome: scrollbars, checkboxes, radios, range inputs, the canvas
+ * behind everything.
+ *
+ * `color-scheme` is declared on `html` ONLY and left to inherit. Declaring it
+ * on `html, body` together pins body to a literal value, and since the dark
+ * override below matches `<html>`, body's own declaration then beats the
+ * inherited one — which leaves every scrollbar and checkbox inside body
+ * rendering light while the app around them is dark.
+ *
+ * `accent-color` likewise inherits, so one declaration tints every native
+ * checkbox and radio in the app with the app's own accent instead of the
+ * browser's default blue.
+ */
+html {
+  color-scheme: light;
+  accent-color: var(--df-text-accent);
+}
+
+[data-df-color-scheme="dark"] {
+  color-scheme: dark;
 }

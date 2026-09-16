@@ -90,3 +90,21 @@ if (typeof (global as any).ResizeObserver === 'undefined') {
     (window as any).ResizeObserver = ResizeObserver;
   }
 }
+
+// Polyfill matchMedia for Jest (jsdom) environment.
+// jsdom does not implement it. MUI's colour-scheme machinery subscribes to
+// `(prefers-color-scheme: dark)` to support the "system" mode, so anything
+// rendering under ThemeRoot needs this. Reports light and never changes, which
+// is the right default for tests: a deliberate scheme belongs in the test.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  (window as any).matchMedia = (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => { /* no-op */ },
+    removeEventListener: () => { /* no-op */ },
+    addListener: () => { /* no-op */ },     // deprecated, still called by some libs
+    removeListener: () => { /* no-op */ },  // deprecated
+    dispatchEvent: () => false,
+  });
+}

@@ -174,6 +174,12 @@
   border-radius: 4px;
   font-size: 0.875rem;
   background: var(--df-surface-raised);
+  /*
+   * Set the text colour explicitly. These are bare HTML controls, so with only
+   * a background declared the engine keeps its own default text colour — which
+   * is dark, and unreadable once the background follows a dark scheme.
+   */
+  color: var(--df-text-primary);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -195,6 +201,54 @@
 
 .input:disabled::placeholder {
   color: var(--df-text-faint);
+}
+
+/*
+ * File inputs.
+ *
+ * The control is a native composite: the "choose file" part is
+ * ::file-selector-button, which inherits nothing from the wrapper. Left alone
+ * it renders as the engine's own button — a light grey slab sitting inside our
+ * themed box. Styling it to match the app's plain buttons is the only way the
+ * two halves read as one control.
+ */
+.input[type="file"] {
+  /* Text-input padding leaves the native button floating; hug it instead. */
+  padding: 4px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--df-border-muted);
+  border-radius: 4px;
+  background: var(--df-surface-sunken);
+  color: var(--df-text-primary);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.input[type="file"]:hover:not(:disabled)::file-selector-button {
+  background: var(--df-state-hover);
+  border-color: var(--df-border-strong);
+}
+
+.input[type="file"]:focus-visible::file-selector-button {
+  outline: none;
+  border-color: var(--df-text-accent);
+  box-shadow: 0 0 0 2px var(--df-focus-ring);
+}
+
+.input[type="file"]:disabled::file-selector-button {
+  background: var(--df-surface-disabled);
+  border-color: var(--df-border-muted);
+  color: var(--df-text-disabled-ink);
+  cursor: not-allowed;
 }
 
 .disabledForm {

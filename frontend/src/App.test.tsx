@@ -6,6 +6,7 @@ import App from './App';
 import { DataSourceProvider } from './contexts/DataSourceContext';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
+import ThemeRoot from './theme/ThemeRoot';
 
 jest.mock('./contexts/AppConfigContext', () => ({
   useAppConfig: () => ({
@@ -24,14 +25,18 @@ jest.mock('./contexts/AppConfigContext', () => ({
 }));
 
 test('renders Data Slicer navigation tabs', async () => {
+  // ThemeRoot mirrors index.tsx: App is always rendered inside it, and the
+  // theme toggle reads the colour scheme from that provider.
   render(
-    <DataSourceProvider>
-      <VisualizationProvider>
-        <ConnectionProvider>
-          <App />
-        </ConnectionProvider>
-      </VisualizationProvider>
-    </DataSourceProvider>
+    <ThemeRoot>
+      <DataSourceProvider>
+        <VisualizationProvider>
+          <ConnectionProvider>
+            <App />
+          </ConnectionProvider>
+        </VisualizationProvider>
+      </DataSourceProvider>
+    </ThemeRoot>
   );
 
   await act(async () => {

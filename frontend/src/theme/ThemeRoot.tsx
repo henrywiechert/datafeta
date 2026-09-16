@@ -21,8 +21,10 @@ import denseTheme from './index';
  * (`dataslicer.tablePageSize`) rather than MUI's `mui-mode`, which would leak
  * vendor naming into user storage.
  *
- * `defaultMode` stays `'light'` until the dark scheme's values actually exist.
- * `'system'` here would hand a half-built dark UI to every OS-dark user.
+ * `defaultMode` is `'system'`: the dark values are authored and reachable, so
+ * following the OS is the least surprising default. A pre-paint script in
+ * public/index.html resolves the same preference before React mounts, so a
+ * reload in dark does not flash light first.
  */
 const ThemeRoot: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CssVarsProvider
@@ -30,7 +32,7 @@ const ThemeRoot: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     attribute="data-df-color-scheme"
     modeStorageKey="dataslicer.themeMode"
     colorSchemeStorageKey="dataslicer.themeScheme"
-    defaultMode="light"
+    defaultMode="system"
     disableTransitionOnChange
   >
     {children}

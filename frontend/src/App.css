@@ -54,6 +54,13 @@ select {
   padding: 8px;
   border: 1px solid var(--df-border-strong);
   border-radius: 4px;
+  /*
+   * Declared explicitly: a bare control given only a border keeps the engine's
+   * own background and text colour, which stops matching the app as soon as the
+   * colour scheme changes.
+   */
+  background-color: var(--df-surface-raised);
+  color: var(--df-text-primary);
 }
 
 button:not([class*="Mui"]):not([class*="custom-tooltip__"]) {

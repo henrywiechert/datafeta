@@ -30,6 +30,7 @@ import {
 } from './queryLogImpl';
 
 import { duckdbService } from '../services/duckdbService';
+import { T } from '../theme/tokens';
 
 type OriginFilter = 'all' | 'remote' | 'local';
 
@@ -130,7 +131,7 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
     return formatEnabled ? formatSql(selected.sql) : selected.sql;
   }, [selected, formatEnabled]);
 
-  const detailBg = selected?.origin === 'remote' ? 'info.50' : 'success.50';
+  const detailBg = selected?.origin === 'remote' ? T.statusInfoSurface : T.statusSuccessSurface;
 
   return (
     <Dialog fullScreen open={open} onClose={onClose} aria-labelledby="sql-query-viewer-title">
