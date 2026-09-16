@@ -202,9 +202,13 @@ things agree:
    makes dense UIs noisy. Where a column holds a *list* of cards — the
    Properties column, and the Fields column with its brand header above the
    panel — the column itself is a **well** (`--df-surface-shell`, the same
-   colour as the canvas) rather than a card. The Fields well carries no padding,
-   unlike the Properties one, so its cards stay flush with the column edge and
-   only the gap between them is new.
+   colour as the canvas) rather than a card.
+
+   **A well is never padded.** Its own gutter would sit *inside* the handle that
+   already separates the columns, so its cards would inset 8px from their
+   neighbours while every other gap stays 4px, and their top edges would drop
+   below the cards in the columns either side — the ragged top row that rule 2
+   is there to prevent. A well supplies only the `gap` between its cards.
 
 `SplitHandle` has a `variant` for the two situations this creates:
 

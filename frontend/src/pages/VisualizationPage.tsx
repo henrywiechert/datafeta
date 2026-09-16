@@ -702,8 +702,8 @@ const VisualizationPageContent = () => {
                           <Box sx={{
                               height: '100%',
                               // No CssBaseline in this app, so box-sizing is
-                              // content-box: without this the padding below is
-                              // added to 100% and the panel always overflows.
+                              // content-box: any padding added here would be
+                              // added to the 100% and overflow the panel.
                               boxSizing: 'border-box',
                               display: 'flex',
                               flexDirection: 'column',
@@ -711,10 +711,18 @@ const VisualizationPageContent = () => {
                               // A well rather than a card: the sections inside are
                               // the cards, so stacking one card inside another is
                               // avoided. See PropertySection.module.css.
+                              //
+                              // Deliberately unpadded, like the Fields well. A
+                              // gutter here would sit *inside* the 4px handle
+                              // that already separates the columns, so this
+                              // column's cards would inset 8px from their
+                              // neighbours while every other gap in the shell is
+                              // 4px — and their top edges would drop 4px below
+                              // the brand and chart cards. The vertical `gap`
+                              // between the sections is the only spacing the
+                              // well supplies.
                               backgroundColor: T.surfaceShell,
-                              borderRadius: `${PANEL_RADIUS_PX}px`,
                               gap: `${SHELL_GUTTER_PX}px`,
-                              p: `${SHELL_GUTTER_PX}px`,
                           }}>
                               <FilterPanel
                                   filterFields={filterController.effective.fields}
