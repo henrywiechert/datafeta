@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import { RESIZE_HANDLE_HOVER_COLOR } from '../../../config/chartLayoutConfig';
+import { T } from '../../../theme/tokens';
 
 interface VirtualResizeLineProps {
   orientation: 'horizontal' | 'vertical';
@@ -54,7 +55,7 @@ const VirtualResizeLine: React.FC<VirtualResizeLineProps> = ({
           opacity: 0.8,
           pointerEvents: 'none',
           zIndex: 200, // Above resize overlay
-          boxShadow: '0 0 4px rgba(0,0,0,0.3)',
+          boxShadow: `0 0 4px ${T.shadowStrong}`,
         }}
       />
 
@@ -74,8 +75,8 @@ const VirtualResizeLine: React.FC<VirtualResizeLineProps> = ({
                   top: '50%',
                   transform: 'translateY(-50%)',
                 }),
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: 'white',
+            backgroundColor: T.chartBadgeSurface,
+            color: T.inverseText,
             padding: '4px 8px',
             borderRadius: '4px',
             fontSize: '12px',
@@ -83,7 +84,7 @@ const VirtualResizeLine: React.FC<VirtualResizeLineProps> = ({
             pointerEvents: 'none',
             zIndex: 201,
             whiteSpace: 'nowrap',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            boxShadow: `0 2px 8px ${T.shadowStrong}`,
           }}
         >
           {Math.round(displaySize)}px

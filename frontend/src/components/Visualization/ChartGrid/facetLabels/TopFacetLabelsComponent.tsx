@@ -24,6 +24,7 @@ import {
   resolveTextAlignment,
   updateDepthOverride,
 } from '../utils/facetLabelUtils';
+import { T } from '../../../../theme/tokens';
 
 interface TopFacetLabelsProps {
   grid: GridResultModel;
@@ -111,7 +112,7 @@ const TopFacetHeaderTitleComponent: React.FC<TopFacetHeaderTitleProps> = ({ grid
         <div
           style={{
             fontWeight: 600,
-            background: 'white',
+            background: T.chartCellBg,
             padding: '2px 6px',
             ...headerOrientationStyles,
           }}

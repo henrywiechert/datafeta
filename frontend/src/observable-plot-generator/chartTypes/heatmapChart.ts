@@ -48,6 +48,7 @@ import {
   CellResult,
   FacetCellContext,
 } from '../faceting/facetCoordinator';
+import { T } from '../../theme/tokens';
 
 export interface HeatmapOptionsInput {
   data: any[];
@@ -433,7 +434,7 @@ function createHeatmapMessage(message: string): PlotResult {
             Plot.text([message], {
               frameAnchor: 'middle',
               fontSize: 14,
-              fill: 'gray',
+              fill: T.textMuted,
             }),
           ],
         },

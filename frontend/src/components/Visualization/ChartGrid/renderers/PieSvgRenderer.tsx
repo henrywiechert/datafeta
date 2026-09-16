@@ -9,6 +9,7 @@ import { PiePlotSpec } from '../../../../observable-plot-generator/types';
 import { CustomTooltipConfig } from '../../../../types';
 import { encodeCatValue } from '../../stampColorCategories';
 import { buildPieArcSegments } from './pieArcUtils';
+import { T } from '../../../../theme/tokens';
 
 interface PieSvgRendererProps {
   pieSpec: PiePlotSpec;
@@ -77,7 +78,7 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'rgba(0, 0, 0, 0.6)',
+          color: T.textSecondary,
           fontSize: 14,
           textAlign: 'center',
           paddingLeft: 16,
@@ -109,7 +110,7 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
                 key={slice.id}
                 d={segment.path}
                 fill={slice.color}
-                stroke="#fff"
+                stroke={T.chartSliceSeparator}
                 strokeWidth={1}
                 data-cat={encodeCatValue(slice.rawValue)}
                 onMouseEnter={(event) => showTooltip(event.clientX, event.clientY, slice.tooltipFields, slice.color)}
@@ -139,8 +140,8 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
                 dominantBaseline="middle"
                 fontSize={11}
                 fontWeight={600}
-                fill="black"
-                stroke="white"
+                fill={T.chartLabelInk}
+                stroke={T.chartHalo}
                 strokeWidth={3}
                 paintOrder="stroke"
                 pointerEvents="none"

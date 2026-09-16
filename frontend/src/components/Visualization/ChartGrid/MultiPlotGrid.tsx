@@ -36,6 +36,7 @@ import {
 } from './utils/uniformCellSizing';
 import { resolvePlotResizePolicy } from './utils/plotResizePolicy';
 import styles from './ChartGrid.module.css';
+import { T } from '../../../theme/tokens';
 
 interface MultiPlotGridProps {
   grid: GridResultModel;
@@ -387,7 +388,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                   boxSizing: 'border-box',
                   fontWeight: 600,
                   fontSize: 11,
-                  background: 'white',
+                  background: T.chartCellBg,
                   borderLeft: `1px solid ${GRID_DIVIDER_COLOR}`,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -419,7 +420,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                   boxSizing: 'border-box',
                   fontWeight: 600,
                   fontSize: 11,
-                  background: 'white',
+                  background: T.chartCellBg,
                   borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',

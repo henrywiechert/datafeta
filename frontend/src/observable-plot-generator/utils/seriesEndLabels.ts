@@ -16,6 +16,7 @@
  * is what couples the two stages.
  */
 import * as Plot from '@observablehq/plot';
+import { T } from '../../theme/tokens';
 
 /** Applied to the label mark's `<g>` so the renderer's de-overlap pass can find it. */
 export const SERIES_END_LABEL_CLASS = 'series-end-label';
@@ -88,7 +89,7 @@ export function createSeriesEndLabelMark(params: {
     dy: horizontal ? 0 : (outside ? -8 : 10),
     fontSize: fontSize ?? SERIES_LABEL_FONT_SIZE,
     fontWeight: 500,
-    stroke: 'white',
+    stroke: T.chartHalo,
     strokeWidth: 3,
     paintOrder: 'stroke',
     pointerEvents: 'none',

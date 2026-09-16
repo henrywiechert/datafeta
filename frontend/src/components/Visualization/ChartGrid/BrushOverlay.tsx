@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { T } from '../../../theme/tokens';
 
 const LOCK_THRESHOLD_PX = 5;
 
@@ -148,9 +149,9 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
         top: 0,
         width: maxX - minX,
         height: '100%',
-        backgroundColor: 'rgba(70, 130, 180, 0.15)',
-        borderLeft: '1px solid rgba(70, 130, 180, 0.5)',
-        borderRight: '1px solid rgba(70, 130, 180, 0.5)',
+        backgroundColor: T.chartBrushFill,
+        borderLeft: `1px solid ${T.chartBrushEdge}`,
+        borderRight: `1px solid ${T.chartBrushEdge}`,
         pointerEvents: 'none',
         zIndex: 3,
       };
@@ -161,9 +162,9 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
         top: minY,
         width: '100%',
         height: maxY - minY,
-        backgroundColor: 'rgba(70, 130, 180, 0.15)',
-        borderTop: '1px solid rgba(70, 130, 180, 0.5)',
-        borderBottom: '1px solid rgba(70, 130, 180, 0.5)',
+        backgroundColor: T.chartBrushFill,
+        borderTop: `1px solid ${T.chartBrushEdge}`,
+        borderBottom: `1px solid ${T.chartBrushEdge}`,
         pointerEvents: 'none',
         zIndex: 3,
       };

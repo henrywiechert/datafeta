@@ -11,7 +11,7 @@
     display: flex;
     align-items: stretch;
     justify-content: flex-start;
-    background-color: #fcfcfc;
+    background-color: var(--df-chart-canvas);
     height: 100%;
     box-sizing: border-box;
     overflow: hidden; /* Prevent scrollbars at this level */
@@ -47,30 +47,30 @@
 
 /* Fullscreen mode styles */
 .fullscreenWrapper.fullscreen {
-    background-color: white;
+    background-color: var(--df-chart-canvas);
     padding: 16px;
 }
 
 /* Apply fullscreen styles to the wrapper when in fullscreen mode */
 .fullscreenWrapper:fullscreen {
-    background-color: white;
+    background-color: var(--df-chart-canvas);
     padding: 16px;
 }
 
 /* Webkit fullscreen support */
 .fullscreenWrapper:-webkit-full-screen {
-    background-color: white;
+    background-color: var(--df-chart-canvas);
     padding: 16px;
 }
 
 /* Firefox fullscreen support */
 .fullscreenWrapper:-moz-full-screen {
-    background-color: white;
+    background-color: var(--df-chart-canvas);
     padding: 16px;
 }
 
 /* IE/Edge fullscreen support */
 .fullscreenWrapper:-ms-fullscreen {
-    background-color: white;
+    background-color: var(--df-chart-canvas);
     padding: 16px;
 }

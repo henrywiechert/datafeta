@@ -5,6 +5,7 @@ import { ColorChannel, DEFAULT_DENSITY_PARAMS, DensityParams, Field } from '../.
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeKde1d, Kde1dPoint } from '../../utils/kde1d';
 import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { T } from '../../theme/tokens';
 
 export interface DensityBuildParams {
   data: any[];
@@ -154,7 +155,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
         Plot.text([data.length > 0 ? 'No numeric values for density estimate' : 'No data available.'], {
           frameAnchor: 'middle',
           fontSize: 14,
-          fill: 'gray',
+          fill: T.textMuted,
         }),
       ],
     };
@@ -176,7 +177,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
         Plot.text(['Unable to compute density curve'], {
           frameAnchor: 'middle',
           fontSize: 14,
-          fill: 'gray',
+          fill: T.textMuted,
         }),
       ],
     };

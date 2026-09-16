@@ -25,6 +25,7 @@ import {
   resolveTextAlignment,
   updateDepthOverride,
 } from '../utils/facetLabelUtils';
+import { T } from '../../../../theme/tokens';
 
 interface LeftFacetLabelsProps {
   grid: GridResultModel;
@@ -217,7 +218,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
               display: 'flex',
               width: '100%',
               fontWeight: 600,
-              background: 'white',
+              background: T.chartCellBg,
               padding: '4px 2px',
               cursor: 'pointer',
               justifyContent: resolveFlexAlignment(headerHorizontalAlign),
