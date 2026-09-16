@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -44,6 +45,13 @@ const compactPatternFieldSx = {
   '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 },
 } as const;
 
+const compactCheckboxLabelSx = {
+  mx: 0,
+  '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+} as const;
+
+const tableKey = (database: string, tableName: string) => `${database}\u0000${tableName}`;
+
 function ClickHousePatternDialog({
   open,
   primaryDatabase,
@@ -56,6 +64,7 @@ function ClickHousePatternDialog({
   const [databasePattern, setDatabasePattern] = React.useState('');
   const [tablePattern, setTablePattern] = React.useState('');
   const [preview, setPreview] = React.useState<ClickHousePatternPreviewResponse | null>(null);
+  const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -110,24 +119,91 @@ function ClickHousePatternDialog({
     };
   }, [open, databasePattern, tablePattern, patternMode, primaryDatabase, primaryTable, unionTables]);
 
+  // Each new preview starts fully ticked; the user narrows it down from there.
+  React.useEffect(() => {
+    setSelectedKeys(
+      new Set(
+        (preview?.resolved_tables ?? []).map((table) => tableKey(table.database, table.table_name))
+      )
+    );
+  }, [preview]);
+
+  // Matches that are already the primary or a union table cannot be picked again.
+  const excludedKeys = React.useMemo(
+    () =>
+      new Set(
+        (preview?.excluded_existing ?? []).map((table) => tableKey(table.database, table.table_name))
+      ),
+    [preview]
+  );
+
+  const selectedTables = React.useMemo(
+    () =>
+      (preview?.resolved_tables ?? []).filter((table) =>
+        selectedKeys.has(tableKey(table.database, table.table_name))
+      ),
+    [preview, selectedKeys]
+  );
+
+  const toggleTable = (database: string, tableName: string) => {
+    const key = tableKey(database, tableName);
+    setSelectedKeys((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleDatabase = (database: string, tableNames: string[], shouldSelect: boolean) => {
+    setSelectedKeys((previous) => {
+      const next = new Set(previous);
+      tableNames.forEach((tableName) => {
+        const key = tableKey(database, tableName);
+        if (shouldSelect) {
+          next.add(key);
+        } else {
+          next.delete(key);
+        }
+      });
+      return next;
+    });
+  };
+
+  const setAllSelected = (shouldSelect: boolean) => {
+    setSelectedKeys(
+      shouldSelect
+        ? new Set(
+            (preview?.resolved_tables ?? []).map((table) =>
+              tableKey(table.database, table.table_name)
+            )
+          )
+        : new Set()
+    );
+  };
+
   const selectionSummary = React.useMemo(() => {
     if (!preview) return null;
     const primaryLabel = primaryTable
       ? `${primaryDatabase}.${primaryTable}`
-      : preview.resolved_tables[0]
-        ? `${preview.resolved_tables[0].database}.${preview.resolved_tables[0].table_name}`
+      : selectedTables[0]
+        ? `${selectedTables[0].database}.${selectedTables[0].table_name}`
         : null;
 
     return {
       primaryLabel,
-      resolvedCount: preview.resolved_tables.length,
+      selectedCount: selectedTables.length,
+      selectableCount: preview.resolved_tables.length,
       excludedCount: preview.excluded_existing.length,
     };
-  }, [preview, primaryDatabase, primaryTable]);
+  }, [preview, selectedTables, primaryDatabase, primaryTable]);
 
   const handleApply = () => {
-    if (!preview || preview.resolved_tables.length === 0) return;
-    onApply(preview.resolved_tables);
+    if (selectedTables.length === 0) return;
+    onApply(selectedTables);
     onClose();
   };
 
@@ -187,7 +263,7 @@ function ClickHousePatternDialog({
           />
 
           <Typography variant="caption" color="text.secondary">
-            Preview updates automatically. Matches already selected as primary or union tables are excluded from apply.
+            Preview updates automatically. Tick the tables to add; matches already selected as primary or union tables cannot be picked again.
           </Typography>
 
           {error ? <Alert severity="error">{error}</Alert> : null}
@@ -196,8 +272,9 @@ function ClickHousePatternDialog({
             <Alert severity="info">
               {selectionSummary.primaryLabel
                 ? `Primary after apply: ${selectionSummary.primaryLabel}`
-                : 'No primary will be selected until at least one match is resolved.'}{' '}
-              {selectionSummary.resolvedCount} table{selectionSummary.resolvedCount === 1 ? '' : 's'} ready to add.
+                : 'No primary will be selected until at least one table is ticked.'}{' '}
+              {selectionSummary.selectedCount} of {selectionSummary.selectableCount} table
+              {selectionSummary.selectableCount === 1 ? '' : 's'} selected.
               {selectionSummary.excludedCount > 0
                 ? ` ${selectionSummary.excludedCount} existing selection${selectionSummary.excludedCount === 1 ? '' : 's'} excluded.`
                 : ''}
@@ -209,6 +286,27 @@ function ClickHousePatternDialog({
               {warning}
             </Alert>
           ))}
+
+          {!isLoading && preview && preview.resolved_tables.length > 0 ? (
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button
+                size="small"
+                onClick={() => setAllSelected(true)}
+                disabled={selectedTables.length === preview.resolved_tables.length}
+                sx={{ fontSize: '0.7rem', minWidth: 0 }}
+              >
+                Select all
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setAllSelected(false)}
+                disabled={selectedTables.length === 0}
+                sx={{ fontSize: '0.7rem', minWidth: 0 }}
+              >
+                Clear
+              </Button>
+            </Box>
+          ) : null}
 
           <Box
             sx={{
@@ -239,14 +337,61 @@ function ClickHousePatternDialog({
               </Typography>
             ) : null}
 
-            {!isLoading && preview?.matches.map((match) => (
-              <Box key={match.database} sx={{ mb: 1.5 }}>
-                <Typography variant="subtitle2">{match.database}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {match.tables.join(', ')}
-                </Typography>
-              </Box>
-            ))}
+            {!isLoading && preview?.matches.map((match) => {
+              const selectableTables = match.tables.filter(
+                (tableName) => !excludedKeys.has(tableKey(match.database, tableName))
+              );
+              const selectedInDatabase = selectableTables.filter((tableName) =>
+                selectedKeys.has(tableKey(match.database, tableName))
+              ).length;
+              const allSelected =
+                selectableTables.length > 0 && selectedInDatabase === selectableTables.length;
+
+              return (
+                <Box key={match.database} sx={{ mb: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={allSelected}
+                        indeterminate={selectedInDatabase > 0 && !allSelected}
+                        disabled={selectableTables.length === 0}
+                        onChange={() => toggleDatabase(match.database, selectableTables, !allSelected)}
+                        sx={{ py: 0.25 }}
+                      />
+                    }
+                    label={match.database}
+                    sx={{
+                      mx: 0,
+                      '& .MuiFormControlLabel-label': { fontSize: '0.75rem', fontWeight: 600 },
+                    }}
+                  />
+                  <Stack sx={{ pl: 3 }}>
+                    {match.tables.map((tableName) => {
+                      const key = tableKey(match.database, tableName);
+                      const isExcluded = excludedKeys.has(key);
+
+                      return (
+                        <FormControlLabel
+                          key={key}
+                          control={
+                            <Checkbox
+                              size="small"
+                              checked={isExcluded || selectedKeys.has(key)}
+                              disabled={isExcluded}
+                              onChange={() => toggleTable(match.database, tableName)}
+                              sx={{ py: 0.25 }}
+                            />
+                          }
+                          label={isExcluded ? `${tableName} (already added)` : tableName}
+                          sx={compactCheckboxLabelSx}
+                        />
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              );
+            })}
           </Box>
         </Stack>
       </DialogContent>
@@ -256,9 +401,11 @@ function ClickHousePatternDialog({
           size="small"
           onClick={handleApply}
           variant="outlined"
-          disabled={!preview || preview.resolved_tables.length === 0}
+          disabled={selectedTables.length === 0}
         >
-          Apply Matches
+          {selectedTables.length > 0
+            ? `Add ${selectedTables.length} Table${selectedTables.length === 1 ? '' : 's'}`
+            : 'Add Tables'}
         </Button>
       </DialogActions>
     </Dialog>
