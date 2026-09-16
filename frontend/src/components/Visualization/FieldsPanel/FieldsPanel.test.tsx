@@ -40,34 +40,13 @@ const renderPanel = (overrides: Partial<React.ComponentProps<typeof FieldsPanel>
       onFieldsSearchChange={jest.fn()}
       onFieldUpdate={jest.fn()}
       onRemoveFromAxis={jest.fn()}
-      connectionType="csv"
       selectedDatabase=""
       selectedTable="sample.csv"
-      databases={[]}
-      tables={[{ name: 'sample.csv' }]}
-      isLoadingMetadata={false}
-      metadataError={null}
-      onDatabaseSelect={jest.fn()}
-      onTableSelect={jest.fn()}
       {...overrides}
     />
   );
 
 describe('FieldsPanel collapsible sections', () => {
-  it('collapses Data Source and shows the selected table hint', async () => {
-    renderPanel();
-
-    expect(screen.getByPlaceholderText('Search Table')).toBeVisible();
-    fireEvent.click(screen.getByLabelText('Collapse data source'));
-
-    expect(screen.getByLabelText('Expand data source')).toHaveAttribute('aria-expanded', 'false');
-    await waitFor(() => {
-      expect(screen.queryByPlaceholderText('Search Table')).not.toBeVisible();
-    });
-    expect(screen.getByText('sample.csv', { selector: 'span' })).toBeInTheDocument();
-    expect(window.localStorage.getItem('fieldsPanel.dataSource.expanded')).toBe('false');
-  });
-
   it('collapses Fields and hides search plus field lists', async () => {
     renderPanel();
 
@@ -85,37 +64,10 @@ describe('FieldsPanel collapsible sections', () => {
     expect(window.localStorage.getItem('fieldsPanel.fields.expanded')).toBe('false');
   });
 
-  it('restores collapsed Data Source state from localStorage', () => {
-    window.localStorage.setItem('fieldsPanel.dataSource.expanded', 'false');
+  it('no longer renders the Data Source section, which is its own card', () => {
     renderPanel();
 
-    expect(screen.getByLabelText('Expand data source')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Search Table')).not.toBeVisible();
-  });
-
-  it('does not collapse Data Source when refresh is clicked', () => {
-    const onRefreshMetadata = jest.fn();
-    renderPanel({ onRefreshMetadata });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh metadata' }));
-
-    expect(onRefreshMetadata).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByPlaceholderText('Search Table')).toBeVisible();
-  });
-
-  it('opens the ClickHouse pattern picker from the header without collapsing Data Source', () => {
-    renderPanel({
-      connectionType: 'clickhouse',
-      selectedDatabase: 'analytics',
-      selectedTable: 'orders',
-      databases: [{ name: 'analytics' }],
-      tables: [{ name: 'orders' }],
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Add by pattern' }));
-
-    expect(screen.getByRole('dialog', { name: 'Add Tables By Pattern' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByLabelText('Collapse data source')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search Table')).not.toBeInTheDocument();
   });
 });

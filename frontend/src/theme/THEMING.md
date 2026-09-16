@@ -334,9 +334,16 @@ things agree:
    window edge is `SHELL_GUTTER_PX`. They are equal on purpose.
 3. **Cards do not nest.** A card inside a card is the "Russian doll" look that
    makes dense UIs noisy. Where a column holds a *list* of cards — the
-   Properties column, and the Fields column with its brand header above the
-   panel — the column itself is a **well** (`--df-surface-shell`, the same
-   colour as the canvas) rather than a card.
+   Properties column, and the Fields column with its brand header and Data
+   Source card above the panel — the column itself is a **well**
+   (`--df-surface-shell`, the same colour as the canvas) rather than a card.
+
+   The corollary: **an independently collapsible section in a well is a card.**
+   That is what the four Properties sections are, and it is why Data Source was
+   split out of the Fields card — it keeps its own expand state, so the canvas
+   gap separates it now instead of the surface tint and hairline it used to
+   draw. A divider *inside* a card (the Fields header above its list) stays a
+   divider; the rule is about siblings in a well, not regions of one surface.
 
    **A well is never padded.** Its own gutter would sit *inside* the handle that
    already separates the columns, so its cards would inset 8px from their

@@ -1,10 +1,15 @@
+/*
+ * Fills the Data Source card in the Fields well, so it draws no surface and no
+ * boundary of its own: the card supplies --df-surface-raised and the radius,
+ * and the canvas gap below it is what separates it from the Fields card. It
+ * used to be a --df-surface-subtle band with a hairline under it, back when
+ * both sections shared one card.
+ */
 .metadataSelector {
-  padding: 8px 10px 4px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border-bottom: 1px solid var(--df-border-hairline);
-  background-color: var(--df-surface-subtle);
   flex-shrink: 0;
 }
 
