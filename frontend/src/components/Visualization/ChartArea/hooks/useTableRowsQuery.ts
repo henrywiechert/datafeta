@@ -68,6 +68,13 @@ export function useTableRowsQuery({
   // Stable key for filter configs to detect changes
   const filterKey = useMemo(() => JSON.stringify(filterConfigurations), [filterConfigurations]);
 
+  /**
+   * Whether there is anything to show. This is what the row-count effect
+   * actually depends on — a boolean, not the column list's identity, so adding
+   * or reordering columns does not trigger a redundant COUNT(*).
+   */
+  const hasColumns = allFields.length > 0;
+
   // Reset page when fields or filters change
   useEffect(() => {
     setPageInternal(0);
@@ -81,7 +88,7 @@ export function useTableRowsQuery({
 
   // Fetch total row count
   useEffect(() => {
-    if (!enabled || !selectedTable || allFields.length === 0) {
+    if (!enabled || !selectedTable || !hasColumns) {
       setTotalRows(0);
       return;
     }
@@ -105,8 +112,19 @@ export function useTableRowsQuery({
 
     return () => controller.abort();
     // REASON: filterConfigurations summarized into filterKey to avoid refetching on deep-equal but new-reference objects.
+    //
+    // `hasColumns` is a dep because the guard above reads it, even though the
+    // count query itself does not use the column list (getRowCount is a
+    // COUNT(*) over table + filters). Leaving it out let the guard go stale,
+    // which is what killed the pager: the table view is normally opened before
+    // its Columns zone is populated, so this effect ran once with no columns,
+    // took the early return, and left totalRows at 0 — and nothing re-ran it
+    // when the columns arrived, because only the page effect below listed
+    // `allFields`. Rows then loaded and rendered while totalRows stayed 0,
+    // which pins totalPages to 1 and leaves all four pager buttons `disabled`
+    // (with the range label reading "No data").
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, selectedTable, selectedDatabase, filterKey, virtualTable, virtualColumns]);
+  }, [enabled, selectedTable, selectedDatabase, filterKey, virtualTable, virtualColumns, hasColumns]);
 
   // Fetch page data
   useEffect(() => {
