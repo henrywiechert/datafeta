@@ -540,16 +540,27 @@ const VisualizationPageContent = () => {
                         {leftPanelCollapsed ? (
                             <CollapseRail label="Fields" onExpand={toggleLeftPanel} side="left" />
                         ) : (
+                            /*
+                              A well rather than a card, like the Properties
+                              column below: it holds two cards — the brand
+                              header and the Fields panel — so the canvas shows
+                              between them and neither card nests inside the
+                              other. No padding, unlike Properties, so the
+                              Fields card keeps its edge-to-edge position in the
+                              column and the vertical gap is the only new space.
+                            */
                             <Box sx={{
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 minHeight: 0,
-                                backgroundColor: T.surfaceRaised,
-                                borderRadius: `${PANEL_RADIUS_PX}px`,
-                                // Clips the branded header's top corners to the card.
-                                overflow: 'hidden',
+                                gap: `${SHELL_GUTTER_PX}px`,
                             }}>
+                                {/*
+                                  The brand card. No bottom divider: the canvas
+                                  gap below is the boundary now, the same reason
+                                  SplitHandle's `gap` variant draws no line.
+                                */}
                                 <Box
                                     sx={{
                                         display: 'flex',
@@ -557,9 +568,9 @@ const VisualizationPageContent = () => {
                                         justifyContent: 'space-between',
                                         px: 1.5,
                                         py: 0.5,
-                                        borderBottom: 1,
-                                        borderColor: 'divider',
                                         backgroundColor: PANEL_HEADER_SURFACE,
+                                        borderRadius: `${PANEL_RADIUS_PX}px`,
+                                        overflow: 'hidden',
                                         flexShrink: 0,
                                     }}
                                 >
@@ -597,7 +608,15 @@ const VisualizationPageContent = () => {
                                         <AppInfoDisplay />
                                     </Box>
                                 </Box>
-                                <Box sx={{ flex: 1, minHeight: 0 }}>
+                                {/* The Fields card. `overflow: hidden` clips the
+                                    panel's own Data Source header to the radius. */}
+                                <Box sx={{
+                                    flex: 1,
+                                    minHeight: 0,
+                                    backgroundColor: T.surfaceRaised,
+                                    borderRadius: `${PANEL_RADIUS_PX}px`,
+                                    overflow: 'hidden',
+                                }}>
                                     <FieldsPanel
                                     availableFields={dataSourceAvailableFields}
                                     fieldsSearch={fieldsSearch}

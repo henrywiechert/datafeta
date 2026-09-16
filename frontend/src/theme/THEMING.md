@@ -200,8 +200,11 @@ things agree:
    window edge is `SHELL_GUTTER_PX`. They are equal on purpose.
 3. **Cards do not nest.** A card inside a card is the "Russian doll" look that
    makes dense UIs noisy. Where a column holds a *list* of cards — the
-   Properties column — the column itself is a **well** (`--df-surface-shell`,
-   the same colour as the canvas) rather than a card.
+   Properties column, and the Fields column with its brand header above the
+   panel — the column itself is a **well** (`--df-surface-shell`, the same
+   colour as the canvas) rather than a card. The Fields well carries no padding,
+   unlike the Properties one, so its cards stay flush with the column edge and
+   only the gap between them is new.
 
 `SplitHandle` has a `variant` for the two situations this creates:
 
