@@ -110,30 +110,13 @@
         "files": [
           "src/components/DebugPanel/hints/FieldHintsList.tsx",
           "src/components/DebugPanel/optimizations/NoOptimizationsMessage.tsx",
-          "src/components/Layout/layoutTokens.ts",
           "src/components/Visualization/ChartArea/components/ChartControls.tsx",
-          "src/components/Visualization/ChartArea/components/DebugPanel.tsx",
           "src/components/Visualization/ChartArea/components/HeatmapSizeBar.tsx",
-          "src/components/Visualization/ChartGrid/BrushOverlay.tsx",
-          "src/components/Visualization/ChartGrid/MultiPlotGrid.tsx",
-          "src/components/Visualization/ChartGrid/PlotArea.tsx",
-          "src/components/Visualization/ChartGrid/VirtualResizeLine.tsx",
-          "src/components/Visualization/ChartGrid/facetLabels/LeftFacetLabelsComponent.tsx",
-          "src/components/Visualization/ChartGrid/facetLabels/TopFacetLabelsComponent.tsx",
-          "src/components/Visualization/ChartGrid/renderers/PieSvgRenderer.tsx",
           "src/components/Visualization/DebugView.tsx",
           "src/components/Visualization/FieldChip/dragImageUtils.ts",
           "src/components/Visualization/Table/TableRowsPagination.tsx",
           "src/components/Visualization/Table/TableViewRowsLazy.tsx",
-          "src/components/icons/DataSlicerIcon.tsx",
-          "src/config/chartLayoutConfig.ts",
-          "src/observable-plot-generator/chartTypes/cdfChart.ts",
-          "src/observable-plot-generator/chartTypes/cellChartHelpers.ts",
-          "src/observable-plot-generator/chartTypes/densityChart.ts",
-          "src/observable-plot-generator/chartTypes/heatmapChart.ts",
-          "src/observable-plot-generator/rules/chartRules.ts",
-          "src/observable-plot-generator/utils/labelUtils.ts",
-          "src/observable-plot-generator/utils/seriesEndLabels.ts"
+          "src/components/icons/DataSlicerIcon.tsx"
         ],
         "rules": {
           "no-restricted-syntax": "off"

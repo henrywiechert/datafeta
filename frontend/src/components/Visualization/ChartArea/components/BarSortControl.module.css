@@ -8,14 +8,14 @@
 
 .sortButton {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #ccc;
+  background: var(--df-surface-raised-alpha);
+  border: 1px solid var(--df-border-strong);
   border-radius: 4px;
   padding: 6px 10px;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--df-shadow-soft);
   user-select: none;
   display: flex;
   align-items: center;
@@ -23,9 +23,9 @@
 }
 
 .sortButton:hover {
-  background: rgba(255, 255, 255, 1);
-  border-color: #1976d2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--df-surface-raised);
+  border-color: var(--df-border-accent);
+  box-shadow: 0 2px 8px var(--df-shadow-medium);
 }
 
 .sortButton:active {

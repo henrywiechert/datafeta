@@ -30,10 +30,10 @@
 }
 
 .stackContent::-webkit-scrollbar-thumb {
-  background: var(--df-scroll-thumb);
+  background: var(--df-scroll-thumb-subtle);
   border-radius: 4px;
 }
 
 .stackContent::-webkit-scrollbar-thumb:hover {
-  background: var(--df-scroll-thumb-hover);
+  background: var(--df-scroll-thumb-subtle-hover);
 }

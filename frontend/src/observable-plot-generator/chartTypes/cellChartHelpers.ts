@@ -10,6 +10,7 @@ import { getAggregationSpec } from '../../aggregations';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { scatterChart } from './scatterChart';
 import { ChartContext } from './cellChartTypes';
+import { T } from '../../theme/tokens';
 
 /**
  * Roll already-aggregated rows up to the cell grain.
@@ -56,7 +57,7 @@ export function resolveXYColumns(xf: Field, yf: Field): { xCol: string; yCol: st
  */
 export function messageOptions(text: string): Plot.PlotOptions {
   return {
-    marks: [Plot.text([text], { frameAnchor: 'middle', fontSize: 12, fill: 'gray' })],
+    marks: [Plot.text([text], { frameAnchor: 'middle', fontSize: 12, fill: T.textMuted })],
   };
 }
 

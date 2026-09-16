@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
+import { T } from '../../theme/tokens';
 
 // ============================================================================
 // Generic Label Utilities (chart-agnostic)
@@ -165,7 +166,7 @@ export function createLabelMark(cfg: LabelMarkConfig): ReturnType<typeof Plot.te
     text: cfg.getText,
     fontSize: cfg.fontSize ?? 10,
     lineHeight: 1.1,
-    fill: 'black',
+    fill: T.chartLabelInk,
     textAnchor: cfg.textAnchor ?? 'middle',
     pointerEvents: 'none',
   };
@@ -174,7 +175,7 @@ export function createLabelMark(cfg: LabelMarkConfig): ReturnType<typeof Plot.te
   if (cfg.dx !== undefined) base.dx = cfg.dx;
   
   if (cfg.withHalo !== false) {
-    base.stroke = 'white';
+    base.stroke = T.chartHalo;
     base.strokeWidth = 3;
   }
   

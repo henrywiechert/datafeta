@@ -49,6 +49,7 @@
   --df-focus-ring: rgba(25, 118, 210, 0.1);
   --df-accent-tint-hover: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.04);
   --df-accent-tint-selected: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.08);
+  --df-accent-tint-strong: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.16);
   --df-accent-ring: rgba(var(--mui-palette-primary-mainChannel, 25 118 210) / 0.9);
   --df-drop-accept-border: #2196f3;
   --df-drop-accept-bg: #e3f2fd;
@@ -104,6 +105,9 @@
   --df-chart-brush-edge: rgba(70, 130, 180, 0.5);
   --df-scroll-thumb: #888888;
   --df-scroll-thumb-hover: #555555;
+  --df-scroll-thumb-active: #333333;
+  --df-scroll-thumb-subtle: #cccccc;
+  --df-scroll-thumb-subtle-hover: #aaaaaa;
   --df-scroll-track: #f1f1f1;
   --df-slider-rail-disabled: #bdbdbd;
   --df-plain-button-bg: #007bff;
@@ -121,6 +125,7 @@
   --df-inverse-fill: rgba(255, 255, 255, 0.08);
   --df-inverse-fill-selected: rgba(255, 255, 255, 0.12);
   --df-inverse-fill-hover: rgba(255, 255, 255, 0.14);
+  --df-inverse-fill-strong: rgba(255, 255, 255, 0.2);
   --df-inverse-border-subtle: rgba(255, 255, 255, 0.16);
   --df-inverse-border-strong: rgba(255, 255, 255, 0.3);
   --df-inverse-border-emphasis: rgba(255, 255, 255, 0.5);
@@ -141,6 +146,8 @@
   --df-chart-mark-highlight-stroke: rgba(0, 0, 0, 0.6);
   --df-chart-mark-highlight-stroke-thin: rgba(0, 0, 0, 0.9);
   --df-chart-guide-line: rgba(0, 0, 0, 0.65);
+  --df-chart-glyph-muted: rgba(0, 0, 0, 0.25);
+  --df-chart-badge-surface: rgba(0, 0, 0, 0.8);
 }
 
 [data-df-color-scheme="dark"] {
@@ -186,6 +193,7 @@
   --df-focus-ring: rgba(144, 202, 249, 0.16);
   --df-accent-tint-hover: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.04);
   --df-accent-tint-selected: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.08);
+  --df-accent-tint-strong: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.16);
   --df-accent-ring: rgba(var(--mui-palette-primary-mainChannel, 144 202 249) / 0.9);
   --df-drop-accept-border: #42a5f5;
   --df-drop-accept-bg: #15304a;
@@ -241,6 +249,9 @@
   --df-chart-brush-edge: rgba(130, 180, 230, 0.55);
   --df-scroll-thumb: #555555;
   --df-scroll-thumb-hover: #777777;
+  --df-scroll-thumb-active: #999999;
+  --df-scroll-thumb-subtle: #4a4a4a;
+  --df-scroll-thumb-subtle-hover: #666666;
   --df-scroll-track: #262626;
   --df-slider-rail-disabled: #4a4a4a;
   --df-plain-button-bg: #3d8bfd;
@@ -258,6 +269,7 @@
   --df-inverse-fill: rgba(255, 255, 255, 0.08);
   --df-inverse-fill-selected: rgba(255, 255, 255, 0.12);
   --df-inverse-fill-hover: rgba(255, 255, 255, 0.14);
+  --df-inverse-fill-strong: rgba(255, 255, 255, 0.2);
   --df-inverse-border-subtle: rgba(255, 255, 255, 0.16);
   --df-inverse-border-strong: rgba(255, 255, 255, 0.3);
   --df-inverse-border-emphasis: rgba(255, 255, 255, 0.5);
@@ -278,4 +290,6 @@
   --df-chart-mark-highlight-stroke: rgba(255, 255, 255, 0.7);
   --df-chart-mark-highlight-stroke-thin: rgba(255, 255, 255, 0.85);
   --df-chart-guide-line: rgba(255, 255, 255, 0.7);
+  --df-chart-glyph-muted: rgba(255, 255, 255, 0.35);
+  --df-chart-badge-surface: rgba(0, 0, 0, 0.8);
 }

@@ -21,6 +21,7 @@ import {
   TableGridCellModel,
 } from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
+import { T } from '../../../theme/tokens';
 
 export interface PlotBrushEvent {
   brush: BrushResult;
@@ -237,7 +238,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
               right: 2,
               width: 14,
               height: 14,
-              color: 'rgba(0, 0, 0, 0.25)',
+              color: T.chartGlyphMuted,
               zIndex: 1,
             }}
           />
@@ -284,7 +285,7 @@ const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellCon
               right: 2,
               width: 14,
               height: 14,
-              color: 'rgba(0, 0, 0, 0.25)',
+              color: T.chartGlyphMuted,
               zIndex: 1,
             }}
           />

@@ -13,6 +13,7 @@ import { getResultColumnName, getFieldDisplayName as getFieldDisplayNameUtil } f
 import { BAR_STEP_PX, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { T } from '../../theme/tokens';
 
 interface SizeOptions {
   intrinsicWidth?: number | 'fr';
@@ -532,7 +533,7 @@ export function generateChartOptions(
   }
 
   return wrapAs1x1Grid(
-    { marks: [Plot.text(['Unsupported field combination'], { frameAnchor: 'middle', fontSize: 14, fill: 'gray' })] },
+    { marks: [Plot.text(['Unsupported field combination'], { frameAnchor: 'middle', fontSize: 14, fill: T.textMuted })] },
     'unsupported',
     'Unsupported field combination'
   );

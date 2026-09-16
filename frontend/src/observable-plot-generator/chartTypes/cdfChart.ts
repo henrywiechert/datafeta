@@ -5,6 +5,7 @@ import { ColorChannel, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { T } from '../../theme/tokens';
 
 /**
  * Column naming convention for CDF query results:
@@ -69,7 +70,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
         Plot.text([message], {
           frameAnchor: 'middle',
           fontSize: 14,
-          fill: 'gray',
+          fill: T.textMuted,
         }),
       ],
     };

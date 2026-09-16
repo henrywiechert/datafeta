@@ -1,4 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { T } from '../../theme/tokens';
+
 /**
  * Layout chrome tokens — the single source of truth for how every split,
  * divider and collapsed rail in the app looks and behaves.
@@ -10,11 +12,11 @@
  * resize vocabulary.
  *
  * Values come in two flavours because there are two styling systems in play:
- * `*_COLOR` constants are MUI `sx` palette keys (themeable, preferred), and
- * `*_HEX` constants are literal colors for the few consumers that write raw
- * inline styles or CSS (e.g. the chart gridline handles). When a dark theme
- * lands, the `sx` keys follow the palette automatically and only the `*_HEX`
- * list needs revisiting.
+ * `*_COLOR` constants are MUI `sx` palette keys, resolved by `sx`; `*_CSS`
+ * constants are `var()` strings from the `--df-*` token layer, for the
+ * consumers that write raw inline styles or CSS (e.g. the chart gridline
+ * handles). Both follow the color scheme, so neither needs revisiting when a
+ * dark theme lands. See src/theme/THEMING.md.
  */
 
 /**
@@ -49,20 +51,20 @@ export const SPLIT_HOVER_BACKDROP_COLOR = 'action.hover';
 
 /**
  * Chart gridline resize handles style themselves with raw inline styles, so
- * they need literal colors. Same blue as every other handle: these used to be
- * a one-off green.
+ * they take `var()` strings rather than `sx` palette keys. Same blue as every
+ * other handle: these used to be a one-off green.
  */
-export const SPLIT_LINE_ACTIVE_HEX = '#1976d2';
-export const SPLIT_LINE_DRAGGING_HEX = '#1565c0';
+export const SPLIT_LINE_ACTIVE_CSS = T.chartResizeHandle;
+export const SPLIT_LINE_DRAGGING_CSS = T.chartResizeHandleHover;
 
 /**
  * Surface of a secondary panel (Properties) and of a collapsed rail, so a
  * collapsed panel reads as the same material as an expanded one.
  */
-export const PANEL_SURFACE = '#fafafa';
+export const PANEL_SURFACE = T.surfacePanel;
 
 /** Branded panel header (app title / help row above the Fields panel). */
-export const PANEL_HEADER_SURFACE = '#e3f2fd';
+export const PANEL_HEADER_SURFACE = T.surfaceHeader;
 
 /** Drag preview line floats above panels and dialogs but below modals. */
 export const SPLIT_PREVIEW_Z_INDEX = 1400;

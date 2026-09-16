@@ -5,16 +5,16 @@
   min-height: 80px;
   /* Each legend section can take at most 50% of available space */
   max-height: 50%;
-  background-color: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: var(--df-surface-panel);
+  border-bottom: 1px solid var(--df-border-hairline);
   /* Allow shrinking but prefer natural size */
   flex: 0 1 auto;
 }
 
 .header {
   padding: 8px 12px;
-  border-bottom: 1px solid #e0e0e0;
-  background-color: white;
+  border-bottom: 1px solid var(--df-border-hairline);
+  background-color: var(--df-surface-raised);
   flex-shrink: 0;
 }
 
@@ -22,7 +22,7 @@
   font-size: 12px;
   font-weight: 600;
   margin: 0;
-  color: #333;
+  color: var(--df-text-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -50,12 +50,12 @@
 }
 
 .content::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--df-scroll-thumb-subtle);
   border-radius: 3px;
 }
 
 .content::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+  background: var(--df-scroll-thumb-subtle-hover);
 }
 
 .content::-webkit-scrollbar-corner {
@@ -73,14 +73,14 @@
 .gradientBar {
   height: 14px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--df-border-swatch);
 }
 
 .gradientLabels {
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: #555;
+  color: var(--df-text-dim);
   gap: 8px;
 }
 
@@ -105,29 +105,29 @@
 }
 
 .legendItemInteractive:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--df-state-hover);
 }
 
 /* Selected state — visible highlight for chosen items */
 .legendItemSelected {
-  background-color: rgba(25, 118, 210, 0.10);
+  background-color: var(--df-accent-tint-selected);
 }
 
 .legendItemSelected:hover {
-  background-color: rgba(25, 118, 210, 0.16);
+  background-color: var(--df-accent-tint-strong);
 }
 
 .colorSwatch {
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--df-border-swatch);
   flex-shrink: 0;
 }
 
 .legendLabel {
   font-size: 11px;
-  color: #555;
+  color: var(--df-text-dim);
   /* Allow horizontal scroll at container level instead of truncating */
   white-space: nowrap;
 }

@@ -1,10 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 // Central layout constants for chart grid and intrinsic sizing
 import type { UserChartType } from '../types';
+import { T } from '../theme/tokens';
 import {
-  SPLIT_LINE_ACTIVE_HEX,
+  SPLIT_LINE_ACTIVE_CSS,
   SPLIT_LINE_ACTIVE_THICKNESS_PX,
-  SPLIT_LINE_DRAGGING_HEX,
+  SPLIT_LINE_DRAGGING_CSS,
 } from '../components/Layout/layoutTokens';
 
 export const MIN_GRID_COLUMN_PX = 120;
@@ -36,7 +37,16 @@ export const MIN_BAND_TRACKS = 1; // Minimum number of band steps to allocate
 export const MIN_SERIES_PANES = 1; // Minimum panes when splitting series per facet
 
 // Grid visual constants
-export const GRID_DIVIDER_COLOR = '#99a795';
+/**
+ * Every facet/cell divider, axis-gutter separator and the plot-bottom boundary.
+ *
+ * All ~18 call sites interpolate this into an inline style or `sx`, so pointing
+ * it at a token themes the whole grid without touching any of them. The sage
+ * green is preserved as its own token rather than folded into a generic border
+ * colour — no rationale for the hue was recorded anywhere, so this keeps the
+ * decision reversible instead of quietly changing it.
+ */
+export const GRID_DIVIDER_COLOR = T.chartGridDivider;
 export const NAMES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_TOP_PX = 20;
@@ -102,13 +112,13 @@ export const HEATMAP_DEFAULT_CELL_SIZE_PX = 14;
 export const HEATMAP_MIN_CELL_SIZE_PX = 1;
 
 // Gridline resize handles. These draw themselves with raw inline styles (they
-// sit on absolutely positioned gridlines), so they take the literal hex tokens
-// rather than the sx palette keys. Colors come from layoutTokens so a gridline
-// handle reads as the same affordance as a panel split — they used to be a
-// one-off green.
+// sit on absolutely positioned gridlines), so they take var() strings rather
+// than sx palette keys. Colors come from layoutTokens so a gridline handle
+// reads as the same affordance as a panel split — they used to be a one-off
+// green.
 export const RESIZE_HANDLE_WIDTH = SPLIT_LINE_ACTIVE_THICKNESS_PX;
-export const RESIZE_HANDLE_COLOR = SPLIT_LINE_ACTIVE_HEX;
-export const RESIZE_HANDLE_HOVER_COLOR = SPLIT_LINE_DRAGGING_HEX;
+export const RESIZE_HANDLE_COLOR = SPLIT_LINE_ACTIVE_CSS;
+export const RESIZE_HANDLE_HOVER_COLOR = SPLIT_LINE_DRAGGING_CSS;
 
 // Min sizes for cell resize. Upper bound is intentionally unbounded: facet
 // cells in practice never come close to a hard cap, and heatmaps (whose

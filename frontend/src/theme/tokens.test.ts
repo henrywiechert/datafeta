@@ -109,6 +109,8 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
   ['inverseFill', 'part of the inverse slab: dark in both themes'],
   ['inverseFillSelected', 'part of the inverse slab: dark in both themes'],
   ['inverseFillHover', 'part of the inverse slab: dark in both themes'],
+  ['inverseFillStrong', 'part of the inverse slab: dark in both themes'],
+  ['chartBadgeSurface', 'a dark chip over the plot, dark in both themes'],
   ['inverseBorderSubtle', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderStrong', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderEmphasis', 'part of the inverse slab: dark in both themes'],
