@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { Button, Collapse } from '@mui/material';
+import LabelIcon from '@mui/icons-material/Label';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import SectionHeader from '../Properties/SectionHeader';
@@ -243,33 +244,48 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
       <div className={styles.header}>
         <SectionHeader
           title="Fields"
+          icon={<LabelIcon fontSize="small" />}
           expanded={fieldsExpanded}
           onToggle={() => setFieldsExpanded((current) => !current)}
           controls="fields-panel-content"
-          actions={
-            fieldsExpanded && (
-              <Button
-                size="small"
-                variant="text"
-                color="primary"
-                className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
-                sx={{ fontSize: '0.68rem', minHeight: 22, lineHeight: 1.1 }}
-                aria-pressed={useRegex}
-                onClick={() => setUseRegex((current) => !current)}
-              >
-                Regex
-              </Button>
-            )
-          }
         />
         {fieldsExpanded && (
           <div className={styles.headerSearch}>
-            <FieldsSearch
-              value={fieldsSearch}
-              onChange={onFieldsSearchChange}
-              error={useRegex && !!regexError}
-              helperText={useRegex ? regexError || '' : ''}
-            />
+            <div className={styles.searchField}>
+              <FieldsSearch
+                value={fieldsSearch}
+                onChange={onFieldsSearchChange}
+                error={useRegex && !!regexError}
+                helperText={useRegex ? regexError || '' : ''}
+              />
+            </div>
+            {/*
+              Beside the search field it modifies, rather than up in the
+              SectionHeader. All sizing is in `sx`: MUI's own Button styles and
+              a CSS-module class have the same specificity, so which one won
+              came down to stylesheet order. `.regexToggle` keeps only the
+              wrapping rule, and `.toggleActive` keeps the active colours —
+              renaming that one would silently break three guards in App.css.
+            */}
+            <Button
+              size="small"
+              variant="text"
+              color="primary"
+              className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
+              sx={{
+                fontSize: 10,
+                lineHeight: 1.1,
+                minWidth: 0,
+                minHeight: 20,
+                px: '5px',
+                py: 0,
+                flexShrink: 0,
+              }}
+              aria-pressed={useRegex}
+              onClick={() => setUseRegex((current) => !current)}
+            >
+              Regex
+            </Button>
           </div>
         )}
       </div>

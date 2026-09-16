@@ -129,6 +129,7 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
   ['calloutPlate', 'a translucent white plate on a tinted callout, both themes'],
   ['calloutPlateSoft', 'a translucent white plate on a tinted callout, both themes'],
   ['panelRadius', 'geometry, not colour: the same curve in both themes'],
+  ['sectionInset', 'geometry, not colour: the same gap under every section header'],
   ['inverseBorderSubtle', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderStrong', 'part of the inverse slab: dark in both themes'],
   ['inverseBorderEmphasis', 'part of the inverse slab: dark in both themes'],
@@ -151,7 +152,7 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
  * CSS as well as TypeScript, and this is the one place both views are generated
  * from — so it rides along rather than living in a second mechanism.
  */
-const NON_COLOR_TOKENS: DfTokenName[] = ['panelRadius'];
+const NON_COLOR_TOKENS: DfTokenName[] = ['panelRadius', 'sectionInset'];
 
 const MUI_DELEGATION = /^var\(--mui-palette-([a-zA-Z0-9-]+), (.+)\)$/;
 

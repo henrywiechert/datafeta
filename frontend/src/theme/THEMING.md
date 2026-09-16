@@ -370,6 +370,22 @@ little more curve. `--df-panel-radius` mirrors it for CSS modules.
 A card must set `overflow: hidden`, or its own children (a branded header, a
 scrollbar) will square off the corners it just rounded.
 
+### Inside a card
+
+Every collapsible card wears the same header: `Properties/SectionHeader`, which
+owns the chevron, the 40px row and the hover tint. It is **full-bleed**, because
+the tint has to reach the card's edges — so the 12px horizontal inset lives in
+the header and the card's content has to supply a matching one of its own, or
+the title and the controls under it will not share a left edge.
+
+That inset is `--df-section-inset` (12px), and its top edge doubles as the gap
+between the header and the first control. Like `--df-panel-radius` it is
+geometry rather than colour, and rides in the token layer for the same reason:
+CSS modules need to read it, and this is the one place both views are generated
+from. `tokens.test.ts` lists both in `NON_COLOR_TOKENS` and `SCHEME_INVARIANT`,
+which is what exempts them from the "every token differs between light and
+dark" rule.
+
 ## Guardrails
 
 Two halves of one contract, both enforced in CI:
