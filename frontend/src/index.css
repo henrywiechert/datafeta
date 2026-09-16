@@ -102,6 +102,13 @@ html {
   accent-color: var(--df-text-accent);
 }
 
-[data-df-color-scheme="dark"] {
+/*
+ * One selector per dark scheme. `color-scheme` takes only the CSS keywords, so
+ * a variant cannot be a token — this list has to name every scheme in
+ * tokens.def.json whose MUI palette mode is dark, and tokens.test.ts asserts
+ * it does.
+ */
+[data-df-color-scheme="dark"],
+[data-df-color-scheme="dim"] {
   color-scheme: dark;
 }

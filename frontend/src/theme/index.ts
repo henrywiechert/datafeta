@@ -20,7 +20,44 @@
  * in the `--df-*` token layer, not in MUI's namespace. See `THEMING.md`. The two
  * dark overrides are documented at the `colorSchemes` block below.
  */
-import { experimental_extendTheme as extendTheme } from '@mui/material/styles';
+import { experimental_extendTheme as extendTheme, createTheme } from '@mui/material/styles';
+
+/**
+ * The `dim` scheme's MUI palette.
+ *
+ * Built with `createTheme` first, then handed over as a finished palette,
+ * because `extendTheme` only augments `light` and `dark`: it iterates every
+ * scheme but runs just those two through palette augmentation, so a custom
+ * scheme passed as a bare palette throws
+ * `Cannot read properties of undefined (reading 'background')` from its own
+ * `setColor` — `palette.common` was never built. Routing through `createTheme`
+ * produces the `*Channel` values, `contrastText`, and the component namespaces
+ * (Alert, Switch, …) that the rest of the theme expects.
+ *
+ * Only the leaves that give the scheme its character are set; `mode: 'dark'`
+ * makes MUI derive the rest from its dark defaults, so `primary.main` and
+ * friends stay shared with `dark`.
+ *
+ * `background.paper` matters more here than it looks: it is what Menu, Dialog
+ * and Popover paint with. Stock dark leaves it at `#121212` — darker than the
+ * panels it opens over — so a lifted scheme has to lift it too, or every menu
+ * reads as a hole punched in the card. (The `dark` scheme still has that
+ * mismatch; fixing it is a separate change with its own screenshot.)
+ */
+const dimPalette = createTheme({
+  palette: {
+    mode: 'dark',
+    background: {
+      // --df-surface-shell and --df-surface-raised. Kept in step by hand: MUI
+      // cannot read the --df-* layer, which is the whole reason both exist.
+      default: '#151a23',
+      paper: '#242d3b',
+    },
+    // A step softer than `dark`'s #e8eaed, and cooled to match the surfaces.
+    text: { primary: '#dfe3ea' },
+    action: { active: 'rgba(255, 255, 255, 0.7)' },
+  },
+}).palette;
 
 const denseTheme = extendTheme({
   colorSchemes: {
@@ -77,6 +114,13 @@ const denseTheme = extendTheme({
           active: 'rgba(255, 255, 255, 0.7)',
         },
       },
+    },
+    /**
+     * The soft / lifted dark variant. Its palette is built above; see
+     * THEMING.md for how a variant scheme is defined in the token layer.
+     */
+    dim: {
+      palette: dimPalette,
     },
   },
   shape: {
@@ -192,5 +236,14 @@ const denseTheme = extendTheme({
     },
   },
 });
+
+/*
+ * `overlays` is the dark elevation tint MUI's Paper paints on top of
+ * `background.paper`, and `extendTheme` defaults it for `light` and `dark`
+ * only — a custom scheme gets `undefined`, so elevated Papers would quietly
+ * lose the tint. The array is a ladder of white alphas, independent of the
+ * paper colour, so `dark`'s is exactly the one `dim` should have.
+ */
+denseTheme.colorSchemes.dim.overlays = denseTheme.colorSchemes.dark.overlays;
 
 export default denseTheme;

@@ -16,8 +16,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createTheme } from '@mui/material/styles';
 import denseTheme from './index';
-import { TOKENS, DF_TOKEN_NAMES, DfTokenName } from './tokens.def';
+import { TOKENS, DF_TOKEN_NAMES, DfTokenName, COLOR_SCHEMES, SCHEME_BASES, ColorScheme } from './tokens.def';
 import { T, cssVarName } from './tokens';
+import definitions from './tokens.def.json';
 
 const SRC_ROOT = path.resolve(__dirname, '..');
 const GENERATED_CSS = path.join(__dirname, 'tokens.generated.css');
@@ -174,17 +175,31 @@ const at = (node: unknown, p: string): unknown =>
  * provider's <style> lands. Light is still byte-identical to `createTheme`, and
  * the test below keeps checking the light fallbacks against it directly.
  */
-const themeFor = (scheme: 'light' | 'dark') =>
-  denseTheme.colorSchemes[scheme].palette;
+const themeFor = (scheme: ColorScheme) => denseTheme.colorSchemes[scheme].palette;
+
+/**
+ * Which schemes are dark is read off the MUI palette rather than listed here,
+ * so a new variant is covered by the contrast and surface checks below the
+ * moment it is declared. A hand-maintained list fails the other way: a new
+ * scheme that no test ever looks at.
+ */
+const DARK_SCHEMES = COLOR_SCHEMES.filter((scheme) => themeFor(scheme).mode === 'dark');
+
+/** Every scheme defined as a patch, paired with the scheme it patches. */
+const VARIANTS = Object.entries(SCHEME_BASES) as Array<[ColorScheme, ColorScheme]>;
 
 describe('token definitions', () => {
-  it('defines the same tokens in both schemes', () => {
-    expect(Object.keys(TOKENS.dark)).toEqual(Object.keys(TOKENS.light));
+  it('defines the same tokens in every scheme', () => {
+    for (const scheme of COLOR_SCHEMES) {
+      expect({ scheme, keys: Object.keys(TOKENS[scheme]) })
+        .toEqual({ scheme, keys: Object.keys(TOKENS.light) });
+    }
+    expect(COLOR_SCHEMES.length).toBeGreaterThanOrEqual(2);
     expect(DF_TOKEN_NAMES.length).toBeGreaterThan(50);
   });
 
   it('has no empty or obviously malformed values', () => {
-    const bad = (['light', 'dark'] as const).flatMap((scheme) =>
+    const bad = COLOR_SCHEMES.flatMap((scheme) =>
       DF_TOKEN_NAMES
         .filter((name) => NON_COLOR_TOKENS.indexOf(name) === -1)
         .filter((name) => !/^(#[0-9a-f]{3,8}|rgba?\(|hsla?\(|var\()/i.test(TOKENS[scheme][name]))
@@ -197,11 +212,14 @@ describe('token definitions', () => {
     expect(TOKENS.light[name]).toBe(literal);
   });
 
-  it.each(SCHEME_INVARIANT)('%s is identical in both schemes (%s)', (name) => {
-    expect(TOKENS.dark[name]).toBe(TOKENS.light[name]);
+  it.each(SCHEME_INVARIANT)('%s is identical in every scheme (%s)', (name) => {
+    for (const scheme of COLOR_SCHEMES) {
+      expect({ scheme, value: TOKENS[scheme][name] })
+        .toEqual({ scheme, value: TOKENS.light[name] });
+    }
   });
 
-  it('changes every other token between schemes, so nothing is forgotten', () => {
+  it('changes every other token between light and dark, so nothing is forgotten', () => {
     const invariant = SCHEME_INVARIANT.map(([name]) => name);
     const unchanged = DF_TOKEN_NAMES.filter(
       (name) => invariant.indexOf(name) === -1
@@ -210,6 +228,27 @@ describe('token definitions', () => {
         && !CHANNEL_DELEGATION.test(TOKENS.light[name]),
     );
     expect(unchanged).toEqual([]);
+  });
+
+  it.each(VARIANTS)('%s patches its base (%s) without restating it', (variant, base) => {
+    // A patch that repeats a value it inherits is dead weight: it will not
+    // follow the base when the base is re-tuned, which is the one thing the
+    // patch form is for.
+    const patched = DF_TOKEN_NAMES.filter((name) => TOKENS[variant][name] !== TOKENS[base][name]);
+    const restated = Object.keys((definitions as Record<string, any>)[variant].values)
+      .filter((name) => patched.indexOf(name as DfTokenName) === -1);
+
+    expect(restated).toEqual([]);
+    expect(patched.length).toBeGreaterThan(0);
+  });
+
+  it.each(VARIANTS)('%s inherits the surfaces it does not patch from %s', (variant, base) => {
+    // The other half of the same contract: everything not listed is the base's.
+    const patchKeys = Object.keys((definitions as Record<string, any>)[variant].values);
+    const leaked = DF_TOKEN_NAMES.filter(
+      (name) => patchKeys.indexOf(name) === -1 && TOKENS[variant][name] !== TOKENS[base][name],
+    );
+    expect(leaked).toEqual([]);
   });
 
   it('gives every channel-based tint a channel that flips between schemes', () => {
@@ -252,7 +291,7 @@ describe('tokens that delegate to the MUI palette', () => {
   it.each(delegating.map(([name]) => [name]))(
     '%s carries the app theme\'s own value as its per-scheme fallback',
     (name) => {
-      for (const scheme of ['light', 'dark'] as const) {
+      for (const scheme of COLOR_SCHEMES) {
         const match = MUI_DELEGATION.exec(TOKENS[scheme][name as DfTokenName]);
         expect(match).not.toBeNull();
         const [, role, fallback] = match!;
@@ -276,19 +315,27 @@ describe('generated CSS', () => {
   const css = fs.readFileSync(GENERATED_CSS, 'utf8');
 
   it('is in step with tokens.def.json (re-run npm run generate:tokens)', () => {
+    // Also the check that the generator and tokens.def.ts resolve `extends`
+    // the same way: the values compared here are the resolved ones.
     for (const name of DF_TOKEN_NAMES) {
-      expect(css).toContain(`  ${cssVarName(name)}: ${TOKENS.light[name]};`);
-      expect(css).toContain(`  ${cssVarName(name)}: ${TOKENS.dark[name]};`);
+      for (const scheme of COLOR_SCHEMES) {
+        expect(css).toContain(`  ${cssVarName(name)}: ${TOKENS[scheme][name]};`);
+      }
     }
   });
 
-  it('declares each token exactly twice — once per scheme', () => {
+  it('declares each token once per scheme', () => {
     const declared: string[] = css.match(/^ {2}--df-[a-z0-9-]+:/gm) ?? [];
-    expect(declared.length).toBe(DF_TOKEN_NAMES.length * 2);
+    expect(declared.length).toBe(DF_TOKEN_NAMES.length * COLOR_SCHEMES.length);
   });
 
-  it('keys its dark block on the attribute ThemeRoot toggles', () => {
-    expect(css).toContain('[data-df-color-scheme="dark"] {');
+  it('gives every scheme but the base its own attribute block', () => {
+    // `light` is :root; the rest key on the attribute ThemeRoot toggles, whose
+    // value is the scheme's own name — which is what MUI writes there too.
+    for (const scheme of COLOR_SCHEMES.filter((s) => s !== 'light')) {
+      expect(css).toContain(`[data-df-color-scheme="${scheme}"] {`);
+    }
+    expect(css).toContain(':root {');
   });
 
   it('uses the same variable names that tokens.ts builds', () => {
@@ -298,6 +345,24 @@ describe('generated CSS', () => {
     const fromTs = DF_TOKEN_NAMES.map(cssVarName);
     expect(inCss.filter((name) => fromTs.indexOf(name) === -1)).toEqual([]);
     expect(fromTs.filter((name) => inCss.indexOf(name) === -1)).toEqual([]);
+  });
+});
+
+describe('native chrome in index.css', () => {
+  /**
+   * `color-scheme` drives the native scrollbars, checkboxes and form controls,
+   * and it takes only the CSS keywords — so a variant cannot be a token and the
+   * selector list has to name every dark scheme by hand. Forgetting one leaves
+   * white scrollbars on a dark app, which no other test would notice.
+   */
+  it('declares color-scheme: dark for every dark scheme', () => {
+    const css = fs.readFileSync(path.join(SRC_ROOT, 'index.css'), 'utf8');
+    const rule = /((?:\[data-df-color-scheme="[a-z]+"\],?\s*)+)\{\s*color-scheme: dark;/.exec(css);
+
+    expect(rule).not.toBeNull();
+    for (const scheme of DARK_SCHEMES) {
+      expect(rule![1]).toContain(`"${scheme}"`);
+    }
   });
 });
 
@@ -375,16 +440,18 @@ describe('the dark scheme is actually dark', () => {
     return (hi + 0.05) / (lo + 0.05);
   };
 
-  it.each(SURFACES)('%s is a dark surface in the dark scheme', (name) => {
-    const dark = luminance(TOKENS.dark[name]);
-    const light = luminance(TOKENS.light[name]);
-    expect(dark).not.toBeNull();
-    expect(dark!).toBeLessThan(0.1);
-    expect(light!).toBeGreaterThan(0.8);
+  it.each(SURFACES)('%s is a dark surface in every dark scheme, and light in light', (name) => {
+    expect(DARK_SCHEMES.length).toBeGreaterThan(0);
+    for (const scheme of DARK_SCHEMES) {
+      const value = luminance(TOKENS[scheme][name]);
+      expect({ scheme, name, parsed: value !== null }).toEqual({ scheme, name, parsed: true });
+      expect(value!).toBeLessThan(0.1);
+    }
+    expect(luminance(TOKENS.light[name])!).toBeGreaterThan(0.8);
   });
 
-  it.each(FOREGROUNDS)('%s stays readable on the panel surface (>= %s:1) in both schemes', (name, minRatio) => {
-    for (const scheme of ['light', 'dark'] as const) {
+  it.each(FOREGROUNDS)('%s stays readable on the panel surface (>= %s:1) in every scheme', (name, minRatio) => {
+    for (const scheme of COLOR_SCHEMES) {
       const ratio = contrast(TOKENS[scheme][name], TOKENS[scheme].surfacePanel);
       expect({ scheme, name, ratio: Math.round(ratio * 10) / 10 })
         .toEqual({ scheme, name, ratio: expect.any(Number) });
@@ -393,7 +460,7 @@ describe('the dark scheme is actually dark', () => {
   });
 
   it('keeps chart ink readable on the chart cell, not just the panel', () => {
-    for (const scheme of ['light', 'dark'] as const) {
+    for (const scheme of COLOR_SCHEMES) {
       expect(contrast(TOKENS[scheme].chartInk, TOKENS[scheme].chartCellBg)).toBeGreaterThanOrEqual(4.5);
       // Data labels sit on marks but their halo is the cell, so the halo must
       // contrast with the ink it surrounds.
@@ -401,24 +468,20 @@ describe('the dark scheme is actually dark', () => {
     }
   });
 
-  it('keeps the elevation ramp ordered in both schemes', () => {
-    // Cards must read against the canvas: in light the canvas is the darkest
-    // of the three, in dark it is the darkest too (i.e. the order inverts).
-    const order = (scheme: 'light' | 'dark') =>
-      (['surfaceShell', 'surfacePanel', 'surfaceRaised'] as DfTokenName[])
+  it('keeps the elevation ramp ordered in every scheme', () => {
+    // Cards must read against the canvas, and the canvas is the darkest of the
+    // three in every scheme — in light because the cards are white, in the dark
+    // schemes because elevation lifts.
+    for (const scheme of COLOR_SCHEMES) {
+      const [shell, panel, raised] = (['surfaceShell', 'surfacePanel', 'surfaceRaised'] as DfTokenName[])
         .map((n) => luminance(TOKENS[scheme][n])!);
-
-    const [lightShell, lightPanel, lightRaised] = order('light');
-    expect(lightShell).toBeLessThan(lightPanel);
-    expect(lightPanel).toBeLessThan(lightRaised);
-
-    const [darkShell, darkPanel, darkRaised] = order('dark');
-    expect(darkShell).toBeLessThan(darkPanel);
-    expect(darkPanel).toBeLessThan(darkRaised);
+      expect({ scheme, ordered: shell < panel && panel < raised })
+        .toEqual({ scheme, ordered: true });
+    }
   });
 
   it('gives the canvas and a card enough separation to be distinguishable', () => {
-    for (const scheme of ['light', 'dark'] as const) {
+    for (const scheme of COLOR_SCHEMES) {
       const shell = luminance(TOKENS[scheme].surfaceShell)!;
       const raised = luminance(TOKENS[scheme].surfaceRaised)!;
       expect(Math.abs(raised - shell)).toBeGreaterThan(0.01);

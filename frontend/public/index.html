@@ -21,10 +21,17 @@
       (function () {
         try {
           var mode = localStorage.getItem('dataslicer.themeMode') || 'system';
-          var scheme = mode;
           if (mode === 'system') {
-            scheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
+          /*
+           * Which *scheme* a mode uses is a second choice: dark mode can be
+           * served by more than one dark scheme (dark, dim). MUI stores that
+           * per mode under `<colorSchemeStorageKey>-<mode>`, so read it rather
+           * than assuming scheme === mode, or picking Dim would still flash
+           * plain dark on every reload.
+           */
+          var scheme = localStorage.getItem('dataslicer.themeScheme-' + mode) || mode;
           document.documentElement.setAttribute('data-df-color-scheme', scheme);
         } catch (e) {
           /* private browsing, or no matchMedia: light is the default anyway */
