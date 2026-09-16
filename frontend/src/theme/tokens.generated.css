@@ -9,6 +9,7 @@
 :root {
   --df-surface-shell: #edeef0;
   --df-panel-radius: 6px;
+  --df-section-inset: 12px;
   --df-surface-canvas: #fcfcfc;
   --df-surface-panel: #fafafa;
   --df-surface-raised: #ffffff;
@@ -173,6 +174,7 @@
 [data-df-color-scheme="dark"] {
   --df-surface-shell: #121212;
   --df-panel-radius: 6px;
+  --df-section-inset: 12px;
   --df-surface-canvas: #1a1a1a;
   --df-surface-panel: #202020;
   --df-surface-raised: #262626;
@@ -337,6 +339,7 @@
 [data-df-color-scheme="dim"] {
   --df-surface-shell: #151a23;
   --df-panel-radius: 6px;
+  --df-section-inset: 12px;
   --df-surface-canvas: #1a2029;
   --df-surface-panel: #1e2531;
   --df-surface-raised: #242d3b;
@@ -501,6 +504,7 @@
 [data-df-color-scheme="solarized"] {
   --df-surface-shell: #e7e0ca;
   --df-panel-radius: 6px;
+  --df-section-inset: 12px;
   --df-surface-canvas: #ebe5d0;
   --df-surface-panel: #eee8d5;
   --df-surface-raised: #f5efdc;

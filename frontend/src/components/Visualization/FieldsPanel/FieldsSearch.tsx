@@ -22,7 +22,18 @@ const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange, error = fa
         onChange={e => onChange(e.target.value)}
         error={error}
         helperText={helperText}
-        inputProps={{ 'aria-label': 'Search fields', style: { fontSize: '12px', padding: '1px 3px' } }}
+        /*
+         * `margin: 0` overrides App.css's global `input[type="text"]` rule,
+         * which ships `margin-right: 10px; margin-bottom: 10px` for the
+         * connector forms on the data source page. Here that margin made the
+         * input's box 10px taller than the control looks, so nothing could line
+         * up beside it. Overridden locally rather than in App.css, which is the
+         * only thing styling those forms — see src/theme/THEMING.md.
+         */
+        inputProps={{
+          'aria-label': 'Search fields',
+          style: { fontSize: '12px', padding: '1px 3px', margin: 0 },
+        }}
         InputProps={{
           disableUnderline: true,
           endAdornment: value ? (

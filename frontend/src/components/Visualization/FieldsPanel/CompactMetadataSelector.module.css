@@ -14,13 +14,13 @@
   flex-shrink: 0;
 }
 
-/* 12px to sit under SectionHeader's own inset, so the title and the pickers
- * below it share one left edge. */
+/* The same inset the Properties sections use: it aligns the pickers with the
+ * title above them, and its top edge is the gap under the header. */
 .content {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 0 12px 10px;
+  padding: var(--df-section-inset);
 }
 
 .field {

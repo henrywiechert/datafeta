@@ -51,17 +51,25 @@
     flex-shrink: 0;
 }
 
-/* 12px to match SectionHeader's inset, so the search box lines up with the
- * title above it. */
+/* The same inset the Properties sections use, so the search box lines up with
+ * the title above it and sits the same distance below the header. One row: the
+ * search field and the Regex toggle that switches how it matches. */
 .headerSearch {
-  padding: 0 12px 8px;
+  padding: var(--df-section-inset);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+.searchField {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Size lives in the `sx` beside it, which beats MUI's own Button styles
+ * deterministically; this class would only race them on stylesheet order. */
 .regexToggle {
   white-space: nowrap;
-  font-size: 11px;
-  padding: 1px 6px;
-  min-width: 0;
 }
 
 .toggleActive {

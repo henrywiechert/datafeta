@@ -2,6 +2,7 @@
   "light": {
     "surfaceShell": "#edeef0",
     "panelRadius": "6px",
+    "sectionInset": "12px",
     "surfaceCanvas": "#fcfcfc",
     "surfacePanel": "#fafafa",
     "surfaceRaised": "#ffffff",
@@ -165,6 +166,7 @@
   "dark": {
     "surfaceShell": "#121212",
     "panelRadius": "6px",
+    "sectionInset": "12px",
     "surfaceCanvas": "#1a1a1a",
     "surfacePanel": "#202020",
     "surfaceRaised": "#262626",

@@ -5,6 +5,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import DatasetIcon from '@mui/icons-material/Dataset';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
@@ -307,6 +308,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     <div className={styles.metadataSelector}>
       <SectionHeader
         title="Data Source"
+        icon={<DatasetIcon fontSize="small" />}
         hint={collapsedHint}
         expanded={expanded}
         onToggle={handleToggleExpanded}

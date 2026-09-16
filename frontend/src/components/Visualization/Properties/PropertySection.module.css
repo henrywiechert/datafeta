@@ -13,6 +13,8 @@
 /* The header row itself now lives in SectionHeader.module.css, shared with
  * the Fields well's cards. */
 
+/* --df-section-inset is the gap under a SectionHeader, shared with the Fields
+ * well's cards so every section breathes the same. */
 .content {
-  padding: 12px;
+  padding: var(--df-section-inset);
 }
