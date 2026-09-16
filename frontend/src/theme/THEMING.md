@@ -91,17 +91,83 @@ Two things that pre-augmentation does *not* give you, both silent:
   (`dark` still has this mismatch. It predates the variant and wants its own
   screenshot.)
 
+### A variant that changes hue, not just tone
+
+`dim` patches 44 tokens; `solarized` patches 88, more than half the set. That is
+the honest cost of a different hue family rather than a re-tone, and most of the
+extra is not surfaces — it is everything that was quietly Material blue.
+
+**Changing `primary` or a status role means patching every token that delegates
+to it.** A token's fallback has to match what the provider will inject for *that
+scheme* (see the `text.primary` note below), so a Solarized `primary.main`
+invalidates the inherited fallbacks of `textAccent`, `borderAccent`,
+`borderAccentStrong`, `dropCaret`, `profileValid`, `chartResizeHandle*`, the five
+channel-backed accent tints, and the same again for `error`/`warning`/`success`/
+`info` via the `status*` tokens. That is 21 tokens of pure bookkeeping, and
+`tokens.test.ts` fails on each one individually if it drifts.
+
+Generate them rather than typing them. Build the scheme's palette, then read
+each delegating token's role off it:
+
+```
+node -e "… extendTheme({colorSchemes:{solarized:{palette}}}) …"   # see git log
+```
+
+Name the `dark` shades explicitly in the palette (`primary: { main, dark }`)
+even though MUI would derive them: `augmentColor`'s `darken()` returns an
+`rgb()` string, and a hex keeps the generated CSS readable.
+
+**Do not invent the light end of a ramp, and reserve the palette's lightest
+value for the chart paper.** The app needs three surface steps (canvas < panel <
+card) plus the plot background, and Solarized Light offers two: base3 `#fdf6e3`
+is the background, base2 `#eee8d5` the highlight. This took two corrections:
+
+1. The first pass put the *cards* on an invented `#fffcf2`, one step above
+   base3. That read as near-white across the four largest areas of the UI,
+   because `--df-surface-raised` is the most-used surface token in the CSS —
+   22 sites, including every PropertySection header, the filter value list, the
+   resting drop zones, and the whole Fields panel body (which paints nothing of
+   its own and simply shows its card).
+2. Moving the cards onto base3 fixed those, but the Fields body was still too
+   light: it is the largest uninterrupted surface in the app, and base3 is the
+   lightest thing in the palette.
+
+The shape that works: **base3 is the chart paper only** — the surface data is
+drawn on, which is what it is in Solarized proper — and the UI chrome sits
+below it, base2 for panels with one interpolated step above for cards and one
+below for the canvas. So invent *inside* the range, never past its lightest
+end, and remember that a large flat area reads lighter than the same colour in
+a small card full of content.
+
+**`extendTheme` decides `common.background` / `common.onBackground` from the
+scheme's *name*, not its mode** — `key === 'light' ? … : …` — so every custom
+scheme gets the dark pair. That matters more than it sounds:
+`common.onBackgroundChannel` is what MUI composites the resting border of
+`OutlinedInput`, the underline of `Input`, the fill of `FilledInput` and the
+dividers of `ButtonGroup` and `PaginationItem` from. A light-mode variant that
+inherits `#fff` has invisible input borders until they are focused. Seed the
+pair in the scheme's palette (`setColor` only assigns when the key is absent);
+`palette.test.ts` checks every scheme's pair against its mode.
+
+**What a variant should leave alone.** `solarized` does not touch the
+`profile*` histogram colours, `markerExperimental`, or `chartGridDivider` —
+they are closer to data-vis than chrome, and the rule at the bottom of this file
+applies: a theme flips surfaces, it does not redefine what a category looks
+like. It also cannot touch the scheme-invariant tokens (the dark tooltip slab,
+the `Alert` delegations); `tokens.test.ts` lists them with reasons.
+
 ### Modes and schemes are different axes
 
 MUI's `mode` is `light | dark | system`. Which *scheme* serves a mode is a
 second, independently stored choice (`<colorSchemeStorageKey>-<mode>`), which is
-exactly what makes two dark schemes possible: both `dark` and `dim` are the dark
-*mode*, differing only in scheme. So the toggle sets both —
-`setColorScheme({ dark: 'dim' })` and `setMode('dark')` — and the pre-paint
-script has to read the scheme key rather than assume `scheme === mode`, or
-picking Dim would flash plain dark on every reload.
+exactly what makes two schemes per mode possible: `dark` and `dim` are both the
+dark *mode*, `light` and `solarized` both the light one, differing only in
+scheme. So the toggle sets both — `setColorScheme({ dark: 'dim' })` and
+`setMode('dark')` — and the pre-paint script has to read the scheme key rather
+than assume `scheme === mode`, or picking a variant would flash the base scheme
+on every reload.
 
-The dark variant is remembered independently of the mode, so picking Dim and
+Each mode's scheme is remembered independently of the mode, so picking Dim and
 later Follow system means a system that reports dark gets dim.
 
 ### The two palette values the app overrides
@@ -251,8 +317,9 @@ Token names are camelCase in TypeScript and kebab-case in CSS
 once in `tokens.ts`, once in the generator — and `tokens.test.ts` asserts the
 two agree, which is cheaper than making a build script import TypeScript.
 
-The schemes today are `light`, `dark`, and `dim` — a lifted, cooled, softer dark
-that is defined as a patch over `dark`. See "Adding a scheme" above.
+The schemes today are `light`, `dark`, `dim` (a lifted, cooled, softer dark) and
+`solarized` (Solarized Light). Both variants are patches — `dim` over `dark`,
+`solarized` over `light`. See "Adding a scheme" above.
 
 ## The card layout
 

@@ -184,6 +184,7 @@ const themeFor = (scheme: ColorScheme) => denseTheme.colorSchemes[scheme].palett
  * scheme that no test ever looks at.
  */
 const DARK_SCHEMES = COLOR_SCHEMES.filter((scheme) => themeFor(scheme).mode === 'dark');
+const LIGHT_SCHEMES = COLOR_SCHEMES.filter((scheme) => themeFor(scheme).mode === 'light');
 
 /** Every scheme defined as a patch, paired with the scheme it patches. */
 const VARIANTS = Object.entries(SCHEME_BASES) as Array<[ColorScheme, ColorScheme]>;
@@ -432,6 +433,20 @@ describe('the dark scheme is actually dark', () => {
     ['textMuted', 3],
   ];
 
+  /**
+   * How light a light scheme's surface has to be.
+   *
+   * Deliberately looser than the dark ceiling (0.1), and not symmetric with it.
+   * The check exists to catch a surface that did not follow its scheme — the
+   * `grey.50` trap, for literals — and 0.6 is still well above mid-grey, so a
+   * genuinely dark value in a light scheme fails. It is not there to police how
+   * deep a tinted canvas goes: `solarized` puts its canvas below base2 (0.75)
+   * on purpose, because the cards have to read against it and base3 is spoken
+   * for by the chart paper. The first pass at 0.8 was tight enough to block
+   * that, which is a test dictating a palette rather than checking one.
+   */
+  const LIGHT_SURFACE_FLOOR = 0.6;
+
   /** WCAG contrast ratio between two opaque colours. */
   const contrast = (a: string, b: string): number => {
     const la = luminance(a)!;
@@ -440,14 +455,23 @@ describe('the dark scheme is actually dark', () => {
     return (hi + 0.05) / (lo + 0.05);
   };
 
-  it.each(SURFACES)('%s is a dark surface in every dark scheme, and light in light', (name) => {
+  it.each(SURFACES)('%s stays on the right side of the ramp in every scheme', (name) => {
+    // The `grey.50` trap, for literals: a surface that did not follow its
+    // scheme. Keyed off the MUI palette mode rather than the scheme name, so a
+    // variant is covered the moment it is declared.
     expect(DARK_SCHEMES.length).toBeGreaterThan(0);
+    expect(LIGHT_SCHEMES.length).toBeGreaterThan(0);
+
     for (const scheme of DARK_SCHEMES) {
       const value = luminance(TOKENS[scheme][name]);
       expect({ scheme, name, parsed: value !== null }).toEqual({ scheme, name, parsed: true });
       expect(value!).toBeLessThan(0.1);
     }
-    expect(luminance(TOKENS.light[name])!).toBeGreaterThan(0.8);
+    for (const scheme of LIGHT_SCHEMES) {
+      const value = luminance(TOKENS[scheme][name]);
+      expect({ scheme, name, parsed: value !== null }).toEqual({ scheme, name, parsed: true });
+      expect(value!).toBeGreaterThan(LIGHT_SURFACE_FLOOR);
+    }
   });
 
   it.each(FOREGROUNDS)('%s stays readable on the panel surface (>= %s:1) in every scheme', (name, minRatio) => {
