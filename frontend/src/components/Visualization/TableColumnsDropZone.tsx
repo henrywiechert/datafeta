@@ -17,6 +17,16 @@ import { DROP_ZONE_STYLES as STYLES } from './dropZoneStyles';
  */
 
 
+/**
+ * Ceiling on the column zone's height, in px, before it scrolls.
+ *
+ * A raw-rows table can carry dozens of columns, and the zone wraps its chips —
+ * left unbounded it grew row by row until it pushed the grid off the bottom of
+ * the panel. Roughly five chip rows, so the common cases still show every
+ * column without a scrollbar.
+ */
+const MAX_ZONE_HEIGHT_PX = 150;
+
 function parseDragData(dataTransfer: DataTransfer): { fields: Field[]; source: DragSource; indices: number[] } | null {
   const payload = readDragPayload(dataTransfer);
   if (payload) {
@@ -134,6 +144,15 @@ const TableColumnsDropZone: React.FC<TableColumnsDropZoneProps> = ({
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
 
+  // `flex-start` rather than the shared `center`: a centred overflowing child
+  // puts its first chip row above the scroll container's top, out of reach.
+  const dropAreaStyle: React.CSSProperties = {
+    ...STYLES.dropArea,
+    alignItems: 'flex-start',
+    maxHeight: `${MAX_ZONE_HEIGHT_PX}px`,
+    overflowY: 'auto',
+  };
+
   return (
     <div style={STYLES.container}>
       <div style={STYLES.label}>{children}</div>
@@ -142,7 +161,7 @@ const TableColumnsDropZone: React.FC<TableColumnsDropZoneProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        style={STYLES.dropArea}
+        style={dropAreaStyle}
       >
         <div style={STYLES.fieldsWrapper}>
           {fields.map((field, index) => (
