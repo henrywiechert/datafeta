@@ -8,19 +8,47 @@ import {
   SortChangedEvent,
   CellContextMenuEvent,
   GridApi,
+  themeQuartz,
 } from 'ag-grid-community';
 import { Box, Typography } from '@mui/material';
-
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-material.css';
 
 import { TableRowsSortModel } from '../../../types';
 import { QueryResultColumn } from '../../../types';
 import { isDatetimeType, isHighPrecisionDatetime, formatDatetimeValue } from './dateTimeFormatting';
 import ContextMenu from '../ContextMenu';
 import menuStyles from '../ContextMenu.module.css';
+import { T } from '../../../theme/tokens';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+/**
+ * ag-grid theme, driven by the app's design tokens.
+ *
+ * Replaces the legacy CSS-file theme this component used to import. That setup
+ * was broken rather than merely dated: ag-grid 33+ defaults `gridOptions.theme`
+ * to the Theming API, and nothing here passed `theme: 'legacy'`, so the grid
+ * rendered as stock Quartz while `ag-theme-material.css` sat inert on top and
+ * ag-grid logged a "both theming systems" warning.
+ *
+ * Every value is a `var()` reference, so the grid re-themes itself the moment
+ * the color scheme attribute flips — no second mode axis to keep in sync.
+ */
+const dfGridTheme = themeQuartz.withParams({
+  backgroundColor: T.surfaceRaised,
+  foregroundColor: T.textPrimary,
+  borderColor: T.borderHairline,
+  chromeBackgroundColor: T.surfacePanel,
+  headerBackgroundColor: T.surfacePanel,
+  headerTextColor: T.textSecondary,
+  headerColumnResizeHandleColor: T.borderStrong,
+  oddRowBackgroundColor: T.surfaceRaised,
+  rowHoverColor: T.stateHover,
+  selectedRowBackgroundColor: T.accentTintSelected,
+  // The app's accent, so sort indicators and focus rings match the rest of the UI.
+  accentColor: T.textAccent,
+  // Let the ambient `color-scheme` drive native scrollbars and form controls.
+  browserColorScheme: 'inherit',
+});
 
 /** Payload emitted by the table context menu filter action. */
 export interface TableCellFilterAction {
@@ -177,8 +205,9 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
   }
 
   return (
-    <div className="ag-theme-material" style={{ height: '100%', width: '100%' }}>
+    <div style={{ height: '100%', width: '100%' }}>
       <AgGridReact
+        theme={dfGridTheme}
         rowData={rows}
         columnDefs={columnDefs}
         defaultColDef={{
