@@ -114,8 +114,6 @@
           "src/components/Visualization/ChartArea/components/HeatmapSizeBar.tsx",
           "src/components/Visualization/DebugView.tsx",
           "src/components/Visualization/FieldChip/dragImageUtils.ts",
-          "src/components/Visualization/Table/TableRowsPagination.tsx",
-          "src/components/Visualization/Table/TableViewRowsLazy.tsx",
           "src/components/icons/DataSlicerIcon.tsx"
         ],
         "rules": {

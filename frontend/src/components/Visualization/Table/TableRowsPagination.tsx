@@ -5,6 +5,7 @@ import FirstPageIcon from '@mui/icons-material/FirstPage';
 import LastPageIcon from '@mui/icons-material/LastPage';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import { T } from '../../../theme/tokens';
 
 interface TableRowsPaginationProps {
   page: number;
@@ -37,7 +38,7 @@ const TableRowsPagination: React.FC<TableRowsPaginationProps> = ({
         justifyContent: 'space-between',
         px: 1.5,
         py: 0.5,
-        borderTop: '1px solid #e0e0e0',
+        borderTop: `1px solid ${T.borderHairline}`,
         flexShrink: 0,
         minHeight: 36,
       }}

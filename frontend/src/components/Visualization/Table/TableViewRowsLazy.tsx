@@ -4,6 +4,7 @@ import { Box, Skeleton } from '@mui/material';
 import { TableRowsSortModel } from '../../../types';
 import { QueryResultColumn } from '../../../types';
 import type { TableCellFilterAction } from './TableViewRows';
+import { T } from '../../../theme/tokens';
 
 const TableViewRows = lazy(() => import('./TableViewRows'));
 
@@ -24,7 +25,7 @@ const TableViewRowsSkeleton = () => (
       display: 'flex',
       flexDirection: 'column',
       p: 2,
-      backgroundColor: '#fff',
+      backgroundColor: T.surfaceRaised,
     }}
   >
     <Skeleton variant="rectangular" width="100%" height={56} sx={{ mb: 1, borderRadius: 1 }} />
