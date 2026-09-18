@@ -72,6 +72,9 @@
   --df-toggle-active-ink: #1b5e20;
   --df-toggle-active-border: #b7dfbb;
   --df-toggle-active-hover-bg: #cce8d6;
+  --df-scope-toggle-bg: #ba68c8;
+  --df-scope-toggle-ink: #ffffff;
+  --df-scope-toggle-hover-bg: #9c27b0;
   --df-flavour-discrete-bg: #e3f2fd;
   --df-flavour-discrete-border: #1976d2;
   --df-flavour-discrete-hover-bg: #bbdefb;
@@ -237,6 +240,9 @@
   --df-toggle-active-ink: #a5d6a7;
   --df-toggle-active-border: #2e5d3a;
   --df-toggle-active-hover-bg: #26492f;
+  --df-scope-toggle-bg: #4b2a51;
+  --df-scope-toggle-ink: #ce93d8;
+  --df-scope-toggle-hover-bg: #5b3262;
   --df-flavour-discrete-bg: #15304a;
   --df-flavour-discrete-border: #64b5f6;
   --df-flavour-discrete-hover-bg: #1b3d5c;
@@ -402,6 +408,9 @@
   --df-toggle-active-ink: #a5d6a7;
   --df-toggle-active-border: #2e5d3a;
   --df-toggle-active-hover-bg: #26492f;
+  --df-scope-toggle-bg: #4b2a51;
+  --df-scope-toggle-ink: #ce93d8;
+  --df-scope-toggle-hover-bg: #5b3262;
   --df-flavour-discrete-bg: #15304a;
   --df-flavour-discrete-border: #64b5f6;
   --df-flavour-discrete-hover-bg: #1b3d5c;
@@ -567,6 +576,9 @@
   --df-toggle-active-ink: #5b6600;
   --df-toggle-active-border: #ccd69b;
   --df-toggle-active-hover-bg: #dde3bc;
+  --df-scope-toggle-bg: #ba68c8;
+  --df-scope-toggle-ink: #ffffff;
+  --df-scope-toggle-hover-bg: #9c27b0;
   --df-flavour-discrete-bg: #e3eef7;
   --df-flavour-discrete-border: #268bd2;
   --df-flavour-discrete-hover-bg: #d0e4f4;
