@@ -119,6 +119,8 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
           DB
         </Typography>
+        {/* Portals its popup (no `disablePortal`) — see CompactMetadataSelector:
+            the Data Source card's `overflow: hidden` would clip the open list. */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Autocomplete
             size="small"
