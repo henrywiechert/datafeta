@@ -65,6 +65,13 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['toggleActiveBg',     '#e6f4ea', 'DiscreteFilterControl + FieldsPanel .toggleActive (both !important)'],
   ['toggleActiveInk',    '#1b5e20', 'same two sources'],
   ['toggleActiveBorder', '#b7dfbb', 'same two sources'],
+  // The filter scope toggle used `secondary.light` / `secondary.contrastText`
+  // / `secondary.main` directly. Light keeps exactly those values; dark had to
+  // leave the MUI role behind, because dark `secondary.light` is #f3e5f5 — a
+  // near-white slab, with `secondary.main` *darker* underneath it on hover.
+  ['scopeToggleBg',      '#ba68c8', 'FilterFieldChip scope toggle, selected (was secondary.light)'],
+  ['scopeToggleInk',     '#ffffff', 'same toggle (was secondary.contrastText)'],
+  ['scopeToggleHoverBg', '#9c27b0', 'same toggle, hovered (was secondary.main)'],
   ['dropAcceptBorder', '#2196f3', 'DropZone .isOver, FieldChip .dragOver'],
   ['dropReadyBorder',  '#4caf50', 'DropZone .canDrop'],
   ['dropReadyBg',      '#f1f8e9', 'DropZone .canDrop'],

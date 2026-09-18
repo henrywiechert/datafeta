@@ -471,11 +471,20 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
                 minWidth: '24px',
                 height: '24px',
                 border: 'none',
+                /*
+                 * Tokens rather than `secondary.*`: MUI's dark scheme lightens
+                 * that ramp, so `secondary.light` is #f3e5f5 — a near-white
+                 * slab on a dark panel — and `secondary.main` underneath it
+                 * made hover *darker* than rest. The token keeps the light
+                 * scheme's exact colours and gives dark a deep purple fill
+                 * with a light purple glyph, tuned like the toggleActive
+                 * family in the token layer.
+                 */
                 '&.Mui-selected': {
-                  backgroundColor: 'secondary.light',
-                  color: 'secondary.contrastText',
+                  backgroundColor: T.scopeToggleBg,
+                  color: T.scopeToggleInk,
                   '&:hover': {
-                    backgroundColor: 'secondary.main',
+                    backgroundColor: T.scopeToggleHoverBg,
                   },
                 },
               }}
