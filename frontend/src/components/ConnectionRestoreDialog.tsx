@@ -355,7 +355,7 @@ export default function ConnectionRestoreDialog({
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 CSV Configuration
               </Typography>
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="body2">
                   <strong>Delimiter:</strong> {connectionMetadata.csv_delimiter || ','}
                 </Typography>
@@ -453,7 +453,7 @@ export default function ConnectionRestoreDialog({
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Kaggle Dataset
               </Typography>
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="body2">
                   <strong>Dataset:</strong> {connectionMetadata.kaggle_dataset || 'N/A'}
                 </Typography>
@@ -471,7 +471,7 @@ export default function ConnectionRestoreDialog({
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     CSV Parsing Options
                   </Typography>
-                  <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                     <Typography variant="body2">
                       <strong>Delimiter:</strong> {connectionMetadata.csv_delimiter || ','}
                     </Typography>
@@ -539,7 +539,7 @@ export default function ConnectionRestoreDialog({
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Hive Parquet Connection
               </Typography>
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="body2">
                   <strong>Partitions to restore:</strong> {hivePartitionsToRestore.join(', ') || 'None'}
                 </Typography>
