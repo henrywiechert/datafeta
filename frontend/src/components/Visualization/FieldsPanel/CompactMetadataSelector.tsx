@@ -51,6 +51,13 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
       <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
         {label}
       </Typography>
+      {/*
+        No `disablePortal`: the Data Source card clips to its radius with
+        `overflow: hidden`, so an in-tree popup is cut off at the card's bottom
+        edge — the open list looked hidden behind the Fields card below it.
+        Portaling to the body lets it overlay the panel. The listbox styles are
+        global for the same reason (CompactAutocomplete.module.css).
+      */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Autocomplete
           size="small"
