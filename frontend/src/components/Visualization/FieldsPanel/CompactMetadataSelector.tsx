@@ -6,6 +6,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DatasetIcon from '@mui/icons-material/Dataset';
+import TuneIcon from '@mui/icons-material/Tune';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
@@ -158,6 +159,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
   const [isPatternDialogOpen, setIsPatternDialogOpen] = React.useState(false);
+  const [relationshipEditorOpen, setRelationshipEditorOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(() => {
     const stored = localStorage.getItem(DATA_SOURCE_EXPANDED_KEY);
     return stored === null ? true : stored === 'true';
@@ -168,6 +170,10 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   }, [expanded]);
 
   const extraTableCount = joinedTables.length + unionTables.length;
+  const supportsJoins =
+    connectionType === 'clickhouse' ||
+    connectionType === 'kaggle' ||
+    connectionType === 'sqlite';
   const collapsedHint = selectedTable
     ? `${selectedDatabase ? `${selectedDatabase}.` : ''}${selectedTable}${extraTableCount > 0 ? ` +${extraTableCount}` : ''}`
     : '';
@@ -365,6 +371,18 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               Add by pattern
             </Button>
           )}
+          {supportsJoins && selectedTable && onToggleJoinedTable && (
+            <Tooltip title="Manage relationships" placement="left">
+              <IconButton
+                size="small"
+                aria-label="Manage relationships"
+                onClick={() => setRelationshipEditorOpen(true)}
+                sx={{ width: 20, height: 20 }}
+              >
+                <TuneIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Refresh metadata" placement="left">
             <span>
               <IconButton
@@ -548,13 +566,14 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
       )}
       
       {/* Show joinable tables selector (for ClickHouse, Kaggle and SQLite) */}
-      {(connectionType === 'clickhouse' || connectionType === 'kaggle' || connectionType === 'sqlite')
-        && selectedTable && onToggleJoinedTable && (
+      {supportsJoins && selectedTable && onToggleJoinedTable && (
         <JoinTableSelector
           primaryTable={selectedTable}
           suggestedJoinableTables={suggestedJoinableTables}
           joinedTables={joinedTables}
           onToggleJoin={onToggleJoinedTable}
+          editorOpen={relationshipEditorOpen}
+          onEditorOpenChange={setRelationshipEditorOpen}
         />
       )}
       
