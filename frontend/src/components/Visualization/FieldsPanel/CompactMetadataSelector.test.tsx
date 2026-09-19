@@ -2,6 +2,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CompactMetadataSelector from './CompactMetadataSelector';
+import { DataSourceProvider } from '../../../contexts/DataSourceContext';
 
 /*
  * These cases used to live in FieldsPanel.test.tsx, which reached the Data
@@ -88,5 +89,66 @@ describe('CompactMetadataSelector', () => {
 
     expect(screen.getByRole('dialog', { name: 'Add Tables By Pattern' })).toBeInTheDocument();
     expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  const renderJoinSelector = (
+    overrides: Partial<React.ComponentProps<typeof CompactMetadataSelector>> = {}
+  ) =>
+    render(
+      <DataSourceProvider>
+        <CompactMetadataSelector
+          connectionType="clickhouse"
+          selectedDatabase="analytics"
+          selectedTable="orders"
+          databases={[{ name: 'analytics' }]}
+          tables={[{ name: 'orders' }, { name: 'customers' }]}
+          isLoadingMetadata={false}
+          metadataError={null}
+          onDatabaseSelect={jest.fn()}
+          onTableSelect={jest.fn()}
+          onToggleJoinedTable={jest.fn()}
+          {...overrides}
+        />
+      </DataSourceProvider>
+    );
+
+  it('hides Related Tables when there are no joinable or joined tables', () => {
+    renderJoinSelector({
+      suggestedJoinableTables: [],
+      joinedTables: [],
+    });
+
+    expect(screen.queryByText('Related Tables')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manage relationships' })).toBeInTheDocument();
+  });
+
+  it('opens the relationship editor from the Data Source header when Related Tables is hidden', () => {
+    renderJoinSelector({
+      suggestedJoinableTables: [],
+      joinedTables: [],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage relationships' }));
+
+    expect(screen.getByRole('dialog', { name: 'Manage Table Relationships' })).toBeInTheDocument();
+    expect(screen.getByText(/Auto — detect relationships from schema/)).toBeInTheDocument();
+  });
+
+  it('shows Related Tables when joinable tables are suggested', () => {
+    renderJoinSelector({
+      suggestedJoinableTables: ['customers'],
+      joinedTables: [],
+    });
+
+    expect(screen.getByText('Related Tables')).toBeInTheDocument();
+  });
+
+  it('shows Related Tables when tables are already joined', () => {
+    renderJoinSelector({
+      suggestedJoinableTables: [],
+      joinedTables: ['customers'],
+    });
+
+    expect(screen.getByText('Related Tables')).toBeInTheDocument();
   });
 });

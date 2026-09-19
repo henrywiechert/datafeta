@@ -22,6 +22,8 @@ interface JoinTableSelectorProps {
   suggestedJoinableTables: string[];
   joinedTables: string[];
   onToggleJoin: (tableName: string) => void;
+  editorOpen: boolean;
+  onEditorOpenChange: (open: boolean) => void;
 }
 
 const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
@@ -29,9 +31,10 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
   suggestedJoinableTables,
   joinedTables,
   onToggleJoin,
+  editorOpen,
+  onEditorOpenChange,
 }) => {
   const [expanded, setExpanded] = React.useState(false);
-  const [editorOpen, setEditorOpen] = React.useState(false);
   const { dataSource, setCustomRelationships } = useDataSource();
 
   // Build the list of all table names for the editor
@@ -44,6 +47,26 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
     dataSource.tables.forEach(t => tableSet.add(t.name));
     return Array.from(tableSet).sort();
   }, [primaryTable, suggestedJoinableTables, joinedTables, dataSource.tables]);
+
+  const isUsed =
+    suggestedJoinableTables.length > 0 ||
+    joinedTables.length > 0 ||
+    dataSource.customRelationships !== null;
+
+  const editor = (
+    <RelationshipEditor
+      open={editorOpen}
+      onClose={() => onEditorOpenChange(false)}
+      database={dataSource.selectedDatabase}
+      tables={allTableNames}
+      customRelationships={dataSource.customRelationships}
+      onSave={setCustomRelationships}
+    />
+  );
+
+  if (!isUsed) {
+    return editor;
+  }
 
   return (
     <Box className={styles.container}>
@@ -64,7 +87,8 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
           <Tooltip title="Manage relationships" arrow>
             <IconButton
               size="small"
-              onClick={() => setEditorOpen(true)}
+              aria-label="Manage relationships"
+              onClick={() => onEditorOpenChange(true)}
             >
               <TuneIcon fontSize="small" />
             </IconButton>
@@ -113,14 +137,7 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
         )}
       </Collapse>
 
-      <RelationshipEditor
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
-        database={dataSource.selectedDatabase}
-        tables={allTableNames}
-        customRelationships={dataSource.customRelationships}
-        onSave={setCustomRelationships}
-      />
+      {editor}
     </Box>
   );
 };
