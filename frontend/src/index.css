@@ -150,3 +150,19 @@ html {
 [data-df-color-scheme="dim"] {
   color-scheme: dark;
 }
+
+/*
+ * Native text selection. `color-scheme: dark` paints a light Highlight
+ * behind text whose `color` we already set to a light ink, so a selected
+ * run is light-on-light and unreadable. Both properties have to be named:
+ * a background without a color leaves the ink as-is, and the system
+ * Highlight/HighlightText colours follow the OS scheme rather than ours.
+ *
+ * The fill is primary.main and the ink is its contrastText — the same
+ * pairing as any other accent-filled surface (THEMING.md). Tokens, so one
+ * rule covers every scheme.
+ */
+::selection {
+  background-color: var(--df-text-accent);
+  color: var(--df-text-on-accent);
+}

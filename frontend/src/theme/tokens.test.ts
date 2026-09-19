@@ -374,6 +374,17 @@ describe('native chrome in index.css', () => {
       expect(rule![1]).toContain(`"${scheme}"`);
     }
   });
+
+  it('styles ::selection with the accent fill and its contrast ink', () => {
+    // Without an explicit colour, dark `color-scheme` leaves light ink on a
+    // light Highlight. The pairing is the same as any other primary fill.
+    const css = fs.readFileSync(path.join(SRC_ROOT, 'index.css'), 'utf8');
+    const rule = /::selection\s*\{([^}]+)\}/.exec(css);
+
+    expect(rule).not.toBeNull();
+    expect(rule![1]).toContain('background-color: var(--df-text-accent)');
+    expect(rule![1]).toContain('color: var(--df-text-on-accent)');
+  });
 });
 
 describe('token references across the app', () => {
