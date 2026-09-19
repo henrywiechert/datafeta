@@ -118,9 +118,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
               onRemoveMultipleFields={onRemoveMultipleFields}
               onReorderFields={onReorderFields}
               onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
-            >
-              X
-            </DropZone>
+            />
           </Box>
           <Box sx={{ mb: 1 }}>
             <DropZone 
@@ -132,9 +130,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
               onRemoveMultipleFields={onRemoveMultipleFields}
               onReorderFields={onReorderFields}
               onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
-            >
-              Y
-            </DropZone>
+            />
           </Box>
         </>
       )}

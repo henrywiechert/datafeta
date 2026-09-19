@@ -6,6 +6,7 @@ import { useSelectionStore } from '../../stores/selectionStore';
 import { readDragPayload } from '../../utils/dragDataStore';
 import styles from './DropZone.module.css';
 import { DROP_ZONE_STYLES as DROPZONE_STYLES } from './dropZoneStyles';
+import AxisGlyph from './AxisGlyph';
 
 
 // Helper function to parse drag data safely
@@ -36,7 +37,6 @@ function dragSourceToAxis(source: DragSource): 'x' | 'y' | null {
 }
 
 interface DropZoneProps {
-  children?: React.ReactNode;
   onDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   axis: 'x' | 'y';
   fields: Field[];
@@ -55,7 +55,6 @@ interface DropZoneProps {
 }
 
 const DropZone: React.FC<DropZoneProps> = ({ 
-  children, 
   onDrop, 
   axis, 
   fields, 
@@ -303,7 +302,7 @@ const DropZone: React.FC<DropZoneProps> = ({
   return (
     <div style={DROPZONE_STYLES.container}>
       <div style={DROPZONE_STYLES.label}>
-        {children}
+        <AxisGlyph emphasis={axis} />
       </div>
       <div
         className={dropZoneClass}
