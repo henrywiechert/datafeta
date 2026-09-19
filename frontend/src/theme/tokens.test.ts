@@ -57,9 +57,11 @@ const ORIGINS: Array<[DfTokenName, string, string]> = [
   ['textLabel',            'rgba(0, 0, 0, 0.7)', 'DiscreteFilterControl / ContinuousFilterControl row labels'],
   ['textControlLabel',     '#424242', 'Label/SizeRange/SeriesLabel control captions (6 sites)'],
   ['flavourDiscreteBg',     '#e3f2fd', 'FieldChip.module.css + FilterFieldChip.module.css (2 dead JS copies deleted)'],
-  ['flavourDiscreteBorder', '#1976d2', 'also the flavour glyph in FieldChip/FieldChipLabel.module.css'],
+  ['flavourDiscreteBorder', '#1976d2', 'FieldChip framed outline (axis/property chips)'],
+  ['flavourDiscreteAccent', '#1976d2', 'FieldChip flavour glyph; split from the frame so dark mode can mute the ring'],
   ['flavourContinuousBg',     '#e8f5e8', 'FieldChip.module.css + FilterFieldChip.module.css'],
-  ['flavourContinuousBorder', '#388e3c', 'also the flavour glyph in FieldChipLabel.module.css'],
+  ['flavourContinuousBorder', '#388e3c', 'FieldChip framed outline (axis/property chips)'],
+  ['flavourContinuousAccent', '#388e3c', 'FieldChip flavour glyph; split from the frame so dark mode can mute the ring'],
   ['flavourInvalidBg',     '#fde7e9', 'FieldChip.module.css .invalidAxisField'],
   ['flavourInvalidBorder', '#e57373', 'FieldChip.module.css .invalidAxisField'],
   ['toggleActiveBg',     '#e6f4ea', 'DiscreteFilterControl + FieldsPanel .toggleActive (both !important)'],
@@ -149,7 +151,6 @@ const SCHEME_INVARIANT: Array<[DfTokenName, string]> = [
   ['inverseLink', 'part of the inverse slab: dark in both themes'],
   ['inverseLinkHover', 'part of the inverse slab: dark in both themes'],
   ['textInverse',      'ink on a fill that stays saturated in both themes (the bare <button> in App.css, the load-demo button)'],
-  ['flavourInvalidBorder', 'the invalid-field red reads on both surfaces'],
 ];
 
 // The shade digits matter: `grey-50` and `primary-100` are exactly the
