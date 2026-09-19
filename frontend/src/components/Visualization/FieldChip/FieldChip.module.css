@@ -97,11 +97,9 @@
     background-color: var(--df-flavour-continuous-hover-bg);
 }
 
-/* Hover styles for framed fields (axis drop zones) */
-.chip.framed:hover {
-    border-color: var(--df-border-neutral-mid);
-}
-
+/* Hover styles for framed fields (axis drop zones). Keep the flavour
+   outline — swapping it for a light grey ring is what made dark-mode
+   pills look like a dark fill inside a bright frame. */
 .chip.framed.discrete:hover {
     background-color: var(--df-flavour-discrete-hover-bg);
 }
@@ -116,11 +114,11 @@
 }
 
 .discreteSymbol {
-    color: var(--df-flavour-discrete-border);
+    color: var(--df-flavour-discrete-accent);
 }
 
 .continuousSymbol {
-    color: var(--df-flavour-continuous-border);
+    color: var(--df-flavour-continuous-accent);
 }
 
 .chip:active {
@@ -209,10 +207,6 @@
 
 .chip.textOnly.continuous.selected {
     background-color: var(--df-flavour-continuous-selected-bg) !important;
-}
-
-.chip.framed.selected {
-    border-color: var(--df-border-neutral-dark) !important;
 }
 
 .chip.framed.discrete.selected {

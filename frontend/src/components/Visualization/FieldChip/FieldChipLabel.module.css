@@ -21,11 +21,11 @@
 }
 
 .discreteSymbol {
-  color: var(--df-flavour-discrete-border);
+  color: var(--df-flavour-discrete-accent);
 }
 
 .continuousSymbol {
-  color: var(--df-flavour-continuous-border);
+  color: var(--df-flavour-continuous-accent);
 }
 
 /* Specific tooltip styles */
