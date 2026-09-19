@@ -91,6 +91,21 @@ describe('CompactMetadataSelector', () => {
     expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('portals the Kaggle table list so Fields cannot cover it', () => {
+    renderSelector({
+      connectionType: 'kaggle',
+      selectedTable: 'train.csv',
+      tables: [{ name: 'train.csv' }, { name: 'test.csv' }, { name: 'sample_submission.csv' }],
+    });
+
+    fireEvent.mouseDown(screen.getByPlaceholderText('Search Table'));
+
+    const listbox = screen.getByRole('listbox');
+    expect(listbox).toBeVisible();
+    expect(screen.getByRole('option', { name: 'test.csv' })).toBeInTheDocument();
+    expect(listbox.closest('#data-source-content')).toBeNull();
+  });
+
   const renderJoinSelector = (
     overrides: Partial<React.ComponentProps<typeof CompactMetadataSelector>> = {}
   ) =>

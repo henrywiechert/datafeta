@@ -121,7 +121,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         </Typography>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Autocomplete
-            disablePortal
             size="small"
             value={stagedDatabase || null}
             options={dbOptions}
@@ -186,7 +185,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         </Typography>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Autocomplete
-            disablePortal
             size="small"
             value={stagedTable || null}
             options={filteredTableOptions}

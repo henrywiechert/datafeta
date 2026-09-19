@@ -170,16 +170,19 @@
 .input,
 .select {
   padding: 8px 12px;
-  border: 1px solid var(--df-border-muted);
+  border: 1px solid var(--df-border-strong);
   border-radius: 4px;
   font-size: 0.875rem;
-  background: var(--df-surface-raised);
   /*
-   * Set the text colour explicitly. These are bare HTML controls, so with only
-   * a background declared the engine keeps its own default text colour — which
-   * is dark, and unreadable once the background follows a dark scheme.
+   * The card is --df-surface-raised. Painting the same token here made the
+   * fields disappear, especially in dim/dark where --df-border-muted is only
+   * a few steps off the card. A sunken well plus the stronger border is the
+   * elevation step that says "this is a control".
    */
+  background: var(--df-surface-sunken);
   color: var(--df-text-primary);
+  width: 100%;
+  box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -222,9 +225,11 @@
 .input[type="file"]::file-selector-button {
   margin-right: 10px;
   padding: 6px 12px;
-  border: 1px solid var(--df-border-muted);
+  border: 1px solid var(--df-border-strong);
   border-radius: 4px;
-  background: var(--df-surface-sunken);
+  /* Raised against the sunken well so the native "Choose files" half reads
+     as a button rather than another slice of the field. */
+  background: var(--df-surface-raised);
   color: var(--df-text-primary);
   font-family: inherit;
   font-size: 0.8125rem;
