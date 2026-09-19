@@ -8,6 +8,10 @@ export const compactAutocompleteClassName = compactStyles.compact;
 
 /**
  * Listbox for Autocomplete popper — class is global; see CompactAutocomplete.module.css.
+ * Leave the popper portaled (do not set disablePortal). The Data Source card
+ * uses overflow:hidden for its radius, and Fields sits below with z-index: 1,
+ * so an in-place list is clipped or covered. CSV/SQLite often looked fine
+ * only because the UNION picker made the card tall enough for a short list.
  */
 export const compactAutocompleteListboxProps = {
   className: 'compactListbox' as const,

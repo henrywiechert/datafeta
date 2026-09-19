@@ -53,7 +53,6 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
       </Typography>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Autocomplete
-          disablePortal
           size="small"
           value={value || null}
           options={options}
@@ -503,7 +502,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
                 <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Autocomplete
-                      disablePortal
                       size="small"
                       value={csvStagedTable || null}
                       options={csvUnionableOptions}
