@@ -16,11 +16,13 @@ export const DROP_ZONE_STYLES = {
 
   label: {
     fontWeight: 'normal',
-    marginRight: '5px',
-    minWidth: '6px',
+    marginRight: '6px',
+    minWidth: '18px',
     textAlign: 'left',
     display: 'flex',
     alignItems: 'center',
+    color: T.textMuted,
+    flexShrink: 0,
   } as CSSProperties,
 
   dropArea: {
