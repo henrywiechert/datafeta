@@ -207,8 +207,8 @@ export const useChartGeneration = ({
 
     // Prefer the canonical planner axes when available so query and render
     // share one field source (required for axis-field disable later).
-    const plannedX = viewSpec?.axes.x ?? (xAxisFields as Field[]);
-    const plannedY = viewSpec?.axes.y ?? (yAxisFields as Field[]);
+    const plannedX = viewSpec?.axes?.x ?? (xAxisFields as Field[]);
+    const plannedY = viewSpec?.axes?.y ?? (yAxisFields as Field[]);
     
     // Short-circuit only when there is nothing to render: no fields at all, or
     // the dedicated raw-rows view is active. All-discrete shapes are NOT

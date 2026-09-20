@@ -185,8 +185,8 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
 
   // Chart type actually rendered: user pick, or auto-default from the planner
   // axes (viewSpec.axes) so query and render share one field source.
-  const plannedX = viewSpec?.axes.x ?? xAxisFields;
-  const plannedY = viewSpec?.axes.y ?? yAxisFields;
+  const plannedX = viewSpec?.axes?.x ?? xAxisFields;
+  const plannedY = viewSpec?.axes?.y ?? yAxisFields;
   const effectiveChartType =
     globalChartType ?? detectDefaultUserChartType(
       plannedX,
