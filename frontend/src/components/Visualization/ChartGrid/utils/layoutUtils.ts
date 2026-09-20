@@ -3,16 +3,18 @@ import {
   GridResultModel,
   getPlotGridCellAtCol,
   getPlotGridCellAtRow,
+  getXAxisLabelAtCol,
   getYAxisLabelAtRow,
   gridHasPieAxisLabels,
   usesOnlyAxislessRenderers,
 } from '../../../../observable-plot-generator/gridModel';
-import { MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX, MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
+import { MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX, MIN_GRID_ROW_PX, X_LABEL_ROW_PX } from '../../../../config/chartLayoutConfig';
 import {
   FacetHeaderLabelStyle,
   FacetLabelStyles,
   FacetLeftValuesLabelStyle,
   FacetTopValuesLabelStyle,
+  XAxisLabelStyle,
   YAxisLabelStyle,
 } from '../../../../contexts/VisualizationContext/types';
 import { UserChartType } from '../../../../types';
@@ -336,8 +338,16 @@ const DEFAULT_Y_AXIS_LABEL_STYLE: YAxisLabelStyle = {
   widthPx: null,
 };
 
+const DEFAULT_X_AXIS_LABEL_STYLE: XAxisLabelStyle = {
+  fontSize: 10,
+  orientation: 'horizontal',
+  categoryOrientation: 'vertical',
+  heightPx: null,
+};
+
 /** Minimum width for Y-axis label column */
 const MIN_Y_LABEL_COL_PX = 16;
+const MAX_X_LABEL_ROW_AUTO_PX = 200;
 
 /**
  * Calculate dynamic Y-label column width based on label length and available row height.
@@ -392,6 +402,35 @@ export function computeDynamicYLabelColPx(
   }
 
   return Math.ceil(maxLabelWidth);
+}
+
+/**
+ * Height of the bottom X field-name row. Manual `heightPx` wins; otherwise
+ * size from the longest field name and the chosen orientation (horizontal is
+ * a single line; vertical/angled grow with the label).
+ */
+export function computeDynamicXLabelRowPx(
+  grid: GridResultModel | null,
+  labelStyle?: XAxisLabelStyle,
+): number {
+  if (usesOnlyAxislessRenderers(grid) && !gridHasPieAxisLabels(grid, 'x')) return 0;
+  const style = labelStyle || DEFAULT_X_AXIS_LABEL_STYLE;
+
+  if (style.heightPx != null) {
+    return Math.max(X_LABEL_ROW_PX, style.heightPx);
+  }
+
+  const columns = grid?.layout.columns || 1;
+  let maxHeight = X_LABEL_ROW_PX;
+  for (let c = 0; c < columns; c++) {
+    const xLabel = getXAxisLabelAtCol(grid, c);
+    if (!xLabel) continue;
+    maxHeight = Math.max(
+      maxHeight,
+      estimateTopTrackHeightPx(xLabel, style.fontSize, style.orientation),
+    );
+  }
+  return Math.min(MAX_X_LABEL_ROW_AUTO_PX, Math.ceil(maxHeight));
 }
 
 /**

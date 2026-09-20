@@ -56,8 +56,9 @@ const Y_ORIENTATIONS: { value: YAxisLabelStyle['orientation']; label: string }[]
  * AxisLabelStylePopover - Popover menu for configuring axis label styles
  * 
  * Provides controls for:
- * - Font size (8-16px slider)
+ * - Font size (8-26px slider)
  * - Orientation (horizontal/vertical/angled)
+ * - Height override (X-axis field-name row, auto or manual px)
  * - Width override (Y-axis only, auto or manual px)
  */
 const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
@@ -67,7 +68,9 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   // fullscreen layer instead of behind it (defaults to document.body otherwise).
   const portalTarget = useFullscreenPortalTarget();
   const yStyle = axis === 'y' ? (style as YAxisLabelStyle) : null;
+  const xStyle = axis === 'x' ? (style as XAxisLabelStyle) : null;
   const isAutoWidth = yStyle?.widthPx === null;
+  const isAutoHeight = xStyle?.heightPx == null;
 
   const handleFontSizeChange = (_: Event, value: number | number[]) => {
     const fontSize = Array.isArray(value) ? value[0] : value;
@@ -91,6 +94,23 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   ) => {
     if (newOrientation && axis === 'x') {
       (onChange as (updates: { categoryOrientation: string }) => void)({ categoryOrientation: newOrientation });
+    }
+  };
+
+  const handleAutoHeightToggle = (checked: boolean) => {
+    if (axis === 'x') {
+      const xOnChange = onChange as (updates: Partial<XAxisLabelStyle>) => void;
+      xOnChange({ heightPx: checked ? null : 40 });
+    }
+  };
+
+  const handleHeightChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (axis === 'x') {
+      const value = parseInt(event.target.value, 10);
+      if (!isNaN(value) && value > 0) {
+        const xOnChange = onChange as (updates: Partial<XAxisLabelStyle>) => void;
+        xOnChange({ heightPx: value });
+      }
     }
   };
 
@@ -207,6 +227,36 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
+          </Box>
+        )}
+
+        {/* Height Override (X-axis field-name row) */}
+        {axis === 'x' && (
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={isAutoHeight}
+                  onChange={(e) => handleAutoHeightToggle(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">Auto Height</Typography>
+              }
+              sx={{ ml: 0 }}
+            />
+            {!isAutoHeight && xStyle && (
+              <TextField
+                size="small"
+                type="number"
+                label="Height (px)"
+                value={xStyle.heightPx ?? 40}
+                onChange={handleHeightChange}
+                inputProps={{ min: 20, max: 400, step: 4 }}
+                sx={{ mt: 1, width: '100%' }}
+              />
+            )}
           </Box>
         )}
 

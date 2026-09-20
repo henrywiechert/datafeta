@@ -156,6 +156,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     rowHeightPx,
     vScrollRef,
     axisLabelStyles.yAxis,
+    axisLabelStyles.xAxis,
     facetLabelStyles,
     categoryTickStyles,
     globalChartType,

@@ -13,7 +13,7 @@ import {
   VALUES_BAND_LEFT_PX,
   VALUES_BAND_TOP_PX,
 } from '../../../../config/chartLayoutConfig';
-import { YAxisLabelStyle, FacetLabelStyles, CategoryTickStyles } from '../../../../contexts/VisualizationContext/types';
+import { XAxisLabelStyle, YAxisLabelStyle, FacetLabelStyles, CategoryTickStyles } from '../../../../contexts/VisualizationContext/types';
 import { UserChartType } from '../../../../types';
 import {
   computeAutoFacetLeftHeaderWidth,
@@ -23,6 +23,7 @@ import {
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
   computeDynamicYLabelColPx,
+  computeDynamicXLabelRowPx,
   computeTotalContentWidth,
   generateColumnTemplate,
   getEffectiveFacetLabelStyles,
@@ -52,6 +53,7 @@ export interface LayoutCalculations {
   dynamicYAxisPx: number;
   dynamicXAxisPx: number;
   yLabelColPx: number;
+  xLabelRowPx: number;
   leftFixedWidthPx: number;
   topHeaderHeight: number;
   // Facet dimension overrides (for styling)
@@ -78,6 +80,7 @@ export function useChartGridLayout(
   rowHeightPx: number,
   vScrollRef: RefObject<HTMLDivElement>,
   yAxisLabelStyle?: YAxisLabelStyle,
+  xAxisLabelStyle?: XAxisLabelStyle,
   facetLabelStyles?: FacetLabelStyles,
   categoryTickStyles?: CategoryTickStyles,
   globalChartType?: UserChartType | null,
@@ -227,6 +230,7 @@ export function useChartGridLayout(
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows, categoryTickStyles?.yWidthPx ?? null);
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns, categoryTickStyles?.xHeightPx ?? null);
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
+    const xLabelRowPx = computeDynamicXLabelRowPx(grid, xAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
     const facetTopHeaderPx = colLevels.length > 0 ? topHeaderFallbackPx : 0;
     const dimTopHeaderHeight = colLevels.length > 0 ? facetTopHeaderPx + sumTrackSizes(facetTopValueHeightsPx) : 0;
@@ -263,6 +267,7 @@ export function useChartGridLayout(
       dynamicYAxisPx,
       dynamicXAxisPx,
       yLabelColPx,
+      xLabelRowPx,
       leftFixedWidthPx,
       topHeaderHeight,
       facetTopHeaderPx,
@@ -281,6 +286,7 @@ export function useChartGridLayout(
     rowHeightPx,
     vScrollRef,
     yAxisLabelStyle,
+    xAxisLabelStyle,
     facetLabelStyles,
     categoryTickStyles,
     globalChartType,

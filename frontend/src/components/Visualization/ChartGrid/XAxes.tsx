@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { GridResultModel, getPlotGridCellAtCol, getXAxisLabelAtCol, hasFacetHeaders } from '../../../observable-plot-generator/gridModel';
-import { GRID_DIVIDER_COLOR, X_LABEL_ROW_PX } from '../../../config/chartLayoutConfig';
+import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
@@ -20,6 +20,8 @@ interface XAxesProps {
   plotTemplateColumns: string;
   totalContentWidthPx: number;
   dynamicXAxisPx: number;
+  /** Pixel height of the field-name row under the tick scale. */
+  xLabelRowPx: number;
   /** Lifted from VisualizationContext so this memoized component isn't invalidated by unrelated reducer changes. */
   xAxisLabelStyle: XAxisLabelStyle;
   onXAxisLabelStyleChange: (updates: Partial<XAxisLabelStyle>) => void;
@@ -86,6 +88,7 @@ const XAxes: React.FC<XAxesProps> = ({
   plotTemplateColumns,
   totalContentWidthPx,
   dynamicXAxisPx,
+  xLabelRowPx,
   xAxisLabelStyle,
   onXAxisLabelStyleChange,
   renderScales = true,
@@ -154,8 +157,8 @@ const XAxes: React.FC<XAxesProps> = ({
       </div>
       )}
 
-      {/* Bottom X labels */}
-      <div style={{ gridColumn: 1, gridRow: facetPresent ? 5 : 4 }}>
+      {/* Bottom X field-name labels: last explicit track (row 4 faceted / 3 otherwise). */}
+      <div style={{ gridColumn: 1, gridRow: facetPresent ? 4 : 3 }}>
         <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${totalContentWidthPx}px`, width: containerWidthStyle }}>
           {Array.from({ length: columns }).map((_, c) => {
             const xLabel = getXAxisLabelAtCol(grid, c);
@@ -169,7 +172,7 @@ const XAxes: React.FC<XAxesProps> = ({
                   justifyContent: 'center',
                   padding: '2px',
                   textAlign: 'center',
-                  minHeight: `${X_LABEL_ROW_PX}px`,
+                  minHeight: `${xLabelRowPx}px`,
                 }}
               >
                 <AxisLabel
@@ -202,6 +205,7 @@ export default React.memo(XAxes, (prevProps, nextProps) => {
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.totalContentWidthPx === nextProps.totalContentWidthPx &&
     prevProps.dynamicXAxisPx === nextProps.dynamicXAxisPx &&
+    prevProps.xLabelRowPx === nextProps.xLabelRowPx &&
     prevProps.renderScales === nextProps.renderScales &&
     prevProps.grid.cells === nextProps.grid.cells &&
     prevProps.grid.headers === nextProps.grid.headers &&

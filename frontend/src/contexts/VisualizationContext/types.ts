@@ -13,6 +13,7 @@ export interface XAxisLabelStyle {
   fontSize: number;  // 8-16, default 10
   orientation: 'horizontal' | 'vertical' | 'angled';  // axis (field-name) label, default 'horizontal'
   categoryOrientation: 'horizontal' | 'vertical' | 'angled';  // category tick labels, default 'vertical'
+  heightPx: number | null;  // null = auto-calculate, or manual override
 }
 
 export interface YAxisLabelStyle {

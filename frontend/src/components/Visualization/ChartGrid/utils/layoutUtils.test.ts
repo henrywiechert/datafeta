@@ -8,6 +8,7 @@ import {
   computeAutoFacetTopHeaderHeight,
   computeAutoFacetTopValueHeights,
   computeDynamicXAxisGutterPx,
+  computeDynamicXLabelRowPx,
   computeDynamicYAxisGutterPx,
   computeZoomBandXAxis,
   computeZoomBandYAxis,
@@ -368,5 +369,43 @@ describe('computeZoomBandXAxis', () => {
     expect(few.marginBottomPx).toBe(50);
     expect(many.lineWidthEm).toBeLessThan(few.lineWidthEm);
     expect(many.lineWidthEm).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('computeDynamicXLabelRowPx', () => {
+  const horizontalStyle = {
+    fontSize: 10,
+    orientation: 'horizontal' as const,
+    categoryOrientation: 'vertical' as const,
+    heightPx: null,
+  };
+
+  it('uses a single-line height for horizontal field names', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'c0',
+          position: { row: 0, col: 0 },
+          content: { kind: 'plot', options: { x: { label: 'Trip duration' } } },
+        } as any,
+      ],
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    });
+    // fontSize 10 → ceil(10 * 1.8 + 8) = 26, above the 20px floor.
+    expect(computeDynamicXLabelRowPx(grid, horizontalStyle)).toBe(26);
+  });
+
+  it('honors a manual height override', () => {
+    const grid = buildGrid({
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    });
+    expect(computeDynamicXLabelRowPx(grid, { ...horizontalStyle, heightPx: 48 })).toBe(48);
+  });
+
+  it('floors a too-small override at the historical label-row size', () => {
+    const grid = buildGrid({
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    });
+    expect(computeDynamicXLabelRowPx(grid, { ...horizontalStyle, heightPx: 8 })).toBe(20);
   });
 });
