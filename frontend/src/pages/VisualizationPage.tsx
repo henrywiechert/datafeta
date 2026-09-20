@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
 import { Navigate } from 'react-router-dom';
 import { Panel, Group as PanelGroup } from "react-resizable-panels";
 import type { PanelImperativeHandle } from "react-resizable-panels";
@@ -31,14 +31,11 @@ import {
 } from '../components/Layout/shellLayout';
 import {
     COLLAPSE_RAIL_THICKNESS_PX,
-    PANEL_HEADER_SURFACE,
     PANEL_RADIUS_PX,
     SHELL_GUTTER_PX,
 } from '../components/Layout/layoutTokens';
 import { T } from '../theme/tokens';
-import AppInfoDisplay from '../components/AppInfoDisplay';
-import DataSlicerIcon from '../components/icons/DataSlicerIcon';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import AppBrandHeader from '../components/AppBrandHeader';
 import SchemaCheckDialog from '../components/SchemaCheckDialog';
 import { schemaCheckBus } from '../services/schemaCheckBus';
 import { hasCrossDatabaseUnion, isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
@@ -48,8 +45,12 @@ import { apiService } from '../apiService';
 import { Field, DragSource } from '../types';
 import type { SheetPanelLayout } from '../types/sheet';
 
+interface VisualizationPageProps {
+  fileMenu?: React.ReactNode;
+}
+
 // Inner component that uses both sheet and visualization contexts
-const VisualizationPageContent = () => {
+const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     const [fieldsSearch, setFieldsSearch] = React.useState('');
     
     // Per-sheet panel layout. This component is remounted on every sheet switch
@@ -561,53 +562,7 @@ const VisualizationPageContent = () => {
                                   gap below is the boundary now, the same reason
                                   SplitHandle's `gap` variant draws no line.
                                 */}
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        px: 1.5,
-                                        py: 0.5,
-                                        backgroundColor: PANEL_HEADER_SURFACE,
-                                        borderRadius: `${PANEL_RADIUS_PX}px`,
-                                        overflow: 'hidden',
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    <Box
-                                        component="a"
-                                        href="/"
-                                        onClick={(e: React.MouseEvent) => { e.preventDefault(); window.location.href = '/'; }}
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 0.75,
-                                            fontSize: '0.9rem',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.02em',
-                                            color: 'text.primary',
-                                            textDecoration: 'none',
-                                            cursor: 'pointer',
-                                            '&:hover': { opacity: 0.8 },
-                                        }}
-                                        title="Back to Data Source Selection"
-                                    >
-                                        <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
-                                        DataSlicer
-                                    </Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <Tooltip title="Open User Manual">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => window.open('/help/', '_blank', 'noopener,noreferrer')}
-                                                sx={{ color: 'text.secondary' }}
-                                            >
-                                                <HelpOutlineIcon fontSize="small" />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <AppInfoDisplay />
-                                    </Box>
-                                </Box>
+                                <AppBrandHeader fileMenu={fileMenu} />
                                 {/*
                                   The Data Source card. Its own card rather than
                                   a band inside the Fields card below, matching
@@ -837,7 +792,7 @@ const VisualizationPageContent = () => {
 // Main component - wraps content with VisualizationProvider and UndoRedoProvider
 // UndoRedoProvider lives outside the keyed subtree so undo/redo stacks survive sheet switches.
 // SheetProvider is now at App level
-const VisualizationPage = () => {
+const VisualizationPage = ({ fileMenu }: VisualizationPageProps) => {
     const { activeSheet } = useSheetContext();
 
     return (
@@ -846,7 +801,7 @@ const VisualizationPage = () => {
                 key={activeSheet?.id} 
                 initialState={activeSheet?.visualizationState}
             >
-                <VisualizationPageContent />
+                <VisualizationPageContent fileMenu={fileMenu} />
             </VisualizationProvider>
         </UndoRedoProvider>
     );

@@ -1,13 +1,18 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useState } from 'react';
-import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, CircularProgress, Typography } from '@mui/material';
+import { Button, Menu, MenuItem, ListItemIcon, ListItemText, Divider, CircularProgress, Typography } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CloudIcon from '@mui/icons-material/Cloud';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { SavedConfiguration } from '../types';
+
+function startFromScratch() {
+  window.location.href = '/';
+}
 
 interface SaveLoadMenuProps {
   /** Export the configuration to a local JSON file. */
@@ -18,6 +23,8 @@ interface SaveLoadMenuProps {
   onSave?: () => Promise<void>;
   /** Always create a new snapshot under a new name. */
   onSaveAs?: () => void;
+  /** Start from scratch by reloading the app. */
+  onNew?: () => void;
   serverStorageReadable?: boolean;
   serverStorageWritable?: boolean;
 }
@@ -28,6 +35,7 @@ export default function SaveLoadMenu({
   onOpenGallery,
   onSave,
   onSaveAs,
+  onNew = startFromScratch,
   serverStorageReadable = true,
   serverStorageWritable = true,
 }: SaveLoadMenuProps) {
@@ -67,6 +75,11 @@ export default function SaveLoadMenu({
     onSaveAs?.();
   };
 
+  const handleNew = () => {
+    handleClose();
+    onNew();
+  };
+
   const handleExportFile = () => {
     handleClose();
     onExportFile();
@@ -101,28 +114,47 @@ export default function SaveLoadMenu({
 
   return (
     <>
-      <Tooltip title="Save/Load Configuration">
-        <IconButton
-          onClick={handleClick}
-          size="small"
-          sx={{ ml: 1 }}
-          aria-label="save load menu"
-          aria-controls={open ? 'save-load-menu' : undefined}
-          aria-haspopup="true"
-          aria-expanded={open ? 'true' : undefined}
-        >
-          <MoreVertIcon />
-        </IconButton>
-      </Tooltip>
+      <Button
+        onClick={handleClick}
+        size="small"
+        endIcon={<MoreVertIcon fontSize="small" />}
+        aria-label="File"
+        aria-controls={open ? 'save-load-menu' : undefined}
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+        id="save-load-button"
+        sx={{
+          textTransform: 'none',
+          fontWeight: 600,
+          minWidth: 0,
+          px: 0.75,
+          py: 0.125,
+          fontSize: '0.8rem',
+          lineHeight: 1.4,
+          color: 'text.primary',
+        }}
+      >
+        File
+      </Button>
       <Menu
         id="save-load-menu"
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         MenuListProps={{
           'aria-labelledby': 'save-load-button',
         }}
       >
+        <MenuItem onClick={handleNew}>
+          <ListItemIcon>
+            <NoteAddIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>New</ListItemText>
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+
         {/* Server Storage Section */}
         {hasServerStorage && (
           <>

@@ -680,6 +680,18 @@ function AppContent() {
   const currentTab = isDataSourcePage ? 'datasources' : state.activeSheetId;
   const activeSheet = state.sheets.find((sheet) => sheet.id === state.activeSheetId) ?? null;
 
+  const fileMenu = (
+    <SaveLoadMenu
+      onExportFile={handleSaveConfiguration}
+      onLoad={handleLoadConfiguration}
+      onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
+      onSave={canSaveToServer ? handleSaveSnapshot : undefined}
+      onSaveAs={canSaveToServer ? () => setShowSaveAs(true) : undefined}
+      serverStorageReadable={!appConfig.isDemoMode}
+      serverStorageWritable={appConfig.snapshots.writable}
+    />
+  );
+
   return (
     <div className="App">
       {/* Main content area */}
@@ -691,7 +703,7 @@ function AppContent() {
               path="/visualize"
               element={
                 isConnected
-                  ? <VisualizationPage />
+                  ? <VisualizationPage fileMenu={fileMenu} />
                   : <Navigate to="/" replace />
               }
             />
@@ -790,15 +802,6 @@ function AppContent() {
               </Typography>
             </Tooltip>
           )}
-          <SaveLoadMenu
-            onExportFile={handleSaveConfiguration}
-            onLoad={handleLoadConfiguration}
-            onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
-            onSave={canSaveToServer ? handleSaveSnapshot : undefined}
-            onSaveAs={canSaveToServer ? () => setShowSaveAs(true) : undefined}
-            serverStorageReadable={!appConfig.isDemoMode}
-            serverStorageWritable={appConfig.snapshots.writable}
-          />
         </Box>
       </Box>
 
