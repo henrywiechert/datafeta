@@ -24,6 +24,7 @@ import YAxes from './YAxes';
 import { TopFacetLabels, TopFacetHeaderTitle, LeftFacetLabels } from './FacetLabels';
 import GridResizeOverlay from './GridResizeOverlay';
 import GridResizeHandle from './GridResizeHandle';
+import VirtualResizeLine from './VirtualResizeLine';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -59,6 +60,27 @@ interface MultiPlotGridProps {
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+}
+
+interface AxisGutterDrag {
+  orientation: 'horizontal' | 'vertical';
+  startPosition: number;
+  currentSize: number;
+  currentDelta: number;
+  minSize: number;
+  /** Handle sits on the leading edge; growing moves the preview line backward. */
+  growTowardStart: boolean;
+}
+
+function previewAxisGutterDrag(drag: AxisGutterDrag): { position: number; size: number } {
+  const raw = drag.growTowardStart
+    ? drag.currentSize - drag.currentDelta
+    : drag.currentSize + drag.currentDelta;
+  const size = Math.max(drag.minSize, raw);
+  const position = drag.growTowardStart
+    ? drag.startPosition + (drag.currentSize - size)
+    : drag.startPosition + (size - drag.currentSize);
+  return { position, size };
 }
 
 /**
@@ -107,6 +129,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     dynamicYAxisPx,
     dynamicXAxisPx,
     yLabelColPx,
+    xLabelRowPx,
     leftFixedWidthPx,
     topHeaderHeight,
     facetTopHeaderPx,
@@ -139,8 +162,25 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const columnResizeHandleLength = hideExternalAxes
     ? Math.max(1, containerDimensions.height - topHeaderHeight)
     : undefined;
-  const bottomAxisBandPx = dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX;
-  const plotBottomBoundaryPx = containerDimensions.height - bottomAxisBandPx;
+  // The bottom band (tick gutter + field-name row + scrollbar) is measured from
+  // the horizontal scroll layer rather than derived from the container height:
+  // `containerDimensions` is debounced and gated by stabilization, so deriving
+  // absolute positions from it drifts the handles off the rendered axis rows
+  // whenever the container resizes (e.g. toggling the chart caption).
+  const hScrollLayer = hScrollRef.current;
+  const horizontalScrollbarPx = hScrollLayer && hScrollLayer.offsetHeight > hScrollLayer.clientHeight
+    ? hScrollLayer.offsetHeight - hScrollLayer.clientHeight
+    : HORIZONTAL_SCROLLBAR_GUTTER_PX;
+  const bottomAxisBandPx = dynamicXAxisPx + xLabelRowPx + horizontalScrollbarPx;
+  // Bottom edge of the axis grid == the layer's content box, which already
+  // excludes its own scrollbar. Only the first paint (before the ref attaches)
+  // falls back to the container measurement.
+  const axisGridBottomPx = Math.max(
+    0,
+    hScrollLayer?.clientHeight ?? containerDimensions.height - horizontalScrollbarPx,
+  );
+  const xLabelBoundaryPx = axisGridBottomPx - xLabelRowPx;
+  const plotBottomBoundaryPx = xLabelBoundaryPx - dynamicXAxisPx;
 
   const { state, dispatch } = useVisualizationContext();
   const {
@@ -160,6 +200,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const facetRowConstraints = getFacetRowSizeConstraints();
 
   const [yLabelPopoverAnchor, setYLabelPopoverAnchor] = useState<HTMLElement | null>(null);
+  const [axisGutterDrag, setAxisGutterDrag] = useState<AxisGutterDrag | null>(null);
+  const axisGutterPreview = axisGutterDrag ? previewAxisGutterDrag(axisGutterDrag) : null;
 
   const handleYLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     setYLabelPopoverAnchor(event.currentTarget);
@@ -239,6 +281,13 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     });
   }, [dispatch]);
 
+  const handleXLabelRowResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_X_AXIS_LABEL_STYLE',
+      payload: { heightPx: Math.max(X_LABEL_ROW_PX, intent.currentSize - intent.delta) },
+    });
+  }, [dispatch]);
+
   return (
     <div
       className={styles.container}
@@ -279,9 +328,11 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           style={{
             display: 'grid',
             gridTemplateColumns: `minmax(0, 1fr)`,
+            // Last track is the X field-name row. Keep it in lockstep with
+            // xLabelRowPx so plotBottomBoundaryPx sits on the plot/tick edge.
             gridTemplateRows: facetPresent
-              ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px 0px`
-              : `1fr ${dynamicXAxisPx}px 0px`,
+              ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${xLabelRowPx}px`
+              : `1fr ${dynamicXAxisPx}px ${xLabelRowPx}px`,
             minWidth: `${totalContentWidthPx}px`,
             width: '100%',
             height: '100%',
@@ -323,6 +374,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               plotTemplateColumns={plotTemplateColumns}
               totalContentWidthPx={totalContentWidthPx}
               dynamicXAxisPx={dynamicXAxisPx}
+              xLabelRowPx={xLabelRowPx}
               xAxisLabelStyle={axisLabelStyles.xAxis}
               onXAxisLabelStyleChange={handleXLabelStyleChange}
               renderScales={!hideExternalAxes}
@@ -578,6 +630,23 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         }}
       />
 
+      {/* Tick gutter / field-name row boundary: makes the second bottom resize
+          handle discoverable instead of an invisible drag target. */}
+      {xLabelRowPx > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: `${xLabelBoundaryPx - 1}px`,
+            left: `${leftFixedWidthPx}px`,
+            right: `${VERTICAL_SCROLLBAR_GUTTER_PX}px`,
+            height: '1px',
+            backgroundColor: GRID_DIVIDER_COLOR,
+            pointerEvents: 'none',
+            zIndex: 99,
+          }}
+        />
+      )}
+
       {/* Grid Resize Overlay - handles positioned on gridlines in axis areas */}
       <div
         style={{
@@ -597,14 +666,59 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           onResizeEnd={(delta) => handleCategoryYWidthResize({ currentSize: dynamicYAxisPx, delta })}
           isInAxisArea={true}
         />
-        <GridResizeHandle
-          orientation="horizontal"
-          position={plotBottomBoundaryPx}
-          length={containerDimensions.width - leftFixedWidthPx}
-          crossAxisOffset={leftFixedWidthPx}
-          onResizeEnd={(delta) => handleCategoryXHeightResize({ currentSize: dynamicXAxisPx, delta })}
-          isInAxisArea={true}
-        />
+        {!hideExternalAxes && (
+          <GridResizeHandle
+            orientation="horizontal"
+            position={plotBottomBoundaryPx}
+            length={containerDimensions.width - leftFixedWidthPx}
+            crossAxisOffset={leftFixedWidthPx}
+            onResizeStart={() => setAxisGutterDrag({
+              orientation: 'horizontal',
+              startPosition: plotBottomBoundaryPx,
+              currentSize: dynamicXAxisPx,
+              currentDelta: 0,
+              minSize: 24,
+              growTowardStart: true,
+            })}
+            onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+            onResizeEnd={(delta) => {
+              setAxisGutterDrag(null);
+              handleCategoryXHeightResize({ currentSize: dynamicXAxisPx, delta });
+            }}
+            isInAxisArea={true}
+          />
+        )}
+        {xLabelRowPx > 0 && (
+          <GridResizeHandle
+            testId="x-label-row-handle"
+            orientation="horizontal"
+            position={xLabelBoundaryPx}
+            length={containerDimensions.width - leftFixedWidthPx}
+            crossAxisOffset={leftFixedWidthPx}
+            onResizeStart={() => setAxisGutterDrag({
+              orientation: 'horizontal',
+              startPosition: xLabelBoundaryPx,
+              currentSize: xLabelRowPx,
+              currentDelta: 0,
+              minSize: X_LABEL_ROW_PX,
+              growTowardStart: true,
+            })}
+            onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+            onResizeEnd={(delta) => {
+              setAxisGutterDrag(null);
+              handleXLabelRowResize({ currentSize: xLabelRowPx, delta });
+            }}
+            isInAxisArea={true}
+          />
+        )}
+        {axisGutterPreview && axisGutterDrag && (
+          <VirtualResizeLine
+            orientation={axisGutterDrag.orientation}
+            position={axisGutterPreview.position}
+            isVisible={true}
+            displaySize={axisGutterPreview.size}
+          />
+        )}
         <GridResizeOverlay
           columns={columns}
           rows={rows}

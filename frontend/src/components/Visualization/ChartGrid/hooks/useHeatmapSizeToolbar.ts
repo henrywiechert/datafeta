@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import {
   HORIZONTAL_SCROLLBAR_GUTTER_PX,
   VERTICAL_SCROLLBAR_GUTTER_PX,
-  X_LABEL_ROW_PX,
 } from '../../../../config/chartLayoutConfig';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { CellSizeOverrides } from './useCellSizeOverrides';
@@ -102,7 +101,7 @@ export function useHeatmapSizeToolbar({
     if (!layoutCalcs || !grid || currentColumnWidth === null || currentRowHeight === null) return;
     if (layoutCalcs.columns <= 0 || layoutCalcs.rows <= 0) return;
 
-    const bottomAxisBandPx = layoutCalcs.dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX;
+    const bottomAxisBandPx = layoutCalcs.dynamicXAxisPx + layoutCalcs.xLabelRowPx + HORIZONTAL_SCROLLBAR_GUTTER_PX;
     const plotBottomBoundaryPx = containerDimensions.height - bottomAxisBandPx;
     const availableContentWidth = Math.max(
       1,
