@@ -42,8 +42,7 @@ function buildGolden(input: BuildViewSpecInput): {
     tooltipFields: input.tooltipFields,
     globalChartType: input.globalChartType || undefined,
     distributionVariant: input.distributionVariant,
-    xAxisFields: input.xAxisFields,
-    yAxisFields: input.yAxisFields,
+    axes: viewSpec.axes,
     colorField: input.colorField,
     queryMode: viewSpec.queryMode,
   });
@@ -423,5 +422,51 @@ describe('golden ViewSpec / QueryDescription / RenderPlan semantics', () => {
         domainPolicy: { x: 'measureGroupShared', y: 'measureGroupShared' },
       }),
     });
+  });
+
+  it('drops a disabled facet dim from panes and query dimensions', () => {
+    const country = field('country');
+    const segment = field('segment', { disabled: true });
+    const revenue = measure('revenue', { aggregation: 'sum' });
+
+    const golden = buildGolden({
+      xAxisFields: [country],
+      yAxisFields: [segment, revenue],
+      colorField: null,
+      sizeField: null,
+    });
+
+    expect(golden.view.paneRows).toEqual([]);
+    expect(golden.view.paneColumns).toEqual(['country']);
+    expect(golden.view.inPaneY).toEqual(['revenue']);
+    expect(golden.view.queryFields).toEqual(['country', 'revenue']);
+    expect(golden.view.grain).toBe('grouped');
+    expect(golden.query?.dimensions.map((d) => d.field)).toEqual(['country']);
+    expect(golden.query?.measures.map((m) => m.field)).toEqual(['revenue']);
+    expect(golden.render.facetFields).toEqual(['country']);
+  });
+
+  it('excludes a disabled measure from query and leaves a discrete-only shelf', () => {
+    const category = field('category');
+    const sales = measure('sales', { aggregation: 'sum' });
+    const profit = measure('profit', { aggregation: 'sum' });
+
+    const both = buildGolden({
+      xAxisFields: [category],
+      yAxisFields: [sales, profit],
+      colorField: null,
+      sizeField: null,
+    });
+    const oneDisabled = buildGolden({
+      xAxisFields: [category],
+      yAxisFields: [sales, { ...profit, disabled: true }],
+      colorField: null,
+      sizeField: null,
+    });
+
+    expect(both.view.queryFields).toEqual(['category', 'sales', 'profit']);
+    expect(oneDisabled.view.queryFields).toEqual(['category', 'sales']);
+    expect(oneDisabled.view.inPaneY).toEqual(['sales']);
+    expect(oneDisabled.query?.measures.map((m) => m.field)).toEqual(['sales']);
   });
 });

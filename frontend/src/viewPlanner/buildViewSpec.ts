@@ -16,6 +16,14 @@ import {
   ViewSpec,
 } from './types';
 
+/**
+ * Axis shelf fields that participate in query/render.
+ * Disabled pills stay on the shelf for UI but are excluded here.
+ */
+export function activeAxisFields(fields: Field[]): Field[] {
+  return fields.filter((field) => !field.disabled);
+}
+
 function withAxis(field: Field, axis: 'x' | 'y'): Field {
   return { ...field, axis };
 }
@@ -350,20 +358,28 @@ function buildSelectionSpecs(input: BuildViewSpecInput): SelectionSpec[] {
 }
 
 export function buildViewSpec(input: BuildViewSpecInput): ViewSpec {
+  // Single choke point for axis-field disable: everything downstream (grain,
+  // facets, query fields, chart-type eligibility) sees only active fields.
+  const activeInput: BuildViewSpecInput = {
+    ...input,
+    xAxisFields: activeAxisFields(input.xAxisFields),
+    yAxisFields: activeAxisFields(input.yAxisFields),
+  };
+
   // Discrete measures (Tableau-style "convert to discrete") behave like discrete
   // dimensions here: they facet/header, they don't get a continuous in-pane axis.
-  const xDiscrete = input.xAxisFields.filter((field) => field.flavour === 'discrete');
-  const yDiscrete = input.yAxisFields.filter((field) => field.flavour === 'discrete');
-  const xInPane = input.xAxisFields.filter((field) => field.flavour === 'continuous');
-  const yInPane = input.yAxisFields.filter((field) => field.flavour === 'continuous');
-  const queryFields = buildQueryFieldsFromViewInput(input);
-  const measureGroups = buildMeasureGroupSpec(input);
-  const grain = deriveGrain(input, queryFields);
+  const xDiscrete = activeInput.xAxisFields.filter((field) => field.flavour === 'discrete');
+  const yDiscrete = activeInput.yAxisFields.filter((field) => field.flavour === 'discrete');
+  const xInPane = activeInput.xAxisFields.filter((field) => field.flavour === 'continuous');
+  const yInPane = activeInput.yAxisFields.filter((field) => field.flavour === 'continuous');
+  const queryFields = buildQueryFieldsFromViewInput(activeInput);
+  const measureGroups = buildMeasureGroupSpec(activeInput);
+  const grain = deriveGrain(activeInput, queryFields);
 
   return {
     axes: {
-      x: input.xAxisFields,
-      y: input.yAxisFields,
+      x: activeInput.xAxisFields,
+      y: activeInput.yAxisFields,
     },
     panePartition: {
       rows: yDiscrete,
@@ -374,22 +390,22 @@ export function buildViewSpec(input: BuildViewSpecInput): ViewSpec {
       y: yInPane,
     },
     encodings: {
-      color: input.colorField || null,
-      size: input.sizeField || null,
-      shape: input.shapeField || null,
-      label: input.labelFields || [],
-      tooltip: input.tooltipFields || [],
-      facetBackground: input.facetBackgroundField || null,
+      color: activeInput.colorField || null,
+      size: activeInput.sizeField || null,
+      shape: activeInput.shapeField || null,
+      label: activeInput.labelFields || [],
+      tooltip: activeInput.tooltipFields || [],
+      facetBackground: activeInput.facetBackgroundField || null,
     },
     grain,
-    domainPolicy: deriveDomainPolicy(input, measureGroups.length > 0),
+    domainPolicy: deriveDomainPolicy(activeInput, measureGroups.length > 0),
     measureGroups,
-    selections: buildSelectionSpecs(input),
+    selections: buildSelectionSpecs(activeInput),
     queryFields,
     queryMode: queryModeForGrain(grain),
     chart: {
-      globalChartType: input.globalChartType,
-      distributionVariant: input.distributionVariant,
+      globalChartType: activeInput.globalChartType,
+      distributionVariant: activeInput.distributionVariant,
     },
   };
 }

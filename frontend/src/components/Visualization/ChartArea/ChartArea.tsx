@@ -146,21 +146,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
   const isGanttChart = globalChartType === 'gantt';
-  // The chart type actually rendered: the user's explicit pick, or the
-  // auto-resolved default when in auto mode. The all-discrete shape auto-resolves
-  // to `'table-refactor'`, so the pager/cache-key behaviour below must key off
-  // the effective type (not the raw, possibly-null `globalChartType`).
-  const effectiveChartType =
-    globalChartType ?? detectDefaultUserChartType(
-      xAxisFields,
-      yAxisFields,
-      channels.color.field || undefined,
-    ) ?? null;
-  // Whether the chart is rendered with the table presentation (Tableau-style
-  // text/symbol grid). Routing the check through the registry means future
-  // table-presentation chart types pick up the pager/cache-key behaviour
-  // automatically.
-  const isTableMode = isTablePresentation(effectiveChartType);
 
   // Global user setting: rows per page for the table-presentation pager.
   // Persisted in localStorage so the choice survives reloads / sheet switches.
@@ -197,6 +182,22 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     additionalLabelFields,
     optimizationSettings,
   });
+
+  // Chart type actually rendered: user pick, or auto-default from the planner
+  // axes (viewSpec.axes) so query and render share one field source.
+  const plannedX = viewSpec?.axes.x ?? xAxisFields;
+  const plannedY = viewSpec?.axes.y ?? yAxisFields;
+  const effectiveChartType =
+    globalChartType ?? detectDefaultUserChartType(
+      plannedX,
+      plannedY,
+      channels.color.field || undefined,
+    ) ?? null;
+  // Whether the chart is rendered with the table presentation (Tableau-style
+  // text/symbol grid). Routing the check through the registry means future
+  // table-presentation chart types pick up the pager/cache-key behaviour
+  // automatically.
+  const isTableMode = isTablePresentation(effectiveChartType);
 
   useEffect(() => {
     setAutoCategoryTickStyles({ xHeightPx: null, yWidthPx: null });

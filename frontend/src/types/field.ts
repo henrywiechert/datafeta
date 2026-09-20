@@ -58,6 +58,13 @@ export interface Field {
   is_virtual?: boolean; // True if this field comes from a virtual/calculated column
   // Validation flag (set upstream when field no longer exists in schema)
   isInvalid?: boolean; // True if field is invalid (e.g., column removed from table)
+
+  /**
+   * When true on an axis shelf pill, the field is grayed out and excluded from
+   * query/render (view planner filters it out). Omitted/false = enabled.
+   * Only meaningful on X/Y axis instances; cleared when dropped onto other zones.
+   */
+  disabled?: boolean;
   
   // Source table name (which physical table this column comes from)
   // Set from Column.table_name in multi-table (JOIN) mode

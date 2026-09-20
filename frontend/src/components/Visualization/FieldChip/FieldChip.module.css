@@ -195,6 +195,21 @@
     border-color: var(--df-flavour-invalid-border) !important;
 }
 
+/* Temporarily excluded from query/render — keep on shelf, muted mid-gray.
+   Use dedicated disabled tokens (not sunken + opacity): sunken is too light in
+   light mode and too dark in dark mode, and opacity makes both worse. */
+.disabledAxisField {
+    background-color: var(--df-surface-disabled) !important;
+    border-style: dashed !important;
+    border-color: var(--df-border-disabled) !important;
+    color: var(--df-text-disabled-ink) !important;
+}
+
+.disabledAxisField .discreteSymbol,
+.disabledAxisField .continuousSymbol {
+    color: var(--df-text-disabled-ink) !important;
+}
+
 /* Selection styles - darker than hover */
 .chip.textOnly.selected {
     border-radius: 16px;

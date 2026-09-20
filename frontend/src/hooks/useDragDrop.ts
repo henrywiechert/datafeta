@@ -448,10 +448,12 @@ export function useDragDrop(
       if (field.type === 'measure' && measureCount > 1) {
         fieldToAdd = { id: uuidv4(), columnName: '__current_measure__', type: 'special' } as any;
       } else {
-        fieldToAdd = { ...field, id: uuidv4() };
+        const { disabled: _disabled, ...rest } = field;
+        fieldToAdd = { ...rest, id: uuidv4() };
       }
     } else {
-      fieldToAdd = { ...field, id: uuidv4() };
+      const { disabled: _disabled, ...rest } = field;
+      fieldToAdd = { ...rest, id: uuidv4() };
     }
     dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
   }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs

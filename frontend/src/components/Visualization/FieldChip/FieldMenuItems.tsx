@@ -54,7 +54,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         ...vizContext.state.xAxisFields,
         ...vizContext.state.yAxisFields,
         ...vizContext.state.tooltipFields,
-      ]
+      ].filter((f) => !f.disabled)
     : [];
   const windowCalcEligible = hasWindowCalcOrderByDimension(shelfFields);
   
@@ -346,6 +346,22 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
               Descending ↓ {!isBulkEdit && field.barSortOrder === 'desc' && '✔'}
             </div>
           </SubMenu>
+        </>
+      )}
+
+      {/* Temporarily exclude from query/render while keeping the pill on the shelf */}
+      {isInAxisDropZone && (
+        <>
+          <div className={menuStyles.separator} />
+          <div
+            className={menuStyles.menuItem}
+            onClick={() => {
+              onUpdate({ disabled: field.disabled ? undefined : true });
+              onRequestClose?.();
+            }}
+          >
+            {field.disabled ? 'Enable' : 'Disable'}
+          </div>
         </>
       )}
 

@@ -81,52 +81,6 @@ export const useQueryBuilder = ({
   globalChartType,
   distributionVariant = 'tick-strip',
 }: UseQueryBuilderProps): UseQueryBuilderReturn => {
-  
-  // Generate optimization hints based on field configuration
-  const optimizationHints = useMemo((): OptimizationHints | null => {
-    if (xAxisFields.length === 0 && yAxisFields.length === 0) {
-      devLog('⚠️ No fields present, skipping optimization hints generation');
-      return null;
-    }
-
-    try {
-      devLog('🔧 Generating optimization hints for fields:', {
-        xFields: xAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
-        yFields: yAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
-        color: colorField?.columnName,
-        size: sizeField?.columnName,
-      });
-
-      const hints = generateOptimizationHintsFromFields({
-        xAxisFields,
-        yAxisFields,
-        colorField,
-        sizeField,
-        userPreference: 'auto',
-        roundingSettings: optimizationSettings
-          ? {
-              enabled: optimizationSettings.enableRounding,
-              thresholds: {
-                light: optimizationSettings.roundingThresholdLight,
-                balanced: optimizationSettings.roundingThresholdBalanced,
-                aggressive: optimizationSettings.roundingThresholdAggressive,
-              },
-            }
-          : undefined,
-      });
-
-      devLog('✅ Generated hints:', {
-        field_hints: hints.field_hints?.length || 0,
-        enable_global_distinct: hints.enable_global_distinct,
-        level: hints.optimization_level,
-      });
-
-      return hints;
-    } catch (error) {
-      console.error('❌ Failed to generate optimization hints:', error);
-      return null;
-    }
-  }, [xAxisFields, yAxisFields, colorField, sizeField, optimizationSettings]);
 
   const viewSpec = useMemo((): ViewSpec | null => {
     if (xAxisFields.length === 0 && yAxisFields.length === 0) {
@@ -174,6 +128,56 @@ export const useQueryBuilder = ({
     independentDomains,
   ]);
 
+  // Optimization hints use planner axes so they stay in sync with query/render
+  // (and with axis-field disable once filtered inside buildViewSpec).
+  const optimizationHints = useMemo((): OptimizationHints | null => {
+    if (!viewSpec || (viewSpec.axes.x.length === 0 && viewSpec.axes.y.length === 0)) {
+      devLog('⚠️ No fields present, skipping optimization hints generation');
+      return null;
+    }
+
+    const plannedX = viewSpec.axes.x;
+    const plannedY = viewSpec.axes.y;
+
+    try {
+      devLog('🔧 Generating optimization hints for fields:', {
+        xFields: plannedX.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
+        yFields: plannedY.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
+        color: colorField?.columnName,
+        size: sizeField?.columnName,
+      });
+
+      const hints = generateOptimizationHintsFromFields({
+        xAxisFields: plannedX,
+        yAxisFields: plannedY,
+        colorField,
+        sizeField,
+        userPreference: 'auto',
+        roundingSettings: optimizationSettings
+          ? {
+              enabled: optimizationSettings.enableRounding,
+              thresholds: {
+                light: optimizationSettings.roundingThresholdLight,
+                balanced: optimizationSettings.roundingThresholdBalanced,
+                aggressive: optimizationSettings.roundingThresholdAggressive,
+              },
+            }
+          : undefined,
+      });
+
+      devLog('✅ Generated hints:', {
+        field_hints: hints.field_hints?.length || 0,
+        enable_global_distinct: hints.enable_global_distinct,
+        level: hints.optimization_level,
+      });
+
+      return hints;
+    } catch (error) {
+      console.error('❌ Failed to generate optimization hints:', error);
+      return null;
+    }
+  }, [viewSpec, colorField, sizeField, optimizationSettings]);
+
   // Build the query description from the canonical view spec.
   const queryDescription = useMemo((): QueryDescription | null => {
     devLog('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
@@ -188,7 +192,8 @@ export const useQueryBuilder = ({
       return null;
     }
 
-    // Build the query
+    // Build the query — CDF/box-plot special cases read axes from viewSpec,
+    // not a parallel copy of shelf state.
     const queryDesc = buildQuery({
       fields: plannedFields,
       selectedTable,
@@ -199,8 +204,7 @@ export const useQueryBuilder = ({
       virtualTable,
       virtualColumns,
       globalChartType,
-      xAxisFields,
-      yAxisFields,
+      axes: viewSpec?.axes,
       colorField,
       distributionVariant,
       queryMode: viewSpec?.queryMode,
@@ -271,8 +275,6 @@ export const useQueryBuilder = ({
     connectionType,
     globalChartType,
     distributionVariant,
-    xAxisFields,
-    yAxisFields,
     viewSpec,
   ]);
 
