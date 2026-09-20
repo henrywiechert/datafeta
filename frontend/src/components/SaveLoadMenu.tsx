@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useState } from 'react';
 import { Button, Menu, MenuItem, ListItemIcon, ListItemText, Divider, CircularProgress, Typography } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CloudIcon from '@mui/icons-material/Cloud';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
@@ -117,7 +117,7 @@ export default function SaveLoadMenu({
       <Button
         onClick={handleClick}
         size="small"
-        endIcon={<MoreVertIcon fontSize="small" />}
+        endIcon={<ArrowDropDownIcon fontSize="small" />}
         aria-label="File"
         aria-controls={open ? 'save-load-menu' : undefined}
         aria-haspopup="true"
@@ -132,6 +132,7 @@ export default function SaveLoadMenu({
           fontSize: '0.8rem',
           lineHeight: 1.4,
           color: 'text.primary',
+          '& .MuiButton-endIcon': { ml: 0.125, mr: -0.25 },
         }}
       >
         File
