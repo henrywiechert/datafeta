@@ -26,6 +26,7 @@ function fieldToHashKey(field: Field | null | undefined): string {
     flavour: field.flavour,
     aggregation: field.aggregation,
     is_virtual: field.is_virtual,
+    disabled: field.disabled === true,
   });
 }
 

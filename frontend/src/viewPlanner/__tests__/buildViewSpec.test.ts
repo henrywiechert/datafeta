@@ -311,6 +311,94 @@ describe('buildViewSpec.deriveGrain (registry dispatch)', () => {
     });
     expect(heatmapSpec.grain).toBe('grouped');
   });
+
+  describe('disabled axis fields', () => {
+    it('excludes a disabled facet dimension from panes, query fields, and GROUP BY grain', () => {
+      const country = field('country');
+      const segment = field('segment', { disabled: true });
+      const revenue = field('revenue', {
+        type: 'measure',
+        flavour: 'continuous',
+        dataType: 'float',
+      });
+
+      const enabled = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [field('segment'), revenue],
+        colorField: null,
+        sizeField: null,
+      });
+      const disabled = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [segment, revenue],
+        colorField: null,
+        sizeField: null,
+      });
+
+      expect(enabled.panePartition.rows.map((f) => f.columnName)).toEqual(['segment']);
+      expect(disabled.panePartition.rows.map((f) => f.columnName)).toEqual([]);
+      expect(disabled.axes.y.map((f) => f.columnName)).toEqual(['revenue']);
+      expect(disabled.queryFields.map((f) => f.columnName)).not.toContain('segment');
+      expect(disabled.grain).toBe('grouped');
+      expect(disabled.queryMode).toBe('aggregated');
+    });
+
+    it('treats disabling the last in-pane continuous field as an empty in-pane axis', () => {
+      const country = field('country');
+      const revenue = field('revenue', {
+        type: 'measure',
+        flavour: 'continuous',
+        dataType: 'float',
+        disabled: true,
+      });
+
+      const spec = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [revenue],
+        colorField: null,
+        sizeField: null,
+      });
+
+      expect(spec.axes.y).toEqual([]);
+      expect(spec.inPaneAxes.y).toEqual([]);
+      expect(spec.panePartition.columns.map((f) => f.columnName)).toEqual(['country']);
+      expect(spec.queryFields.some((f) => f.type === 'measure')).toBe(false);
+      expect(spec.grain).toBe('rawRows');
+      expect(spec.queryMode).toBe('raw');
+    });
+
+    it('restores the previous view when a disabled field is re-enabled', () => {
+      const country = field('country');
+      const segment = field('segment');
+      const revenue = field('revenue', {
+        type: 'measure',
+        flavour: 'continuous',
+        dataType: 'float',
+      });
+
+      const baseline = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [segment, revenue],
+        colorField: null,
+        sizeField: null,
+      });
+      const withDisabled = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [{ ...segment, disabled: true }, revenue],
+        colorField: null,
+        sizeField: null,
+      });
+      const reEnabled = buildViewSpec({
+        xAxisFields: [country],
+        yAxisFields: [{ ...segment, disabled: undefined }, revenue],
+        colorField: null,
+        sizeField: null,
+      });
+
+      expect(withDisabled.panePartition.rows).toEqual([]);
+      expect(reEnabled).toEqual(baseline);
+    });
+  });
 });
 
 describe('buildRenderPlan', () => {

@@ -31,16 +31,19 @@ export const getChipClassNames = (
   baseStyles: Record<string, string>
 ): string => {
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
+  const isDisabledOnAxis = isAxis && field.disabled === true;
   const classes = [
     baseStyles.chip,
     field.flavour === 'continuous' ? baseStyles.continuous : baseStyles.discrete,
     source === 'AVAILABLE_FIELDS' ? baseStyles.textOnly : baseStyles.framed,
     isAxis ? baseStyles.axis : '',
     isInvalidOnAxis ? baseStyles.invalidAxisField : '',
+    isDisabledOnAxis ? baseStyles.disabledAxisField : '',
     // An invalid chip keeps its red fill while selected. The flavour `selected`
     // backgrounds are more specific than `.invalidAxisField`, so letting both
     // classes land repaints the chip blue/green on click and back to red on Esc.
-    isSelected && !isInvalidOnAxis ? baseStyles.selected : '',
+    // Disabled keeps gray even when selected so the state stays visible.
+    isSelected && !isInvalidOnAxis && !isDisabledOnAxis ? baseStyles.selected : '',
     'field-chip'
   ];
   

@@ -108,7 +108,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onClick,
       onMouseDown: handleMouseDownInternal,
       style: {
-        opacity: 1,
+        // Inline opacity would override `.disabledAxisField`; omit when disabled.
+        ...((source === 'X_AXIS' || source === 'Y_AXIS') && field.disabled ? {} : { opacity: 1 }),
         cursor: 'grab',
         ...widthProps,
         overflow: 'hidden',
@@ -260,7 +261,10 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
 // Note: displayAlias is NOT compared here because aliases are looked up from context
 // by the FieldChipLabel child component, which will re-render independently when context changes
 export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
-  // Compare field properties that affect rendering
+  // Compare field properties that affect rendering.
+  // `disabled` must be included: otherwise a disable toggle while selected keeps
+  // the green/blue selected paint until Esc changes isSelected.
+  // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   return (
     prevProps.field.id === nextProps.field.id &&
     prevProps.field.columnName === nextProps.field.columnName &&
@@ -270,12 +274,12 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.field.dateTimePart === nextProps.field.dateTimePart &&
     prevProps.field.dateTimeMode === nextProps.field.dateTimeMode &&
     prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
+    prevProps.field.disabled === nextProps.field.disabled &&
     prevProps.source === nextProps.source &&
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis &&
     prevProps.dragCount === nextProps.dragCount &&
     prevProps.displayNameOverride === nextProps.displayNameOverride
-    // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   );
 });

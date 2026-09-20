@@ -204,13 +204,18 @@ export const useChartGeneration = ({
   const generateChartSpec = useCallback(async () => {
     void queryVersion; // Ensure chart regeneration tracks query version changes.
     const startTime = Date.now();
+
+    // Prefer the canonical planner axes when available so query and render
+    // share one field source (required for axis-field disable later).
+    const plannedX = viewSpec?.axes.x ?? (xAxisFields as Field[]);
+    const plannedY = viewSpec?.axes.y ?? (yAxisFields as Field[]);
     
     // Short-circuit only when there is nothing to render: no fields at all, or
     // the dedicated raw-rows view is active. All-discrete shapes are NOT
     // short-circuited here — they auto-resolve to the `'table-refactor'`
     // presentation below and render through `generateTableGrid`. The legacy
     // `useTableView` (AG Grid) path is no longer used for rendering.
-    if ((xAxisFields.length === 0 && yAxisFields.length === 0) || showTableRows) {
+    if ((plannedX.length === 0 && plannedY.length === 0) || showTableRows) {
       setGrid(null);
       setChartInfo(null);
       setRenderingError(null);
@@ -227,8 +232,8 @@ export const useChartGeneration = ({
       setRenderingError(null);
 
       const overrideTargets = computeOverrideTargets(
-        xAxisFields as Field[],
-        yAxisFields as Field[],
+        plannedX,
+        plannedY,
         measureValuesSourceFields
       );
 
@@ -238,16 +243,16 @@ export const useChartGeneration = ({
       // existing per-pair detection in `coreGridGenerator`.
       const effectiveGlobalChartType =
         globalChartType ?? detectDefaultUserChartType(
-          xAxisFields as Field[],
-          yAxisFields as Field[],
+          plannedX,
+          plannedY,
           colorField || undefined
         ) ?? null;
 
       // Build the chart generation context
       // NOTE: Use ref for ganttZoomRange to avoid frequent regeneration during zoom
       const context: ChartGenerationContext = {
-        xFields: xAxisFields,
-        yFields: yAxisFields,
+        xFields: plannedX,
+        yFields: plannedY,
         color: {
           field: colorField,
           scheme: colorScheme,

@@ -44,5 +44,7 @@ export function resolveSingleEncodingDropField({
     return sourceField;
   }
 
-  return { ...sourceField, id: uuidv4() };
+  // Axis disable is shelf-local; clear it when the field lands on another zone.
+  const { disabled: _disabled, ...withoutDisabled } = sourceField;
+  return { ...withoutDisabled, id: uuidv4() };
 }

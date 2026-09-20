@@ -658,8 +658,8 @@ export const buildQuery = ({
   virtualTable = null,
   virtualColumns = [],
   globalChartType,
-  xAxisFields,
-  yAxisFields,
+  /** Canonical axis fields from viewSpec.axes — preferred source for CDF/box-plot. */
+  axes,
   colorField,
   distributionVariant,
   queryMode,
@@ -673,12 +673,14 @@ export const buildQuery = ({
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../types').VirtualColumnDefinition[];
   globalChartType?: UserChartType;
-  xAxisFields?: Field[];
-  yAxisFields?: Field[];
+  /** Positional axes from the view planner (`viewSpec.axes`). */
+  axes?: { x: Field[]; y: Field[] };
   colorField?: Field | null;
   distributionVariant?: DistributionVariant;
   queryMode?: PlannedQueryMode;
 }): QueryDescription | null => {
+  const xAxisFields = axes?.x;
+  const yAxisFields = axes?.y;
 
   if (
     globalChartType === 'cdf' &&
