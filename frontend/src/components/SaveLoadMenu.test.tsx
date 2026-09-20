@@ -11,6 +11,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof SaveLoadMenu>> = {
     onOpenGallery: jest.fn(),
     onSave: jest.fn().mockResolvedValue(undefined),
     onSaveAs: jest.fn(),
+    onNew: jest.fn(),
     ...overrides,
   };
   render(<SaveLoadMenu {...props} />);
@@ -18,10 +19,19 @@ function setup(overrides: Partial<React.ComponentProps<typeof SaveLoadMenu>> = {
 }
 
 const openMenu = async () => {
-  await userEvent.click(screen.getByLabelText('save load menu'));
+  await userEvent.click(screen.getByRole('button', { name: 'File' }));
 };
 
 describe('SaveLoadMenu', () => {
+  it('offers New as the first item and invokes onNew', async () => {
+    const props = setup();
+    await openMenu();
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveTextContent('New');
+    await userEvent.click(screen.getByText('New'));
+    expect(props.onNew).toHaveBeenCalledTimes(1);
+  });
+
   it('offers Save and Save As when server storage is writable', async () => {
     setup();
     await openMenu();
