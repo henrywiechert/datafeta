@@ -39,6 +39,11 @@ import { resolvePlotResizePolicy } from './utils/plotResizePolicy';
 import styles from './ChartGrid.module.css';
 import { T } from '../../../theme/tokens';
 
+/** Lower bounds for the axis gutters. Shared by the drag preview and the commit
+ *  so the ghost line never settles somewhere the resize won't accept. */
+const MIN_CATEGORY_Y_WIDTH_PX = 30;
+const MIN_CATEGORY_X_HEIGHT_PX = 24;
+
 interface MultiPlotGridProps {
   grid: GridResultModel;
   layoutCalcs: LayoutCalculations;
@@ -181,6 +186,11 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   );
   const xLabelBoundaryPx = axisGridBottomPx - xLabelRowPx;
   const plotBottomBoundaryPx = xLabelBoundaryPx - dynamicXAxisPx;
+  // Left band mirrors the bottom one: field-name column, then tick gutter, then
+  // plots. Both boundaries are anchored at the left edge, so unlike the bottom
+  // band they need no measurement.
+  const yLabelBoundaryPx = leftFixedWidthPx - dynamicYAxisPx;
+  const plotTopBoundaryPx = facetPresent ? topHeaderHeight : 0;
 
   const { state, dispatch } = useVisualizationContext();
   const {
@@ -270,14 +280,14 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const handleCategoryYWidthResize = useCallback((intent: { currentSize: number; delta: number }) => {
     dispatch({
       type: 'SET_CATEGORY_Y_WIDTH_PX',
-      payload: Math.max(30, intent.currentSize + intent.delta),
+      payload: Math.max(MIN_CATEGORY_Y_WIDTH_PX, intent.currentSize + intent.delta),
     });
   }, [dispatch]);
 
   const handleCategoryXHeightResize = useCallback((intent: { currentSize: number; delta: number }) => {
     dispatch({
       type: 'SET_CATEGORY_X_HEIGHT_PX',
-      payload: Math.max(24, intent.currentSize - intent.delta), // subtraction because negative delta (moving up) means larger height
+      payload: Math.max(MIN_CATEGORY_X_HEIGHT_PX, intent.currentSize - intent.delta), // subtraction because negative delta (moving up) means larger height
     });
   }, [dispatch]);
 
@@ -647,6 +657,23 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         />
       )}
 
+      {/* Y field-name column / tick gutter boundary — the left-side counterpart
+          of the x label divider above. */}
+      {yLabelColPx > 0 && dynamicYAxisPx > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: `${plotTopBoundaryPx}px`,
+            left: `${yLabelBoundaryPx - 1}px`,
+            width: '1px',
+            height: `${Math.max(0, plotBottomBoundaryPx - plotTopBoundaryPx)}px`,
+            backgroundColor: GRID_DIVIDER_COLOR,
+            pointerEvents: 'none',
+            zIndex: 99,
+          }}
+        />
+      )}
+
       {/* Grid Resize Overlay - handles positioned on gridlines in axis areas */}
       <div
         style={{
@@ -662,8 +689,20 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         <GridResizeHandle
           orientation="vertical"
           position={leftFixedWidthPx}
-          length={containerDimensions.height - dynamicXAxisPx}
-          onResizeEnd={(delta) => handleCategoryYWidthResize({ currentSize: dynamicYAxisPx, delta })}
+          length={plotBottomBoundaryPx}
+          onResizeStart={() => setAxisGutterDrag({
+            orientation: 'vertical',
+            startPosition: leftFixedWidthPx,
+            currentSize: dynamicYAxisPx,
+            currentDelta: 0,
+            minSize: MIN_CATEGORY_Y_WIDTH_PX,
+            growTowardStart: false,
+          })}
+          onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+          onResizeEnd={(delta) => {
+            setAxisGutterDrag(null);
+            handleCategoryYWidthResize({ currentSize: dynamicYAxisPx, delta });
+          }}
           isInAxisArea={true}
         />
         {!hideExternalAxes && (
@@ -677,7 +716,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               startPosition: plotBottomBoundaryPx,
               currentSize: dynamicXAxisPx,
               currentDelta: 0,
-              minSize: 24,
+              minSize: MIN_CATEGORY_X_HEIGHT_PX,
               growTowardStart: true,
             })}
             onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
