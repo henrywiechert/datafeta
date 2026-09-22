@@ -5,6 +5,7 @@ import {
   MIN_GRID_COLUMN_PX,
   MIN_GRID_ROW_PX,
   NAMES_BAND_LEFT_PX,
+  TABLE_FACET_TOP_HEADER_PX,
   TABLE_MEASURE_BAND_COL_PX,
   TABLE_MEASURE_BAND_ROW_PX,
   TABLE_NAMES_BAND_LEFT_PX,
@@ -34,6 +35,7 @@ import {
   resolveFacetTopValueHeights,
   sumTrackSizes,
 } from '../utils/layoutUtils';
+import { formatFacetAxisTitle } from '../utils/facetLabelUtils';
 
 export interface LayoutCalculations {
   layoutType: string;
@@ -153,26 +155,28 @@ export function useChartGridLayout(
     const effectiveFacetLabelStyles = getEffectiveFacetLabelStyles(facetLabelStyles, globalChartType);
     const isTableGrid = globalChartType === 'table-refactor';
 
-    const leftHeaderFallbackPx = isTableGrid
-      ? computeAutoFacetLeftHeaderWidth(
-          rowLevels.map((level) => level.fieldLabel),
-          effectiveFacetLabelStyles?.leftHeader ?? {
-            fontSize: 12,
-            orientation: 'vertical',
-          },
-          TABLE_NAMES_BAND_LEFT_PX,
-        )
-      : NAMES_BAND_LEFT_PX;
-    const topHeaderFallbackPx = isTableGrid
-      ? computeAutoFacetTopHeaderHeight(
-          colLevels.map((level) => level.fieldLabel),
-          effectiveFacetLabelStyles?.topHeader ?? {
-            fontSize: 12,
-            orientation: 'horizontal',
-          },
-          VALUES_BAND_TOP_PX,
-        )
-      : 20;
+    // Both header bands are sized from the joined title that actually renders
+    // (`formatFacetAxisTitle`, e.g. "Region | Year") so the band follows the
+    // font-size slider instead of sitting at a fixed 20px and clipping the
+    // text. The constants below are floors, not the whole answer.
+    const leftHeaderTitle = formatFacetAxisTitle(rowLevels);
+    const topHeaderTitle = formatFacetAxisTitle(colLevels);
+    const leftHeaderFallbackPx = computeAutoFacetLeftHeaderWidth(
+      leftHeaderTitle ? [leftHeaderTitle] : [],
+      effectiveFacetLabelStyles?.leftHeader ?? {
+        fontSize: 12,
+        orientation: 'vertical',
+      },
+      isTableGrid ? TABLE_NAMES_BAND_LEFT_PX : NAMES_BAND_LEFT_PX,
+    );
+    const topHeaderFallbackPx = computeAutoFacetTopHeaderHeight(
+      topHeaderTitle ? [topHeaderTitle] : [],
+      effectiveFacetLabelStyles?.topHeader ?? {
+        fontSize: 12,
+        orientation: 'horizontal',
+      },
+      isTableGrid ? TABLE_FACET_TOP_HEADER_PX : VALUES_BAND_TOP_PX,
+    );
     const leftValueFallbackPx = computeAutoFacetLeftValueWidths(
       rowLevels,
       effectiveFacetLabelStyles?.leftValues ?? {

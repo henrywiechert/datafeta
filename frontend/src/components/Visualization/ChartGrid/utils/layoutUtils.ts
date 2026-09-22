@@ -183,12 +183,48 @@ export function getEffectiveFacetLabelStyles(
   };
 }
 
+// Cross-axis extent of a single line of header text: the line box plus the
+// ~4px padding the header bands render with (`padding: '2px 6px'` on the top
+// band, `'4px 2px'` on the left one). 1.3em covers the browser's `normal`
+// line-height across the fallback font stack with a little slack; at the
+// default 12px it yields exactly the 20px bands the grid used before header
+// sizing became font-aware, so existing charts do not shift.
+const FACET_HEADER_LINE_HEIGHT_EM = 1.3;
+const FACET_HEADER_PADDING_PX = 4;
+
+// Auto-sized header bands are capped so a long "Dim A | Dim B | Dim C" title
+// cannot claim an unbounded slice of the chart area. Mirrors
+// MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX for value tracks; the text clips with a
+// title tooltip for the full string.
+const MAX_FACET_HEADER_AUTO_PX = 200;
+
+function facetHeaderLinePx(fontSize: number): number {
+  return Math.ceil(fontSize * FACET_HEADER_LINE_HEIGHT_EM) + FACET_HEADER_PADDING_PX;
+}
+
 function estimateHeaderWidthPx(text: string, style: FacetHeaderLabelStyle): number {
   const fontSize = style.fontSize;
   if (style.orientation === 'vertical') {
-    return Math.ceil(fontSize * 1.8 + 8);
+    // Vertical text runs down the band, so its width is one line box.
+    return facetHeaderLinePx(fontSize);
   }
-  return estimateTextPxForFont(text, fontSize) + 12;
+  return Math.min(estimateTextPxForFont(text, fontSize) + 12, MAX_FACET_HEADER_AUTO_PX);
+}
+
+/**
+ * Height of the top header band for one title. Mirrors `estimateHeaderWidthPx`
+ * with the axes swapped: horizontal text is one line box tall, vertical text is
+ * as tall as the string is long.
+ */
+function estimateHeaderTrackHeightPx(text: string, style: FacetHeaderLabelStyle): number {
+  const fontSize = style.fontSize;
+  if (style.orientation === 'vertical') {
+    return Math.min(
+      Math.max(facetHeaderLinePx(fontSize), estimateTextPxForFont(text, fontSize) + 8),
+      MAX_FACET_HEADER_AUTO_PX,
+    );
+  }
+  return facetHeaderLinePx(fontSize);
 }
 
 function estimateTopTrackHeightPx(
@@ -234,8 +270,7 @@ export function computeAutoFacetTopHeaderHeight(
 ): number {
   if (fieldLabels.length === 0) return fallbackSize;
   return fieldLabels.reduce((maxHeight, label) => {
-    const orientation = style.orientation;
-    return Math.max(maxHeight, estimateTopTrackHeightPx(label, style.fontSize, orientation));
+    return Math.max(maxHeight, estimateHeaderTrackHeightPx(label, style));
   }, fallbackSize);
 }
 
