@@ -44,6 +44,14 @@ export interface FilterValueListFetchOptions {
      * All/Relevant list refreshes never mutate selections.
      */
     applySelectionFromResult?: boolean;
+    /**
+     * When true, reconcile the existing draft discrete config against the value
+     * universe this fetch just observed. Set only by the table-scope refresh:
+     * adding or removing a table changes which values exist, so a selection — and
+     * the `totalAvailableCount` the query builder uses to drop an all-selected
+     * filter — captured against the old universe no longer describes the column.
+     */
+    reconcileToValueUniverse?: boolean;
 }
 
 interface UseFilterMetadataParams {
@@ -67,6 +75,9 @@ export interface UseFilterMetadataReturn {
         options?: FilterValueListFetchOptions,
     ) => Promise<void>;
 }
+
+/** Canonical key for a discrete value; null/undefined collapse to one bucket. */
+const valueKey = (value: any) => (value === null || value === undefined ? '__NULL__' : String(value));
 
 const resolveFilterType = (field: Field): 'discrete' | 'continuous' | 'datetime' | 'measure' => {
     // Measure fields (aggregated) → HAVING filter, no API metadata needed
@@ -116,8 +127,9 @@ export function useFilterMetadata({
     // This allows each field's metadata fetch to be independently cancellable
     const filterMetadataAbortControllers = useRef<Map<string, AbortController>>(new Map());
     
-    // Track previous union tables to detect actual changes (not just reference changes)
-    const prevUnionTablesRef = useRef<string>('');
+    // Serialized table scope of the last render, so a re-render with the same tables
+    // (new array identities) does not look like a table change. `null` = initial mount.
+    const prevTableScopeRef = useRef<string | null>(null);
     // Track field signatures to refetch metadata when field semantics change in-place.
     const filterFieldSignaturesRef = useRef<Map<string, string>>(new Map());
 
@@ -220,6 +232,70 @@ export function useFilterMetadata({
         };
     }, []);
 
+    /**
+     * Bring a discrete draft config back in line with the value universe a
+     * table-scope refresh just observed.
+     *
+     * Adding or removing a table changes which values exist. Two things then go
+     * stale: selections naming values that no longer exist, and
+     * `totalAvailableCount`, which the query builder compares against the
+     * selection size to decide it can omit `IN (...)` altogether. A filter left
+     * at the old cardinality either drops itself when it should not, or keeps
+     * filtering out everything a newly added table brought in.
+     *
+     * Writes draft *and* applied for this one field (silently — the table change
+     * already re-queries), so the picker and the chart never disagree about which
+     * values the filter names.
+     */
+    const reconcileDiscreteConfigToUniverse = useCallback((
+        field: Field,
+        existing: any,
+        values: any[],
+    ) => {
+        const universe = new Set(values.map(valueKey));
+        const previousUniverseCount = existing.totalAvailableCount;
+        // "Everything selected" must survive as "everything selected", or the values a
+        // newly added table contributes would arrive silently unchecked — the user
+        // asked for no filtering on this column, not for the old value set.
+        const everythingWasSelected = previousUniverseCount != null
+            && previousUniverseCount > 0
+            && existing.selectedValues.length >= previousUniverseCount;
+        const nextSelected: any[] = everythingWasSelected
+            ? values
+            : existing.selectedValues.filter((v: any) => universe.has(valueKey(v)));
+
+        // excludedValues describes the same universe, so it has to be recomputed from
+        // the new list — and only kept while it is still the shorter of the two.
+        let nextExcluded: any[] | undefined;
+        if (existing.excludedValues) {
+            const selectedKeys = new Set(nextSelected.map(valueKey));
+            const excluded = values.filter((v: any) => !selectedKeys.has(valueKey(v)));
+            nextExcluded = excluded.length > 0 && excluded.length < nextSelected.length
+                ? excluded
+                : undefined;
+        }
+
+        const selectionChanged = nextSelected.length !== existing.selectedValues.length
+            || nextSelected.some((v, i) => valueKey(v) !== valueKey(existing.selectedValues[i]));
+        const excludedChanged = (nextExcluded?.length ?? 0) !== (existing.excludedValues?.length ?? 0);
+        if (!selectionChanged && !excludedChanged && previousUniverseCount === values.length) {
+            return;
+        }
+
+        dispatch({
+            type: 'SET_AND_APPLY_FILTER_CONFIGURATION_SILENT',
+            payload: {
+                fieldId: field.id,
+                config: {
+                    ...existing,
+                    selectedValues: nextSelected,
+                    excludedValues: nextExcluded,
+                    totalAvailableCount: values.length,
+                },
+            },
+        });
+    }, [dispatch]);
+
     // Fetch filter metadata for a field
     const fetchFilterMetadata = useCallback(async (
         field: Field,
@@ -286,13 +362,23 @@ export function useFilterMetadata({
             return;
         }
 
-        // Set loading state
+        // Set loading state. A refresh of a field that already has a list (a table-scope
+        // change, most often) keeps the values it is showing, so `DiscreteFilterControl`
+        // takes its delayed-overlay path instead of tearing the picker down to a spinner.
+        // Only a list for this same column survives — anything else would be showing the
+        // values of a different column while the real ones load.
+        const previousMetadata = filterMetadata[field.id];
+        const reusableValues = previousMetadata
+            && previousMetadata.type === 'discrete'
+            && previousMetadata.columnName === field.columnName
+            ? previousMetadata.availableValues
+            : [];
         const loadingMetadata: FilterMetadata = {
             fieldId: field.id,
             columnName: field.columnName,
             type: filterType,
             loading: true,
-            ...(filterType === 'discrete' ? { availableValues: [] } :
+            ...(filterType === 'discrete' ? { availableValues: reusableValues } :
                 filterType === 'continuous' ? { min: 0, max: 0 } :
                 { min: '', max: '' })
         } as FilterMetadata;
@@ -379,9 +465,9 @@ export function useFilterMetadata({
                         && existing.excludedValues
                         && existing.excludedValues.length > 0
                     ) {
-                        const excludeSet = new Set(existing.excludedValues.map((v: any) => v === null || v === undefined ? '__NULL__' : String(v)));
+                        const excludeSet = new Set(existing.excludedValues.map(valueKey));
                         const reconciledSelected = values.filter(
-                            (v: any) => !excludeSet.has(v === null || v === undefined ? '__NULL__' : String(v))
+                            (v: any) => !excludeSet.has(valueKey(v))
                         );
                         dispatch({
                             type: 'SET_FILTER_CONFIGURATION',
@@ -395,6 +481,14 @@ export function useFilterMetadata({
                             },
                         });
                         dispatch({ type: 'APPLY_FILTERS' });
+                    } else if (
+                        options?.reconcileToValueUniverse
+                        && existing.type === 'discrete'
+                        && existing.matchMode !== 'pattern'
+                        && !constrained
+                        && !sampled
+                    ) {
+                        reconcileDiscreteConfigToUniverse(field, existing, values);
                     }
                 }
             } else if (filterType === 'continuous') {
@@ -518,7 +612,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, fetchDiscreteValueList, isFieldLive]);
+    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, filterMetadata, unionTablesForApi, filterFields, fetchDiscreteValueList, isFieldLive, reconcileDiscreteConfigToUniverse]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     // or with changed sibling constraints (Relevant mode).
@@ -718,27 +812,37 @@ export function useFilterMetadata({
         unionTablesForApi   // Re-run when union tables change (ensures new fields get correct range)
     ]);
 
-    // Re-fetch filter metadata when union tables change
-    // This ensures continuous field ranges and discrete value lists are updated to include all union tables
+    // Re-fetch filter metadata whenever the set of tables behind the filters changes.
+    //
+    // Every part of the table scope moves the data a filter describes: the primary
+    // table/database, UNION secondaries, and the virtual table that JOINs produce.
+    // The per-field effect above cannot catch these — it only fires when a *field*
+    // is new or changed its semantics, and a field survives a table change
+    // untouched. Without this, adding or removing a database leaves every discrete
+    // picker listing the values of the tables that were there before.
     useEffect(() => {
-        // Serialize union tables to detect actual changes
-        const currentUnionTablesStr = JSON.stringify(unionTables);
-        
-        // Only refetch if union tables actually changed (not just reference change)
-        // AND it's not the initial mount (empty string check)
-        if (prevUnionTablesRef.current !== currentUnionTablesStr && prevUnionTablesRef.current !== '') {
-            // Re-fetch metadata for ALL filter fields (not just ones with existing metadata)
-            // This ensures ranges are updated when union tables change, even if field was just added
+        const tableScope = JSON.stringify({
+            selectedDatabase,
+            selectedTable,
+            unionTables,
+            virtualTable: virtualTable ?? null,
+        });
+
+        // Skip the initial mount: the per-field effect already fetches there, and a
+        // second pass would double every cold-start request.
+        if (prevTableScopeRef.current !== null && prevTableScopeRef.current !== tableScope) {
+            // Every filter field, not just the ones that already have metadata —
+            // ranges and value lists both need to be re-read against the new tables.
             filterFields.forEach(field => {
-                fetchFilterMetadata(field);
+                fetchFilterMetadata(field, { reconcileToValueUniverse: true });
             });
         }
-        prevUnionTablesRef.current = currentUnionTablesStr;
+        prevTableScopeRef.current = tableScope;
         // Include fetchFilterMetadata so it uses the latest closure with updated unionTablesForApi
         // filterFields and filterMetadata are intentionally excluded to prevent loops
         // REASON: filterFields / filterMetadata identities change as soon as we dispatch into them — including them would cause an infinite refetch.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [unionTables, fetchFilterMetadata]);
+    }, [selectedDatabase, selectedTable, unionTables, virtualTable, fetchFilterMetadata]);
 
     return {
         fetchFilterMetadata,
