@@ -8,6 +8,7 @@ import { overridesReducer } from './overridesReducer';
 import { undoRedoReducer } from './undoRedoReducer';
 import { optimizationReducer } from './optimizationReducer';
 import { measureGroupReducer } from './measureGroupReducer';
+import { fieldValidationReducer } from './fieldValidationReducer';
 import { captionReducer } from './captionReducer';
 
 /**
@@ -25,6 +26,7 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
     undoRedoReducer,
     optimizationReducer,
     measureGroupReducer,
+    fieldValidationReducer,
     captionReducer,
   ];
 

@@ -336,6 +336,10 @@ export type VisualizationAction =
   | { type: 'POPULATE_MEASURE_GROUP'; payload: Field[] }
   // Drop members whose column no longer exists after a schema change.
   | { type: 'PRUNE_MEASURE_GROUP_MEMBERS'; payload: { validMeasureNames: string[] } }
+  | {
+      type: 'VALIDATE_ALL_FIELDS';
+      payload: { validNames: string[]; validMeasureNames: string[] };
+    }
   | { type: 'RENAME_MEASURE_GROUP'; payload: string }
   | { type: 'CLEAR_MEASURE_GROUP' }
   // Cache restore action (used when switching sheets with cached data)

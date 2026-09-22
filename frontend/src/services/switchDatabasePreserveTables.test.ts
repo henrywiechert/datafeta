@@ -1,6 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { apiService } from '../apiService';
-import { Field } from '../types';
 import { switchDatabasePreserveTables } from './switchDatabasePreserveTables';
 
 jest.mock('../apiService', () => ({
@@ -13,14 +12,6 @@ jest.mock('../apiService', () => ({
 
 const mockApi = apiService as jest.Mocked<typeof apiService>;
 
-const axisField = (columnName: string): Field => ({
-  id: `field-${columnName}`,
-  columnName,
-  type: 'dimension',
-  flavour: 'discrete',
-  dataType: 'string',
-});
-
 function makeSetters() {
   return {
     setSelectedDatabase: jest.fn(),
@@ -31,8 +22,7 @@ function makeSetters() {
     setVirtualTable: jest.fn(),
     setIsLoadingMetadata: jest.fn(),
     setMetadataError: jest.fn(),
-    pruneMeasureGroupMembers: jest.fn(),
-    patchAxisFields: jest.fn(),
+    validateAllFields: jest.fn(),
     onUpdateConnectionDatabase: jest.fn(),
   };
 }
@@ -51,9 +41,6 @@ describe('switchDatabasePreserveTables', () => {
 
   it('keeps axis fields and does not blank available fields mid-switch', async () => {
     const setters = makeSetters();
-    const xAxisFields = [axisField('region')];
-    const yAxisFields = [axisField('amount')];
-
     await switchDatabasePreserveTables({
       oldDatabase: 'analytics',
       newDatabase: 'analytics_prod',
@@ -62,8 +49,6 @@ describe('switchDatabasePreserveTables', () => {
       unionTables: [],
       customRelationships: null,
       fieldDisplayAliases: {},
-      xAxisFields,
-      yAxisFields,
       virtualColumns: [],
       sheets: [],
       sessionFilterFields: [],
@@ -71,11 +56,11 @@ describe('switchDatabasePreserveTables', () => {
     });
 
     expect(setters.setAvailableFields.mock.calls.some((call) => call[0].length === 0)).toBe(false);
-    expect(setters.patchAxisFields).toHaveBeenCalledTimes(1);
-    const [patchedX, patchedY] = setters.patchAxisFields.mock.calls[0];
-    expect(patchedX.map((f: Field) => f.columnName)).toEqual(['region']);
-    expect(patchedY.map((f: Field) => f.columnName)).toEqual(['amount']);
-    expect(patchedX[0].isInvalid).toBe(false);
-    expect(patchedY[0].isInvalid).toBe(false);
+    // The service now reports the new schema and the reducer flags the fields,
+    // so there is no stale axis snapshot to send back.
+    expect(setters.validateAllFields).toHaveBeenCalledTimes(1);
+    const [validNames, validMeasureNames] = setters.validateAllFields.mock.calls[0];
+    expect(validNames).toEqual(expect.arrayContaining(['region', 'amount']));
+    expect(validMeasureNames).toEqual(['amount']);
   });
 });

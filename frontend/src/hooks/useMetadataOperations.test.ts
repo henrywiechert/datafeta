@@ -123,7 +123,7 @@ describe('useMetadataOperations', () => {
     expect(mockApi.listTables).toHaveBeenCalledTimes(callsAfterError);
   });
 
-  it('keeps axis fields when an in-flight column fetch completes after axes are set', async () => {
+  it('reports the new schema without echoing a stale axis snapshot', async () => {
     let resolveColumns: (value: { columns: Array<{ name: string; data_type: string }> }) => void = () => {};
     mockApi.listColumns.mockImplementation(
       () => new Promise((resolve) => {
@@ -211,10 +211,17 @@ describe('useMetadataOperations', () => {
       await pending;
     });
 
-    const axisCalls = dispatch.mock.calls.filter((call) => call[0]?.type === 'SET_X_AXIS_FIELDS');
-    expect(axisCalls.length).toBeGreaterThan(0);
-    const lastPayload = axisCalls[axisCalls.length - 1][0].payload;
-    expect(lastPayload.map((field: { columnName: string }) => field.columnName)).toEqual(['region']);
+    // A completing fetch used to send back an axis array captured from a ref,
+    // which could clobber fields added while it was in flight. It now reports
+    // the schema and the reducer flags whatever is currently on the axes.
+    expect(dispatch.mock.calls.some((call) => call[0]?.type === 'SET_X_AXIS_FIELDS')).toBe(false);
+    const validateCalls = dispatch.mock.calls.filter(
+      (call) => call[0]?.type === 'VALIDATE_ALL_FIELDS',
+    );
+    expect(validateCalls.length).toBeGreaterThan(0);
+    expect(validateCalls[validateCalls.length - 1][0].payload.validNames).toEqual(
+      expect.arrayContaining(['region', 'amount']),
+    );
   });
 });
 
@@ -279,9 +286,9 @@ describe('useMetadataOperations — axis chips with no table selected', () => {
       });
     });
 
-  const axisPayloads = () =>
+  const validateCalls = () =>
     dispatch.mock.calls
-      .filter((call) => call[0]?.type === 'SET_X_AXIS_FIELDS')
+      .filter((call) => call[0]?.type === 'VALIDATE_ALL_FIELDS')
       .map((call) => call[0].payload);
 
   beforeEach(() => {
@@ -296,22 +303,24 @@ describe('useMetadataOperations — axis chips with no table selected', () => {
   it('invalidates on mount when a sheet is opened with no table selected', async () => {
     mountWith({}, [field('region')]);
 
-    await waitFor(() => expect(axisPayloads().length).toBeGreaterThan(0));
-    expect(axisPayloads()[0]).toEqual([expect.objectContaining({ columnName: 'region', isInvalid: true })]);
+    // Empty name sets are how "nothing is valid any more" is expressed; the
+    // reducer flags every slot, not just the axes.
+    await waitFor(() => expect(validateCalls().length).toBeGreaterThan(0));
+    expect(validateCalls()[0]).toEqual({ validNames: [], validMeasureNames: [] });
   });
 
   it('does nothing once every chip is already invalid', async () => {
     mountWith({}, [field('region', true)]);
 
     await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
-    expect(axisPayloads()).toHaveLength(0);
+    expect(validateCalls()).toHaveLength(0);
   });
 
   it('does nothing when there are no chips to invalidate', async () => {
     mountWith({}, []);
 
     await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
-    expect(axisPayloads()).toHaveLength(0);
+    expect(validateCalls()).toHaveLength(0);
   });
 
   it('leaves chips alone while a table is selected', async () => {
@@ -323,10 +332,9 @@ describe('useMetadataOperations — axis chips with no table selected', () => {
     mountWith({ selectedTable: 'orders' }, [field('region')]);
 
     await waitFor(() => expect(mockApi.listColumns).toHaveBeenCalled());
-    await waitFor(() => expect(axisPayloads().length).toBeGreaterThan(0));
-    expect(
-      axisPayloads().flat().some((f: { isInvalid?: boolean }) => f.isInvalid === true),
-    ).toBe(false);
+    await waitFor(() => expect(validateCalls().length).toBeGreaterThan(0));
+    // region is in the schema, so the reducer will keep it valid.
+    expect(validateCalls()[0].validNames).toEqual(expect.arrayContaining(['region']));
   });
 
   // Loading a configuration restores sheets first, then defers the data source
@@ -336,6 +344,6 @@ describe('useMetadataOperations — axis chips with no table selected', () => {
     mountWith({ tables: [] }, [field('region')]);
 
     await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
-    expect(axisPayloads()).toHaveLength(0);
+    expect(validateCalls()).toHaveLength(0);
   });
 });

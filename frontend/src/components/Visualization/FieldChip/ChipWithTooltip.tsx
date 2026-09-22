@@ -22,7 +22,7 @@ interface ChipWithTooltipProps {
   onMouseDown?: (e: React.MouseEvent) => void;
   isDragging: boolean;
   isSelected?: boolean;
-  isInvalidOnAxis?: boolean;
+  isInvalid?: boolean;
   dragCount?: number; // Number of fields being dragged (for visual feedback)
   displayNameOverride?: string;
 }
@@ -37,7 +37,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   onMouseDown,
   isDragging,
   isSelected = false,
-  isInvalidOnAxis = false,
+  isInvalid = false,
   dragCount,
   displayNameOverride
 }) => {
@@ -100,7 +100,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     };
 
     return {
-      className: getChipClassNames(field, source, isInvalidOnAxis, isSelected, styles),
+      className: getChipClassNames(field, source, isInvalid, isSelected, styles),
       draggable: true,
       onDragStart: handleDragStartInternal,
       onDragEnd: handleDragEndInternal,
@@ -125,7 +125,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   }, [
     field,
     source,
-    isInvalidOnAxis,
+    isInvalid,
     isSelected,
     onDragStart,
     onDragEnd,
@@ -278,7 +278,7 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.source === nextProps.source &&
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis &&
+    prevProps.isInvalid === nextProps.isInvalid &&
     prevProps.dragCount === nextProps.dragCount &&
     prevProps.displayNameOverride === nextProps.displayNameOverride
   );

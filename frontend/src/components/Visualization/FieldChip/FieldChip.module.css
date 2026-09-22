@@ -190,7 +190,7 @@
 }
 
 /* Highlight for invalid fields placed on axes (not present in current schema) */
-.invalidAxisField {
+.invalidField {
     background-color: var(--df-flavour-invalid-bg) !important;
     border-color: var(--df-flavour-invalid-border) !important;
 }

@@ -2,7 +2,7 @@
 import { apiService } from '../apiService';
 import { Field, ForeignKeyRelationship, Sheet, VirtualColumnDefinition } from '../types';
 import { processColumnsResponse } from '../utils/fieldUtils';
-import { buildValidColumnNames, validateAxisFields } from '../utils/axisFieldValidation';
+import { buildValidColumnNames } from '../utils/fieldValidation';
 import {
   rewriteUnionTablesForDatabase,
   SchemaCheckResult,
@@ -26,8 +26,6 @@ export interface SwitchDatabasePreserveTablesParams {
   unionTables: UnionTableRef[];
   customRelationships: ForeignKeyRelationship[] | null;
   fieldDisplayAliases: Record<string, string>;
-  xAxisFields: Field[];
-  yAxisFields: Field[];
   virtualColumns: VirtualColumnDefinition[];
   sheets: Sheet[];
   sessionFilterFields: Field[];
@@ -39,8 +37,8 @@ export interface SwitchDatabasePreserveTablesParams {
   setVirtualTable: (virtualTable: unknown | null) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
-  pruneMeasureGroupMembers: (validMeasureNames: string[]) => void;
-  patchAxisFields: (x: Field[], y: Field[]) => void;
+  /** Flag every field-bearing slot against the new schema. */
+  validateAllFields: (validNames: string[], validMeasureNames: string[]) => void;
   onUpdateConnectionDatabase?: (database: string) => void;
 }
 
@@ -55,8 +53,6 @@ export async function switchDatabasePreserveTables(
     unionTables,
     customRelationships,
     fieldDisplayAliases,
-    xAxisFields,
-    yAxisFields,
     virtualColumns,
     sheets,
     sessionFilterFields,
@@ -68,8 +64,7 @@ export async function switchDatabasePreserveTables(
     setVirtualTable,
     setIsLoadingMetadata,
     setMetadataError,
-    pruneMeasureGroupMembers,
-    patchAxisFields,
+    validateAllFields,
     onUpdateConnectionDatabase,
   } = params;
 
@@ -120,6 +115,7 @@ export async function switchDatabasePreserveTables(
     didUpdateConnectionDatabase = true;
 
     let allFields: Field[] = [];
+    let validMeasureNames: string[] = [];
 
     if (joinedTables.length === 0 && rewrittenUnions.length === 0) {
       const response = await apiService.listColumns(selectedTable, newDatabase);
@@ -127,7 +123,7 @@ export async function switchDatabasePreserveTables(
         fieldDisplayAliases,
       });
       allFields = processed.allFields;
-      pruneMeasureGroupMembers(processed.validMeasureNames);
+      validMeasureNames = processed.validMeasureNames;
       setAvailableFields(allFields);
       setVirtualTable(null);
     } else if (rewrittenUnions.length > 0) {
@@ -142,7 +138,7 @@ export async function switchDatabasePreserveTables(
         includeTableName: true,
       });
       allFields = processed.allFields;
-      pruneMeasureGroupMembers(processed.validMeasureNames);
+      validMeasureNames = processed.validMeasureNames;
       setAvailableFields(allFields);
       setVirtualTable(response.virtual_table);
     } else {
@@ -156,14 +152,12 @@ export async function switchDatabasePreserveTables(
       );
       const processed = processColumnsResponse(response.columns);
       allFields = processed.allFields;
-      pruneMeasureGroupMembers(processed.validMeasureNames);
+      validMeasureNames = processed.validMeasureNames;
       setAvailableFields(allFields);
       setVirtualTable(response.virtual_table);
     }
 
-    const validNames = buildValidColumnNames(allFields, virtualColumns);
-    const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
-    patchAxisFields(patchedX, patchedY);
+    validateAllFields(Array.from(buildValidColumnNames(allFields, virtualColumns)), validMeasureNames);
 
     return validateSheetSchema(
       sheets,
