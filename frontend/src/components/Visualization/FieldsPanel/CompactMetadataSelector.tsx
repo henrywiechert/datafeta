@@ -8,6 +8,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import TuneIcon from '@mui/icons-material/Tune';
 import { Database, Table, Field } from '../../../types';
+import { DatabaseMirrorPlan, UnionTableRef } from '../../../utils/schemaValidation';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
 import TableAddPicker from './TableAddPicker';
@@ -113,6 +114,9 @@ interface CompactMetadataSelectorProps {
   unionTables?: Array<{database: string, table_name: string}>;
   onAddUnionTable?: (database: string, tableName: string) => void;
   onRemoveUnionTable?: (database: string, tableName: string) => void;
+  /** Batched: bulk adds must not dispatch once per table. */
+  onAddUnionTables?: (tables: UnionTableRef[]) => void;
+  onRemoveUnionTables?: (tables: UnionTableRef[]) => void;
   tablesCache?: Record<string, Table[]>;  // Cache of tables by database
   onLoadTablesForDatabase?: (database: string) => void;  // Load tables for a specific database
   // Hive Parquet partition loading
@@ -121,12 +125,8 @@ interface CompactMetadataSelectorProps {
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
   // Add files to existing CSV/Parquet connection
   onAddFiles?: (files: File[]) => Promise<void>;
-  // DB switch (ClickHouse)
-  dbSwitchEnabled?: boolean;
-  onDbSwitchEnabledChange?: (enabled: boolean) => void;
+  // DB-row actions (ClickHouse)
   onDatabaseSwitch?: (database: string) => void;
-  dbSwitchDisabled?: boolean;
-  dbSwitchDisabledReason?: string;
   isSwitchingDatabase?: boolean;
 }
 
@@ -150,17 +150,15 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   unionTables = [],
   onAddUnionTable,
   onRemoveUnionTable,
+  onAddUnionTables,
+  onRemoveUnionTables,
   tablesCache = {},
   onLoadTablesForDatabase,
   loadedPartitions = new Set(),
   isLoadingPartition = false,
   onLoadPartition,
   onAddFiles,
-  dbSwitchEnabled,
-  onDbSwitchEnabledChange,
   onDatabaseSwitch,
-  dbSwitchDisabled,
-  dbSwitchDisabledReason,
   isSwitchingDatabase,
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
@@ -214,21 +212,82 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 
   const handleApplyPatternSelection = React.useCallback(
     (resolvedTables: Array<{ database: string; table_name: string }>) => {
-      let needsPrimary = !selectedTable;
+      const secondaries = [...resolvedTables];
 
-      resolvedTables.forEach((tableRef) => {
-        if (needsPrimary) {
-          onDatabaseSelect(tableRef.database);
-          onTableSelect(tableRef.table_name);
-          needsPrimary = false;
-          return;
-        }
+      // Without a primary yet, the first match becomes it.
+      if (!selectedTable) {
+        const primary = secondaries.shift();
+        if (!primary) return;
+        onDatabaseSelect(primary.database);
+        onTableSelect(primary.table_name);
+      }
 
-        onAddUnionTable?.(tableRef.database, tableRef.table_name);
-      });
+      if (secondaries.length === 0) return;
+      // One dispatch for the whole match set — see the ADD_UNION_TABLES note in
+      // the DataSource reducer.
+      if (onAddUnionTables) {
+        onAddUnionTables(secondaries);
+        return;
+      }
+      secondaries.forEach((ref) => onAddUnionTable?.(ref.database, ref.table_name));
     },
-    [selectedTable, onAddUnionTable, onDatabaseSelect, onTableSelect]
+    [selectedTable, onAddUnionTable, onAddUnionTables, onDatabaseSelect, onTableSelect]
   );
+
+  // Result of the last database mirror, for the summary strip and its Undo.
+  // Undo/redo does not cover DataSourceContext, so this is the only bulk-undo
+  // path for a mirrored add.
+  const [lastMirror, setLastMirror] = React.useState<
+    { database: string; plan: DatabaseMirrorPlan } | null
+  >(null);
+
+  const handleAddDatabase = React.useCallback(
+    (database: string, plan: DatabaseMirrorPlan) => {
+      if (plan.toAdd.length === 0) return;
+      onAddUnionTables?.(plan.toAdd);
+      setLastMirror({ database, plan });
+    },
+    [onAddUnionTables]
+  );
+
+  const handleRemoveDatabase = React.useCallback(
+    (_database: string, tables: UnionTableRef[]) => {
+      if (tables.length === 0) return;
+      onRemoveUnionTables?.(tables);
+      // The mirror summary may describe tables that just went away.
+      setLastMirror(null);
+    },
+    [onRemoveUnionTables]
+  );
+
+  const handleUndoMirror = React.useCallback(() => {
+    if (!lastMirror) return;
+    onRemoveUnionTables?.(lastMirror.plan.toAdd);
+    setLastMirror(null);
+  }, [lastMirror, onRemoveUnionTables]);
+
+  // Drop the strip once it no longer describes the current selection.
+  React.useEffect(() => {
+    setLastMirror(null);
+  }, [selectedDatabase, selectedTable]);
+
+  const mirrorSummary = React.useMemo(() => {
+    if (!lastMirror) return null;
+    const { database, plan } = lastMirror;
+    const parts = [
+      `Added ${plan.toAdd.length} table${plan.toAdd.length === 1 ? '' : 's'} from ${database}`,
+    ];
+    if (plan.missing.length > 0) {
+      parts.push(`${plan.missing.length} not in ${database}`);
+    }
+    if (plan.droppedOverLimit.length > 0) {
+      parts.push(`${plan.droppedOverLimit.length} skipped (union limit)`);
+    }
+    return {
+      text: parts.join(' \u00b7 '),
+      detail: [...plan.missing, ...plan.droppedOverLimit.map((t) => t.table_name)].join(', '),
+    };
+  }, [lastMirror]);
 
   const handleRemovePrimary = React.useCallback(() => {
     // Clear primary (this also resets JOIN/UNION in DataSourceContext via setSelectedTable)
@@ -363,7 +422,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             <Button
               size="small"
               onClick={() => setIsPatternDialogOpen(true)}
-              disabled={dbSwitchEnabled}
               sx={{
                 minWidth: 0,
                 minHeight: 20,
@@ -418,14 +476,52 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             primaryDatabase={selectedDatabase}
             primaryTable={selectedTable}
             unionTables={unionTables}
+            joinedTables={joinedTables}
             onAdd={handleAddTable}
-            dbSwitchEnabled={dbSwitchEnabled}
-            onDbSwitchEnabledChange={onDbSwitchEnabledChange}
             onDatabaseSwitch={onDatabaseSwitch}
-            dbSwitchDisabled={dbSwitchDisabled}
-            dbSwitchDisabledReason={dbSwitchDisabledReason}
+            onAddDatabase={onAddUnionTables ? handleAddDatabase : undefined}
             isSwitchingDatabase={isSwitchingDatabase}
           />
+
+          {mirrorSummary && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                mt: 0.5,
+                py: 0.25,
+                px: 0.75,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography
+                variant="caption"
+                title={mirrorSummary.detail || undefined}
+                sx={{ flex: 1, minWidth: 0, color: 'text.secondary' }}
+              >
+                {mirrorSummary.text}
+              </Typography>
+              <Button
+                size="small"
+                onClick={handleUndoMirror}
+                sx={{
+                  minWidth: 0,
+                  minHeight: 18,
+                  px: 0.5,
+                  py: 0,
+                  textTransform: 'none',
+                  fontSize: '0.68rem',
+                  lineHeight: 1.2,
+                }}
+              >
+                Undo
+              </Button>
+            </Box>
+          )}
 
           <SelectedTablesList
             primaryDatabase={selectedDatabase}
@@ -436,6 +532,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             onRemovePrimary={handleRemovePrimary}
             onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
             onRemoveJoinedTable={onToggleJoinedTable}
+            onRemoveDatabase={onRemoveUnionTables ? handleRemoveDatabase : undefined}
           />
         </>
       ) : (

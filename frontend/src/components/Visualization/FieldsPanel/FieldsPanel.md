@@ -40,16 +40,18 @@ Two cards, with the shell canvas between them:
 ```
 ┌─────────────────────────────────────┐
 │  Data Source                        │  ← CompactMetadataSelector
-│  ┌─────────────────────────┬──┐     │     (the Data Source card)
-│  │ [Database Dropdown    ▼]│  │     │  ← TableAddPicker (ClickHouse)
-│  └─────────────────────────┴──┘     │
-│  ┌─────────────────────────┬──┐     │
-│  │ [Table Dropdown       ▼]│ +│     │
-│  └─────────────────────────┴──┘     │
+│  ┌───────────────────┬──┬──┐        │     (the Data Source card)
+│  │ [Database       ▼]│ ⇄│ ⊞│        │  ← TableAddPicker (ClickHouse)
+│  └───────────────────┴──┴──┘        │     ⇄ switch, ⊞ add database
+│  ┌───────────────────┬──┬──┐        │
+│  │ [Table          ▼]│  │ +│        │     + add the staged table
+│  └───────────────────┴──┴──┘        │
+│  Added 2 tables from prod_eu  [Undo]│  ← mirror result strip
 │  Selected Tables                    │  ← SelectedTablesList
 │  ┌─────────────────────────────┐    │
-│  │ [Primary] db.table      🗑️ │    │
-│  │ [UNION]   db2.table2    🗑️ │    │
+│  │ [P] prod_us/orders      🗑️ │    │
+│  │ [U] prod_eu/orders   🧹 🗑️ │    │  ← 🧹 removes the whole DB
+│  │ [U] prod_eu/events   🧹 🗑️ │    │
 │  └─────────────────────────────┘    │
 │  Related Tables              [▼]    │  ← JoinTableSelector (collapsible)
 │  ┌─────────────────────────────┐    │
@@ -87,8 +89,8 @@ Two cards, with the shell canvas between them:
 |-----------|------|
 | `FieldsPanel` | Main orchestrator; manages drop-to-remove, search filtering, field categorization, keyboard shortcuts (Escape clears selection) |
 | `CompactMetadataSelector` | The Data Source card, mounted by `VisualizationPage` rather than by `FieldsPanel`. Routes to appropriate table selection UI based on connection type; handles JOIN/UNION coordination |
-| `TableAddPicker` | Staged DB+table selection for adding tables (ClickHouse UNION mode) |
-| `SelectedTablesList` | Displays primary table + union secondaries with remove actions |
+| `TableAddPicker` | Staged DB+table selection. Dropdowns only stage; the three buttons are the only things that commit. Resolves both DB-row actions from the cached table list so each button knows its outcome before the click |
+| `SelectedTablesList` | Displays primary table + union secondaries. Two remove actions per row: the table, and (for a non-primary database contributing 2+ tables) every table of that database behind a confirm dialog |
 | `JoinTableSelector` | Collapsible panel showing related/joinable tables with toggle chips |
 | `FieldCategory` | Renders a category (Dimensions/Measures) with virtualization for large lists (>50 fields) |
 | `FieldsSearch` | Controlled text input for filtering fields by name, aggregation, or data type |
@@ -127,7 +129,9 @@ Two cards, with the shell canvas between them:
 ## Multi-Table Modes
 
 ### UNION Mode (Cross-Database)
-Used with ClickHouse for combining tables with similar schemas:
+Used with ClickHouse for combining tables with similar schemas.
+
+**One table at a time** — stage a DB and a table, press `+`:
 
 ```
 TableAddPicker ──select DB + table──► handleAddTable()
@@ -141,6 +145,55 @@ TableAddPicker ──select DB + table──► handleAddTable()
                     │                                              ▼
                     └────────────► SelectedTablesList ◄────────────┘
 ```
+
+**A whole database at once** — stage a DB, press `⊞`. The picker mirrors the
+tables already selected (primary + unions) from that database:
+
+```
+TableAddPicker ──stage DB──► planDatabaseMirror(cached table list)
+                                     │  resolved on every render, so the
+                                     │  button's tooltip and disabled state
+                                     ▼  already state the outcome
+                             onAddDatabase(db, plan)
+                                     │
+                                     ▼
+                       handleAddDatabase in CompactMetadataSelector
+                                     │
+                     onAddUnionTables(plan.toAdd)  ── ONE dispatch
+                                     │
+                                     ▼
+                        result strip + Undo ──► removeUnionTables()
+```
+
+Bulk paths (`⊞`, and *Add by pattern*) must use the batched
+`ADD_UNION_TABLES` action: the merged-columns effect in `useMetadataOperations`
+keys on `unionTables` identity, so one dispatch per table would cost one
+`getMergedColumns` round trip per table.
+
+### Removing a whole database
+
+Rows carry a second remove icon (`DeleteSweep`) that drops every selected table
+of that row's database in one batched `REMOVE_UNION_TABLES`, behind an
+"are you sure" dialog. Two deliberate omissions:
+
+- **The primary's own database never gets it.** Removing its last table clears
+  the primary, and `SET_SELECTED_TABLE` resets joins, unions, `virtualTable` and
+  `customRelationships` with it — too much to hang off a row icon.
+- **A database contributing one table never gets it**, because the row's own
+  remove icon already does exactly that without a confirmation step.
+
+Per-row remove labels are database-qualified (`Remove prod_eu.orders`): after a
+mirror the same table name appears on several rows, so the bare name is not a
+unique accessible name.
+
+### Switching database (keep tables)
+
+`⇄` runs `switchDatabasePreserveTables`: same table names, new database. It is
+an action button, not a mode — selecting a database in the dropdown never
+switches anything. `planDatabaseSwitch` resolves whether it can succeed from the
+cached table list, so the button carries its own reason when blocked. Note that
+`⊞` creates a cross-database union, which blocks `⇄` until those unions are
+removed.
 
 ### JOIN Mode (Same Database)
 Used for related tables with foreign key relationships:

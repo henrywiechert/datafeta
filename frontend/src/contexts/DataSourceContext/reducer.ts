@@ -1,6 +1,14 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { DataSourceAction, DataSourceState, initialDataSourceState } from './types';
 
+/**
+ * Identity of a union table ref. `\0` separates the parts so a database or
+ * table name containing the separator cannot forge a collision. Empty
+ * `database` is meaningful (file-style refs), so it is not normalised away.
+ */
+const unionTableKey = (database: string, tableName: string) =>
+  `${database}\u0000${tableName}`;
+
 export function dataSourceReducer(
   state: DataSourceState,
   action: DataSourceAction,
@@ -134,6 +142,38 @@ export function dataSourceReducer(
           (ut) => !(ut.database === database && ut.table_name === tableName),
         ),
       };
+    }
+
+    // Batched variants. Bulk operations (mirroring a database, applying a
+    // pattern match) MUST use these: the merged-columns effect in
+    // useMetadataOperations keys on `unionTables` identity, so N single
+    // dispatches would mean N getMergedColumns round trips. Both return the
+    // identical state object on a no-op for the same reason.
+    case 'ADD_UNION_TABLES': {
+      const existing = new Set(
+        state.unionTables.map((ut) => unionTableKey(ut.database, ut.table_name)),
+      );
+      const added: Array<{ database: string; table_name: string }> = [];
+      action.payload.tables.forEach(({ database, table_name }) => {
+        const key = unionTableKey(database, table_name);
+        if (existing.has(key)) return;
+        existing.add(key);
+        added.push({ database, table_name });
+      });
+      if (added.length === 0) return state;
+      return { ...state, unionTables: [...state.unionTables, ...added] };
+    }
+
+    case 'REMOVE_UNION_TABLES': {
+      if (action.payload.tables.length === 0) return state;
+      const doomed = new Set(
+        action.payload.tables.map((ut) => unionTableKey(ut.database, ut.table_name)),
+      );
+      const remaining = state.unionTables.filter(
+        (ut) => !doomed.has(unionTableKey(ut.database, ut.table_name)),
+      );
+      if (remaining.length === state.unionTables.length) return state;
+      return { ...state, unionTables: remaining };
     }
 
     case 'SET_CUSTOM_RELATIONSHIPS':

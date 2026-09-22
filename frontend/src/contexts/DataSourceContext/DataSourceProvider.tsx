@@ -46,6 +46,8 @@ export interface DataSourceContextType {
   toggleJoinedTable: (tableName: string) => void;
   addUnionTable: (database: string, tableName: string) => void;
   removeUnionTable: (database: string, tableName: string) => void;
+  addUnionTables: (tables: Array<{ database: string; table_name: string }>) => void;
+  removeUnionTables: (tables: Array<{ database: string; table_name: string }>) => void;
   setCustomRelationships: (relationships: ForeignKeyRelationship[] | null) => void;
   // ----- VIRTUAL-COLUMNS / aliases -----
   setVirtualColumns: (columns: VirtualColumnDefinition[]) => void;
@@ -162,6 +164,18 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   const removeUnionTable = useCallback(
     (database: string, tableName: string) =>
       dispatch({ type: 'REMOVE_UNION_TABLE', payload: { database, tableName } }),
+    [],
+  );
+  // Batched: one dispatch for a whole set, so bulk adds trigger a single
+  // merged-columns refetch instead of one per table.
+  const addUnionTables = useCallback(
+    (tables: Array<{ database: string; table_name: string }>) =>
+      dispatch({ type: 'ADD_UNION_TABLES', payload: { tables } }),
+    [],
+  );
+  const removeUnionTables = useCallback(
+    (tables: Array<{ database: string; table_name: string }>) =>
+      dispatch({ type: 'REMOVE_UNION_TABLES', payload: { tables } }),
     [],
   );
   const setCustomRelationships = useCallback(
@@ -351,6 +365,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       toggleJoinedTable,
       addUnionTable,
       removeUnionTable,
+      addUnionTables,
+      removeUnionTables,
       setCustomRelationships,
       setVirtualColumns,
       addVirtualColumn,
@@ -394,6 +410,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       toggleJoinedTable,
       addUnionTable,
       removeUnionTable,
+      addUnionTables,
+      removeUnionTables,
       setCustomRelationships,
       setVirtualColumns,
       addVirtualColumn,

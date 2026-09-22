@@ -102,6 +102,8 @@ export type DataSourceAction =
   | { type: 'TOGGLE_JOINED_TABLE'; payload: string }
   | { type: 'ADD_UNION_TABLE'; payload: { database: string; tableName: string } }
   | { type: 'REMOVE_UNION_TABLE'; payload: { database: string; tableName: string } }
+  | { type: 'ADD_UNION_TABLES'; payload: { tables: Array<{ database: string; table_name: string }> } }
+  | { type: 'REMOVE_UNION_TABLES'; payload: { tables: Array<{ database: string; table_name: string }> } }
   | { type: 'SET_CUSTOM_RELATIONSHIPS'; payload: ForeignKeyRelationship[] | null }
   // ----- VIRTUAL-COLUMNS / aliases -----
   | { type: 'SET_VIRTUAL_COLUMNS'; payload: VirtualColumnDefinition[] }
