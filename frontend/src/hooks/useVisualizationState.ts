@@ -10,6 +10,7 @@ import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
 import { useFilterMetadata } from './useFilterMetadata';
 import { useFilterConfigWriter } from './useFilterConfigWriter';
+import { useFilterStoreDispatch } from './useFilterStoreDispatch';
 import { useRelevantValueLists } from './useRelevantValueLists';
 import {
     mergeFilterConfigurations,
@@ -42,7 +43,6 @@ export function useVisualizationState() {
         updateVirtualColumn,
         removeVirtualColumn,
         setVirtualColumnFieldPreference,
-        setSessionFilterMetadata,
     } = dataSourceContext;
     const writeFilterConfig = useFilterConfigWriter();
 
@@ -117,6 +117,11 @@ export function useVisualizationState() {
         [state.filterConfigurations, dataSource.sessionFilterConfigurations]
     );
 
+    // Metadata and config fetched for a session (global) filter has to land in the
+    // session store — the merge gives it precedence, so a write into the sheet
+    // reducer would never reach the panel.
+    const filterStoreDispatch = useFilterStoreDispatch();
+
     const filterMetadata = useFilterMetadata({
         filterFields: allFilterFields,
         filterMetadata: allFilterMetadata,
@@ -127,7 +132,7 @@ export function useVisualizationState() {
         selectedDatabase: dataSource.selectedDatabase,
         unionTables: dataSource.unionTables,
         connectionDetails,
-        dispatch
+        dispatch: filterStoreDispatch
     });
 
     const sessionFilterIds = useMemo(
@@ -145,19 +150,6 @@ export function useVisualizationState() {
         updateFilterConfig: writeFilterConfig,
         refetchFilterValues: filterMetadata.refetchFilterValues,
     });
-
-    // Persist fetched metadata for session filters into DataSourceContext
-    // so it survives sheet switches (vis state is reset per sheet).
-    useEffect(() => {
-        dataSource.sessionFilterFields.forEach(field => {
-            const visMeta = state.filterMetadata[field.id];
-            const sessionMeta = dataSource.sessionFilterMetadata[field.id];
-            if (visMeta && !visMeta.loading && !visMeta.error &&
-                (!sessionMeta || sessionMeta.loading)) {
-                setSessionFilterMetadata(field.id, visMeta);
-            }
-        });
-    }, [dataSource.sessionFilterFields, dataSource.sessionFilterMetadata, state.filterMetadata, setSessionFilterMetadata]);
 
     // Sync visualization state changes back to the active sheet.
     // Debounced so a burst of reducer ticks (typing in a filter, dragging

@@ -137,6 +137,8 @@ FilterPanel
               appliedFilterConfigurations → chart query
 ```
 
+**Scope routing**: `mergeFilterMetadata` / `mergeFilterConfigurations` let the session (global) store win over the sheet reducer. A write into the sheet reducer for a session filter is therefore not merely redundant — it is *invisible*, and the stale session copy stays on screen. `useFilterMetadata` is fed the merged field list and cannot tell the two apart, so it dispatches through `useFilterStoreDispatch`, which sends `SET_FILTER_METADATA`, `SET_FILTER_CONFIGURATION` and `SET_AND_APPLY_FILTER_CONFIGURATION_SILENT` to the session store for session fields and lets everything else fall through. `useFilterConfigWriter` does the same for panel edits.
+
 **All / Relevant discrete lists**: Each discrete card can load either the full value universe (**All**, default) or values constrained by other discrete filters' draft settings (**Relevant**). `useRelevantValueLists` watches the draft configs and refetches a Relevant list when a sibling's *effective* constraints change (debounced 300 ms; the skip-hash is computed over the converted `Filter[]`, so UI-only edits and select-all siblings do not trigger a fetch).
 
 Relevant is a view mode: the only config field the toggle writes is `valueListMode`. Selections are never rewritten — only `refetchFilterValues(..., { applySelectionFromResult: true })`, used by Query Regex, does that. `totalAvailableCount` is likewise only ever set from an unconstrained, non-partial list, so the query builder's "all values selected ⇒ omit IN (...)" shortcut stays correct.
@@ -144,6 +146,20 @@ Relevant is a view mode: the only config field the toggle writes is `valueListMo
 Every discrete value list — the cold-start fetch, Query Regex, and All/Relevant refreshes — goes through one function, `fetchDiscreteValueList` in `useFilterMetadata`. It counts the distinct values, samples (`SAMPLE_SIZE` random values) instead of listing them once the count exceeds `DISCRETE_FULL_LIST_MAX`, and reports back `{ count, values, sampled, constrained }`. Callers only decide how to phrase the warning and what to do with the result, so the threshold, the sibling constraints, and `constrainedByOtherFilters` cannot drift apart between the two entry points.
 
 Both `/distinct-count` and `/query` receive the same converted `Filter[]`, and both re-scope them the same way for a table-qualified field on a JOIN: the field resolves to its source table, the JOIN is dropped, and `scope_filters_to_table` (backend) strips the resolved table's prefix from siblings while skipping siblings that belong to another table. Sampling threshold and value list therefore stay in agreement.
+
+**Table-scope changes**: Adding or removing a table changes which values exist behind every filter, so `useFilterMetadata` refetches *all* filter fields whenever the serialized table scope — primary database, primary table, UNION secondaries, and the `virtualTable` a JOIN produces — differs from the previous render. The per-field effect cannot cover this: it only fires when a field is new or changed its own semantics, and a field survives a table change untouched. Without the scope effect, every discrete picker keeps listing the values of the tables that were there before.
+
+That refresh passes `reconcileToValueUniverse`, which brings the draft discrete config back in line with the list just fetched:
+
+| Previous state | After the table change |
+|----------------|------------------------|
+| Everything selected (`selectedValues.length >= totalAvailableCount`) | Everything selected again, including the values a new table brought in — the user asked for no filtering on that column, not for the old value set |
+| Partial selection | Picks kept; values that no longer exist are dropped |
+| Pattern mode, sampled list, or a Relevant-constrained list | Left alone — none of them names a value universe that can be reconciled |
+
+While the refresh is in flight the loading placeholder carries the previous value list forward (for the same column only), so the picker takes `DiscreteFilterControl`'s delayed-overlay path rather than collapsing to a spinner.
+
+`totalAvailableCount` is always refreshed to the new cardinality, because the query builder compares the selection size against it to decide it can omit `IN (...)`. The write goes through `SET_AND_APPLY_FILTER_CONFIGURATION_SILENT` (draft *and* applied, no `queryVersion` bump): the table change re-queries anyway, and leaving the applied copy behind would let the picker and the chart disagree about which values the filter names.
 
 `metadata.constrainedByOtherFilters` marks a list that was fetched under sibling filters. `FilterFieldChip` must not derive `totalAvailableCount` or `excludedValues` from such a list — both describe the column's full value universe, and deriving them from a Relevant subset makes "all visible selected" look like "all values selected" (filter dropped) or turns `NOT IN` into a pass for every value outside the list.
 
@@ -196,6 +212,7 @@ else
 | Connection | Direction | Description |
 |------------|-----------|-------------|
 | `VisualizationContext` | ↔ | Reads `filterFields`, `filterConfigurations`, `filterMetadata`; dispatches `UPDATE_FIELD` |
+| `useFilterStoreDispatch` | → | Routes `useFilterMetadata`'s per-field writes to the store that wins the merge — session store for global filters, sheet reducer otherwise |
 | `filterTierManager` | → | Checks/sets base vs. refinement tier per column |
 | `FieldChip` module | → | Reuses unified chip component for consistent styling |
 | `DateTime` module | → | Uses `DateTimeRangeFilter` for part-based datetime filtering |
