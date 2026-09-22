@@ -6,6 +6,14 @@ Both cards collapse through `../Properties/SectionHeader`, the same header the
 Properties sections use, so the chevron sits on the left and rotates in all of
 them.
 
+Everything in the Data Source header's `actions` slot is a 20×20 `IconButton`
+with a left-placed tooltip — add files (CSV), add tables by pattern
+(ClickHouse), manage relationships, refresh. *Add by pattern* used to be a text
+`Button` with its own type scale, which made the row's width jump between
+connection types and squeezed the collapsed hint. Relationships is reachable
+from the header only; the Related Tables box deliberately has no second button
+for the same dialog.
+
 The module fills **two cards** of the Fields well, not one. `CompactMetadataSelector` is mounted by `VisualizationPage` as the Data Source card, and `FieldsPanel` is the Fields card below it — so `FieldsPanel` does not render the selector and is not passed any of the metadata, JOIN/UNION or partition props. They are siblings separated by the canvas gap; see `src/theme/THEMING.md`, "The card layout".
 
 ## Module Structure
@@ -166,7 +174,7 @@ TableAddPicker ──stage DB──► planDatabaseMirror(cached table list)
                      left behind; clears itself after 6s
 ```
 
-Bulk paths (`⊞`, and *Add by pattern*) must use the batched
+Bulk paths (`⊞`, and *Add tables by pattern*) must use the batched
 `ADD_UNION_TABLES` action: the merged-columns effect in `useMetadataOperations`
 keys on `unionTables` identity, so one dispatch per table would cost one
 `getMergedColumns` round trip per table.
