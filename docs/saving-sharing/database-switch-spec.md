@@ -65,22 +65,47 @@ Behavior: connect with new file; preserve viz state; validate columns against ne
 
 ### B. In-app — `CompactMetadataSelector`
 
-Add a toggle icon on the Database dropdown row (ClickHouse only), in the action slot aligned with the Table `+` button:
+The Database dropdown **only stages** a database (ClickHouse only). Nothing is
+committed until one of the DB row's two action buttons is pressed — the same rule
+as the Table row below it.
 
-| Property | Value |
-|----------|-------|
-| **Control** | Icon button (`SwapHoriz`), pressed when on |
-| **Accessible name** | `Keep tables when changing database` |
-| **Tooltip (off)** | `Keep current tables when changing database (same table names required).` |
-| **Tooltip (on)** | `On: changing the database keeps current tables. Requires identical table names.` |
-| **Default** | off |
-| **Persistence** | session only (not saved in config); resets on disconnect |
+> **Superseded:** this used to be a `dbSwitchEnabled` *mode toggle*, where
+> selecting a database while the mode was armed performed the switch
+> immediately. The mode is gone; the switch is an ordinary action button.
+> Deliberateness is unchanged — two acts either way (arm-then-select became
+> select-then-press).
 
-**When off:** changing the database dropdown stages a DB for adding / UNION (does not clear the primary).
+| Slot | Control | Accessible name | Action |
+|------|---------|-----------------|--------|
+| inner | Icon button (`SwapHoriz`) | `Switch to this database, keeping current tables` | `switchDatabasePreserveTables(stagedDatabase)` |
+| rightmost | Icon button (`LibraryAdd`) | `Add matching tables from database` | mirror the selected tables from the staged DB as UNION secondaries |
 
-**When on:** call `switchDatabasePreserveTables(newDatabase)` instead; table add / pattern add are disabled.
+The rightmost slot lines up with the Table row's `+`, so both "add" affordances
+read as one column; the Table row carries an empty spacer in the inner slot to
+keep the two dropdowns the same width.
 
-**Visual feedback while switching:** spinner in the DB-row action slot; disable database/table dropdowns until refetch completes.
+**Resolved before the click.** Database table lists are stable for a session and
+are prefetched into `tablesCache` when a database is staged, so
+`planDatabaseSwitch` decides up front whether the switch can succeed. The button
+is disabled with the specific reason in its tooltip:
+
+| Blocker | Tooltip |
+|---------|---------|
+| `no-primary-table` | `Select a table first` |
+| `same-database` | `Already using this database` |
+| `primary-table-missing` | `"orders" is not in prod_eu` |
+| `cross-database-union` | `Not supported for cross-database unions` |
+
+This front-loads the hard failure that step 3 below still raises server-side;
+`switchDatabasePreserveTables` keeps its own validation and rollback as defence
+in depth.
+
+**Interaction with add-database.** Mirroring a database creates a cross-database
+union, which blocks the switch until those unions are removed. The old toggle hid
+this (an effect silently disarmed the mode); the disabled button now states it.
+
+**Visual feedback while switching:** spinner in the DB-row inner slot; disable
+database/table dropdowns until refetch completes.
 
 ---
 

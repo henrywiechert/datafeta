@@ -58,6 +58,8 @@ export function useDataSourceMultiTable() {
       toggleJoinedTable: c.toggleJoinedTable,
       addUnionTable: c.addUnionTable,
       removeUnionTable: c.removeUnionTable,
+      addUnionTables: c.addUnionTables,
+      removeUnionTables: c.removeUnionTables,
       setCustomRelationships: c.setCustomRelationships,
     }),
     [c],

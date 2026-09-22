@@ -166,4 +166,112 @@ describe('CompactMetadataSelector', () => {
 
     expect(screen.getByText('Related Tables')).toBeInTheDocument();
   });
+
+  it('offers Add by pattern unconditionally now that there is no switch mode', () => {
+    renderJoinSelector();
+
+    expect(screen.getByRole('button', { name: 'Add by pattern' })).toBeEnabled();
+  });
+});
+
+describe('CompactMetadataSelector — database mirror', () => {
+  const ADD_DB_LABEL = 'Add matching tables from database';
+
+  const renderMirrorSelector = (
+    overrides: Partial<React.ComponentProps<typeof CompactMetadataSelector>> = {}
+  ) => {
+    const onAddUnionTables = jest.fn();
+    const onRemoveUnionTables = jest.fn();
+    const onAddUnionTable = jest.fn();
+    render(
+      <DataSourceProvider>
+        <CompactMetadataSelector
+          connectionType="clickhouse"
+          selectedDatabase="prod_us"
+          selectedTable="orders"
+          databases={[{ name: 'prod_us' }, { name: 'prod_eu' }]}
+          tables={[{ name: 'orders' }, { name: 'events' }]}
+          tablesCache={{
+            prod_us: [{ name: 'orders' }, { name: 'events' }],
+            prod_eu: [{ name: 'orders' }, { name: 'events' }],
+          }}
+          unionTables={[{ database: 'prod_us', table_name: 'events' }]}
+          isLoadingMetadata={false}
+          metadataError={null}
+          onDatabaseSelect={jest.fn()}
+          onTableSelect={jest.fn()}
+          onAddUnionTable={onAddUnionTable}
+          onAddUnionTables={onAddUnionTables}
+          onRemoveUnionTables={onRemoveUnionTables}
+          onLoadTablesForDatabase={jest.fn()}
+          {...overrides}
+        />
+      </DataSourceProvider>
+    );
+    return { onAddUnionTables, onRemoveUnionTables, onAddUnionTable };
+  };
+
+  const mirrorFromProdEu = () => {
+    fireEvent.mouseDown(screen.getByPlaceholderText('Database'));
+    fireEvent.click(screen.getByRole('option', { name: 'prod_eu' }));
+    fireEvent.click(screen.getByRole('button', { name: ADD_DB_LABEL }));
+  };
+
+  // One dispatch, not one per table: the merged-columns effect keys on
+  // `unionTables` identity, so N dispatches would cost N round trips.
+  it('adds the whole mirrored set in a single batched call', () => {
+    const { onAddUnionTables, onAddUnionTable } = renderMirrorSelector();
+
+    mirrorFromProdEu();
+
+    expect(onAddUnionTables).toHaveBeenCalledTimes(1);
+    expect(onAddUnionTables).toHaveBeenCalledWith([
+      { database: 'prod_eu', table_name: 'orders' },
+      { database: 'prod_eu', table_name: 'events' },
+    ]);
+    expect(onAddUnionTable).not.toHaveBeenCalled();
+  });
+
+  it('reports what landed', () => {
+    renderMirrorSelector();
+
+    mirrorFromProdEu();
+
+    expect(screen.getByText('Added 2 tables from prod_eu')).toBeInTheDocument();
+  });
+
+  it('reports tables the database did not have', () => {
+    renderMirrorSelector({
+      tablesCache: {
+        prod_us: [{ name: 'orders' }, { name: 'events' }],
+        prod_eu: [{ name: 'orders' }],
+      },
+    });
+
+    mirrorFromProdEu();
+
+    expect(
+      screen.getByText('Added 1 table from prod_eu \u00b7 1 not in prod_eu')
+    ).toBeInTheDocument();
+  });
+
+  it('undoes exactly the refs it added', () => {
+    const { onRemoveUnionTables } = renderMirrorSelector();
+
+    mirrorFromProdEu();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+
+    expect(onRemoveUnionTables).toHaveBeenCalledTimes(1);
+    expect(onRemoveUnionTables).toHaveBeenCalledWith([
+      { database: 'prod_eu', table_name: 'orders' },
+      { database: 'prod_eu', table_name: 'events' },
+    ]);
+    expect(screen.queryByText('Added 2 tables from prod_eu')).not.toBeInTheDocument();
+  });
+
+  it('hides the add-database action when no batched setter is wired', () => {
+    renderMirrorSelector({ onAddUnionTables: undefined });
+
+    expect(screen.queryByRole('button', { name: ADD_DB_LABEL })).not.toBeInTheDocument();
+  });
 });

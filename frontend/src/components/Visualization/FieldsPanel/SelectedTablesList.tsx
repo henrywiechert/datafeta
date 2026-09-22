@@ -2,7 +2,12 @@
 import React from 'react';
 import {
   Box,
+  Button,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   List,
   ListItem,
@@ -12,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { Field } from '../../../types';
@@ -29,6 +35,12 @@ interface SelectedTablesListProps {
   onRemovePrimary: () => void;
   onRemoveUnionTable: (database: string, tableName: string) => void;
   onRemoveJoinedTable?: (tableName: string) => void;
+  /**
+   * Remove every selected table of one database in a single step. Omit to hide
+   * the control. Never offered for the primary's own database: that would clear
+   * the primary and reset joins, unions and relationships with it.
+   */
+  onRemoveDatabase?: (database: string, tables: UnionTableRef[]) => void;
 }
 
 // ── Shared types ──────────────────────────────────────────────────────
@@ -211,6 +223,8 @@ function TableRow({
   statKey,
   fetchedCols,
   onRemove,
+  onRemoveDatabase,
+  removeDatabaseCount,
 }: {
   badge: BadgeVariant;
   database: string;
@@ -222,6 +236,8 @@ function TableRow({
   statKey: string;
   fetchedCols: Record<string, StatValue>;
   onRemove?: () => void;
+  onRemoveDatabase?: () => void;
+  removeDatabaseCount?: number;
 }) {
   const hasDb = !!database;
   const fromFields = countColumnsForTable(availableFields, table, primaryTableName, hasSecondaryTables);
@@ -230,7 +246,10 @@ function TableRow({
   const colLoading = fromFields === undefined && fetched === 'loading';
 
   return (
-    <ListItem divider className={styles.listItem}>
+    <ListItem
+      divider
+      className={`${styles.listItem} ${onRemoveDatabase ? styles.listItemTwoActions : ''}`}
+    >
       <ListItemText
         disableTypography
         className={styles.listItemText}
@@ -255,17 +274,33 @@ function TableRow({
           </Box>
         }
       />
-      {onRemove && (
+      {(onRemove || onRemoveDatabase) && (
         <ListItemSecondaryAction className={styles.secondaryAction}>
-          <IconButton
-            size="small"
-            edge="end"
-            aria-label={`Remove ${table}`}
-            onClick={onRemove}
-            sx={{ padding: '2px' }}
-          >
-            <DeleteOutlineIcon sx={{ fontSize: '1rem' }} />
-          </IconButton>
+          {onRemoveDatabase && (
+            <Tooltip title={`Remove all ${removeDatabaseCount} tables from ${database}`}>
+              <IconButton
+                size="small"
+                aria-label={`Remove all tables from ${database}`}
+                onClick={onRemoveDatabase}
+                sx={{ padding: '2px' }}
+              >
+                <DeleteSweepIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {onRemove && (
+            <IconButton
+              size="small"
+              edge="end"
+              // Qualified: mirroring a database puts the same table name on
+              // several rows, so the bare name is not a unique label.
+              aria-label={hasDb ? `Remove ${database}.${table}` : `Remove ${table}`}
+              onClick={onRemove}
+              sx={{ padding: '2px' }}
+            >
+              <DeleteOutlineIcon sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          )}
         </ListItemSecondaryAction>
       )}
     </ListItem>
@@ -283,8 +318,12 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
   onRemovePrimary,
   onRemoveUnionTable,
   onRemoveJoinedTable,
+  onRemoveDatabase,
 }) => {
   const [expanded, setExpanded] = React.useState(true);
+  const [pendingRemoval, setPendingRemoval] = React.useState<
+    { database: string; tables: UnionTableRef[] } | null
+  >(null);
   const hasPrimary = !!primaryTable;
   const hasAny = hasPrimary || unionTables.length > 0 || joinedTables.length > 0;
 
@@ -307,6 +346,33 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
     });
     return out;
   }, [hasAny, hasPrimary, primaryTable, primaryDatabase, sortedJoined, unionTables]);
+
+  /**
+   * Union members grouped by database, for the per-database remove.
+   * The primary's own database is excluded (see the prop docs), and so is any
+   * database contributing a single table — there the row's own remove icon
+   * already does exactly this, without a confirmation step.
+   */
+  const removableDatabases = React.useMemo(() => {
+    if (!onRemoveDatabase) return new Map<string, UnionTableRef[]>();
+    const grouped = new Map<string, UnionTableRef[]>();
+    unionTables.forEach((ut) => {
+      if (!ut.database || ut.database === primaryDatabase) return;
+      const existing = grouped.get(ut.database);
+      if (existing) existing.push(ut);
+      else grouped.set(ut.database, [ut]);
+    });
+    grouped.forEach((tables, database) => {
+      if (tables.length < 2) grouped.delete(database);
+    });
+    return grouped;
+  }, [onRemoveDatabase, unionTables, primaryDatabase]);
+
+  const confirmRemoval = React.useCallback(() => {
+    if (!pendingRemoval) return;
+    onRemoveDatabase?.(pendingRemoval.database, pendingRemoval.tables);
+    setPendingRemoval(null);
+  }, [pendingRemoval, onRemoveDatabase]);
 
   const hasSecondaryTables = sortedJoined.length > 0 || unionTables.length > 0;
   const rowStats = useTableRowStats(rowTargets);
@@ -381,6 +447,7 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
 
           {unionTables.map((t) => {
             const key = `union:${t.database}:${t.table_name}`;
+            const siblings = removableDatabases.get(t.database);
             return (
               <TableRow
                 key={key}
@@ -394,11 +461,41 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
                 statKey={key}
                 fetchedCols={fetchedCols}
                 onRemove={() => onRemoveUnionTable(t.database, t.table_name)}
+                onRemoveDatabase={
+                  siblings
+                    ? () => setPendingRemoval({ database: t.database, tables: siblings })
+                    : undefined
+                }
+                removeDatabaseCount={siblings?.length}
               />
             );
           })}
         </List>
       </Collapse>
+
+      <Dialog
+        open={!!pendingRemoval}
+        onClose={() => setPendingRemoval(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '0.9rem', pb: 1 }}>
+          Remove {pendingRemoval?.tables.length} tables from {pendingRemoval?.database}?
+        </DialogTitle>
+        <DialogContent sx={{ pb: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {pendingRemoval?.tables.map((t) => t.table_name).join(', ')}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" onClick={() => setPendingRemoval(null)}>
+            Cancel
+          </Button>
+          <Button size="small" color="error" onClick={confirmRemoval}>
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

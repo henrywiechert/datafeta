@@ -38,7 +38,7 @@ import { T } from '../theme/tokens';
 import AppBrandHeader from '../components/AppBrandHeader';
 import SchemaCheckDialog from '../components/SchemaCheckDialog';
 import { schemaCheckBus } from '../services/schemaCheckBus';
-import { hasCrossDatabaseUnion, isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
+import { isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
 import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
 import { apiService } from '../apiService';
 
@@ -297,6 +297,8 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         toggleJoinedTable: toggleJoinedTableBase,
         addUnionTable: addUnionTableBase,
         removeUnionTable: removeUnionTableBase,
+        addUnionTables,
+        removeUnionTables,
         setTablesForDatabase,
         setMetadataError
     } = dataSourceContext;
@@ -324,7 +326,6 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     }, [removeUnionTableBase]);
 
     const { state: sheetState } = useSheetContext();
-    const [dbSwitchEnabled, setDbSwitchEnabled] = React.useState(false);
     const [schemaCheckResult, setSchemaCheckResult] = React.useState<SchemaCheckResult | null>(null);
     const [schemaCheckOpen, setSchemaCheckOpen] = React.useState(false);
     const [isSwitchingDatabase, setIsSwitchingDatabase] = React.useState(false);
@@ -334,17 +335,6 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         setSchemaCheckResult(result);
         setSchemaCheckOpen(true);
     }, []);
-
-    const dbSwitchDisabled = hasCrossDatabaseUnion(selectedDatabase, unionTables);
-    const dbSwitchDisabledReason = dbSwitchDisabled
-        ? 'Not supported for cross-database unions'
-        : undefined;
-
-    React.useEffect(() => {
-        if (dbSwitchDisabled && dbSwitchEnabled) {
-            setDbSwitchEnabled(false);
-        }
-    }, [dbSwitchDisabled, dbSwitchEnabled]);
 
     const handleDatabaseSwitch = React.useCallback(async (newDatabase: string) => {
         setIsSwitchingDatabase(true);
@@ -599,17 +589,15 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                                         unionTables={unionTables}
                                         onAddUnionTable={addUnionTable}
                                         onRemoveUnionTable={removeUnionTable}
+                                        onAddUnionTables={addUnionTables}
+                                        onRemoveUnionTables={removeUnionTables}
                                         tablesCache={tablesCache}
                                         onLoadTablesForDatabase={handleLoadTablesForDatabase}
                                         loadedPartitions={loadedPartitions}
                                         isLoadingPartition={isLoadingPartition}
                                         onLoadPartition={handleLoadPartition}
                                         onAddFiles={handleAddFiles}
-                                        dbSwitchEnabled={dbSwitchEnabled}
-                                        onDbSwitchEnabledChange={setDbSwitchEnabled}
                                         onDatabaseSwitch={handleDatabaseSwitch}
-                                        dbSwitchDisabled={dbSwitchDisabled}
-                                        dbSwitchDisabledReason={dbSwitchDisabledReason}
                                         isSwitchingDatabase={isSwitchingDatabase}
                                     />
                                 </Box>

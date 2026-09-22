@@ -53,6 +53,11 @@
   margin-bottom: 0;
 }
 
+/* Room for the per-database remove sitting beside the per-table one. */
+.listItemTwoActions {
+  padding-right: 48px;
+}
+
 .secondaryAction {
   right: 2px;
 }

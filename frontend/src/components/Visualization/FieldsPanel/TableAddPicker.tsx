@@ -3,14 +3,19 @@ import React from 'react';
 import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
+import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import {
+  DatabaseMirrorPlan,
+  planDatabaseMirror,
+  planDatabaseSwitch,
+  UnionTableRef,
+} from '../../../utils/schemaValidation';
 import {
   compactAutocompleteClassName,
   compactAutocompleteListboxProps,
   sourcePickerFieldLabelSx,
 } from './sourcePickerShared';
-
-type UnionTableRef = { database: string; table_name: string };
 
 export type AddTablePayload = { database: string; table: string };
 
@@ -23,20 +28,28 @@ interface TableAddPickerProps {
   primaryDatabase: string;
   primaryTable: string;
 
-  // Current union list (secondaries)
+  // Current secondaries
   unionTables: UnionTableRef[];
+  joinedTables?: string[];
 
   onAdd: (payload: AddTablePayload) => void;
-  /** DB switch mode — change database without clearing primary table */
-  dbSwitchEnabled?: boolean;
-  onDbSwitchEnabledChange?: (enabled: boolean) => void;
+  /** Keep-tables switch: repoint the current selection at the staged database. */
   onDatabaseSwitch?: (database: string) => void;
-  dbSwitchDisabled?: boolean;
-  dbSwitchDisabledReason?: string;
+  /** Mirror the current selection from the staged database as UNION secondaries. */
+  onAddDatabase?: (database: string, plan: DatabaseMirrorPlan) => void;
   isSwitchingDatabase?: boolean;
 }
 
 const actionColumnSx = { width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center' } as const;
+const actionButtonSx = { width: 26, height: 26, p: 0.25 } as const;
+
+const pluraliseTables = (count: number) => `${count} table${count === 1 ? '' : 's'}`;
+
+/** "a, b and c", truncated so a wide database cannot blow out the tooltip. */
+function joinNames(names: string[], limit = 3): string {
+  if (names.length <= limit) return names.join(', ');
+  return `${names.slice(0, limit).join(', ')} +${names.length - limit} more`;
+}
 
 const TableAddPicker: React.FC<TableAddPickerProps> = ({
   databases,
@@ -45,18 +58,18 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   primaryDatabase,
   primaryTable,
   unionTables,
+  joinedTables = [],
   onAdd,
-  dbSwitchEnabled = false,
-  onDbSwitchEnabledChange,
   onDatabaseSwitch,
-  dbSwitchDisabled = false,
-  dbSwitchDisabledReason,
+  onAddDatabase,
   isSwitchingDatabase = false,
 }) => {
   const [stagedDatabase, setStagedDatabase] = React.useState<string>(primaryDatabase || '');
   const [stagedTable, setStagedTable] = React.useState<string>('');
 
-  // Keep staged DB in sync with primary DB when primary changes (but do not auto-pick a table)
+  // Keep staged DB in sync with primary DB when primary changes (but do not auto-pick a table).
+  // After a switch the primary IS the staged DB; after an add the primary is unchanged, so
+  // staging stays put and the add button correctly reports "already selected".
   React.useEffect(() => {
     setStagedDatabase(primaryDatabase || '');
     setStagedTable('');
@@ -82,24 +95,41 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
     });
   }, [rawTableOptions, stagedDatabase, primaryDatabase, primaryTable, unionTables]);
 
+  // Both DB-row actions resolve their exact outcome from the cached table list
+  // before the click. Table lists are stable for a session, so a plan computed
+  // here cannot go stale between resolve and apply.
+  const mirrorPlan = React.useMemo(
+    () =>
+      planDatabaseMirror({
+        targetDatabase: stagedDatabase,
+        primaryDatabase,
+        primaryTable,
+        unionTables,
+        targetTableNames: rawTableOptions,
+      }),
+    [stagedDatabase, primaryDatabase, primaryTable, unionTables, rawTableOptions],
+  );
+
+  const switchPlan = React.useMemo(
+    () =>
+      planDatabaseSwitch({
+        targetDatabase: stagedDatabase,
+        primaryDatabase,
+        primaryTable,
+        joinedTables,
+        unionTables,
+        targetTableNames: rawTableOptions,
+      }),
+    [stagedDatabase, primaryDatabase, primaryTable, joinedTables, unionTables, rawTableOptions],
+  );
+
   const canAdd = !!stagedDatabase && !!stagedTable;
 
   const handleDatabaseChange = (_: unknown, value: string | null) => {
+    // Staging only — the DB row's buttons are the sole way to commit anything.
     const nextDb = value ?? '';
     setStagedDatabase(nextDb);
     setStagedTable('');
-
-    if (
-      dbSwitchEnabled
-      && primaryTable
-      && nextDb
-      && nextDb !== primaryDatabase
-      && onDatabaseSwitch
-    ) {
-      onDatabaseSwitch(nextDb);
-      return;
-    }
-
     if (nextDb && onLoadTablesForDatabase) onLoadTablesForDatabase(nextDb);
   };
 
@@ -111,6 +141,75 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
     if (!canAdd) return;
     onAdd({ database: stagedDatabase, table: stagedTable });
     setStagedTable('');
+  };
+
+  // ── DB-row action states ───────────────────────────────────────────────
+
+  const switchDisabledReason = (): string | null => {
+    if (!stagedDatabase) return 'Select a database';
+    if (isLoadingTables) return 'Loading tables…';
+    switch (switchPlan.blocker) {
+      case 'no-primary-table':
+        return 'Select a table first';
+      case 'same-database':
+        return 'Already using this database';
+      case 'cross-database-union':
+        return 'Not supported for cross-database unions';
+      case 'primary-table-missing':
+        return `"${primaryTable}" is not in ${stagedDatabase}`;
+      default:
+        return null;
+    }
+  };
+
+  const addDatabaseDisabledReason = (): string | null => {
+    if (!stagedDatabase) return 'Select a database';
+    if (isLoadingTables) return 'Loading tables…';
+    if (isSwitchingDatabase) return 'Database switch in progress';
+    if (!primaryTable) return 'Select a table first';
+    if (mirrorPlan.toAdd.length > 0) return null;
+    if (mirrorPlan.missing.length > 0 && mirrorPlan.alreadyPresent.length === 0) {
+      return `${stagedDatabase} has none of the selected tables`;
+    }
+    return `${stagedDatabase} adds nothing — already selected`;
+  };
+
+  const switchBlocked = switchDisabledReason();
+  const addDatabaseBlocked = addDatabaseDisabledReason();
+
+  const switchTooltip = switchBlocked
+    ?? [
+      `Switch to ${stagedDatabase} — keeps ${joinNames(
+        [primaryTable, ...unionTables.map((ut) => ut.table_name)].filter(Boolean),
+      )}`,
+      switchPlan.missingJoinedTables.length > 0
+        ? `· joined ${joinNames(switchPlan.missingJoinedTables)} not in ${stagedDatabase}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const addDatabaseTooltip = addDatabaseBlocked
+    ?? [
+      `Add ${pluraliseTables(mirrorPlan.toAdd.length)} from ${stagedDatabase}`,
+      mirrorPlan.missing.length > 0
+        ? `· ${mirrorPlan.missing.length} not in ${stagedDatabase} (${joinNames(mirrorPlan.missing)})`
+        : '',
+      mirrorPlan.droppedOverLimit.length > 0
+        ? `· ${mirrorPlan.droppedOverLimit.length} over the union limit`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const handleSwitch = () => {
+    if (switchBlocked || !onDatabaseSwitch) return;
+    onDatabaseSwitch(stagedDatabase);
+  };
+
+  const handleAddDatabase = () => {
+    if (addDatabaseBlocked || !onAddDatabase) return;
+    onAddDatabase(stagedDatabase, mirrorPlan);
   };
 
   return (
@@ -138,42 +237,43 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             noOptionsText="No matches"
           />
         </Box>
+        {/* Inner slot: switch. Aligns with the Table row's spacer. */}
         <Box sx={actionColumnSx}>
           {isSwitchingDatabase ? (
             <CircularProgress size={14} />
-          ) : onDbSwitchEnabledChange ? (
-            <Tooltip
-              title={
-                dbSwitchDisabled && dbSwitchDisabledReason
-                  ? dbSwitchDisabledReason
-                  : dbSwitchEnabled
-                    ? 'On: changing the database keeps current tables. Requires identical table names.'
-                    : 'Keep current tables when changing database (same table names required).'
-              }
-              placement="right"
-            >
+          ) : onDatabaseSwitch ? (
+            <Tooltip title={switchTooltip} placement="right">
               <span>
                 <IconButton
                   size="small"
-                  onClick={() => onDbSwitchEnabledChange(!dbSwitchEnabled)}
-                  disabled={dbSwitchDisabled}
-                  aria-pressed={dbSwitchEnabled}
-                  aria-label="Keep tables when changing database"
-                  color={dbSwitchEnabled ? 'primary' : 'default'}
-                  sx={{
-                    width: 26,
-                    height: 26,
-                    p: 0.25,
-                    border: '1px solid',
-                    borderColor: dbSwitchEnabled ? 'primary.dark' : 'transparent',
-                    bgcolor: dbSwitchEnabled ? 'primary.main' : undefined,
-                    color: dbSwitchEnabled ? 'primary.contrastText' : undefined,
-                    '&:hover': {
-                      bgcolor: dbSwitchEnabled ? 'primary.dark' : undefined,
-                    },
-                  }}
+                  onClick={handleSwitch}
+                  disabled={!!switchBlocked}
+                  aria-label="Switch to this database, keeping current tables"
+                  sx={actionButtonSx}
                 >
                   <SwapHorizIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Box>
+        {/* Rightmost slot: add. Aligns with the Table row's add button. */}
+        <Box sx={actionColumnSx}>
+          {onAddDatabase ? (
+            <Tooltip title={addDatabaseTooltip} placement="right">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleAddDatabase}
+                  disabled={!!addDatabaseBlocked}
+                  aria-label="Add matching tables from database"
+                  sx={actionButtonSx}
+                >
+                  {isLoadingTables ? (
+                    <CircularProgress size={14} />
+                  ) : (
+                    <LibraryAddIcon sx={{ fontSize: 18 }} />
+                  )}
                 </IconButton>
               </span>
             </Tooltip>
@@ -191,7 +291,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             value={stagedTable || null}
             options={filteredTableOptions}
             onChange={handleTableChange}
-            disabled={!stagedDatabase || isSwitchingDatabase || dbSwitchEnabled}
+            disabled={!stagedDatabase || isSwitchingDatabase}
             autoHighlight
             isOptionEqualToValue={(option, optionValue) => option === optionValue}
             className={compactAutocompleteClassName}
@@ -215,14 +315,16 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
           />
         </Box>
+        {/* Spacer keeping both dropdowns the same width as the two-slot DB row. */}
+        <Box sx={actionColumnSx} />
         <Box sx={actionColumnSx}>
-          <Tooltip title={dbSwitchEnabled ? 'Disabled while keeping tables on database change' : canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+          <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
             <span>
               <IconButton
                 size="small"
                 onClick={handleAdd}
-                disabled={!canAdd || dbSwitchEnabled}
-                sx={{ width: 26, height: 26, p: 0.25 }}
+                disabled={!canAdd}
+                sx={actionButtonSx}
                 aria-label="Add table"
               >
                 <AddIcon sx={{ fontSize: 18 }} />
