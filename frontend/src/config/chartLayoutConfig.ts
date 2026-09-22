@@ -100,6 +100,11 @@ export const TABLE_VALUES_BAND_LEFT_PX = 96;
 // a title tooltip for the full value.
 export const MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX = 200;
 export const TABLE_VALUES_BAND_TOP_PX = 18;
+// Minimum height of the table grid's top facet-header band (the "Dim A | Dim B"
+// strip). Header bands are auto-sized from their font, and one 12px line only
+// needs ~20px; tables kept the roomier 30px the old value-track formula gave
+// them, so it is pinned here as a floor rather than left to drift.
+export const TABLE_FACET_TOP_HEADER_PX = 30;
 // Axis-measure value bands (Tableau "Measure Values"): a Y-measure renders as a
 // value column of this width; an X-measure renders as a value row of this height.
 export const TABLE_MEASURE_BAND_COL_PX = 88;

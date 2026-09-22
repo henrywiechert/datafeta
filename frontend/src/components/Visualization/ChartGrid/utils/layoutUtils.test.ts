@@ -156,6 +156,37 @@ describe('layoutUtils', () => {
     } as any, 18)).toEqual([26, 26]);
   });
 
+  it('grows header bands with the font size and holds the 20px band at the 12px default', () => {
+    const topAt = (fontSize: number) =>
+      computeAutoFacetTopHeaderHeight(['Region | Year'], { fontSize, orientation: 'horizontal' } as any, 20);
+    const leftAt = (fontSize: number) =>
+      computeAutoFacetLeftHeaderWidth(['Region | Year'], { fontSize, orientation: 'vertical' } as any, 20);
+
+    // The default font must reproduce the fixed 20px bands the grid used before
+    // header sizing became font-aware, so existing charts do not shift.
+    expect(topAt(12)).toBe(20);
+    expect(leftAt(12)).toBe(20);
+
+    expect(topAt(20)).toBeGreaterThan(topAt(12));
+    expect(topAt(26)).toBeGreaterThan(topAt(20));
+    expect(leftAt(20)).toBeGreaterThan(leftAt(12));
+    expect(leftAt(26)).toBeGreaterThan(leftAt(20));
+  });
+
+  it('caps auto-sized header bands so a long joined title cannot eat the chart area', () => {
+    const longTitle = Array.from({ length: 30 }, (_, i) => `Dimension ${i}`).join(' | ');
+
+    expect(computeAutoFacetLeftHeaderWidth([longTitle], {
+      fontSize: 26,
+      orientation: 'horizontal',
+    } as any, 20)).toBeLessThanOrEqual(200);
+
+    expect(computeAutoFacetTopHeaderHeight([longTitle], {
+      fontSize: 26,
+      orientation: 'vertical',
+    } as any, 20)).toBeLessThanOrEqual(200);
+  });
+
   it('sums resolved facet track sizes for reserved-space calculations', () => {
     expect(sumTrackSizes([24, 36, 40])).toBe(100);
   });
