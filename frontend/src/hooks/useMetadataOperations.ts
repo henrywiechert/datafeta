@@ -642,22 +642,40 @@ export function useMetadataOperations({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.virtualTable]);
 
-    // Mark all axis fields as invalid when table is cleared
-    // This handles the case when user removes the table while fields are still on axes
-    const prevSelectedTableRef = useRef<string>(dataSource.selectedTable);
+    // Mark axis fields invalid while no table is selected.
+    //
+    // Axis validation otherwise only ever runs as a side effect of a successful
+    // column fetch, and with no table there is no fetch — so this is the only
+    // thing that reddens the chips after the selection is cleared.
+    //
+    // It deliberately does NOT key on the table -> none transition. The
+    // VisualizationProvider is keyed by sheet id, so switching sheets remounts
+    // it from that sheet's saved state: on the new mount there is no transition
+    // to observe and the chips would stay green even though the data is gone.
     useEffect(() => {
-        const prevTable = prevSelectedTableRef.current;
-        const currentTable = dataSource.selectedTable;
-        prevSelectedTableRef.current = currentTable;
-        
-        // Only act when table changes from non-empty to empty
-        // AND there are fields on the axes that need to be marked invalid
-        if (prevTable && !currentTable && (xAxisFields.length > 0 || yAxisFields.length > 0)) {
-            const { patchedX, patchedY } = markAllAxisFieldsInvalid(xAxisFields, yAxisFields);
-            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
-        }
-    }, [dataSource.selectedTable, xAxisFields, yAxisFields, dispatch]);
+        if (dataSource.selectedTable) return;
+
+        // Terminates the effect. It depends on the axis arrays and replaces
+        // them, so re-running on its own dispatch would loop forever without a
+        // condition that goes false once the work is done.
+        const hasStillValidChip = [...xAxisFields, ...yAxisFields].some(
+            (field) => field.isInvalid !== true,
+        );
+        if (!hasStillValidChip) return;
+
+        // Distinguishes "the user cleared the selection" from "a restore has
+        // not reached the data source yet". Loading a configuration restores
+        // sheets first and defers the data source into a rAF + timeout, having
+        // explicitly emptied `tables` — so an empty table list means the source
+        // is still settling and the chips must be left alone. Clearing the
+        // selection leaves `tables` populated (SET_SELECTED_TABLE does not
+        // touch it).
+        if (dataSource.tables.length === 0) return;
+
+        const { patchedX, patchedY } = markAllAxisFieldsInvalid(xAxisFields, yAxisFields);
+        dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+        dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+    }, [dataSource.selectedTable, dataSource.tables.length, xAxisFields, yAxisFields, dispatch]);
 
     const switchDatabasePreserveTablesHandler = useCallback(async (newDatabase: string) => {
         if (connectionDetails?.type !== 'clickhouse') {
