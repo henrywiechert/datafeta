@@ -26,6 +26,12 @@ import styles from './SelectedTablesList.module.css';
 
 type UnionTableRef = { database: string; table_name: string };
 
+/** A destructive action held back until the user confirms it. */
+type PendingConfirm = { title: string; detail: string; onConfirm: () => void };
+
+const plural = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`;
+
 interface SelectedTablesListProps {
   primaryDatabase: string;
   primaryTable: string;
@@ -321,9 +327,7 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
   onRemoveDatabase,
 }) => {
   const [expanded, setExpanded] = React.useState(true);
-  const [pendingRemoval, setPendingRemoval] = React.useState<
-    { database: string; tables: UnionTableRef[] } | null
-  >(null);
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null);
   const hasPrimary = !!primaryTable;
   const hasAny = hasPrimary || unionTables.length > 0 || joinedTables.length > 0;
 
@@ -368,11 +372,31 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
     return grouped;
   }, [onRemoveDatabase, unionTables, primaryDatabase]);
 
-  const confirmRemoval = React.useCallback(() => {
-    if (!pendingRemoval) return;
-    onRemoveDatabase?.(pendingRemoval.database, pendingRemoval.tables);
-    setPendingRemoval(null);
-  }, [pendingRemoval, onRemoveDatabase]);
+  const runPendingConfirm = React.useCallback(() => {
+    if (!pendingConfirm) return;
+    pendingConfirm.onConfirm();
+    setPendingConfirm(null);
+  }, [pendingConfirm]);
+
+  /**
+   * Clearing the primary is the most destructive action in the panel:
+   * SET_SELECTED_TABLE also drops every union and join, the detected
+   * relationships and the merged virtual table, and leaves axis fields invalid.
+   */
+  const requestRemovePrimary = React.useCallback(() => {
+    const alsoLost = [
+      unionTables.length > 0 ? plural(unionTables.length, 'union table') : '',
+      joinedTables.length > 0 ? plural(joinedTables.length, 'joined table') : '',
+    ].filter(Boolean);
+
+    setPendingConfirm({
+      title: `Remove ${primaryDatabase ? `${primaryDatabase}.` : ''}${primaryTable}?`,
+      detail: alsoLost.length > 0
+        ? `This clears the whole selection — ${alsoLost.join(' and ')} go too, along with table relationships. Fields on the axes become invalid.`
+        : 'Fields currently on the axes become invalid.',
+      onConfirm: onRemovePrimary,
+    });
+  }, [unionTables.length, joinedTables.length, primaryDatabase, primaryTable, onRemovePrimary]);
 
   const hasSecondaryTables = sortedJoined.length > 0 || unionTables.length > 0;
   const rowStats = useTableRowStats(rowTargets);
@@ -425,7 +449,7 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
               rowStat={rowStats.primary}
               statKey="primary"
               fetchedCols={fetchedCols}
-              onRemove={onRemovePrimary}
+              onRemove={requestRemovePrimary}
             />
           )}
 
@@ -463,7 +487,12 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
                 onRemove={() => onRemoveUnionTable(t.database, t.table_name)}
                 onRemoveDatabase={
                   siblings
-                    ? () => setPendingRemoval({ database: t.database, tables: siblings })
+                    ? () =>
+                        setPendingConfirm({
+                          title: `Remove ${plural(siblings.length, 'table')} from ${t.database}?`,
+                          detail: siblings.map((u) => u.table_name).join(', '),
+                          onConfirm: () => onRemoveDatabase?.(t.database, siblings),
+                        })
                     : undefined
                 }
                 removeDatabaseCount={siblings?.length}
@@ -474,24 +503,22 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
       </Collapse>
 
       <Dialog
-        open={!!pendingRemoval}
-        onClose={() => setPendingRemoval(null)}
+        open={!!pendingConfirm}
+        onClose={() => setPendingConfirm(null)}
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontSize: '0.9rem', pb: 1 }}>
-          Remove {pendingRemoval?.tables.length} tables from {pendingRemoval?.database}?
-        </DialogTitle>
+        <DialogTitle sx={{ fontSize: '0.9rem', pb: 1 }}>{pendingConfirm?.title}</DialogTitle>
         <DialogContent sx={{ pb: 1 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {pendingRemoval?.tables.map((t) => t.table_name).join(', ')}
+            {pendingConfirm?.detail}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button size="small" onClick={() => setPendingRemoval(null)}>
+          <Button size="small" onClick={() => setPendingConfirm(null)}>
             Cancel
           </Button>
-          <Button size="small" color="error" onClick={confirmRemoval}>
+          <Button size="small" color="error" onClick={runPendingConfirm}>
             Remove
           </Button>
         </DialogActions>

@@ -90,7 +90,7 @@ Two cards, with the shell canvas between them:
 | `FieldsPanel` | Main orchestrator; manages drop-to-remove, search filtering, field categorization, keyboard shortcuts (Escape clears selection) |
 | `CompactMetadataSelector` | The Data Source card, mounted by `VisualizationPage` rather than by `FieldsPanel`. Routes to appropriate table selection UI based on connection type; handles JOIN/UNION coordination |
 | `TableAddPicker` | Staged DB+table selection. Dropdowns only stage; the three buttons are the only things that commit. Resolves both DB-row actions from the cached table list so each button knows its outcome before the click |
-| `SelectedTablesList` | Displays primary table + union secondaries. Two remove actions per row: the table, and (for a non-primary database contributing 2+ tables) every table of that database behind a confirm dialog |
+| `SelectedTablesList` | Displays primary table + union secondaries. Two remove actions per row: the table, and (for a non-primary database contributing 2+ tables) every table of that database. Owns one shared confirm dialog, used by the per-database remove and by removing the primary |
 | `JoinTableSelector` | Collapsible panel showing related/joinable tables with toggle chips |
 | `FieldCategory` | Renders a category (Dimensions/Measures) with virtualization for large lists (>50 fields) |
 | `FieldsSearch` | Controlled text input for filtering fields by name, aggregation, or data type |
@@ -169,6 +169,22 @@ Bulk paths (`⊞`, and *Add by pattern*) must use the batched
 `ADD_UNION_TABLES` action: the merged-columns effect in `useMetadataOperations`
 keys on `unionTables` identity, so one dispatch per table would cost one
 `getMergedColumns` round trip per table.
+
+### Confirming destructive removals
+
+`SelectedTablesList` holds a single `PendingConfirm` (`{ title, detail,
+onConfirm }`) that backs one dialog, rather than one dialog per action. Two
+things route through it:
+
+- **Removing the primary**, because `SET_SELECTED_TABLE` also drops every union
+  and join, the detected relationships and the merged virtual table, and leaves
+  axis fields invalid. The `detail` line enumerates what will actually be lost
+  for the current selection, falling back to the axis warning when the primary
+  is the only table.
+- **Removing a whole database** (below).
+
+Removing a single secondary stays immediate — it is one row, and the row is
+trivially re-added.
 
 ### Removing a whole database
 
