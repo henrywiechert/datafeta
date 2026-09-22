@@ -46,7 +46,7 @@ Two cards, with the shell canvas between them:
 │  ┌───────────────────┬──┬──┐        │
 │  │ [Table          ▼]│  │ +│        │     + add the staged table
 │  └───────────────────┴──┴──┘        │
-│  Added 2 tables from prod_eu  [Undo]│  ← mirror result strip
+│  (1 table not in prod_eu)           │  ← transient skip badge
 │  Selected Tables                    │  ← SelectedTablesList
 │  ┌─────────────────────────────┐    │
 │  │ [P] prod_us/orders      🗑️ │    │
@@ -162,7 +162,8 @@ TableAddPicker ──stage DB──► planDatabaseMirror(cached table list)
                      onAddUnionTables(plan.toAdd)  ── ONE dispatch
                                      │
                                      ▼
-                        result strip + Undo ──► removeUnionTables()
+                     skip badge, only if something was
+                     left behind; clears itself after 6s
 ```
 
 Bulk paths (`⊞`, and *Add by pattern*) must use the batched

@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CompactMetadataSelector from './CompactMetadataSelector';
 import { DataSourceProvider } from '../../../contexts/DataSourceContext';
 
@@ -232,15 +232,16 @@ describe('CompactMetadataSelector — database mirror', () => {
     expect(onAddUnionTable).not.toHaveBeenCalled();
   });
 
-  it('reports what landed', () => {
+  // Tables that landed announce themselves by appearing in Selected Tables.
+  it('says nothing when everything came over', () => {
     renderMirrorSelector();
 
     mirrorFromProdEu();
 
-    expect(screen.getByText('Added 2 tables from prod_eu')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('reports tables the database did not have', () => {
+  it('badges the tables the database did not have', () => {
     renderMirrorSelector({
       tablesCache: {
         prod_us: [{ name: 'orders' }, { name: 'events' }],
@@ -250,23 +251,46 @@ describe('CompactMetadataSelector — database mirror', () => {
 
     mirrorFromProdEu();
 
-    expect(
-      screen.getByText('Added 1 table from prod_eu \u00b7 1 not in prod_eu')
-    ).toBeInTheDocument();
+    const badge = screen.getByRole('status');
+    expect(badge).toHaveTextContent('1 table not in prod_eu');
+    // The names themselves are in the tooltip, so a wide database cannot
+    // stretch the panel.
+    expect(badge).toHaveAttribute('title', 'events');
   });
 
-  it('undoes exactly the refs it added', () => {
+  it('drops the badge on its own', async () => {
+    jest.useFakeTimers();
+    try {
+      renderMirrorSelector({
+        tablesCache: {
+          prod_us: [{ name: 'orders' }, { name: 'events' }],
+          prod_eu: [{ name: 'orders' }],
+        },
+      });
+
+      mirrorFromProdEu();
+      expect(screen.getByRole('status')).toBeInTheDocument();
+
+      act(() => {
+        jest.advanceTimersByTime(6000);
+      });
+      act(() => {
+        jest.runOnlyPendingTimers();
+      });
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('offers no undo', () => {
     const { onRemoveUnionTables } = renderMirrorSelector();
 
     mirrorFromProdEu();
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
 
-    expect(onRemoveUnionTables).toHaveBeenCalledTimes(1);
-    expect(onRemoveUnionTables).toHaveBeenCalledWith([
-      { database: 'prod_eu', table_name: 'orders' },
-      { database: 'prod_eu', table_name: 'events' },
-    ]);
-    expect(screen.queryByText('Added 2 tables from prod_eu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(onRemoveUnionTables).not.toHaveBeenCalled();
   });
 
   it('hides the add-database action when no batched setter is wired', () => {
