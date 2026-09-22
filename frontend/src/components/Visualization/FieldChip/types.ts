@@ -10,7 +10,8 @@ export interface FieldChipProps {
   source: DragSource;
   onUpdate: (fields: Field | Field[]) => void; // Accepts single field or array
   index?: number;
-  isInvalidOnAxis?: boolean;
+  /** Render the field as invalid. Defaults to the field's own `isInvalid`. */
+  isInvalid?: boolean;
   allFields?: Field[]; // For range selection
   onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
 }

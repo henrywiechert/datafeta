@@ -339,7 +339,7 @@ const DropZone: React.FC<DropZoneProps> = ({
                   onUpdate={onFieldUpdate}
                   source={axisToDragSource(axis)}
                   index={index}
-                  isInvalidOnAxis={isInvalid}
+                  isInvalid={isInvalid}
                   allFields={fields}
                   onRemoveFromZone={(ids) => {
                     // Axis drop zones: remove from axis (context menu action)

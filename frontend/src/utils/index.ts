@@ -12,7 +12,7 @@ export * from './fieldColumnName';
 export * from './syntheticFields';
 
 // Axis and validation
-export * from './axisFieldValidation';
+export * from './fieldValidation';
 
 // Binning utilities
 export * from './binningUtils';

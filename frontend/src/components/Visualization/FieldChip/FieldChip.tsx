@@ -34,7 +34,7 @@ const FieldChip: React.FC<
     onRemoveFromZone?: (fieldIds: string[]) => void;
     displayNameOverride?: string;
   }
-> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride, onCreateBins }) => {
+> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride, onCreateBins, isInvalid }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Granular subscription - only re-renders when THIS field's selection changes
@@ -98,8 +98,8 @@ const FieldChip: React.FC<
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         dragCount={dragCount}
-        // Mark invalid only when on axes and the field has been flagged upstream
-        isInvalidOnAxis={(source === 'X_AXIS' || source === 'Y_AXIS') && field.isInvalid === true}
+        // Flagged upstream by field validation; a zone can override to opt out.
+        isInvalid={isInvalid ?? field.isInvalid === true}
       />
       
       <FieldContextMenu

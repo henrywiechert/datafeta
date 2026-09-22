@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { ConnectionDetails, Field, VirtualColumnDefinition, ForeignKeyRelationship, Sheet } from '../types';
 import { apiService } from '../apiService';
-import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
+import { buildValidColumnNames } from '../utils/fieldValidation';
 import { processColumnsResponse } from '../utils/fieldUtils';
 import {
     switchDatabasePreserveTables,
@@ -85,10 +85,6 @@ export function useMetadataOperations({
     const columnsFetchedForRef = useRef<string | null>(null);
     const prevTablesLengthRef = useRef(dataSource.tables.length);
     const prevFieldsLengthRef = useRef(dataSource.availableFields.length);
-    const xAxisFieldsRef = useRef(xAxisFields);
-    const yAxisFieldsRef = useRef(yAxisFields);
-    xAxisFieldsRef.current = xAxisFields;
-    yAxisFieldsRef.current = yAxisFields;
 
     // Re-init metadata when the connection itself changes — not when only the
     // ClickHouse database field is updated during a keep-tables switch.
@@ -177,19 +173,17 @@ export function useMetadataOperations({
             );
 
             // Update state
-            dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
             dataSourceSetters.setAvailableFields(allFields);
 
-            // Mark axis fields that are not present in new schema as invalid
-            // Include both real columns AND virtual columns in the valid names
-            const validNames = buildValidColumnNames(allFields, virtualColumns);
-            const { patchedX, patchedY } = validateAxisFields(
-                xAxisFieldsRef.current,
-                yAxisFieldsRef.current,
-                validNames,
-            );
-            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+            // Flag every field-bearing slot against the new schema. Valid names
+            // cover real columns AND virtual columns.
+            dispatch({
+                type: 'VALIDATE_ALL_FIELDS',
+                payload: {
+                    validNames: Array.from(buildValidColumnNames(allFields, virtualColumns)),
+                    validMeasureNames,
+                },
+            });
             
             // Note: FORCE_QUERY_REFRESH is handled by the snapshot detection effect
             // which waits for BOTH availableFields AND selectedTable to be set.
@@ -288,19 +282,16 @@ export function useMetadataOperations({
                 );
 
                 // Update state
-                dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
                 dataSourceSetters.setAvailableFields(allFields);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
-                
-                // Mark axis fields that are not present in new schema as invalid
-                const validNames = buildValidColumnNames(allFields, virtualColumns);
-                const { patchedX, patchedY } = validateAxisFields(
-                    xAxisFieldsRef.current,
-                    yAxisFieldsRef.current,
-                    validNames,
-                );
-                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+
+                dispatch({
+                    type: 'VALIDATE_ALL_FIELDS',
+                    payload: {
+                        validNames: Array.from(buildValidColumnNames(allFields, virtualColumns)),
+                        validMeasureNames,
+                    },
+                });
                 
                 dataSourceSetters.setIsLoadingMetadata(false);
                 
@@ -324,19 +315,16 @@ export function useMetadataOperations({
             );
 
             // Update state
-            dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
             dataSourceSetters.setAvailableFields(allFields);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
-            // Mark axis fields that are not present in new schema as invalid
-            const validNames = buildValidColumnNames(allFields, virtualColumns);
-            const { patchedX, patchedY } = validateAxisFields(
-                xAxisFieldsRef.current,
-                yAxisFieldsRef.current,
-                validNames,
-            );
-            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+            dispatch({
+                type: 'VALIDATE_ALL_FIELDS',
+                payload: {
+                    validNames: Array.from(buildValidColumnNames(allFields, virtualColumns)),
+                    validMeasureNames,
+                },
+            });
             
             // Don't dispatch here - let the useEffect below handle it after virtualTable is set
         } catch (err: any) {
@@ -655,9 +643,10 @@ export function useMetadataOperations({
     useEffect(() => {
         if (dataSource.selectedTable) return;
 
-        // Terminates the effect. It depends on the axis arrays and replaces
-        // them, so re-running on its own dispatch would loop forever without a
-        // condition that goes false once the work is done.
+        // Terminates the effect. It depends on the axis arrays and the
+        // dispatch replaces them, so without a condition that goes false once
+        // the work is done it would loop forever. The axes are a sufficient
+        // probe: the same dispatch flags every other slot in one pass.
         const hasStillValidChip = [...xAxisFields, ...yAxisFields].some(
             (field) => field.isInvalid !== true,
         );
@@ -672,9 +661,11 @@ export function useMetadataOperations({
         // touch it).
         if (dataSource.tables.length === 0) return;
 
-        const { patchedX, patchedY } = markAllAxisFieldsInvalid(xAxisFields, yAxisFields);
-        dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-        dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+        // No schema to check against: empty name sets flag everything.
+        dispatch({
+            type: 'VALIDATE_ALL_FIELDS',
+            payload: { validNames: [], validMeasureNames: [] },
+        });
     }, [dataSource.selectedTable, dataSource.tables.length, xAxisFields, yAxisFields, dispatch]);
 
     const switchDatabasePreserveTablesHandler = useCallback(async (newDatabase: string) => {
@@ -694,8 +685,6 @@ export function useMetadataOperations({
                 unionTables: dataSource.unionTables,
                 customRelationships: dataSource.customRelationships,
                 fieldDisplayAliases: dataSource.fieldDisplayAliases,
-                xAxisFields: xAxisFieldsRef.current,
-                yAxisFields: yAxisFieldsRef.current,
                 virtualColumns,
                 sheets,
                 sessionFilterFields,
@@ -707,12 +696,11 @@ export function useMetadataOperations({
                 setVirtualTable: dataSourceSetters.setVirtualTable,
                 setIsLoadingMetadata: dataSourceSetters.setIsLoadingMetadata,
                 setMetadataError: dataSourceSetters.setMetadataError,
-                pruneMeasureGroupMembers: (validMeasureNames) => {
-                    dispatch({ type: 'PRUNE_MEASURE_GROUP_MEMBERS', payload: { validMeasureNames } });
-                },
-                patchAxisFields: (patchedX, patchedY) => {
-                    dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
-                    dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+                validateAllFields: (validNames, validMeasureNames) => {
+                    dispatch({
+                        type: 'VALIDATE_ALL_FIELDS',
+                        payload: { validNames, validMeasureNames },
+                    });
                 },
                 onUpdateConnectionDatabase,
             });
