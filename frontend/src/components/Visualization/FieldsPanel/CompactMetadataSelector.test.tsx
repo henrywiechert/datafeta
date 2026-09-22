@@ -85,7 +85,7 @@ describe('CompactMetadataSelector', () => {
       tables: [{ name: 'orders' }],
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add by pattern' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add tables by pattern' }));
 
     expect(screen.getByRole('dialog', { name: 'Add Tables By Pattern' })).toBeInTheDocument();
     expect(screen.getByLabelText('Collapse data source')).toHaveAttribute('aria-expanded', 'true');
@@ -167,10 +167,10 @@ describe('CompactMetadataSelector', () => {
     expect(screen.getByText('Related Tables')).toBeInTheDocument();
   });
 
-  it('offers Add by pattern unconditionally now that there is no switch mode', () => {
+  it('offers Add tables by pattern unconditionally now that there is no switch mode', () => {
     renderJoinSelector();
 
-    expect(screen.getByRole('button', { name: 'Add by pattern' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add tables by pattern' })).toBeEnabled();
   });
 });
 

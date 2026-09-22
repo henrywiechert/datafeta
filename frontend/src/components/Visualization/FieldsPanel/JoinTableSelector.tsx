@@ -12,7 +12,6 @@ import AddLinkIcon from '@mui/icons-material/AddLink';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import TuneIcon from '@mui/icons-material/Tune';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import RelationshipEditor from './RelationshipEditor';
 import styles from './JoinTableSelector.module.css';
@@ -83,24 +82,20 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
             </Typography>
           )}
         </Typography>
-        <Box>
-          <Tooltip title="Manage relationships" arrow>
-            <IconButton
-              size="small"
-              aria-label="Manage relationships"
-              onClick={() => onEditorOpenChange(true)}
-            >
-              <TuneIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton 
-            size="small" 
-            onClick={() => setExpanded(!expanded)}
-            className={styles.expandButton}
-          >
-            {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-          </IconButton>
-        </Box>
+        {/*
+          No relationships button here: the Data Source card header owns that
+          action (CompactMetadataSelector), and it is shown whenever joins are
+          supported and a table is selected — a superset of the cases where
+          this box is visible. Two buttons for one dialog, at two different
+          sizes, read as two different controls.
+        */}
+        <IconButton
+          size="small"
+          onClick={() => setExpanded(!expanded)}
+          className={styles.expandButton}
+        >
+          {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+        </IconButton>
       </Box>
 
             <Collapse in={expanded}>

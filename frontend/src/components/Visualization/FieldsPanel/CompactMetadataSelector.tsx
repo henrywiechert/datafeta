@@ -1,10 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, Button, Chip, CircularProgress, Fade, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
+import { Box, Chip, CircularProgress, Fade, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import TuneIcon from '@mui/icons-material/Tune';
 import { Database, Table, Field } from '../../../types';
@@ -426,21 +427,16 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             </>
           )}
           {connectionType === 'clickhouse' && (
-            <Button
-              size="small"
-              onClick={() => setIsPatternDialogOpen(true)}
-              sx={{
-                minWidth: 0,
-                minHeight: 20,
-                px: 0.5,
-                py: 0,
-                textTransform: 'none',
-                fontSize: '0.68rem',
-                lineHeight: 1.2,
-              }}
-            >
-              Add by pattern
-            </Button>
+            <Tooltip title="Add tables by pattern" placement="left">
+              <IconButton
+                size="small"
+                aria-label="Add tables by pattern"
+                onClick={() => setIsPatternDialogOpen(true)}
+                sx={{ width: 20, height: 20 }}
+              >
+                <PlaylistAddIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
           )}
           {supportsJoins && selectedTable && onToggleJoinedTable && (
             <Tooltip title="Manage relationships" placement="left">
