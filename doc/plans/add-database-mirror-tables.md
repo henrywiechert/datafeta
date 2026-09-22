@@ -591,6 +591,25 @@ was no way to drop a database once the strip had gone.
   keeps a Dialog's paper mounted through its close transition, so asserting it
   has gone needs `waitFor`.
 
+### Follow-up: Undo replaced by a transient skip badge
+
+Also on request. The Undo button is gone, along with the "Added N tables"
+summary: tables that land announce themselves by appearing in Selected Tables,
+so the only thing worth saying is what did *not* come over.
+
+- A warning `Chip` (`role="status"`) now appears under the picker **only** when
+  the mirror skipped something — tables absent from the database, or dropped at
+  the union limit — and removes itself after 6s (`SKIP_NOTICE_MS`), fading out.
+  Names go in its `title` so a wide database cannot stretch the panel.
+- The notice carries a `key` stamped from `Date.now()` so re-notifying with
+  identical text restarts the timer instead of silently reusing the old one.
+- Bulk removal is now the per-database sweep in Selected Tables, which is
+  durable rather than transient. `onRemoveUnionTables` stays wired for that.
+- Earlier reasoning against an auto-dismiss timer (the card is collapsible, so a
+  timer can hide the message unread) is accepted rather than refuted: the badge
+  is informational only, and the tables it names are visibly absent from
+  Selected Tables regardless.
+
 ### Follow-up: confirming removal of the primary
 
 Also on request. The per-database remove's dialog was generalised into a single

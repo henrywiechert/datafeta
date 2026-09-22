@@ -51,8 +51,9 @@ button before clicking and the tooltip tells you exactly what it will do —
 including how many tables it will add and any that the staged database does not
 have. If a button is greyed out, its tooltip says why.
 
-After an add, a line appears under the picker summarising what landed, with an
-**Undo** that removes just those tables.
+Tables that came over simply appear in **Selected Tables**. If any could not —
+because the database does not have them — a short badge says so under the picker
+and then fades; remove anything you did not want from Selected Tables.
 
 Two things worth knowing:
 

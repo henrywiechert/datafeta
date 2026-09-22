@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, Button, CircularProgress, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, Fade, Typography, TextField, IconButton, Tooltip, Collapse } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
@@ -132,6 +132,9 @@ interface CompactMetadataSelectorProps {
 
 const DATA_SOURCE_EXPANDED_KEY = 'fieldsPanel.dataSource.expanded';
 
+/** How long the "could not add these" badge stays up. */
+const SKIP_NOTICE_MS = 6000;
+
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   connectionType,
   selectedDatabase,
@@ -234,18 +237,39 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     [selectedTable, onAddUnionTable, onAddUnionTables, onDatabaseSelect, onTableSelect]
   );
 
-  // Result of the last database mirror, for the summary strip and its Undo.
-  // Undo/redo does not cover DataSourceContext, so this is the only bulk-undo
-  // path for a mirrored add.
-  const [lastMirror, setLastMirror] = React.useState<
-    { database: string; plan: DatabaseMirrorPlan } | null
+  /**
+   * What a database add could not bring over. Tables that DID land need no
+   * announcement — they appear in Selected Tables — so this is raised only
+   * when something was left behind, and it clears itself.
+   */
+  const [skipNotice, setSkipNotice] = React.useState<
+    { key: number; label: string; detail: string } | null
   >(null);
 
   const handleAddDatabase = React.useCallback(
     (database: string, plan: DatabaseMirrorPlan) => {
       if (plan.toAdd.length === 0) return;
       onAddUnionTables?.(plan.toAdd);
-      setLastMirror({ database, plan });
+
+      const parts: string[] = [];
+      if (plan.missing.length > 0) {
+        parts.push(
+          `${plan.missing.length} table${plan.missing.length === 1 ? '' : 's'} not in ${database}`,
+        );
+      }
+      if (plan.droppedOverLimit.length > 0) {
+        parts.push(`${plan.droppedOverLimit.length} over the union limit`);
+      }
+      setSkipNotice(
+        parts.length === 0
+          ? null
+          : {
+              // Re-notifying with identical text must restart the timer.
+              key: Date.now(),
+              label: parts.join(' \u00b7 '),
+              detail: [...plan.missing, ...plan.droppedOverLimit.map((t) => t.table_name)].join(', '),
+            },
+      );
     },
     [onAddUnionTables]
   );
@@ -254,40 +278,23 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     (_database: string, tables: UnionTableRef[]) => {
       if (tables.length === 0) return;
       onRemoveUnionTables?.(tables);
-      // The mirror summary may describe tables that just went away.
-      setLastMirror(null);
     },
     [onRemoveUnionTables]
   );
 
-  const handleUndoMirror = React.useCallback(() => {
-    if (!lastMirror) return;
-    onRemoveUnionTables?.(lastMirror.plan.toAdd);
-    setLastMirror(null);
-  }, [lastMirror, onRemoveUnionTables]);
-
-  // Drop the strip once it no longer describes the current selection.
+  // Self-dismissing: the notice reports history, not state, so it must not
+  // outlive the moment. Nothing is lost if it goes unread — the tables it
+  // names are simply absent from Selected Tables.
   React.useEffect(() => {
-    setLastMirror(null);
-  }, [selectedDatabase, selectedTable]);
+    if (!skipNotice) return;
+    const timer = window.setTimeout(() => setSkipNotice(null), SKIP_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [skipNotice]);
 
-  const mirrorSummary = React.useMemo(() => {
-    if (!lastMirror) return null;
-    const { database, plan } = lastMirror;
-    const parts = [
-      `Added ${plan.toAdd.length} table${plan.toAdd.length === 1 ? '' : 's'} from ${database}`,
-    ];
-    if (plan.missing.length > 0) {
-      parts.push(`${plan.missing.length} not in ${database}`);
-    }
-    if (plan.droppedOverLimit.length > 0) {
-      parts.push(`${plan.droppedOverLimit.length} skipped (union limit)`);
-    }
-    return {
-      text: parts.join(' \u00b7 '),
-      detail: [...plan.missing, ...plan.droppedOverLimit.map((t) => t.table_name)].join(', '),
-    };
-  }, [lastMirror]);
+  // A new selection makes the old notice meaningless.
+  React.useEffect(() => {
+    setSkipNotice(null);
+  }, [selectedDatabase, selectedTable]);
 
   const handleRemovePrimary = React.useCallback(() => {
     // Clear primary (this also resets JOIN/UNION in DataSourceContext via setSelectedTable)
@@ -483,45 +490,23 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             isSwitchingDatabase={isSwitchingDatabase}
           />
 
-          {mirrorSummary && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                mt: 0.5,
-                py: 0.25,
-                px: 0.75,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography
-                variant="caption"
-                title={mirrorSummary.detail || undefined}
-                sx={{ flex: 1, minWidth: 0, color: 'text.secondary' }}
-              >
-                {mirrorSummary.text}
-              </Typography>
-              <Button
+          <Fade in={!!skipNotice} appear timeout={{ enter: 0, exit: 400 }} unmountOnExit>
+            <Box sx={{ mt: 0.5 }}>
+              <Chip
                 size="small"
-                onClick={handleUndoMirror}
+                variant="outlined"
+                color="warning"
+                role="status"
+                label={skipNotice?.label ?? ''}
+                title={skipNotice?.detail || undefined}
                 sx={{
-                  minWidth: 0,
-                  minHeight: 18,
-                  px: 0.5,
-                  py: 0,
-                  textTransform: 'none',
-                  fontSize: '0.68rem',
-                  lineHeight: 1.2,
+                  height: 18,
+                  maxWidth: '100%',
+                  '& .MuiChip-label': { px: 0.75, fontSize: '0.68rem' },
                 }}
-              >
-                Undo
-              </Button>
+              />
             </Box>
-          )}
+          </Fade>
 
           <SelectedTablesList
             primaryDatabase={selectedDatabase}
