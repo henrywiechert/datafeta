@@ -585,6 +585,18 @@ was no way to drop a database once the strip had gone.
   (`Remove prod_eu.orders`). The bare table name stopped being unique the moment
   mirroring put the same name on several rows — a latent labelling bug this
   feature turned into the common case.
-- 8 new tests in `SelectedTablesList.test.tsx` (the file did not exist before).
+- 13 new tests in `SelectedTablesList.test.tsx` (the file did not exist before).
   Note `react-scripts` enables jest `resetMocks`, so module-mock implementations
-  must be installed in `beforeEach`, not in the `jest.mock` factory.
+  must be installed in `beforeEach`, not in the `jest.mock` factory; and MUI
+  keeps a Dialog's paper mounted through its close transition, so asserting it
+  has gone needs `waitFor`.
+
+### Follow-up: confirming removal of the primary
+
+Also on request. The per-database remove's dialog was generalised into a single
+`PendingConfirm` (`{ title, detail, onConfirm }`) serving both actions rather
+than adding a second dialog. Removing the primary now confirms unconditionally,
+with the `detail` line enumerating what the current selection will actually lose
+(unions, joins, relationships) and falling back to the axis-invalidation warning
+when the primary is the only table. Removing a single secondary is still
+immediate.

@@ -146,3 +146,62 @@ describe('SelectedTablesList — remove a whole database', () => {
     expect(screen.getByText('orders, events')).toBeInTheDocument();
   });
 });
+
+describe('SelectedTablesList — removing the primary table', () => {
+  const clickRemovePrimary = () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Remove prod_us.orders' }));
+
+  it('asks first, and removes nothing until confirmed', async () => {
+    const { onRemovePrimary } = renderList();
+    await flushStats();
+
+    clickRemovePrimary();
+
+    expect(screen.getByRole('dialog', { name: /Remove prod_us.orders\?/ })).toBeInTheDocument();
+    expect(onRemovePrimary).not.toHaveBeenCalled();
+  });
+
+  it('removes it on confirm', async () => {
+    const { onRemovePrimary } = renderList();
+    await flushStats();
+
+    clickRemovePrimary();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(onRemovePrimary).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps it on cancel', async () => {
+    const { onRemovePrimary } = renderList();
+    await flushStats();
+
+    clickRemovePrimary();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onRemovePrimary).not.toHaveBeenCalled();
+    // MUI keeps the paper mounted through the close transition.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  // SET_SELECTED_TABLE drops unions, joins, relationships and the virtual
+  // table, so the dialog has to say so rather than just "are you sure".
+  it('spells out everything else that goes with it', async () => {
+    renderList({ joinedTables: ['customers'] });
+    await flushStats();
+
+    clickRemovePrimary();
+
+    expect(
+      screen.getByText(/3 union tables and 1 joined table go too/)
+    ).toBeInTheDocument();
+  });
+
+  it('warns about the axes even with nothing else selected', async () => {
+    renderList({ unionTables: [], joinedTables: [] });
+    await flushStats();
+
+    clickRemovePrimary();
+
+    expect(screen.getByText('Fields currently on the axes become invalid.')).toBeInTheDocument();
+  });
+});

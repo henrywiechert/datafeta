@@ -62,6 +62,13 @@ Two things worth knowing:
   there is no single database left to switch to. Remove the extra tables from
   **Selected Tables** to get it back.
 
+### Removing the primary table
+
+The primary table is the one marked **P**. Removing it clears the *whole*
+selection — every unioned and joined table goes with it, along with detected
+relationships — so DataSlicer asks first and tells you what you are about to
+lose. Fields already placed on the axes are marked invalid either way.
+
 ### Removing a database again
 
 In **Selected Tables**, rows belonging to another database carry two icons: the
