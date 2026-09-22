@@ -217,3 +217,125 @@ describe('useMetadataOperations', () => {
     expect(lastPayload.map((field: { columnName: string }) => field.columnName)).toEqual(['region']);
   });
 });
+
+describe('useMetadataOperations — axis chips with no table selected', () => {
+  const dispatch = jest.fn();
+  const connectionDetails = { type: 'clickhouse' as const };
+
+  const field = (columnName: string, isInvalid?: boolean) => ({
+    id: `field-${columnName}`,
+    columnName,
+    type: 'dimension' as const,
+    flavour: 'discrete' as const,
+    dataType: 'string' as const,
+    ...(isInvalid === undefined ? {} : { isInvalid }),
+  });
+
+  /** Mount the hook as a freshly keyed sheet would: no transition to observe. */
+  const mountWith = (overrides: Partial<DataSourceState>, xAxisFields: any[]) =>
+    renderHook(() => {
+      const [dataSource] = useState<DataSourceState>({
+        databases: [{ name: 'analytics' }],
+        tables: [{ name: 'orders' }],
+        selectedDatabase: 'analytics',
+        selectedTable: '',
+        availableFields: [],
+        isLoadingMetadata: false,
+        metadataError: null,
+        joinedTables: [],
+        unionTables: [],
+        virtualTable: null,
+        fieldDisplayAliases: {},
+        customRelationships: null,
+        ...overrides,
+      });
+
+      const dataSourceSetters = useMemo(
+        () => ({
+          setDatabases: jest.fn(),
+          setTables: jest.fn(),
+          setSelectedDatabase: jest.fn(),
+          setSelectedTable: jest.fn(),
+          setAvailableFields: jest.fn(),
+          setIsLoadingMetadata: jest.fn(),
+          setMetadataError: jest.fn(),
+          setSuggestedJoinableTables: jest.fn(),
+          setSuggestedUnionableTables: jest.fn(),
+          setVirtualTable: jest.fn(),
+          setUnionTables: jest.fn(),
+          setTablesForDatabase: jest.fn(),
+        }),
+        [],
+      );
+
+      return useMetadataOperations({
+        connectionDetails,
+        dataSource,
+        dataSourceSetters,
+        xAxisFields,
+        yAxisFields: [],
+        virtualColumns: [],
+        dispatch,
+      });
+    });
+
+  const axisPayloads = () =>
+    dispatch.mock.calls
+      .filter((call) => call[0]?.type === 'SET_X_AXIS_FIELDS')
+      .map((call) => call[0].payload);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApi.listDatabases.mockResolvedValue({ databases: [] } as any);
+    mockApi.listTables.mockResolvedValue({ tables: [] } as any);
+    mockApi.getSuggestedJoins.mockResolvedValue({ suggested_tables: [] } as any);
+  });
+
+  // The reported bug: switching sheets remounts the provider from the sheet's
+  // saved state, so there is no table -> none transition to react to.
+  it('invalidates on mount when a sheet is opened with no table selected', async () => {
+    mountWith({}, [field('region')]);
+
+    await waitFor(() => expect(axisPayloads().length).toBeGreaterThan(0));
+    expect(axisPayloads()[0]).toEqual([expect.objectContaining({ columnName: 'region', isInvalid: true })]);
+  });
+
+  it('does nothing once every chip is already invalid', async () => {
+    mountWith({}, [field('region', true)]);
+
+    await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
+    expect(axisPayloads()).toHaveLength(0);
+  });
+
+  it('does nothing when there are no chips to invalidate', async () => {
+    mountWith({}, []);
+
+    await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
+    expect(axisPayloads()).toHaveLength(0);
+  });
+
+  it('leaves chips alone while a table is selected', async () => {
+    // The column fetch still dispatches its own validation pass, so assert on
+    // the verdict rather than on silence: region exists, so it stays valid.
+    mockApi.listColumns.mockResolvedValue({
+      columns: [{ name: 'region', data_type: 'String' }],
+    } as any);
+    mountWith({ selectedTable: 'orders' }, [field('region')]);
+
+    await waitFor(() => expect(mockApi.listColumns).toHaveBeenCalled());
+    await waitFor(() => expect(axisPayloads().length).toBeGreaterThan(0));
+    expect(
+      axisPayloads().flat().some((f: { isInvalid?: boolean }) => f.isInvalid === true),
+    ).toBe(false);
+  });
+
+  // Loading a configuration restores sheets first, then defers the data source
+  // into a rAF + timeout after emptying `tables`. Reddening chips in that
+  // window would flash every restored sheet red.
+  it('leaves chips alone mid-restore, when the table list is still empty', async () => {
+    mountWith({ tables: [] }, [field('region')]);
+
+    await waitFor(() => expect(mockApi.listDatabases).toHaveBeenCalled());
+    expect(axisPayloads()).toHaveLength(0);
+  });
+});
