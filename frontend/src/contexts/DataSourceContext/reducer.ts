@@ -109,7 +109,18 @@ export function dataSourceReducer(
     case 'SET_SUGGESTED_UNIONABLE_TABLES':
       return { ...state, suggestedUnionableTables: action.payload };
 
+    // No-op when the definition is unchanged. The per-sheet page remounts on
+    // every sheet switch and re-fetches merged columns; a fresh-but-identical
+    // object would otherwise fire TABLE_JOINS_UNIONS_MODIFIED (keyed on
+    // identity in useMetadataOperations) and re-run the chart query.
+    // Server-produced JSON, so key order is stable and stringify suffices.
     case 'SET_VIRTUAL_TABLE':
+      if (
+        state.virtualTable === action.payload
+        || JSON.stringify(state.virtualTable) === JSON.stringify(action.payload)
+      ) {
+        return state;
+      }
       return { ...state, virtualTable: action.payload };
 
     case 'TOGGLE_JOINED_TABLE': {

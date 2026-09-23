@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { useState, useEffect, RefObject, MutableRefObject } from 'react';
+import { useState, useEffect, useLayoutEffect, RefObject, MutableRefObject } from 'react';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 
 /**
@@ -15,7 +15,10 @@ export function useRowHeightCalculation(
 ): number {
   const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
 
-  useEffect(() => {
+  // Layout effect so the initial measurement (below) lands before paint —
+  // otherwise the first frame of a freshly mounted grid is painted at
+  // MIN_GRID_ROW_PX and every facet renders twice.
+  useLayoutEffect(() => {
     let rafId = 0;
     let updateRafId: number | null = null;
     let debounceTimeoutId: number | null = null;
@@ -81,9 +84,10 @@ export function useRowHeightCalculation(
         return;
       }
       // CRITICAL: Initial compute should happen immediately on first render
-      // This ensures the chart is sized correctly when first measure is dropped
-      // Use RAF but skip debounce for initial calculation
-      updateRafId = requestAnimationFrame(updateRowHeight);
+      // This ensures the chart is sized correctly when first measure is dropped.
+      // Measure synchronously: from the layout effect the setState re-renders
+      // before paint; from the RAF polling path it's equally immediate.
+      updateRowHeight();
       
       // Observe size changes of the scroller with debounced RAF throttling
       ro = new ResizeObserver(scheduleUpdate);

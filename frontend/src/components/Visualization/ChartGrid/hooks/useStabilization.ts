@@ -28,8 +28,11 @@ export function useStabilization(
     // On the initial transition from no-grid to grid, skip stabilization.
     // There's no previous chart to protect from flicker, and blocking the
     // first height calculation causes the chart to render at MIN_GRID_ROW_PX.
+    // A null/empty grid doesn't count: ChartGrid mounts with grid=null on
+    // every sheet switch (the page is keyed by sheet id), and consuming the
+    // flag there would stabilize the first real grid instead.
     if (!hasRenderedGridRef.current) {
-      hasRenderedGridRef.current = true;
+      if (grid?.cells.length) hasRenderedGridRef.current = true;
       return;
     }
 

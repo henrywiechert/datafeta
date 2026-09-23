@@ -203,7 +203,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     setAutoCategoryTickStyles({ xHeightPx: null, yWidthPx: null });
   }, [queryVersion, xAxisFields, yAxisFields, globalChartType, distributionVariant]);
 
-  const handleAutoCategoryTickMeasure = useCallback((sizes: { xHeightPx: number; yWidthPx: number }) => {
+  const handleAutoCategoryTickMeasure = useCallback((sizes: { xHeightPx: number | null; yWidthPx: number | null }) => {
     setAutoCategoryTickStyles((prev) => {
       if (prev.xHeightPx === sizes.xHeightPx && prev.yWidthPx === sizes.yWidthPx) {
         return prev;
