@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { formatDateTimeDisplay } from './datetimeDisplayFormat';
+import { epochToPreciseDate, formatDateTimeDisplay } from './datetimeDisplayFormat';
 
 // 1_700_000_000 s = 1_700_000_000_000 ms = 2023-11-14T22:13:20Z
 const SECONDS = 1_700_000_000;
@@ -80,5 +80,43 @@ describe('formatDateTimeDisplay', () => {
   it('returns null for non-finite numbers', () => {
     expect(formatDateTimeDisplay(NaN)).toBeNull();
     expect(formatDateTimeDisplay(Infinity)).toBeNull();
+  });
+});
+
+describe('sub-millisecond precision carried on the Date', () => {
+  // A JS Date only holds milliseconds. epochToPreciseDate hangs the microsecond
+  // fraction off the Date so formatters can recover it — without this the value
+  // is truncated in the row before any formatter runs.
+  it('recovers microseconds from a Date built by epochToPreciseDate', () => {
+    const d = epochToPreciseDate(MICROS)!;
+    expect(formatDateTimeDisplay(d, { precision: 'us' })).toBe('2023-11-14 22:13:20.123456');
+  });
+
+  it('keeps the carrier invisible to enumeration and serialization', () => {
+    const d = epochToPreciseDate(MICROS)!;
+    expect(Object.keys(d)).toEqual([]);
+    expect(JSON.parse(JSON.stringify({ ts: d }))).toEqual({ ts: d.toISOString() });
+  });
+
+  it('falls back to millisecond resolution for a plain Date', () => {
+    const plain = new Date('2023-11-14T22:13:20.123Z');
+    expect(formatDateTimeDisplay(plain, { precision: 'us' })).toBe('2023-11-14 22:13:20.123000');
+  });
+});
+
+describe('auto precision', () => {
+  it('shows microseconds when the value carries them', () => {
+    expect(formatDateTimeDisplay(MICROS, { precision: 'auto' })).toBe('2023-11-14 22:13:20.123456');
+  });
+
+  it('shows milliseconds when that is all the value carries', () => {
+    const msOnly = 1_700_000_000_123;
+    expect(formatDateTimeDisplay(msOnly, { precision: 'auto' })).toBe('2023-11-14 22:13:20.123');
+  });
+
+  it('shows no fraction for a whole-second value', () => {
+    // Guards every existing caller: whole seconds must render byte-identically.
+    expect(formatDateTimeDisplay(SECONDS, { precision: 'auto' })).toBe('2023-11-14 22:13:20');
+    expect(formatDateTimeDisplay(MILLIS, { precision: 'auto' })).toBe('2023-11-14 22:13:20');
   });
 });

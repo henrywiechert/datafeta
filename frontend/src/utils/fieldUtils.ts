@@ -1,17 +1,22 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, Aggregation, DataType, Column } from '../types';
 import { menuAggregations } from '../aggregations';
-import { 
+import {
   getResultColumnNameForDateTime,
   getFieldDisplayNameWithDateTime,
-  getDateTimePartTooltip as getDateTimeTooltip 
+  getDateTimePartTooltip as getDateTimeTooltip
 } from '../datetime';
+import { dateTimeOutputName, resolveDateTime } from '../datetime/datetimeSemantics';
+import { epochToPreciseDate } from '../datetime/datetimeDisplayFormat';
 import { generateSyntheticFields } from './syntheticFields';
 
 
 /**
  * Convert an epoch-like value to a JS Date.
- * Handles seconds, milliseconds, microseconds, and nanoseconds via magnitude heuristics.
+ *
+ * Delegates the magnitude heuristic (s/ms/µs/ns) to the shared display formatter
+ * so the sub-millisecond fraction is carried onto the Date. Keeping a private
+ * copy here is what used to drop µs precision before any formatter could see it.
  */
 function epochToDate(value: any): Date | null {
   if (value === null || value === undefined) return null;
@@ -35,47 +40,30 @@ function epochToDate(value: any): Date | null {
     return null;
   }
 
-  if (!Number.isFinite(num)) return null;
-
-  // Heuristic by magnitude to determine unit:
-  // ns ~ 1e18, us ~ 1e15, ms ~ 1e12, s ~ 1e9
-  const abs = Math.abs(num);
-  let ms: number;
-  if (abs >= 1e18) {
-    ms = num / 1_000_000; // nanoseconds
-  } else if (abs >= 1e15) {
-    ms = num / 1000; // microseconds
-  } else if (abs >= 1e12) {
-    ms = num; // milliseconds
-  } else {
-    ms = num * 1000; // seconds
-  }
-
-  const d = new Date(ms);
-  return Number.isFinite(d.getTime()) ? d : null;
+  return epochToPreciseDate(num);
 }
 
 /**
- * Check if a field is in timeline mode (not distinct mode).
- * Handles both camelCase (dateTimeMode) and snake_case (date_mode) property names.
+ * Check if a field's values are real timestamps rather than distinct-part integers.
+ *
+ * Mode-only by rule, via resolveDateTime: a datetime column with no explicit mode
+ * is "Full DateTime" and its values come back as timestamps, exactly as if the
+ * mode had been set. Reading the raw `dateTimeMode` here is what used to make an
+ * unconfigured datetime field render on a linear scale with epoch integers, while
+ * the same field with "Full DateTime" ticked rendered as a time scale.
+ * Handles both camelCase (Field) and snake_case (wire Dimension/Measure) shapes.
  */
 function isTimelineField(f: Field): boolean {
-  // camelCase (frontend Field type)
-  if (f.dateTimeMode === 'timeline') return true;
-  // snake_case (backend Dimension/Measure type)
-  if ((f as any).date_mode === 'timeline') return true;
-  return false;
+  return resolveDateTime(f).isTemporalValue;
 }
 
 /**
  * Build the column name for a field, handling both property naming conventions.
+ * Part-only by rule: "Full DateTime" falls through to the plain result name.
  */
 function getFieldColumnName(f: Field): string {
-  const datePart = f.dateTimePart || (f as any).date_part;
-  const dateMode = f.dateTimeMode || (f as any).date_mode;
-  if (datePart && dateMode) {
-    return `${f.columnName}_${datePart}_${dateMode}`;
-  }
+  const r = resolveDateTime(f);
+  if (r.hasDerivedAlias) return dateTimeOutputName(f.columnName, r);
   return getResultColumnName(f);
 }
 

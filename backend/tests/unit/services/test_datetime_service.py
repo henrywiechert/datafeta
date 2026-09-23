@@ -248,6 +248,29 @@ class TestDateTimeStringSourceParsing:
         assert "date_trunc" not in sql
         assert "try_strptime" in sql  # flexible string->timestamp parse applied
 
+    def test_clickhouse_full_datetime_string_source_is_parsed(self):
+        """ClickHouse counterpart of the DuckDB Full DateTime case: a String column
+        overridden to DateTime is parsed, and no toStartOf*/extraction is applied."""
+        t = Table("coredumps")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.timestamp, None, "timeline", "clickhouse", source_type="String"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort" in sql
+        assert "toStartOf" not in sql
+        assert "toTimeZone" not in sql
+
+    def test_clickhouse_full_datetime_native_is_passthrough(self):
+        """Full DateTime on a native ClickHouse DateTime64 column is a passthrough."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, None, "timeline", "clickhouse", source_type="DateTime64(6)"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert sql == "`ts`"
+
     def test_full_datetime_native_timestamp_is_passthrough(self):
         """Full DateTime on an already-timestamp column is a plain passthrough."""
         t = Table("events")

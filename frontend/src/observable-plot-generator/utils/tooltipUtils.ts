@@ -4,6 +4,7 @@ import { TooltipField, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 import { formatDateTimeDisplay } from '../../datetime/datetimeDisplayFormat';
+import { resolveDateTime } from '../../datetime/datetimeSemantics';
 
 /**
  * Build a tooltip-specific label for a field.
@@ -41,11 +42,10 @@ function enrichLabelWithAggregation(label: string, sourceField?: Field): string 
  * carry small integer values, not timestamps, so they are excluded.
  */
 function isDateTimeDisplayField(field?: Field): boolean {
-  if (!field || field.dataType !== 'datetime') return false;
-  if (field.dateTimePart && field.dateTimeMode === 'distinct') return false;
+  if (!resolveDateTime(field).isTemporalValue) return false;
   // An aggregate only stays a timestamp if it keeps the column's type: MEDIAN or
   // MIN of a datetime is still a date, COUNT of one is an integer.
-  const spec = getAggregationSpec(field.aggregation);
+  const spec = getAggregationSpec(field!.aggregation);
   if (spec && !spec.preservesColumnType) return false;
   return true;
 }
@@ -59,11 +59,13 @@ function isDateTimeDisplayField(field?: Field): boolean {
  */
 export function formatTooltipValue(val: any, sourceField?: Field): string {
   if (val == null) return 'null';
+  // 'auto' shows only the precision the value actually carries: whole seconds
+  // stay as-is, while a DateTime64(6) column keeps its microseconds.
   if (val instanceof Date) {
-    return formatDateTimeDisplay(val) ?? String(val);
+    return formatDateTimeDisplay(val, { precision: 'auto' }) ?? String(val);
   }
   if (isDateTimeDisplayField(sourceField)) {
-    const formatted = formatDateTimeDisplay(val);
+    const formatted = formatDateTimeDisplay(val, { precision: 'auto' });
     if (formatted != null) return formatted;
   }
   if (typeof val === 'number') {

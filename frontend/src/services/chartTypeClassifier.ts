@@ -9,6 +9,11 @@
 import { QueryDescription, Field, QueryOptimizationSettings, DistributionVariant, LineColorMode } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { lineColorSplitsSeries } from '../utils/lineColorEncoding';
+import {
+  DateTimeCarrier,
+  dateTimeOutputName,
+  resolveDateTime,
+} from '../datetime/datetimeSemantics';
 
 /**
  * Classification of a chart type based on query structure.
@@ -64,16 +69,15 @@ const BUDGET_DEFAULTS = {
 /**
  * Get the output column name for a dimension, accounting for datetime parts.
  * Backend aliases datetime parts as `${field}_${date_part}_${date_mode}`.
+ *
+ * Part-only by rule: "Full DateTime" keeps the plain field name.
  */
 export function getDimensionOutputName(dim: {
   field: string;
   date_part?: string;
   date_mode?: string;
 }): string {
-  if (dim?.date_part && dim?.date_mode) {
-    return `${dim.field}_${dim.date_part}_${dim.date_mode}`;
-  }
-  return dim.field;
+  return dateTimeOutputName(dim.field, resolveDateTime(dim as DateTimeCarrier));
 }
 
 /**
@@ -175,6 +179,9 @@ function isUsableStratum(dim: {
   date_mode?: string;
 }): boolean {
   if (SYNTHETIC_SOURCE_FIELDS.has(dim.field)) return false;
+  // Deliberately PART-only, not mode-only: this asks "is this a discrete stratum".
+  // Every datetime dimension carries a date_mode (Full DateTime defaults to
+  // 'timeline'), but Full DateTime is a *continuous* axis, not a stratum.
   return dim.flavour === 'discrete' || !!(dim.date_part && dim.date_mode);
 }
 
@@ -284,6 +291,8 @@ export function computePointBudget(
 ): PointBudgetConfig {
   const { hasDiscreteColor, isScatter, isPointChart, isLineChart, continuousDimFields } = classification;
   const dims = queryDesc.dimensions || [];
+  // PART-only, for the same reason as isUsableStratum: Full DateTime carries a
+  // date_mode but is a continuous axis, so it must not count as a discrete dim.
   const discreteAxisDims = dims.filter(
     (d: any) => d.axis && (d.flavour === 'discrete' || (d.date_part && d.date_mode))
   );

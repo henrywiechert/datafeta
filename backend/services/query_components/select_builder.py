@@ -202,6 +202,15 @@ class SelectClauseBuilder:
                     measure.field, field_term, query_desc.column_casts
                 )
 
+                # Datetime handling, after the cast and before aggregating: MIN/MAX
+                # of a text-stored datetime column must compare as timestamps, not
+                # lexicographically. Mode-only, like every other "does datetime
+                # apply" check.
+                if measure.date_mode:
+                    field_term = resolver.apply_datetime(
+                        field_term, measure.field, measure.date_part, measure.date_mode
+                    )
+
                 # Ordering column for two-argument aggregations (arg_max/arg_min).
                 arg_term = None
                 if measure.aggregation_arg:

@@ -8,19 +8,10 @@
  */
 
 import type { DateTimePart } from '../../../../types';
+import { epochToPreciseDate } from '../../../../datetime/datetimeDisplayFormat';
 
 /** Convert an epoch-like number to a Date using magnitude heuristics (s/ms/µs/ns). */
-export function epochToDate(num: number): Date | null {
-  if (!Number.isFinite(num)) return null;
-  const abs = Math.abs(num);
-  let ms: number;
-  if (abs >= 1e18)      ms = num / 1_000_000;   // nanoseconds
-  else if (abs >= 1e15) ms = num / 1000;         // microseconds
-  else if (abs >= 1e12) ms = num;                // milliseconds
-  else                  ms = num * 1000;         // seconds
-  const d = new Date(ms);
-  return Number.isFinite(d.getTime()) ? d : null;
-}
+export const epochToDate = epochToPreciseDate;
 
 /**
  * Convert a value (potentially a Date, epoch number, BigInt, or ISO string)

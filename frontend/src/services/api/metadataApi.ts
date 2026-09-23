@@ -28,6 +28,7 @@ import {
 } from '../../types';
 import { fetchWithErrorHandling, API_BASE_URL, createAbortController, buildUrl } from './apiClient';
 import { deduplicateFilterValues } from '../../utils/filterValueKey';
+import { dateTimeOutputName, resolveDateTime, toWireDateTime } from '../../datetime/datetimeSemantics';
 
 export const metadataApi = {
   /**
@@ -215,8 +216,9 @@ export const metadataApi = {
       flavour: 'discrete' as const 
     };
     
-    // Add DateTime part information if provided
-    if (dateTimePart && dateTimeMode) {
+    // Mode-only: a "Full DateTime" column carries a mode but no part, and still
+    // needs it so the backend parses a text-stored column into a timestamp.
+    if (dateTimeMode) {
       dimension.date_part = dateTimePart;
       dimension.date_mode = dateTimeMode;
     }
@@ -283,9 +285,11 @@ export const metadataApi = {
 
     // Extract the values from the result
     // For DateTime parts, use the aliased column name
-    const columnName = dateTimePart && dateTimeMode 
-      ? `${field}_${dateTimePart}_${dateTimeMode}`
-      : field;
+    // Part-only: "Full DateTime" comes back under the plain field name.
+    const columnName = dateTimeOutputName(
+      field,
+      resolveDateTime({ dateTimePart: dateTimePart as any, dateTimeMode: dateTimeMode as any }),
+    );
 
     const resolveRowValue = (row: Record<string, unknown>): unknown => {
       if (columnName in row) {
@@ -450,15 +454,26 @@ export const metadataApi = {
    * Get min/max date range for a datetime field
    */
   async getDateTimeRange(
-    field: string, 
-    table: string, 
+    field: string,
+    table: string,
     database?: string,
     virtualColumns?: VirtualColumnDefinition[],
     unionTables?: string[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    dateTimePart?: string,
+    dateTimeMode?: string
   ): Promise<{ min: string; max: string }> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
+
+    // The caller only asks for a range on a datetime column, so the measures carry
+    // a date_mode. Without it MIN/MAX on a text-stored datetime column compare
+    // lexicographically and the filter opens on the wrong bounds.
+    const { date_part, date_mode } = toWireDateTime({
+      dataType: 'datetime',
+      dateTimePart: dateTimePart as any,
+      dateTimeMode: dateTimeMode as any,
+    });
 
     // Build a query to get min and max datetime values
     const queryDesc: any = {
@@ -466,8 +481,8 @@ export const metadataApi = {
       target_database: database,
       dimensions: [],
       measures: [
-        { field, aggregation: 'min' as const, alias: 'min_date' },
-        { field, aggregation: 'max' as const, alias: 'max_date' },
+        { field, aggregation: 'min' as const, alias: 'min_date', date_part, date_mode },
+        { field, aggregation: 'max' as const, alias: 'max_date', date_part, date_mode },
       ],
     };
 

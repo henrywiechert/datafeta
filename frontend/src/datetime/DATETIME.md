@@ -165,6 +165,55 @@ Use case: Time series, trends over time
 
 ---
 
+## The Two Rules
+
+A datetime field carries `dateTimePart?` + `dateTimeMode?`. Those two optionals
+describe **three** states, not four:
+
+| `dateTimePart` | `dateTimeMode` | Meaning |
+|---|---|---|
+| `undefined` | `undefined` | unconfigured — **the same state as the row below** |
+| `undefined` | `'timeline'` | "Full DateTime": the whole timestamp |
+| part | `'distinct'` | distinct part (hour 0–23, weekday 1–7) |
+| part | `'timeline'` | timeline bin (`date_trunc`) |
+
+`resolveDateTime()` in `datetimeSemantics.ts` applies the default that collapses
+rows 1 and 2, and is the single place that default lives. Every consumer asks it
+one of two questions:
+
+1. **Does datetime handling apply?** → **mode** is truthy.
+   Mirrors `field_term_resolver.py`'s `if not date_mode: return term`. A mode is
+   what makes the backend parse a *text-stored* datetime column into a real
+   timestamp, so gating on part AND mode leaves the WHERE clause comparing raw
+   source strings while the SELECT compares parsed timestamps.
+2. **Is there a derived output column?** → **part** is truthy.
+   Mirrors `select_builder.py`: Full DateTime keeps the plain field name; only an
+   explicit part produces `<field>_<part>_<mode>`.
+
+A handful of checks are deliberately part-only for a *third* reason — "is this a
+discrete stratum?" (`chartTypeClassifier.ts`). Every datetime dimension carries a
+mode, but Full DateTime is a continuous axis, so those must not be relaxed.
+
+There is intentionally **no migration** collapsing the two equivalent states in
+stored data. Once every consumer routes through the resolver they are
+indistinguishable, so a migration would rewrite saved sheets to fix nothing. Note
+also that `useFilterMetadata` keys on mode-*absence* to decide whether to reset a
+filter config, so canonicalizing at field creation would force a spurious filter
+reset on every existing sheet.
+
+### Display precision
+
+`epochToPreciseDate()` carries the sub-millisecond fraction in a non-enumerable
+slot on the `Date`, because a JS `Date` only holds milliseconds while our sources
+(ClickHouse `DateTime64(6)`, `Timestamp(p)`) carry more. Tooltips format with
+`precision: 'auto'`, which shows only what the value actually carries.
+
+Axis ticks deliberately stay at `'second'`: `formatDateTick` output feeds
+`toBandLabel`, which rewrites row values used as band-scale keys **and therefore
+as filter values**. Widening tick precision would change filter payloads.
+
+---
+
 ## Relative Presets Stay Relative
 
 `DateTimeFilterConfig.preset` stores the label a range came from ('Last 7 Days'),

@@ -89,12 +89,22 @@ export function buildSelectItemSql(item: SelectItem): string {
  */
 export function buildDuckDbDateTimePartSelectItem(args: {
   field: string;
-  datePart: string;
+  datePart?: string;
   dateMode: string;
 }): SelectItem {
   const { field, datePart, dateMode } = args;
-  const alias = buildDateTimeAlias(field, datePart as any, dateMode as any);
   const ts = buildDuckDbTimestampExpr(field);
+
+  // "Full DateTime": a mode but no part is the parsed timestamp itself, under the
+  // PLAIN field name — matching the backend's select_builder. Without this branch
+  // local execution returns the raw source string where remote returns a
+  // timestamp. The alias matters: get it wrong and the column vanishes from the
+  // result rows, since buildDateTimeAlias needs a part.
+  if (!datePart) {
+    return { kind: 'expr', expr: ts, alias: field };
+  }
+
+  const alias = buildDateTimeAlias(field, datePart as any, dateMode as any);
 
   // We interpret timestamps as UTC in local DuckDB. Most cached timestamps are timezone-naive
   // and already represent UTC, so this is intentionally a no-op beyond robust parsing.
@@ -128,7 +138,7 @@ export function buildDuckDbDateTimePartSelectItem(args: {
 
 export function buildDuckDbDateTimePartExpr(args: {
   field: string;
-  datePart: string;
+  datePart?: string;
   dateMode: string;
 }): string {
   const item = buildDuckDbDateTimePartSelectItem(args);

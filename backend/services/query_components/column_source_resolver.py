@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set
 from pypika import Table
 
 from backend.exceptions import QueryExecutionError
+from backend.services import datetime_semantics as semantics
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 
@@ -250,7 +251,10 @@ def build_column_expression(
     if resolved.vc_builder and resolved.vc_builder.is_virtual_column(resolved.field):
         return resolved.vc_builder.get_virtual_column_term(resolved.field)
 
-    if datetime_part and datetime_mode:
+    # Mode-only, matching FieldTermResolver.apply_datetime: "Full DateTime" has a
+    # mode but no part, and still needs the parse below to reach the client as a
+    # real timestamp rather than the raw source string.
+    if semantics.applies_datetime(datetime_mode):
         # Columns overridden from String to DateTime must be parsed before any
         # datetime function is applied, else the engine raises an illegal type.
         source_type = type_provider.source_type(

@@ -3,6 +3,11 @@ import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, Column
 import { getResultColumnName } from '../utils/fieldUtils';
 import { isCdfAllowed } from '../utils/cdfUtils';
 import { findWindowCalcOrderByDimension } from '../utils/windowCalcUtils';
+import {
+  dateTimeOutputName,
+  resolveDateTime,
+  toWireDateTime,
+} from '../datetime/datetimeSemantics';
 
 type PlannedQueryMode = 'raw' | 'aggregated' | 'cdf' | 'box_plot';
 
@@ -40,12 +45,44 @@ export const extractColumnCasts = (fields: Field[]): ColumnCasts | undefined => 
  * back as a proper timestamp instead of the raw source string. Non-datetime fields are
  * unaffected.
  */
-const resolveDimensionDateTime = (
-  field: Field
-): { date_part: Field['dateTimePart']; date_mode: Field['dateTimeMode'] } => ({
-  date_part: field.dateTimePart,
-  date_mode: field.dateTimeMode ?? (field.dataType === 'datetime' ? 'timeline' : undefined),
-});
+const resolveDimensionDateTime = toWireDateTime;
+
+/**
+ * Whether two fields select the same output column. Compares the RESOLVED
+ * datetime config, so a field with no explicit mode and one explicitly set to
+ * "Full DateTime" are recognised as the same column rather than duplicated.
+ */
+const sameDateTimeColumn = (a: Field, b: Field): boolean => {
+  if (a.columnName !== b.columnName) return false;
+  const ra = resolveDateTime(a);
+  const rb = resolveDateTime(b);
+  return ra.part === rb.part && ra.mode === rb.mode;
+};
+
+/**
+ * Attach the resolved datetime config to a filter, in place.
+ *
+ * Mode-only by rule: a datetime column needs a `date_mode` for the backend to
+ * apply datetime handling at all — including parsing a text-stored column into
+ * a real timestamp. Without it the WHERE clause compares the raw source string
+ * while the SELECT compares a parsed timestamp.
+ */
+const attachDateTime = (
+  filter: Filter,
+  config: FilterConfig,
+  // A FilterConfig carries no dataType, so a Full DateTime filter looks like a
+  // non-datetime one (no part, no mode). Callers that know the column is a
+  // datetime — the `type: 'datetime'` branch, which resolveFilterType only
+  // produces for dataType === 'datetime' — assert it here.
+  isDateTimeColumn = false,
+): Filter => {
+  const carrier = isDateTimeColumn ? { ...config, dataType: 'datetime' } : config;
+  const { date_part, date_mode } = toWireDateTime(carrier);
+  if (!date_mode) return filter;
+  if (date_part) filter.date_part = date_part;
+  filter.date_mode = date_mode;
+  return filter;
+};
 
 /**
  * Converts filter configurations to backend Filter[] format
@@ -72,10 +109,7 @@ export const convertFilterConfigsToFilters = (
             : operator,
           value: pattern,
         };
-        if (config.dateTimePart && config.dateTimeMode) {
-          filter.date_part = config.dateTimePart;
-          filter.date_mode = config.dateTimeMode;
-        }
+        attachDateTime(filter, config);
         filters.push(filter);
         return;
       }
@@ -113,10 +147,7 @@ export const convertFilterConfigsToFilters = (
           operator: 'not in',
           value: config.excludedValues!,
         };
-        if (config.dateTimePart && config.dateTimeMode) {
-          filter.date_part = config.dateTimePart;
-          filter.date_mode = config.dateTimeMode;
-        }
+        attachDateTime(filter, config);
         filters.push(filter);
       } else if (selectedLen > 0) {
         const filter: Filter = {
@@ -124,22 +155,12 @@ export const convertFilterConfigsToFilters = (
           operator: 'in',
           value: config.selectedValues,
         };
-        // Add datetime part information if present
-        if (config.dateTimePart && config.dateTimeMode) {
-          filter.date_part = config.dateTimePart;
-          filter.date_mode = config.dateTimeMode;
-        }
+        attachDateTime(filter, config);
         filters.push(filter);
       }
     } else if (config.type === 'continuous') {
       // For continuous filters, add >= and <= operators
-      const attachDateTimePart = (filter: Filter) => {
-        if (config.dateTimePart && config.dateTimeMode) {
-          filter.date_part = config.dateTimePart;
-          filter.date_mode = config.dateTimeMode;
-        }
-        return filter;
-      };
+      const attachDateTimePart = (filter: Filter) => attachDateTime(filter, config);
       if (config.min !== null) {
         filters.push(
           attachDateTimePart({
@@ -178,20 +199,29 @@ export const convertFilterConfigsToFilters = (
         });
       }
     } else if (config.type === 'datetime') {
-      // For datetime filters, add >= and <= operators with date strings
+      // For datetime filters, add >= and <= operators with date strings.
+      //
+      // Only "Full DateTime" (no part) attaches its mode here. A timeline PART
+      // would wrap the column in date_trunc() inside the WHERE clause, turning
+      // `<= '2024-01-05'` from "before midnight Jan 5" into "all of Jan 5" — a
+      // different question from what the range picker asks.
+      // TODO: decide the intended range semantics for timeline-part filters.
+      const attachFullDateTime = (filter: Filter) =>
+        config.dateTimePart ? filter : attachDateTime(filter, config, true);
+
       if (config.startDate !== null) {
-        filters.push({
+        filters.push(attachFullDateTime({
           field: config.columnName,
           operator: '>=',
           value: config.startDate,
-        });
+        }));
       }
       if (config.endDate !== null) {
-        filters.push({
+        filters.push(attachFullDateTime({
           field: config.columnName,
           operator: '<=',
           value: config.endDate,
-        });
+        }));
       }
     }
   });
@@ -246,7 +276,7 @@ export const buildAggregatedQuery = ({
   const allFieldsForQuery = [...fields];
   for (const tf of tooltipFields) {
     // Avoid duplicate by columnName & date part alias uniqueness
-    if (!allFieldsForQuery.some(f => f.columnName === tf.columnName && f.dateTimePart === tf.dateTimePart && f.dateTimeMode === tf.dateTimeMode)) {
+    if (!allFieldsForQuery.some(f => sameDateTimeColumn(f, tf))) {
       allFieldsForQuery.push(tf);
     }
   }
@@ -261,7 +291,7 @@ export const buildAggregatedQuery = ({
       ...resolveDimensionDateTime(d),  // datetime part/mode (defaults datetime fields to Full DateTime)
     })),
     // Dedupe by output column name (datetime parts produce distinct aliases)
-    (dim) => (dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field)
+    (dim) => dateTimeOutputName(dim.field, resolveDateTime(dim))
   );
 
   // Window calcs (table calculations) need an ordering dimension.  If the
@@ -270,7 +300,7 @@ export const buildAggregatedQuery = ({
   const windowOrderByDim = findWindowCalcOrderByDimension(allFieldsForQuery);
   const windowOrderByName = windowOrderByDim ? getResultColumnName(windowOrderByDim) : undefined;
   const dimensionOutputNames = dimensions.map((dim) =>
-    dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field
+    dateTimeOutputName(dim.field, resolveDateTime(dim))
   );
 
   const measures: Measure[] = dedupeByKey(
@@ -321,11 +351,8 @@ export const buildAggregatedQuery = ({
   const continuousDims = allFieldsForQuery.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
-    // If this is a datetime part, order by the alias
-    if (f.dateTimePart && f.dateTimeMode) {
-      return { field: `${f.columnName}_${f.dateTimePart}_${f.dateTimeMode}` };
-    }
-    return { field: f.columnName };
+    // Part-only by rule: "Full DateTime" orders by the plain column name.
+    return { field: dateTimeOutputName(f.columnName, resolveDateTime(f)) };
   });
   
   // Convert filter configurations to filters
@@ -382,13 +409,13 @@ export const buildRawQuery = ({
   const allRaw = [...fields];
   for (const lf of labelFields) {
     // Avoid duplicate by columnName & date part alias uniqueness
-    if (!allRaw.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
+    if (!allRaw.some(f => sameDateTimeColumn(f, lf))) {
       allRaw.push(lf);
     }
   }
   for (const tf of tooltipFields) {
     // Avoid duplicate by columnName & date part alias uniqueness
-    if (!allRaw.some(f => f.columnName === tf.columnName && f.dateTimePart === tf.dateTimePart && f.dateTimeMode === tf.dateTimeMode)) {
+    if (!allRaw.some(f => sameDateTimeColumn(f, tf))) {
       allRaw.push(tf);
     }
   }
@@ -414,11 +441,8 @@ export const buildRawQuery = ({
   const continuousDims = allRaw.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
-    // If this is a datetime part, order by the alias
-    if (f.dateTimePart && f.dateTimeMode) {
-      return { field: `${f.columnName}_${f.dateTimePart}_${f.dateTimeMode}` };
-    }
-    return { field: f.columnName };
+    // Part-only by rule: "Full DateTime" orders by the plain column name.
+    return { field: dateTimeOutputName(f.columnName, resolveDateTime(f)) };
   });
 
   // Convert filter configurations to filters
@@ -620,7 +644,7 @@ export const buildBoxPlotQuery = ({
   const allCastFields = [...xAxisFields, ...yAxisFields, ...(colorField ? [colorField] : [])];
   const columnCasts = extractColumnCasts(allCastFields);
   const orderBy: OrderBy[] = dimensions.map((dim) => ({
-    field: dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field,
+    field: dateTimeOutputName(dim.field, resolveDateTime(dim)),
   }));
 
   return {

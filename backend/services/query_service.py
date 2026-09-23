@@ -92,6 +92,9 @@ class QueryService:
         for box_field in query_desc.box_plot_fields or []:
             if box_field.date_part or box_field.date_mode:
                 return True
+        for measure in query_desc.measures or []:
+            if measure.date_part or measure.date_mode:
+                return True
         return False
 
     def _get_column_types(
