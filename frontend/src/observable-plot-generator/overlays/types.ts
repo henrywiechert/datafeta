@@ -3,7 +3,7 @@
  * Overlay Types
  *
  * Types for overlay marks (regression, moving average, density, reference
- * lines, marginal rug).
+ * lines, marginal rug, hexbin).
  * Overlays are add-on marks appended to existing chart PlotOptions — they never
  * modify the primary chart handler logic.
  */
@@ -14,15 +14,19 @@ import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR, DEFAULT_REFERENCE_LINE_COL
 
 // --- Overlay type identifiers ------------------------------------------------
 
-export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines' | 'marginalRug';
+export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines' | 'marginalRug' | 'hexbin';
+
+/**
+ * Applied to overlay marks that series highlighting must never dim: marks that
+ * summarise the whole cell rather than one series, or whose rows are
+ * aggregates that cannot be matched to a series.
+ */
+export const OVERLAY_NO_HIGHLIGHT_CLASS = 'overlay-no-highlight';
 
 /** Summary statistics a reference line can mark. */
 export type ReferenceStat = 'mean' | 'median' | 'percentile' | 'min' | 'max';
 
-/**
- * Applied to the rule and label marks. Reference lines summarise the whole
- * cell (or a group), so series highlighting must never dim them.
- */
+/** Applied to the reference-line rule and label marks. */
 export const REFERENCE_LINE_CLASS = 'overlay-reference-line';
 
 /** Clamp a user-entered percentile into (0, 100], keeping at most one decimal. */
@@ -64,6 +68,9 @@ export interface OverlayParams {
   // Marginal rug
   rugAxes?: 'both' | 'x' | 'y';  // Which frame edges get a rug (default 'both')
   rugLength?: number;            // Tick length in pixels (default 8)
+
+  // Hexbin
+  binWidth?: number;             // Hexagon width in pixels (default 20)
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -83,6 +90,7 @@ export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: DEFAULT_MANUAL_COLOR, strokeWidth: 2, perGroup: false } },
   { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: false },
   { type: 'marginalRug',      enabled: false, params: { rugAxes: 'both', rugLength: 8, opacity: 0.35, strokeWidth: 1, color: DEFAULT_MANUAL_COLOR, perGroup: false } },
+  { type: 'hexbin',           enabled: false, params: { binWidth: 20, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: true },
   { type: 'referenceLines',   enabled: false, params: { refStats: ['mean'], percentile: 95, refValue: null, showLabels: true, color: DEFAULT_REFERENCE_LINE_COLOR, strokeWidth: 1.5, perGroup: false } },
 ];
 
@@ -126,6 +134,11 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
     type: 'marginalRug',
     label: 'Marginal Rug',
     applicableTo: new Set<UserChartType>(['scatter', 'line']),
+  },
+  {
+    type: 'hexbin',
+    label: 'Hexbin',
+    applicableTo: new Set<UserChartType>(['scatter']),
   },
   {
     type: 'referenceLines',

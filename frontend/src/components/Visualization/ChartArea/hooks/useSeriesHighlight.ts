@@ -2,7 +2,7 @@
 import { useEffect, useRef, RefObject } from 'react';
 import { SERIES_END_LABEL_CLASS } from '../../../../observable-plot-generator/utils/seriesEndLabels';
 import { encodeCatValue } from '../../stampColorCategories';
-import { REFERENCE_LINE_CLASS } from '../../../../observable-plot-generator/overlays/types';
+import { OVERLAY_NO_HIGHLIGHT_CLASS } from '../../../../observable-plot-generator/overlays/types';
 
 // ---------------------------------------------------------------------------
 // Attribute-based highlight strategy
@@ -74,8 +74,8 @@ function buildHighlightCSS(values: any[]): string {
     `${HL_SEL} svg [aria-label*="grid" i] *`,
     `${HL_SEL} svg [aria-label*="axis" i] *`,
     `${HL_SEL} svg [aria-label*="frame" i] *`,
-    // Reference lines summarise the whole cell, not one series.
-    `${HL_SEL} svg g.${REFERENCE_LINE_CLASS} *`,
+    // Overlays that summarise the cell or aggregate rows (reference lines, hexbin).
+    `${HL_SEL} svg g.${OVERLAY_NO_HIGHLIGHT_CLASS} *`,
   ];
 
   const rules: string[] = [

@@ -15,7 +15,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { OverlayParams, ReferenceStat, REFERENCE_LINE_CLASS, normalizePercentile } from './types';
+import { OverlayParams, ReferenceStat, REFERENCE_LINE_CLASS, OVERLAY_NO_HIGHLIGHT_CLASS, normalizePercentile } from './types';
 import { DEFAULT_OVERLAY_COLOR } from '../../config/colorSchemes';
 import { T } from '../../theme/tokens';
 import { formatNumericTick } from '../utils/numericTickFormat';
@@ -171,7 +171,8 @@ export function buildReferenceLines(
   if (stats.length === 0 && fixed.length === 0) return [];
 
   const valueChannel = onY ? 'y' : 'x';
-  const className = `overlay-no-tooltip ${REFERENCE_LINE_CLASS}`;
+  // Reference lines summarise the whole cell (or a group), not one series.
+  const className = `overlay-no-tooltip ${OVERLAY_NO_HIGHLIGHT_CLASS} ${REFERENCE_LINE_CLASS}`;
   const rule = (rows: ReferenceLineRow[], stroke: string) => {
     const options = {
       [valueChannel]: VALUE_KEY,
