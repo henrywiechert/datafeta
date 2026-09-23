@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { Typography, Box } from '@mui/material';
 import { List } from 'react-window';
 import FieldChip from '../FieldChip/index';
@@ -67,48 +67,6 @@ const FieldRow = ({
 };
 
 const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, onCreateBins }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(600);
-  
-  // Measure available height for the list (debounced for performance)
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    let timeoutId: number | undefined;
-    const updateHeight = () => {
-      if (timeoutId) {
-        cancelAnimationFrame(timeoutId);
-      }
-      // Throttle updates to animation frames
-      timeoutId = requestAnimationFrame(() => {
-        if (containerRef.current) {
-          const parentElement = containerRef.current.parentElement;
-          if (parentElement) {
-            const rect = parentElement.getBoundingClientRect();
-            // Calculate available space, accounting for other elements
-            const availableHeight = Math.max(300, rect.height - 100);
-            setContainerHeight(availableHeight);
-          }
-        }
-      });
-    };
-    
-    updateHeight();
-    
-    // Use ResizeObserver for more accurate tracking
-    const resizeObserver = new ResizeObserver(updateHeight);
-    if (containerRef.current.parentElement) {
-      resizeObserver.observe(containerRef.current.parentElement);
-    }
-    
-    return () => {
-      if (timeoutId) {
-        cancelAnimationFrame(timeoutId);
-      }
-      resizeObserver.disconnect();
-    };
-  }, []);
-  
   // Use virtualization for large lists
   const useVirtualization = fields.length > VIRTUALIZATION_THRESHOLD;
 
@@ -122,26 +80,29 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, 
 
   if (useVirtualization) {
     // Virtualized rendering for performance with many fields. The list must be
-    // given an explicit bounded height here: `defaultHeight` only covers the
-    // initial/SSR render, so without a `height` in `style` the list grows to
-    // fit its content and mounts every row, defeating virtualization.
-    const listHeight = Math.min(fields.length * ITEM_HEIGHT, containerHeight);
+    // bounded: without a height it grows to fit its content and mounts every
+    // row, defeating virtualization. The bound comes from flex layout (see
+    // `.fieldsList > .fieldCategory`): the list box asks for its full content
+    // height and shrinks into this category's share of the panel. The List
+    // fills that box and measures itself (react-window v2 observes its own
+    // size); `defaultHeight` only covers the first render.
+    const contentHeight = fields.length * ITEM_HEIGHT;
 
     return (
       <Box className={styles.fieldCategory}>
         <Typography variant="subtitle2" className={styles.categoryTitle}>
           {title} ({fields.length})
         </Typography>
-        <Box ref={containerRef} style={{ width: '100%' }}>
+        <Box className={styles.virtualListBox} style={{ height: contentHeight }}>
           <List
-            defaultHeight={listHeight}
+            defaultHeight={Math.min(contentHeight, 600)}
             rowCount={fields.length}
             rowHeight={ITEM_HEIGHT}
             rowComponent={FieldRow}
             rowProps={{ fields, onUpdate, onCreateBins }}
             rowKey={rowKey}
             style={{
-              height: listHeight,
+              height: '100%',
               overflowX: 'hidden',
               willChange: 'transform', // Hint browser for smooth scrolling
             }}
@@ -150,12 +111,12 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, 
       </Box>
     );
   }
-  
+
   // Standard rendering for small lists
   return (
     <Box className={styles.fieldCategory}>
       <Typography variant="subtitle2" className={styles.categoryTitle}>
-        {title}
+        {title} ({fields.length})
       </Typography>
       <Box className={styles.fieldsContainer}>
         {fields.map(field => (
