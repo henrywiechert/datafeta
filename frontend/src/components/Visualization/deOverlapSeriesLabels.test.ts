@@ -11,6 +11,8 @@ import {
   SERIES_END_LABEL_CLASS,
   SERIES_END_LABEL_DODGE_X_CLASS,
   SERIES_END_LABEL_DODGE_Y_CLASS,
+  SERIES_END_LABEL_LEADER_CLASS,
+  SERIES_END_LABEL_LEADER_INDENT_PX,
 } from '../../observable-plot-generator/utils/seriesEndLabels';
 
 // The class-name constants live beside the label mark factory, which imports
@@ -27,9 +29,9 @@ type Placed = { text: string; x: number; y: number };
 
 function buildPlot(
   labels: Placed[],
-  opts: { axis: 'x' | 'y'; frameWidth?: number; frameHeight?: number } = { axis: 'y' },
-): { svg: SVGSVGElement; texts: SVGTextElement[] } {
-  const { axis, frameWidth = 600, frameHeight = 400 } = opts;
+  opts: { axis: 'x' | 'y'; frameWidth?: number; frameHeight?: number; groupTransform?: string } = { axis: 'y' },
+): { svg: SVGSVGElement; group: SVGGElement; texts: SVGTextElement[] } {
+  const { axis, frameWidth = 600, frameHeight = 400, groupTransform } = opts;
   const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
   Object.defineProperty(svg, 'width', { value: { baseVal: { value: frameWidth } }, configurable: true });
   Object.defineProperty(svg, 'height', { value: { baseVal: { value: frameHeight } }, configurable: true });
@@ -37,6 +39,8 @@ function buildPlot(
   const group = document.createElementNS(SVG_NS, 'g');
   const dodge = axis === 'y' ? SERIES_END_LABEL_DODGE_Y_CLASS : SERIES_END_LABEL_DODGE_X_CLASS;
   group.setAttribute('class', `${SERIES_END_LABEL_CLASS} ${dodge}`);
+  // Plot applies the mark's dx/dy to the group, not to each text.
+  if (groupTransform) group.setAttribute('transform', groupTransform);
   Object.defineProperty(group, 'ownerSVGElement', { value: svg });
   svg.appendChild(group);
 
@@ -54,7 +58,11 @@ function buildPlot(
     return el;
   });
 
-  return { svg, texts };
+  return { svg, group: group as SVGGElement, texts };
+}
+
+function leadersOf(group: SVGGElement): SVGLineElement[] {
+  return Array.from(group.querySelectorAll<SVGLineElement>(`line.${SERIES_END_LABEL_LEADER_CLASS}`));
 }
 
 /** The translate currently on the element, which is its rendered position. */
@@ -210,6 +218,85 @@ describe('deOverlapSeriesLabels', () => {
     for (const el of texts) {
       expect(el.getAttribute('transform')).toContain('rotate(30)');
     }
+  });
+
+  test('centres a crowded cluster on its lines instead of stacking one way', () => {
+    const anchors = [200, 200, 200, 200, 200];
+    const { svg, texts } = buildPlot(anchors.map((y, i) => ({ text: `S${i}`, x: 500, y })));
+
+    deOverlapSeriesLabels(svg);
+
+    const ys = texts.map((el) => translateOf(el).y);
+    const mean = ys.reduce((a, b) => a + b, 0) / ys.length;
+    expect(Math.abs(mean - 200)).toBeLessThan(1);
+    expect(Math.min(...ys)).toBeLessThan(200);
+    expect(Math.max(...ys)).toBeGreaterThan(200);
+  });
+
+  test('draws leader lines from the line ends to a displaced cluster', () => {
+    // dx = 6: labels sit to the right of their line ends.
+    const { svg, group, texts } = buildPlot(
+      [{ text: 'Alpha', x: 500, y: 200 }, { text: 'Bravo', x: 500, y: 202 }],
+      { axis: 'y', groupTransform: 'translate(6,0)' },
+    );
+    texts[0].setAttribute('fill', '#ff0000');
+    texts[0].setAttribute('data-cat', 'alpha');
+
+    deOverlapSeriesLabels(svg);
+
+    const leaders = leadersOf(group);
+    expect(leaders).toHaveLength(2);
+    // The labels move further out to make room for the leaders.
+    for (const el of texts) expect(translateOf(el).x).toBe(500 + SERIES_END_LABEL_LEADER_INDENT_PX);
+
+    const alpha = leaders.find((l) => l.getAttribute('data-cat') === 'alpha')!;
+    expect(alpha.getAttribute('stroke')).toBe('#ff0000');
+    // Starts just past the line end (anchor minus the group's dx)...
+    expect(Number(alpha.getAttribute('x1'))).toBeCloseTo(500 - 6 + 2);
+    expect(Number(alpha.getAttribute('y1'))).toBeCloseTo(200);
+    // ...and ends just before the label's left edge.
+    expect(Number(alpha.getAttribute('x2'))).toBeCloseTo(500 + SERIES_END_LABEL_LEADER_INDENT_PX - 2);
+  });
+
+  test('draws no leaders when nothing had to move', () => {
+    const { svg, group, texts } = buildPlot(
+      [{ text: 'Alpha', x: 500, y: 100 }, { text: 'Bravo', x: 500, y: 300 }],
+      { axis: 'y', groupTransform: 'translate(6,0)' },
+    );
+
+    deOverlapSeriesLabels(svg);
+
+    expect(leadersOf(group)).toHaveLength(0);
+    expect(texts.map(translateOf)).toEqual([{ x: 500, y: 100 }, { x: 500, y: 300 }]);
+  });
+
+  test('does not accumulate leaders across repeated passes', () => {
+    const { svg, group } = buildPlot(
+      [{ text: 'Alpha', x: 500, y: 200 }, { text: 'Bravo', x: 500, y: 202 }],
+      { axis: 'y', groupTransform: 'translate(6,0)' },
+    );
+
+    deOverlapSeriesLabels(svg);
+    deOverlapSeriesLabels(svg);
+
+    expect(leadersOf(group)).toHaveLength(2);
+  });
+
+  test('drops the lowest-priority labels (last in DOM order), not the top ones', () => {
+    // Anchors run bottom-to-top, so position and priority disagree.
+    const anchors = Array.from({ length: 20 }, (_, i) => 90 - i);
+    const { svg, texts } = buildPlot(
+      anchors.map((y, i) => ({ text: `S${i}`, x: 500, y })),
+      { axis: 'y', frameHeight: 100 },
+    );
+
+    deOverlapSeriesLabels(svg);
+
+    const hidden = texts.map((el) => el.style.display === 'none');
+    const firstHidden = hidden.indexOf(true);
+    expect(firstHidden).toBeGreaterThan(0);
+    expect(hidden.slice(0, firstHidden).every((h) => !h)).toBe(true);
+    expect(hidden.slice(firstHidden).every((h) => h)).toBe(true);
   });
 
   test('does nothing when the plot has no series-end labels', () => {

@@ -6,8 +6,8 @@
  * here (see `seriesEndLabels.ts`): it never sees the final plot size or real
  * text metrics, and Plot's `dx`/`dy` are constant mark options rather than
  * channels, so per-label offsets cannot be expressed in the spec. This pass
- * sorts the labels along the dodge axis, shifts only those that have to move
- * in order to clear their neighbour, and hides any the axis cannot fit.
+ * hides the lowest-priority labels the axis cannot fit, then spaces out the
+ * rest.
  *
  * Plot positions each `<text>` with its own `transform="translate(x,y)"`
  * (optionally followed by a rotate), so the offset has to be folded into that
@@ -15,15 +15,29 @@
  * the mark group's origin. For the same reason `getBBox()` is only used for
  * text *metrics*: it reports the box in the element's own coordinate system
  * and therefore excludes the translate that positions it.
+ *
+ * Crowded labels are centred on their lines as a group, and any group that had
+ * to move gets thin leader lines back to the line ends so each label stays
+ * attributable even when colours are similar.
  */
 
 import {
   SERIES_END_LABEL_DODGE_X_CLASS,
   SERIES_END_LABEL_DODGE_Y_CLASS,
+  SERIES_END_LABEL_LEADER_CLASS,
+  SERIES_END_LABEL_LEADER_INDENT_PX,
 } from '../../observable-plot-generator/utils/seriesEndLabels';
 
 /** Breathing room between two adjacent labels, in pixels. */
 const LABEL_GAP_PX = 2;
+
+/** A cluster moved further than this from its lines gets leader lines. */
+const LEADER_MIN_SHIFT_PX = 3;
+
+/** Clearance between a leader line and the point / label it connects. */
+const LEADER_GAP_PX = 2;
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 type Axis = 'x' | 'y';
 
@@ -51,15 +65,146 @@ function readAnchor(el: SVGTextElement): Anchor {
   return anchor;
 }
 
-function applyOffset(el: SVGTextElement, anchor: Anchor, offset: number, axis: Axis): void {
-  const x = axis === 'x' ? anchor.x + offset : anchor.x;
-  const y = axis === 'y' ? anchor.y + offset : anchor.y;
-  el.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)})${anchor.suffix}`);
+/**
+ * The mark's `dx`/`dy`. Plot applies them to the mark's `<g>`, while each
+ * `<text>` is translated to the exact data point, so subtracting this offset
+ * from a label's anchor gives the end of its line in the group's coordinates.
+ * (Plot's half-pixel crisp-edge offset is folded in too; it is not worth
+ * separating out.)
+ */
+function readGroupOffset(group: SVGGElement): { x: number; y: number } {
+  const match = TRANSLATE_RE.exec(group.getAttribute('transform') ?? '');
+  return match
+    ? { x: Number.parseFloat(match[1]), y: Number.parseFloat(match[2]) }
+    : { x: 0, y: 0 };
 }
 
-function resolveAlongAxis(labels: SVGTextElement[], axis: Axis, frameSize: number): void {
-  type Entry = { el: SVGTextElement; anchor: Anchor; desired: number; extent: number; pos: number };
+function applyOffset(el: SVGTextElement, anchor: Anchor, ox: number, oy: number): void {
+  el.setAttribute('transform', `translate(${(anchor.x + ox).toFixed(2)},${(anchor.y + oy).toFixed(2)})${anchor.suffix}`);
+}
 
+type Entry = {
+  el: SVGTextElement;
+  anchor: Anchor;
+  box: DOMRect;
+  /** Label start along the dodge axis, where Plot put it. */
+  desired: number;
+  extent: number;
+  pos: number;
+};
+
+type Cluster = { entries: Entry[]; start: number; size: number; sum: number };
+
+/**
+ * Where a cluster starts: centred on its lines, then clamped into the frame.
+ *
+ * Label i sits at `start + offset_i`, so centring the stack on the mean of the
+ * desired positions gives `start = mean(desired_i - offset_i)`; `sum` holds
+ * that numerator.
+ */
+function placeCluster(cluster: Cluster, frameSize: number): void {
+  const centred = cluster.sum / cluster.entries.length;
+  cluster.start = frameSize > 0
+    ? Math.max(0, Math.min(centred, frameSize - cluster.size))
+    : centred;
+}
+
+/**
+ * Lay labels out along the dodge axis.
+ *
+ * Overlapping labels are merged into clusters that are centred on their lines,
+ * so a crowded group spreads out evenly in both directions rather than stacking
+ * away from the first label. Clusters are clamped into the frame and re-merged
+ * whenever clamping or growth makes them collide with their neighbour.
+ */
+function layoutClusters(entries: Entry[], frameSize: number): Cluster[] {
+  const sorted = [...entries].sort((a, b) => a.desired - b.desired);
+  const clusters: Cluster[] = [];
+
+  for (const entry of sorted) {
+    let cluster: Cluster = { entries: [entry], start: 0, size: entry.extent, sum: entry.desired };
+    placeCluster(cluster, frameSize);
+
+    while (clusters.length > 0) {
+      const prev = clusters[clusters.length - 1];
+      if (prev.start + prev.size + LABEL_GAP_PX <= cluster.start) break;
+      clusters.pop();
+      // Every label of the later cluster moves down by the earlier one's size.
+      const shift = prev.size + LABEL_GAP_PX;
+      cluster = {
+        entries: [...prev.entries, ...cluster.entries],
+        start: 0,
+        size: prev.size + LABEL_GAP_PX + cluster.size,
+        sum: prev.sum + cluster.sum - shift * cluster.entries.length,
+      };
+      placeCluster(cluster, frameSize);
+    }
+    clusters.push(cluster);
+  }
+
+  for (const cluster of clusters) {
+    let pos = cluster.start;
+    for (const entry of cluster.entries) {
+      entry.pos = pos;
+      pos += entry.extent + LABEL_GAP_PX;
+    }
+  }
+  return clusters;
+}
+
+/**
+ * Thin connector from a line's end to its displaced label, in the label's
+ * colour. Copies the label's `data-cat` so series highlighting dims it too.
+ */
+function appendLeader(
+  group: SVGGElement,
+  entry: Entry,
+  axis: Axis,
+  groupOffset: { x: number; y: number },
+  indent: number,
+): void {
+  const { anchor, box } = entry;
+  const shift = entry.pos - entry.desired;
+  let x1: number, y1: number, x2: number, y2: number;
+
+  if (axis === 'y') {
+    // Labels sit beside the line end; `side` is +1 when they are to its right.
+    const side = Math.sign(groupOffset.x);
+    x1 = anchor.x - groupOffset.x + side * LEADER_GAP_PX;
+    y1 = anchor.y - groupOffset.y;
+    const left = anchor.x + side * indent + box.x;
+    x2 = (side > 0 ? left : left + box.width) - side * LEADER_GAP_PX;
+    y2 = anchor.y + shift + box.y + box.height / 2;
+  } else {
+    // Labels sit above (side -1) or below (side +1) the line end.
+    const side = Math.sign(groupOffset.y);
+    x1 = anchor.x - groupOffset.x;
+    y1 = anchor.y - groupOffset.y + side * LEADER_GAP_PX;
+    x2 = anchor.x + shift + box.x + box.width / 2;
+    const top = anchor.y + side * indent + box.y;
+    y2 = (side > 0 ? top : top + box.height) - side * LEADER_GAP_PX;
+  }
+
+  const line = document.createElementNS(SVG_NS, 'line');
+  line.setAttribute('class', SERIES_END_LABEL_LEADER_CLASS);
+  line.setAttribute('x1', x1.toFixed(2));
+  line.setAttribute('y1', y1.toFixed(2));
+  line.setAttribute('x2', x2.toFixed(2));
+  line.setAttribute('y2', y2.toFixed(2));
+  line.setAttribute('stroke', entry.el.getAttribute('fill') ?? 'currentColor');
+  line.setAttribute('stroke-width', '1');
+  line.setAttribute('stroke-opacity', '0.7');
+  const cat = entry.el.getAttribute('data-cat');
+  if (cat != null) line.setAttribute('data-cat', cat);
+  // First child, so the labels' halo paints over the leader's end.
+  group.insertBefore(line, group.firstChild);
+}
+
+function resolveAlongAxis(group: SVGGElement, labels: SVGTextElement[], axis: Axis, frameSize: number): void {
+  group.querySelectorAll(`line.${SERIES_END_LABEL_LEADER_CLASS}`).forEach((line) => line.remove());
+
+  // `labels` is in DOM order, which the generator sets to priority order
+  // (see `createSeriesEndLabelMark`): when space runs out, drop from the end.
   const entries: Entry[] = [];
   for (const el of labels) {
     const anchor = readAnchor(el);
@@ -78,43 +223,46 @@ function resolveAlongAxis(labels: SVGTextElement[], axis: Axis, frameSize: numbe
     entries.push({
       el,
       anchor,
+      box,
       desired,
       extent: axis === 'y' ? box.height : box.width,
       pos: desired,
     });
   }
 
-  entries.sort((a, b) => a.desired - b.desired);
-
-  // Forward pass: push each label just far enough to clear its predecessor.
-  let floor = 0;
-  for (const entry of entries) {
-    entry.pos = Math.max(entry.desired, floor);
-    floor = entry.pos + entry.extent + LABEL_GAP_PX;
-  }
-
-  // Backward pass: pull back only the labels that now overflow the far edge,
-  // so a cluster near the end of the axis stays near its lines instead of the
-  // whole stack being dragged across the frame.
+  // Overlapping text is unreadable, so keep only as many labels as the axis can
+  // hold, sacrificing the least important series first.
+  let kept = entries;
   if (frameSize > 0) {
-    let ceiling = frameSize;
-    for (let i = entries.length - 1; i >= 0; i -= 1) {
-      const entry = entries[i];
-      entry.pos = Math.min(entry.pos, ceiling - entry.extent);
-      ceiling = entry.pos - LABEL_GAP_PX;
+    let needed = entries.reduce((sum, e) => sum + e.extent, 0) + LABEL_GAP_PX * (entries.length - 1);
+    let count = entries.length;
+    while (count > 1 && needed > frameSize) {
+      count -= 1;
+      needed -= entries[count].extent + LABEL_GAP_PX;
+    }
+    kept = entries.slice(0, count);
+    for (const entry of entries.slice(count)) {
+      entry.el.style.display = 'none';
+      applyOffset(entry.el, entry.anchor, 0, 0);
     }
   }
 
-  for (const entry of entries) {
-    // Both passes clamp into the frame, so a position that ended up before its
-    // start means the axis ran out of room for this label. Overlapping text is
-    // unreadable, so drop it and keep the labels that do fit.
-    if (entry.pos < 0) {
-      entry.el.style.display = 'none';
-      applyOffset(entry.el, entry.anchor, 0, axis);
-      continue;
+  const groupOffset = readGroupOffset(group);
+  // Leaders need room to be visible, so a displaced cluster is pushed further
+  // away from its lines — on the axis that does not dodge.
+  const side = Math.sign(axis === 'y' ? groupOffset.x : groupOffset.y);
+  const indent = side === 0 ? 0 : SERIES_END_LABEL_LEADER_INDENT_PX;
+
+  for (const cluster of layoutClusters(kept, frameSize)) {
+    const displaced = cluster.entries.some((e) => Math.abs(e.pos - e.desired) > LEADER_MIN_SHIFT_PX);
+    const clusterIndent = displaced ? indent : 0;
+
+    for (const entry of cluster.entries) {
+      const shift = entry.pos - entry.desired;
+      if (axis === 'y') applyOffset(entry.el, entry.anchor, side * clusterIndent, shift);
+      else applyOffset(entry.el, entry.anchor, shift, side * clusterIndent);
+      if (displaced) appendLeader(group, entry, axis, groupOffset, clusterIndent);
     }
-    applyOffset(entry.el, entry.anchor, entry.pos - entry.desired, axis);
   }
 }
 
@@ -143,7 +291,7 @@ export function deOverlapSeriesLabels(plot: SVGSVGElement | HTMLElement): void {
           : svg.width?.baseVal?.value ?? 0
         : 0;
 
-      resolveAlongAxis(labels, axis, frameSize);
+      resolveAlongAxis(group, labels, axis, frameSize);
     });
   }
 }

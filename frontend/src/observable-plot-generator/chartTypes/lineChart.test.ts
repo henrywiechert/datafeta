@@ -513,6 +513,8 @@ describe('buildLineOptions – series end labels', () => {
     } as LineBuildParams);
 
   const textMark = (opts: any) => ((opts.marks || []) as any[]).find((m) => m.type === 'text');
+  // The label mark binds the full line rows and filters them to the series ends.
+  const labelRows = (mark: any): any[] => (mark.opts.filter ? mark.data.filter(mark.opts.filter) : mark.data);
 
   test('emits no text mark when disabled', () => {
     expect(textMark(build({ seriesLabels: 'off' }))).toBeUndefined();
@@ -523,11 +525,11 @@ describe('buildLineOptions – series end labels', () => {
     const mark = textMark(build({ seriesLabels: 'end' }));
 
     expect(mark).toBeDefined();
-    expect(mark.data).toHaveLength(2);
+    expect(labelRows(mark)).toHaveLength(2);
     // Order is unspecified — each label is positioned from its own datum.
-    expect(mark.data.map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta']);
-    expect(mark.data.every((d: any) => d.x === 2)).toBe(true);
-    expect(mark.data.map((d: any) => mark.opts.text(d)).sort()).toEqual(['Alpha', 'Beta']);
+    expect(labelRows(mark).map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta']);
+    expect(labelRows(mark).every((d: any) => d.x === 2)).toBe(true);
+    expect(labelRows(mark).map((d: any) => mark.opts.text(d)).sort()).toEqual(['Alpha', 'Beta']);
     expect(mark.opts.textAnchor).toBe('start');
   });
 
@@ -537,6 +539,20 @@ describe('buildLineOptions – series end labels', () => {
     expect(mark.opts.className).toContain('series-end-label');
     // Horizontal charts stack their end labels vertically.
     expect(mark.opts.className).toContain('series-end-label-dodge-y');
+  });
+
+  test('binds label indices to the line rows so highlight stamping resolves them', () => {
+    const opts = build({ seriesLabels: 'end' });
+    const mark = textMark(opts);
+
+    expect(mark.data).toBe(opts.__seriesHighlightData);
+  });
+
+  test('orders labels by last value, highest first, so the renderer drops the smallest', () => {
+    const mark = textMark(build({ seriesLabels: 'end' }));
+
+    const ordered = [...labelRows(mark)].sort(mark.opts.sort);
+    expect(ordered.map((d: any) => d.series)).toEqual(['Beta', 'Alpha']);
   });
 
   test('labels every series even when their ends nearly coincide', () => {
@@ -555,7 +571,7 @@ describe('buildLineOptions – series end labels', () => {
       ],
     }));
 
-    expect(mark.data.map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(labelRows(mark).map((d: any) => d.series).sort()).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 
   test('sizes the gutter from the longest label', () => {

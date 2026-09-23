@@ -28,6 +28,15 @@ export const SERIES_END_LABEL_CLASS = 'series-end-label';
 export const SERIES_END_LABEL_DODGE_Y_CLASS = 'series-end-label-dodge-y';
 export const SERIES_END_LABEL_DODGE_X_CLASS = 'series-end-label-dodge-x';
 
+/** Leader lines the renderer draws from a line's end to its displaced label. */
+export const SERIES_END_LABEL_LEADER_CLASS = 'series-end-label-leader';
+
+/**
+ * How much further from its line the renderer moves a displaced label so the
+ * leader line has room to show. The gutter reserves this space up front.
+ */
+export const SERIES_END_LABEL_LEADER_INDENT_PX = 8;
+
 /** Beyond this many lines direct labelling becomes unreadable, so it is skipped. */
 export const MAX_SERIES_LABELS = 12;
 
@@ -51,7 +60,7 @@ export function estimateGutterRatio(labels: string[], fontSize = SERIES_LABEL_FO
   const longest = labels.reduce((max, label) => Math.max(max, label.length), 0);
   if (longest === 0) return 0;
   // ~0.6em per character is a reasonable mean for proportional fonts.
-  const estimatedPx = longest * fontSize * 0.6 + LABEL_OFFSET_PX;
+  const estimatedPx = longest * fontSize * 0.6 + LABEL_OFFSET_PX + SERIES_END_LABEL_LEADER_INDENT_PX;
   // Assume a cell is at least ~320px of plot area; clamp so a very long label
   // cannot eat more than a third of the axis.
   return Math.min(0.33, Math.max(0.08, estimatedPx / 320));
@@ -62,9 +71,19 @@ export function estimateGutterRatio(labels: string[], fontSize = SERIES_LABEL_FO
  *
  * 'end' places labels in the reserved gutter past the line; 'endInside' keeps
  * them within the data area, for axes that cannot be padded (ordinal/band).
+ *
+ * Labels are rendered in priority order — highest last value first. The
+ * renderer relies on this: when the axis cannot fit every label it drops them
+ * from the end of the DOM.
+ *
+ * Pass `sourceRows` (the array the chart's line marks bind to, which must
+ * contain every `endRows` object) so the labels bind indices into that same
+ * array. Highlight stamping resolves each element's index against it, so
+ * without this the labels would pick up the category of unrelated rows.
  */
 export function createSeriesEndLabelMark(params: {
   endRows: any[];
+  sourceRows?: any[];
   placement: SeriesEndLabelPlacement;
   orientation: 'horizontal' | 'vertical';
   xColumn: string;
@@ -73,13 +92,22 @@ export function createSeriesEndLabelMark(params: {
   getFill: (row: any) => string;
   fontSize?: number;
 }): Plot.Markish {
-  const { endRows, placement, orientation, xColumn, yColumn, getText, getFill, fontSize } = params;
+  const { endRows, sourceRows, placement, orientation, xColumn, yColumn, getText, getFill, fontSize } = params;
 
   const outside = placement === 'end';
   const horizontal = orientation === 'horizontal';
   const dodgeClass = horizontal ? SERIES_END_LABEL_DODGE_Y_CLASS : SERIES_END_LABEL_DODGE_X_CLASS;
 
-  return Plot.text(endRows, {
+  const dependentColumn = horizontal ? yColumn : xColumn;
+  const valueOf = (row: any): number => {
+    const value = Number(row?.[dependentColumn]);
+    return Number.isFinite(value) ? value : -Infinity;
+  };
+  const endSet = new Set(endRows);
+
+  return Plot.text(sourceRows ?? endRows, {
+    ...(sourceRows ? { filter: (row: any) => endSet.has(row) } : {}),
+    sort: (a: any, b: any) => valueOf(b) - valueOf(a),
     x: xColumn,
     y: yColumn,
     text: getText,
