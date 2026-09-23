@@ -45,7 +45,8 @@ function isModifierHeld(e: PointerEvent | React.PointerEvent): boolean {
  *
  * Requires Ctrl (Win/Linux) or Cmd (Mac) to be held when starting the drag.
  * Uses document-level listeners for move/up to guarantee reliable event capture
- * regardless of which child element the pointer is over.
+ * regardless of which child element the pointer is over, and claims the
+ * pointerdown in the capture phase so chart content cannot swallow it.
  */
 const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, children }) => {
   const [brush, setBrush] = useState<BrushState>(initialBrushState);
@@ -122,6 +123,13 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    // A brush drag belongs to the brush alone. Plot's pointer interaction
+    // (crosshair overlay) toggles its sticky state on pointerdown and calls
+    // stopImmediatePropagation, which would otherwise swallow this event
+    // before it bubbled back up here — so it is handled in the capture phase
+    // and kept from reaching the plot.
+    e.stopPropagation();
+
     const next: BrushState = {
       active: true,
       locked: null,
@@ -182,7 +190,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
         flexDirection: 'column',
         cursor: brush.active && brush.locked ? 'crosshair' : undefined,
       }}
-      onPointerDown={handlePointerDown}
+      onPointerDownCapture={handlePointerDown}
     >
       {children}
       {bandStyle && <div style={bandStyle} />}
