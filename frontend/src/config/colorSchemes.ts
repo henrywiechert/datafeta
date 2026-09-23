@@ -218,3 +218,12 @@ export const DEFAULT_MANUAL_COLOR = PREDEFINED_COLORS[0]; // '#4e79a7'
  * A data colour, not a theme token — see src/theme/THEMING.md.
  */
 export const DEFAULT_OVERLAY_COLOR = PREDEFINED_COLORS[2]; // '#e15759'
+
+/**
+ * Default stroke for reference lines (mean, median, percentiles): a mid grey
+ * that reads as annotation rather than data on both light and dark themes, and
+ * does not clash with a regression line shown at the same time.
+ *
+ * A data colour, not a theme token — see src/theme/THEMING.md.
+ */
+export const DEFAULT_REFERENCE_LINE_COLOR = '#7f7f7f';

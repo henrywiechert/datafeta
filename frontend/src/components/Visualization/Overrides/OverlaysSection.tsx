@@ -11,11 +11,12 @@
  */
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Switch, Slider, Select, MenuItem, Typography, TextField } from '@mui/material';
+import { Box, Switch, Slider, Select, MenuItem, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
+import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
@@ -24,14 +25,16 @@ import {
   OverlayType,
   OverlayParams,
   OVERLAY_META,
-  DEFAULT_OVERLAYS,
+  ReferenceStat,
+  withAllOverlays,
+  normalizePercentile,
 } from '../../../observable-plot-generator/overlays/types';
 import { UserChartType, Field } from '../../../types';
 import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
 import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 import { T } from '../../../theme/tokens';
-import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR } from '../../../config/colorSchemes';
+import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR, DEFAULT_REFERENCE_LINE_COLOR } from '../../../config/colorSchemes';
 
 // --- Color picker (tiny inline swatch + native input) -----------------------
 
@@ -296,10 +299,145 @@ const DensityControls: React.FC<{
   );
 };
 
+/**
+ * Text field that edits a number and commits on blur / Enter / Tab, reverting
+ * invalid input. `parse` returns undefined to reject the text.
+ */
+const CommitNumberField: React.FC<{
+  value: number | null | undefined;
+  parse: (raw: string) => number | null | undefined;
+  onCommit: (v: number | null) => void;
+  placeholder?: string;
+  width?: number;
+}> = ({ value, parse, onCommit, placeholder, width = 40 }) => {
+  const shown = value == null ? '' : String(value);
+  const [raw, setRaw] = useState(shown);
+  useEffect(() => { setRaw(shown); }, [shown]);
+
+  const commit = () => {
+    const parsed = parse(raw.trim());
+    if (parsed === undefined) setRaw(shown);
+    else if (parsed !== (value ?? null)) onCommit(parsed);
+  };
+
+  return (
+    <TextField
+      size="small"
+      variant="standard"
+      placeholder={placeholder}
+      inputProps={{ style: { width, fontSize: 12, textAlign: 'center', MozAppearance: 'textfield' } }}
+      value={raw}
+      onChange={e => setRaw(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commit(); } }}
+    />
+  );
+};
+
+const REFERENCE_STAT_OPTIONS: { value: ReferenceStat; label: string }[] = [
+  { value: 'min', label: 'Min' },
+  { value: 'median', label: 'Med' },
+  { value: 'mean', label: 'Mean' },
+  { value: 'max', label: 'Max' },
+  { value: 'percentile', label: 'P' },
+];
+
+const ReferenceLineControls: React.FC<{
+  params: OverlayParams;
+  onUpdate: (p: Partial<OverlayParams>) => void;
+  hasDiscreteColor?: boolean;
+}> = ({ params, onUpdate, hasDiscreteColor }) => {
+  const stats = params.refStats ?? [];
+  const percentile = normalizePercentile(params.percentile);
+  const showLabels = params.showLabels ?? true;
+  const perGroup = params.perGroup ?? false;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {/* Statistics — any combination */}
+      <ToggleButtonGroup
+        size="small"
+        value={stats}
+        onChange={(_, next: ReferenceStat[]) => onUpdate({ refStats: next })}
+        sx={{ '& .MuiToggleButton-root': { py: 0.1, px: 0.75, fontSize: 11, textTransform: 'none', flex: 1 } }}
+      >
+        {REFERENCE_STAT_OPTIONS.map(o => (
+          <ToggleButton key={o.value} value={o.value}>
+            {o.value === 'percentile' ? `P${percentile}` : o.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      {stats.includes('percentile') && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" sx={{ minWidth: 64 }}>Percentile</Typography>
+          <CommitNumberField
+            value={percentile}
+            parse={raw => {
+              const v = Number(raw);
+              return raw !== '' && Number.isFinite(v) && v > 0 && v <= 100 ? normalizePercentile(v) : undefined;
+            }}
+            onCommit={v => onUpdate({ percentile: v ?? 95 })}
+          />
+        </Box>
+      )}
+      {/* Fixed value, e.g. an SLA threshold; empty = none */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 64 }}>Fixed value</Typography>
+        <CommitNumberField
+          value={params.refValue}
+          placeholder="none"
+          width={64}
+          parse={raw => {
+            if (raw === '') return null;
+            const v = Number(raw);
+            return Number.isFinite(v) ? v : undefined;
+          }}
+          onCommit={v => onUpdate({ refValue: v })}
+        />
+      </Box>
+      {/* Line thickness + colour (colour also drives the fixed line when per group) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 18 }}>Px</Typography>
+        <Slider
+          size="small"
+          min={0.5}
+          max={4}
+          step={0.5}
+          value={params.strokeWidth ?? 1.5}
+          onChange={(_, v) => onUpdate({ strokeWidth: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+        <InlineColorPicker value={params.color ?? DEFAULT_REFERENCE_LINE_COLOR} onChange={c => onUpdate({ color: c })} />
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption">Labels</Typography>
+        <Switch
+          size="small"
+          checked={showLabels}
+          onChange={(_, v) => onUpdate({ showLabels: v })}
+        />
+      </Box>
+      {/* Per group — only shown when a discrete color field is active */}
+      {hasDiscreteColor && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption">Per group</Typography>
+          <Switch
+            size="small"
+            checked={perGroup}
+            onChange={(_, v) => onUpdate({ perGroup: v })}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean; hideSourceData?: boolean; onToggleHideSource?: (v: boolean) => void }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
   density: DensityControls,
+  referenceLines: ReferenceLineControls,
 };
 
 // Icon per overlay type
@@ -307,6 +445,7 @@ const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
   linearRegression: TrendingUpIcon,
   movingAverage: ShowChartIcon,
   density: BlurOnIcon,
+  referenceLines: HorizontalRuleIcon,
 };
 
 // --- Main section component --------------------------------------------------
@@ -316,7 +455,7 @@ const OverlaysSection: React.FC = () => {
   const recordUndoPoint = useRecordUndoPoint();
 
   const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField, chartTypeParams } = state;
-  const overlays: OverlayConfig[] = overlayConfigs ?? DEFAULT_OVERLAYS;
+  const overlays: OverlayConfig[] = withAllOverlays(overlayConfigs);
 
   // Resolve effective chart type: user-selected or auto-detected
   const chartType: UserChartType | undefined = useMemo(() => {
