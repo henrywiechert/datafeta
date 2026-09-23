@@ -19,6 +19,7 @@ import { buildDensity } from './density';
 import { buildReferenceLines } from './referenceLines';
 import { buildMarginalRug } from './marginalRug';
 import { buildHexbin, HEXBIN_OPACITY_SCALE } from './hexbin';
+import { buildCrosshair } from './crosshair';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -38,6 +39,7 @@ const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   referenceLines: buildReferenceLines,
   marginalRug: buildMarginalRug,
   hexbin: buildHexbin,
+  crosshair: buildCrosshair,
 };
 
 /**
@@ -55,7 +57,7 @@ const SCALE_DEFAULTS: Partial<Record<OverlayType, Partial<Plot.PlotOptions>>> = 
  * their element indices resolve against the same array as the chart's marks
  * during highlight stamping.
  */
-const USES_RENDERED_ROWS: ReadonlySet<OverlayType> = new Set<OverlayType>(['marginalRug', 'hexbin']);
+const USES_RENDERED_ROWS: ReadonlySet<OverlayType> = new Set<OverlayType>(['marginalRug', 'hexbin', 'crosshair']);
 
 /** The rows the chart's marks bind — the same lookup `stampColorCategories` uses. */
 function renderedRows(options: Plot.PlotOptions): any[] | undefined {

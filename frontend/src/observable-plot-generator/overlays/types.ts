@@ -3,7 +3,7 @@
  * Overlay Types
  *
  * Types for overlay marks (regression, moving average, density, reference
- * lines, marginal rug, hexbin).
+ * lines, marginal rug, hexbin, crosshair).
  * Overlays are add-on marks appended to existing chart PlotOptions — they never
  * modify the primary chart handler logic.
  */
@@ -14,7 +14,7 @@ import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR, DEFAULT_REFERENCE_LINE_COL
 
 // --- Overlay type identifiers ------------------------------------------------
 
-export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines' | 'marginalRug' | 'hexbin';
+export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines' | 'marginalRug' | 'hexbin' | 'crosshair';
 
 /**
  * Applied to overlay marks that series highlighting must never dim: marks that
@@ -71,6 +71,9 @@ export interface OverlayParams {
 
   // Hexbin
   binWidth?: number;             // Hexagon width in pixels (default 20)
+
+  // Crosshair (also uses showLabels)
+  crosshairAxes?: 'both' | 'x' | 'y';  // Guide lines to draw; 'x'/'y' also snap by that axis alone (default 'both')
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -91,6 +94,7 @@ export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: false },
   { type: 'marginalRug',      enabled: false, params: { rugAxes: 'both', rugLength: 8, opacity: 0.35, strokeWidth: 1, color: DEFAULT_MANUAL_COLOR, perGroup: false } },
   { type: 'hexbin',           enabled: false, params: { binWidth: 20, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: true },
+  { type: 'crosshair',        enabled: false, params: { crosshairAxes: 'both', showLabels: true } },
   { type: 'referenceLines',   enabled: false, params: { refStats: ['mean'], percentile: 95, refValue: null, showLabels: true, color: DEFAULT_REFERENCE_LINE_COLOR, strokeWidth: 1.5, perGroup: false } },
 ];
 
@@ -139,6 +143,11 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
     type: 'hexbin',
     label: 'Hexbin',
     applicableTo: new Set<UserChartType>(['scatter']),
+  },
+  {
+    type: 'crosshair',
+    label: 'Crosshair',
+    applicableTo: new Set<UserChartType>(['scatter', 'line']),
   },
   {
     type: 'referenceLines',

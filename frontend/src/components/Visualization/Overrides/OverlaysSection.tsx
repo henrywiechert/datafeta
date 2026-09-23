@@ -19,6 +19,7 @@ import BlurOnIcon from '@mui/icons-material/BlurOn';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import HexagonOutlinedIcon from '@mui/icons-material/HexagonOutlined';
+import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
@@ -556,6 +557,36 @@ const HexbinControls: React.FC<{
   );
 };
 
+const CrosshairControls: React.FC<{
+  params: OverlayParams;
+  onUpdate: (p: Partial<OverlayParams>) => void;
+}> = ({ params, onUpdate }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography variant="caption" sx={{ minWidth: 46 }}>Lines</Typography>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={params.crosshairAxes ?? 'both'}
+        onChange={(_, v: 'both' | 'x' | 'y' | null) => { if (v) onUpdate({ crosshairAxes: v }); }}
+        sx={{ flex: 1, '& .MuiToggleButton-root': { py: 0.1, px: 0.75, fontSize: 11, textTransform: 'none', flex: 1 } }}
+      >
+        <ToggleButton value="both">Both</ToggleButton>
+        <ToggleButton value="x">Vertical</ToggleButton>
+        <ToggleButton value="y">Horizontal</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Typography variant="caption">Axis values</Typography>
+      <Switch
+        size="small"
+        checked={params.showLabels ?? true}
+        onChange={(_, v) => onUpdate({ showLabels: v })}
+      />
+    </Box>
+  </Box>
+);
+
 const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean; hideSourceData?: boolean; onToggleHideSource?: (v: boolean) => void }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
@@ -563,6 +594,7 @@ const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; on
   referenceLines: ReferenceLineControls,
   marginalRug: MarginalRugControls,
   hexbin: HexbinControls,
+  crosshair: CrosshairControls,
 };
 
 // Icon per overlay type
@@ -573,6 +605,7 @@ const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
   referenceLines: HorizontalRuleIcon,
   marginalRug: StraightenIcon,
   hexbin: HexagonOutlinedIcon,
+  crosshair: GpsFixedIcon,
 };
 
 // --- Main section component --------------------------------------------------
