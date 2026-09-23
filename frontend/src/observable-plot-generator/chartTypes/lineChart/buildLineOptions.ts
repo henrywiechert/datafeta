@@ -204,6 +204,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         mode: effectiveSeriesLabels,
         orientation,
         seriesGroups,
+        sourceRows: budgetedSorted,
         xColumn,
         yColumn,
         colorColumnName,

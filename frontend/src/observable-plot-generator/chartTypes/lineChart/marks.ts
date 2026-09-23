@@ -109,6 +109,8 @@ export function buildSeriesEndLabelMarks(params: {
   mode: LineSeriesLabelMode;
   orientation: LineOrientation;
   seriesGroups?: Map<string, any[]>;
+  /** The rows the line marks bind to; see `createSeriesEndLabelMark`. */
+  sourceRows?: any[];
   xColumn: string;
   yColumn: string;
   colorColumnName?: string;
@@ -118,7 +120,7 @@ export function buildSeriesEndLabelMarks(params: {
   fontSize?: number;
 }): any[] {
   const {
-    mode, orientation, seriesGroups, xColumn, yColumn,
+    mode, orientation, seriesGroups, sourceRows, xColumn, yColumn,
     colorColumnName, colorField, colorInfo, fallbackColor, fontSize,
   } = params;
 
@@ -132,6 +134,7 @@ export function buildSeriesEndLabelMarks(params: {
   return [
     createSeriesEndLabelMark({
       endRows,
+      sourceRows,
       placement: mode,
       orientation,
       xColumn,
