@@ -17,6 +17,7 @@ import { buildLinearRegression } from './linearRegression';
 import { buildMovingAverage } from './movingAverage';
 import { buildDensity } from './density';
 import { buildReferenceLines } from './referenceLines';
+import { buildMarginalRug } from './marginalRug';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -34,7 +35,23 @@ const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   movingAverage: buildMovingAverage,
   density: buildDensity,
   referenceLines: buildReferenceLines,
+  marginalRug: buildMarginalRug,
 };
+
+/**
+ * Overlays that decorate the plotted points rather than summarise the data.
+ * They get the rows the chart actually renders (sampled, with normalised
+ * values) instead of the raw cell data, so they match the points exactly and
+ * their element indices resolve against the same array as the chart's marks
+ * during highlight stamping.
+ */
+const USES_RENDERED_ROWS: ReadonlySet<OverlayType> = new Set<OverlayType>(['marginalRug']);
+
+/** The rows the chart's marks bind — the same lookup `stampColorCategories` uses. */
+function renderedRows(options: Plot.PlotOptions): any[] | undefined {
+  const opts = options as any;
+  return opts.__seriesHighlightData || opts.__customTooltip?.data;
+}
 
 // Build applicability lookup from OVERLAY_META
 const APPLICABILITY: Record<OverlayType, ReadonlySet<UserChartType>> =
@@ -88,8 +105,9 @@ export function applyOverlays(
     const builder = BUILDERS[overlay.type];
     if (!builder) continue;
 
+    const rows = USES_RENDERED_ROWS.has(overlay.type) ? (renderedRows(options) ?? meta.data) : sorted;
     extraMarks.push(
-      builder(sorted, meta.xColumn, meta.yColumn, overlay.params, meta.orientation, meta.colorColumn),
+      builder(rows, meta.xColumn, meta.yColumn, overlay.params, meta.orientation, meta.colorColumn),
     );
   }
 
