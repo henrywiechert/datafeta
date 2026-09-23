@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { VisualizationState, VisualizationAction } from '../types';
 import { getChartTypeDescriptor } from '../../../observable-plot-generator/chartTypeRegistry';
+import { withAllOverlays } from '../../../observable-plot-generator/overlays/types';
 
 /**
  * Handles field overrides and global chart type actions.
@@ -129,14 +130,14 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
     case 'TOGGLE_OVERLAY':
       return {
         ...state,
-        overlays: (state.overlays || []).map(o =>
+        overlays: withAllOverlays(state.overlays).map(o =>
           o.type === action.payload.type ? { ...o, enabled: action.payload.enabled } : o
         ),
       };
     case 'UPDATE_OVERLAY_PARAMS':
       return {
         ...state,
-        overlays: (state.overlays || []).map(o =>
+        overlays: withAllOverlays(state.overlays).map(o =>
           o.type === action.payload.type
             ? { ...o, params: { ...o.params, ...action.payload.params } }
             : o
@@ -145,7 +146,7 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
     case 'UPDATE_OVERLAY':
       return {
         ...state,
-        overlays: (state.overlays || []).map(o =>
+        overlays: withAllOverlays(state.overlays).map(o =>
           o.type === action.payload.type ? { ...o, ...action.payload.config } : o
         ),
       };

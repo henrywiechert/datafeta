@@ -16,6 +16,7 @@ import { OverlayConfig, OverlayType, OverlayParams, OVERLAY_META } from './types
 import { buildLinearRegression } from './linearRegression';
 import { buildMovingAverage } from './movingAverage';
 import { buildDensity } from './density';
+import { buildReferenceLines } from './referenceLines';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -32,6 +33,7 @@ const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   linearRegression: buildLinearRegression,
   movingAverage: buildMovingAverage,
   density: buildDensity,
+  referenceLines: buildReferenceLines,
 };
 
 // Build applicability lookup from OVERLAY_META
