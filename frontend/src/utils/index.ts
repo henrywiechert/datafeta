@@ -29,8 +29,6 @@ export {
   // getDateTimePartTooltip - excluded (duplicate in fieldUtils)
   getResultColumnNameForDateTime,
   isValidDateTimeConfiguration,
-  clearDateTimePart,
-  setDateTimePart,
   canHaveDateTimePart,
   getDateTimeModeDescription,
   formatDateForDisplay,

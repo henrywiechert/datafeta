@@ -554,7 +554,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
           );
         })}
         {pinnedValues.length > 0 && unpinnedValues.length > 0 && (
-          <div className={styles.sectionDivider} />
+          <div className={styles.pinnedDivider} />
         )}
         {unpinnedValues.map((value, index) => {
           const valueStr = value === null || value === undefined ? '(null)' : String(value);

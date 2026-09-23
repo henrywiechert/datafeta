@@ -120,3 +120,41 @@ describe('computePointBudget for a multi-strip tick chart', () => {
     expect(budget.stratifyField).toBe('category');
   });
 });
+
+describe('Full DateTime is a continuous axis, not a discrete stratum', () => {
+  // Every datetime dimension reaches the wire with a date_mode ('timeline' by
+  // default), so the stratum checks must stay PART-only. If they were relaxed to
+  // mode-only, a plain timestamp axis would silently be treated as a category and
+  // change facet detection and the point budget.
+  const fullDateTime = (field: string, axis?: any) =>
+    dim(field, 'continuous', axis, { date_mode: 'timeline' });
+
+  it('does not stratify on a Full DateTime dimension', () => {
+    const q = qd([dim('value', 'continuous', 'x'), fullDateTime('ts', 'y')]);
+
+    expect(findStratifyField(q)).toBeUndefined();
+  });
+
+  it('still stratifies on an explicit datetime part', () => {
+    const q = qd([
+      dim('value', 'continuous', 'x'),
+      dim('ts', 'discrete', 'y', { date_part: 'hour', date_mode: 'distinct' }),
+    ]);
+
+    // Stratifies on the derived alias, which is what the result rows are keyed by.
+    expect(findStratifyField(q)).toBe('ts_hour_distinct');
+  });
+
+  it('does not count Full DateTime axes as faceted', () => {
+    const faceted = computePointBudget(
+      classifyChartType(qd([fullDateTime('ts', 'x'), fullDateTime('ts2', 'y')])),
+      qd([fullDateTime('ts', 'x'), fullDateTime('ts2', 'y')]),
+    );
+    const single = computePointBudget(
+      classifyChartType(qd([dim('a', 'continuous', 'x'), dim('b', 'continuous', 'y')])),
+      qd([dim('a', 'continuous', 'x'), dim('b', 'continuous', 'y')]),
+    );
+
+    expect(faceted.maxPoints).toBe(single.maxPoints);
+  });
+});

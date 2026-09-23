@@ -31,6 +31,11 @@ class Measure(BaseModel):
     # Optional table calculation (e.g. per-bucket difference) computed over the
     # aggregated result in an outer window-function SELECT.
     window_calc: Optional[WindowCalc] = None
+    # Datetime handling for the aggregated column. Needed so MIN/MAX of a
+    # text-stored datetime column compare as timestamps rather than
+    # lexicographically -- otherwise a filter's initial bounds are wrong.
+    date_part: Optional[Literal['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_mode: Optional[Literal['distinct', 'timeline']] = None
 
 class Dimension(BaseModel):
     field: str

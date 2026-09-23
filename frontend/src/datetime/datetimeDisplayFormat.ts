@@ -12,12 +12,16 @@
  */
 
 export type DisplayTimeZone = 'UTC' | 'local';
-export type DisplayPrecision = 'second' | 'ms' | 'us';
+export type DisplayPrecision = 'second' | 'ms' | 'us' | 'auto';
 
 export interface DateTimeDisplayOptions {
   /** Timezone used to render components. Defaults to 'UTC'. */
   timeZone?: DisplayTimeZone;
-  /** Sub-second precision shown after the seconds. Defaults to 'second'. */
+  /**
+   * Sub-second precision shown after the seconds. Defaults to 'second'.
+   * 'auto' shows only the precision the value actually carries, so whole-second
+   * values stay unchanged and a µs value is not padded with fabricated zeros.
+   */
   precision?: DisplayPrecision;
   /** When true, values exactly at midnight render as date-only (used by axis ticks). */
   collapseMidnight?: boolean;
@@ -58,9 +62,46 @@ export function epochToComponents(num: number): { ms: number; microsFraction: nu
   return Number.isFinite(d.getTime()) ? { ms, microsFraction } : null;
 }
 
-export function epochToDate(num: number): Date | null {
+/**
+ * Slot carrying the sub-millisecond fraction alongside a Date.
+ *
+ * A JS Date only holds millisecond resolution, but our sources (ClickHouse
+ * DateTime64(6), Timestamp(p), epoch-µs/ns columns) carry more. Rather than
+ * change the row schema for a display-only concern, we hang the fraction off
+ * the Date itself in a NON-ENUMERABLE slot, so it is invisible to `{...row}`
+ * spreads, `Object.keys`, `JSON.stringify`, memo comparators and cache hashes.
+ *
+ * The annotation is lost if the Date is reconstructed (e.g. by an Observable
+ * Plot bin/interval transform). Callers then degrade to millisecond precision,
+ * which is the right answer for a binned value anyway.
+ */
+const MICROS_FRACTION = '__microsFraction';
+
+/** Read the sub-millisecond fraction carried by `epochToPreciseDate`, if any. */
+export function readMicrosFraction(d: Date): number | undefined {
+  const v = (d as any)[MICROS_FRACTION];
+  return typeof v === 'number' ? v : undefined;
+}
+
+/**
+ * Epoch -> Date, carrying the microsecond fraction of the second so display
+ * formatters can recover precision a Date cannot hold. See MICROS_FRACTION.
+ */
+export function epochToPreciseDate(num: number): Date | null {
   const c = epochToComponents(num);
-  return c ? new Date(c.ms) : null;
+  if (!c) return null;
+  const d = new Date(c.ms);
+  Object.defineProperty(d, MICROS_FRACTION, {
+    value: c.microsFraction,
+    enumerable: false,
+    writable: false,
+    configurable: true,
+  });
+  return d;
+}
+
+export function epochToDate(num: number): Date | null {
+  return epochToPreciseDate(num);
 }
 
 /**
@@ -87,8 +128,13 @@ function resolveDateAndMicros(value: unknown): { date: Date; microsFraction: num
   }
 
   if (!date || !Number.isFinite(date.getTime())) return null;
-  // Date only carries millisecond resolution; scale to a microsecond fraction.
-  return { date, microsFraction: date.getUTCMilliseconds() * 1000 };
+  // Prefer a fraction carried over from the original epoch value; a bare Date
+  // only holds millisecond resolution, so scale that up as the fallback.
+  const carried = readMicrosFraction(date);
+  return {
+    date,
+    microsFraction: carried ?? date.getUTCMilliseconds() * 1000,
+  };
 }
 
 interface Components {
@@ -121,6 +167,13 @@ function extractComponents(date: Date, timeZone: DisplayTimeZone): Components {
   };
 }
 
+/** Narrowest precision that still shows everything the value carries. */
+function autoPrecision(microsFraction: number): DisplayPrecision {
+  if (microsFraction % 1000 !== 0) return 'us';
+  if (microsFraction !== 0) return 'ms';
+  return 'second';
+}
+
 /**
  * Format a datetime-ish value for display. Returns `null` when the value cannot
  * be interpreted as a date, so callers can fall back to their own rendering.
@@ -145,9 +198,11 @@ export function formatDateTimeDisplay(
 
   let out = `${datePart} ${pad(c.hours, 2)}:${pad(c.minutes, 2)}:${pad(c.seconds, 2)}`;
 
-  if (precision === 'ms') {
+  const effective = precision === 'auto' ? autoPrecision(microsFraction) : precision;
+
+  if (effective === 'ms') {
     out += `.${pad(Math.floor(microsFraction / 1000), 3)}`;
-  } else if (precision === 'us') {
+  } else if (effective === 'us') {
     out += `.${pad(microsFraction, 6)}`;
   }
 

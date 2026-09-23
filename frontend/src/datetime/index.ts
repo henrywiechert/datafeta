@@ -29,8 +29,6 @@ export {
   getDateTimePartTooltip,
   getResultColumnNameForDateTime,
   isValidDateTimeConfiguration,
-  clearDateTimePart,
-  setDateTimePart,
   canHaveDateTimePart,
   getDateTimeModeDescription,
   formatDateForDisplay,

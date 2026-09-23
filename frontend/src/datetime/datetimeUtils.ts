@@ -10,7 +10,12 @@ import { aggregationAliasPrefix } from '../aggregations';
 import { DateTimePart, DateTimeMode, Field } from '../types';
 // Re-export from datetimeSemantics for backward compatibility
 // Note: DATETIME_PARTS and DATETIME_MODES are defined in datetimeSemantics.ts
-import { DATETIME_PARTS, DATETIME_MODES } from './datetimeSemantics';
+import {
+  DATETIME_PARTS,
+  DATETIME_MODES,
+  dateTimeOutputName,
+  resolveDateTime,
+} from './datetimeSemantics';
 export { DATETIME_PARTS, DATETIME_MODES };
 
 /**
@@ -91,12 +96,9 @@ export function getResultColumnNameForDateTime(field: Field): string {
     return base;
   }
   
-  // If this is a datetime part, return the special alias
-  if (field.dateTimePart && field.dateTimeMode) {
-    return `${field.columnName}_${field.dateTimePart}_${field.dateTimeMode}`;
-  }
-  
-  return field.columnName;
+  // Part-only by rule: "Full DateTime" keeps the plain column name, matching the
+  // backend's select_builder aliasing.
+  return dateTimeOutputName(field.columnName, resolveDateTime(field));
 }
 
 /**
@@ -115,30 +117,6 @@ export function isValidDateTimeConfiguration(
   }
   
   return DATETIME_PARTS.includes(part) && DATETIME_MODES.includes(mode);
-}
-
-/**
- * Clear datetime part configuration from a field
- */
-export function clearDateTimePart(field: Field): Partial<Field> {
-  return {
-    dateTimePart: undefined,
-    dateTimeMode: undefined,
-  };
-}
-
-/**
- * Set datetime part configuration on a field
- */
-export function setDateTimePart(
-  field: Field,
-  part: DateTimePart,
-  mode: DateTimeMode
-): Partial<Field> {
-  return {
-    dateTimePart: part,
-    dateTimeMode: mode,
-  };
 }
 
 /**

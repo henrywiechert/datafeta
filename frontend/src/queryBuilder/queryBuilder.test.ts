@@ -12,6 +12,82 @@ const field = (columnName: string, overrides?: Partial<Field>): Field => ({
 });
 
 describe('convertFilterConfigsToFilters', () => {
+  // A datetime range filter must carry a date_mode, or the backend skips datetime
+  // handling entirely — including parsing a text-stored column into a timestamp.
+  // The SELECT would then compare a parsed timestamp while the WHERE compares the
+  // raw source string.
+  const dateTimeRange = (overrides?: Partial<FilterConfig>): Record<string, FilterConfig> => ({
+    ts: {
+      fieldId: 'ts',
+      columnName: 'ts',
+      type: 'datetime',
+      startDate: '2024-01-01 00:00:00.000',
+      endDate: '2024-01-05 00:00:00.000',
+      ...overrides,
+    } as FilterConfig,
+  });
+
+  test('sends date_mode for an unconfigured datetime range filter', () => {
+    const filters = convertFilterConfigsToFilters(dateTimeRange());
+
+    expect(filters).toHaveLength(2);
+    for (const f of filters) {
+      expect(f.date_mode).toBe('timeline');
+      expect(f.date_part).toBeUndefined();
+    }
+  });
+
+  test('sends date_mode for an explicit Full DateTime range filter', () => {
+    const filters = convertFilterConfigsToFilters(dateTimeRange({ dateTimeMode: 'timeline' }));
+
+    expect(filters.map((f) => f.date_mode)).toEqual(['timeline', 'timeline']);
+    expect(filters.every((f) => f.date_part === undefined)).toBe(true);
+  });
+
+  test('sends nothing for a timeline-PART range filter', () => {
+    // Deliberate: date_part here would wrap the column in date_trunc() inside the
+    // WHERE clause and change what the range means. Locks the non-change so a
+    // future "consistency" cleanup cannot silently flip range semantics.
+    const filters = convertFilterConfigsToFilters(
+      dateTimeRange({ dateTimePart: 'day', dateTimeMode: 'timeline' }),
+    );
+
+    for (const f of filters) {
+      expect(f.date_part).toBeUndefined();
+      expect(f.date_mode).toBeUndefined();
+    }
+  });
+
+  test('sends both part and mode for a distinct-part discrete filter', () => {
+    const filters = convertFilterConfigsToFilters({
+      ts: {
+        fieldId: 'ts',
+        columnName: 'ts',
+        type: 'discrete',
+        selectedValues: [14],
+        dateTimePart: 'hour',
+        dateTimeMode: 'distinct',
+      } as FilterConfig,
+    });
+
+    expect(filters[0].date_part).toBe('hour');
+    expect(filters[0].date_mode).toBe('distinct');
+  });
+
+  test('sends no datetime info for a non-datetime filter', () => {
+    const filters = convertFilterConfigsToFilters({
+      category: {
+        fieldId: 'category',
+        columnName: 'category',
+        type: 'discrete',
+        selectedValues: ['a'],
+      } as FilterConfig,
+    });
+
+    expect(filters[0].date_part).toBeUndefined();
+    expect(filters[0].date_mode).toBeUndefined();
+  });
+
   test('converts discrete pattern mode to a like filter', () => {
     const filters = convertFilterConfigsToFilters({
       category: {

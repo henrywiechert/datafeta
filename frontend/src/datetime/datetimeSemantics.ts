@@ -32,6 +32,115 @@ export function buildDateTimeAlias(field: string, part: DateTimePart, mode: Date
   return `${field}_${part}_${mode}`;
 }
 
+/* ------------------------------------------------------------------------- *
+ * Resolution: the two rules, each stated exactly once.
+ *
+ *   1. Does datetime handling apply?   -> MODE is truthy.
+ *      Mirrors backend field_term_resolver.py: `if not date_mode: return term`.
+ *
+ *   2. Is there a derived output column? -> PART is truthy.
+ *      Mirrors backend select_builder.py: "Full DateTime" (mode but no part)
+ *      keeps the plain field name; explicit parts get <field>_<part>_<mode>.
+ *
+ * A datetime column with no explicit mode behaves as 'timeline' ("Full
+ * DateTime"). That default has been the query-path behaviour since the backend
+ * gained flexible timestamp parsing — a text-stored datetime column is only
+ * parsed into a real timestamp when a mode is present. Resolving it here keeps
+ * the render path, the filter path and the menu in agreement with the SQL.
+ *
+ * Consequence: `(part: undefined, mode: undefined)` and
+ * `(part: undefined, mode: 'timeline')` are the SAME state. There is
+ * deliberately no migration collapsing them in stored data; this resolver is
+ * the single place the default is applied.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Anything that may describe a datetime column: a frontend `Field` (camelCase,
+ * carries `dataType`), or a backend wire `Dimension`/`Filter` (snake_case, no
+ * `dataType`).
+ */
+export interface DateTimeCarrier {
+  dataType?: string;
+  dateTimePart?: DateTimePart;
+  dateTimeMode?: DateTimeMode;
+  date_part?: DateTimePart;
+  date_mode?: DateTimeMode;
+}
+
+export interface DateTimeResolution {
+  /** Datetime handling applies at all. */
+  isDateTime: boolean;
+  /** The extracted part, if any. Absent for "Full DateTime". */
+  part?: DateTimePart;
+  /** Effective mode — defaults to 'timeline' for datetime carriers. */
+  mode?: DateTimeMode;
+  /** Datetime with no part: the whole timestamp. */
+  isFullDateTime: boolean;
+  /** Values arrive as real timestamps (Full DateTime or a timeline part). */
+  isTemporalValue: boolean;
+  /** Values arrive as small integers (hour 0-23, weekday 1-7, ...). */
+  isDistinctPart: boolean;
+  /** SELECT emits <field>_<part>_<mode> rather than the plain field name. */
+  hasDerivedAlias: boolean;
+}
+
+const NOT_DATETIME: DateTimeResolution = {
+  isDateTime: false,
+  isFullDateTime: false,
+  isTemporalValue: false,
+  isDistinctPart: false,
+  hasDerivedAlias: false,
+};
+
+/**
+ * Resolve a carrier's effective datetime configuration, applying the
+ * "no mode means timeline" default.
+ */
+export function resolveDateTime(
+  carrier: DateTimeCarrier | null | undefined
+): DateTimeResolution {
+  if (!carrier) return NOT_DATETIME;
+
+  const part = carrier.dateTimePart ?? carrier.date_part;
+  const rawMode = carrier.dateTimeMode ?? carrier.date_mode;
+
+  // A Field knows its dataType; a wire Dimension does not, but by the time it is
+  // on the wire a datetime column always carries a mode. Accepting either signal
+  // lets one function serve both shapes.
+  const isDateTime = carrier.dataType === 'datetime' || Boolean(rawMode);
+  if (!isDateTime) return NOT_DATETIME;
+
+  const mode: DateTimeMode = rawMode ?? 'timeline';
+  const isDistinctPart = Boolean(part) && mode === 'distinct';
+
+  return {
+    isDateTime: true,
+    part,
+    mode,
+    isFullDateTime: !part,
+    isTemporalValue: !isDistinctPart,
+    isDistinctPart,
+    hasDerivedAlias: Boolean(part),
+  };
+}
+
+/** The wire payload for a Dimension / Filter. Empty for non-datetime carriers. */
+export function toWireDateTime(
+  carrier: DateTimeCarrier | null | undefined
+): { date_part?: DateTimePart; date_mode?: DateTimeMode } {
+  const r = resolveDateTime(carrier);
+  if (!r.isDateTime) return {};
+  return { date_part: r.part, date_mode: r.mode };
+}
+
+/**
+ * The output column name a field resolves to in query results.
+ * Part-only by rule 2: "Full DateTime" keeps the plain field name.
+ */
+export function dateTimeOutputName(columnName: string, r: DateTimeResolution): string {
+  return r.hasDerivedAlias ? buildDateTimeAlias(columnName, r.part!, r.mode!) : columnName;
+}
+
 // date_trunc units for timeline mode (shared by backend/local SQL)
 export const TIMELINE_UNITS: Record<DateTimePart, string> = {
   year: 'year',

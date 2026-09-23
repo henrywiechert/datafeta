@@ -251,6 +251,15 @@
   flex-shrink: 0;
 }
 
+/* Divider between the pinned (selected) and unpinned (unselected) sections.
+   Uses a stronger border token so it stays visible in dark mode. */
+.pinnedDivider {
+  height: 1px;
+  background: var(--df-border-strong);
+  margin: 3px 8px;
+  flex-shrink: 0;
+}
+
 .checkboxItem {
   margin: 0;
   padding: 2px 4px;

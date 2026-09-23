@@ -539,7 +539,9 @@ export function useFilterMetadata({
                     dbParam,
                     virtualColumns,
                     unionTablesForApi,
-                    abortController.signal
+                    abortController.signal,
+                    field.dateTimePart,
+                    field.dateTimeMode
                 );
                 
                 const metadata: FilterMetadata = {

@@ -8,6 +8,21 @@ import {
 } from './localSqlBuilder';
 
 describe('localSqlBuilder datetime parts (DuckDB)', () => {
+  test('Full DateTime selects the parsed timestamp under the plain field name', () => {
+    // Mirrors the backend's select_builder: a mode with no part is the timestamp
+    // itself, aliased to the bare column. A derived alias here would make the
+    // column vanish from the result rows.
+    const item = buildDuckDbDateTimePartSelectItem({ field: 'ts', dateMode: 'timeline' });
+
+    expect(item.kind).toBe('expr');
+    if (item.kind !== 'expr') {
+      throw new Error('Expected expr kind');
+    }
+    expect(item.alias).toBe('ts');
+    expect(item.expr).not.toContain('date_trunc');
+    expect(item.expr).not.toContain('EXTRACT');
+  });
+
   test('timeline minute uses date_trunc(minute, <ts>) and backend-compatible alias', () => {
     const item = buildDuckDbDateTimePartSelectItem({
       field: 'ts',

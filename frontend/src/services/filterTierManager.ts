@@ -16,6 +16,7 @@ import { devLog } from '../utils/devLog';
  */
 
 import { buildDuckDbDateTimePartExpr } from './localSqlBuilder';
+import { resolveDateTime } from '../datetime/datetimeSemantics';
 import { columnCacheManager } from './columnCacheManager';
 
 export type FilterTier = 'base' | 'refinement';
@@ -341,13 +342,19 @@ class FilterTierManager {
       
       if (!columnName) continue;
 
-      // If this filter targets a datetime part/mode, build a computed expression instead of a raw column reference.
-      const hasDateTimePart = !!(config.dateTimePart && config.dateTimeMode);
-      const columnExpr = hasDateTimePart
+      // If this filter targets a datetime column, build a computed expression
+      // instead of a raw column reference. Mode-only, and `type === 'datetime'`
+      // stands in for the dataType a FilterConfig does not carry: the local cache
+      // holds the BASE column, so a text-stored datetime needs the same parse the
+      // backend applies — otherwise local refinement compares raw strings.
+      const dt = resolveDateTime(
+        config.type === 'datetime' ? { ...config, dataType: 'datetime' } : config,
+      );
+      const columnExpr = dt.isDateTime
         ? `(${buildDuckDbDateTimePartExpr({
             field: columnName,
-            datePart: config.dateTimePart,
-            dateMode: config.dateTimeMode,
+            datePart: dt.part,
+            dateMode: dt.mode!,
           })})`
         : `"${columnName}"`;
       

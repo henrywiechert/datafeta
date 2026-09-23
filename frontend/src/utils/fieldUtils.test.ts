@@ -41,6 +41,27 @@ describe('normalizeTimelineData', () => {
     dataType: 'string',
   });
 
+  // "Full DateTime": a datetime column with no part. The two shapes below are the
+  // SAME state — one was never configured, the other had it set explicitly — and
+  // must normalize identically. The unconfigured shape is the default produced by
+  // createFieldFromColumn, so it is the common case, not an edge case.
+  const makeUnconfiguredDateTimeField = (columnName: string): Field => ({
+    id: `${columnName}-id`,
+    columnName,
+    type: 'dimension',
+    flavour: 'continuous',
+    dataType: 'datetime',
+  });
+
+  const makeFullDateTimeField = (columnName: string): Field => ({
+    id: `${columnName}-id`,
+    columnName,
+    type: 'dimension',
+    flavour: 'continuous',
+    dataType: 'datetime',
+    dateTimeMode: 'timeline',
+  });
+
   it('should convert epoch seconds to Date for timeline fields', () => {
     const field = makeTimelineField('ts');
     const colName = getResultColumnName(field); // ts_hour_timeline
@@ -222,6 +243,49 @@ describe('normalizeTimelineData', () => {
 
     expect(result[0][colName]).toBeInstanceOf(Date);
     expect((result[0][colName] as Date).toISOString()).toBe('2023-12-26T00:00:00.000Z');
+  });
+
+  it('should use the plain column name for Full DateTime (no derived alias)', () => {
+    // Part-only alias rule, matching the backend's select_builder: only an
+    // explicit part produces "<field>_<part>_<mode>".
+    expect(getResultColumnName(makeUnconfiguredDateTimeField('ts'))).toBe('ts');
+    expect(getResultColumnName(makeFullDateTimeField('ts'))).toBe('ts');
+  });
+
+  it('should convert epoch to Date for an unconfigured datetime field', () => {
+    // Regression: this used to stay a raw epoch integer, so Observable Plot built
+    // a linear scale and tooltips printed the number. Only the explicitly-ticked
+    // "Full DateTime" shape below was converted.
+    const field = makeUnconfiguredDateTimeField('ts');
+    const colName = getResultColumnName(field);
+    const rows = [{ [colName]: 1703548800, value: 10 }];
+
+    const result = normalizeTimelineData(rows, [field]);
+
+    expect(result[0][colName]).toBeInstanceOf(Date);
+    expect((result[0][colName] as Date).toISOString()).toBe('2023-12-26T00:00:00.000Z');
+  });
+
+  it('should convert identically whether Full DateTime is explicit or not', () => {
+    const rows = [{ ts: 1703548800, value: 10 }];
+
+    const unconfigured = normalizeTimelineData(rows, [makeUnconfiguredDateTimeField('ts')]);
+    const explicit = normalizeTimelineData(rows, [makeFullDateTimeField('ts')]);
+
+    expect((unconfigured[0].ts as Date).toISOString()).toBe(
+      (explicit[0].ts as Date).toISOString(),
+    );
+  });
+
+  it('should NOT convert distinct parts, which are small integers', () => {
+    // Guard rail against over-correcting "all datetime is timeline".
+    const field = makeDistinctField('ts');
+    const colName = getResultColumnName(field);
+    const rows = [{ [colName]: 14, value: 10 }];
+
+    const result = normalizeTimelineData(rows, [field]);
+
+    expect(result).toBe(rows); // Same reference (no transformation needed)
   });
 });
 

@@ -8,6 +8,7 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from backend.connectors.base import BaseConnector
 from backend.models.query import QueryDescription
+from backend.services import datetime_semantics as semantics
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 
@@ -389,8 +390,9 @@ class AdaptiveRoundingPlanner:
                 
             field_term = getattr(table, filter_obj.field)
             
-            # Apply datetime extraction if filter has date_part and date_mode
-            if filter_obj.date_part and filter_obj.date_mode:
+            # Mode-only: "Full DateTime" filters carry a mode but no part, and
+            # still need the expression so a text-stored column is parsed.
+            if semantics.applies_datetime(filter_obj.date_mode):
                 field_term = DateTimeService.get_datetime_part_expression(
                     field_term, 
                     filter_obj.date_part, 
@@ -505,8 +507,9 @@ class AdaptiveRoundingPlanner:
                 
             field_term_f = getattr(table, filter_obj.field)
             
-            # Apply datetime extraction if filter has date_part and date_mode
-            if filter_obj.date_part and filter_obj.date_mode:
+            # Mode-only: "Full DateTime" filters carry a mode but no part, and
+            # still need the expression so a text-stored column is parsed.
+            if semantics.applies_datetime(filter_obj.date_mode):
                 field_term_f = DateTimeService.get_datetime_part_expression(
                     field_term_f, 
                     filter_obj.date_part, 
@@ -614,8 +617,9 @@ class AdaptiveRoundingPlanner:
                 
             field_term_f = getattr(table, filter_obj.field)
             
-            # Apply datetime extraction if filter has date_part and date_mode
-            if filter_obj.date_part and filter_obj.date_mode:
+            # Mode-only: "Full DateTime" filters carry a mode but no part, and
+            # still need the expression so a text-stored column is parsed.
+            if semantics.applies_datetime(filter_obj.date_mode):
                 field_term_f = DateTimeService.get_datetime_part_expression(
                     field_term_f, 
                     filter_obj.date_part, 

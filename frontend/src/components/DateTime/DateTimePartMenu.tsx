@@ -9,6 +9,7 @@
 import React from 'react';
 import { Field } from '../../types';
 import { DATETIME_PARTS, getDateTimePartDisplayName } from '../../datetime';
+import { resolveDateTime } from '../../datetime/datetimeSemantics';
 import SubMenu from '../Visualization/SubMenu';
 import menuStyles from '../Visualization/ContextMenu.module.css';
 
@@ -18,15 +19,23 @@ interface DateTimePartMenuProps {
 }
 
 const DateTimePartMenu: React.FC<DateTimePartMenuProps> = ({ field, onUpdate }) => {
+  const resolution = resolveDateTime(field);
+
   return (
     <>
       <div className={menuStyles.separator} />
 
-      <div 
-        className={menuStyles.menuItem} 
+      {/*
+        There is intentionally no "clear" item: a datetime column with no part IS
+        Full DateTime, so this entry is itself the reset. It must therefore stay
+        checked for a field that has never been configured, not only for one that
+        was explicitly set — see resolveDateTime.
+      */}
+      <div
+        className={menuStyles.menuItem}
         onClick={() => onUpdate({ dateTimePart: undefined, dateTimeMode: 'timeline' })}
       >
-        Full DateTime {!field.dateTimePart && field.dateTimeMode === 'timeline' && '✔'}
+        Full DateTime {resolution.isFullDateTime && '✔'}
       </div>
 
       <SubMenu label="Distinct Parts">
@@ -36,7 +45,7 @@ const DateTimePartMenu: React.FC<DateTimePartMenuProps> = ({ field, onUpdate }) 
             className={menuStyles.menuItem} 
             onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'distinct' })}
           >
-            {getDateTimePartDisplayName(part)} {field.dateTimePart === part && field.dateTimeMode === 'distinct' && '✔'}
+            {getDateTimePartDisplayName(part)} {resolution.part === part && resolution.mode === 'distinct' && '✔'}
           </div>
         ))}
       </SubMenu>
@@ -48,7 +57,7 @@ const DateTimePartMenu: React.FC<DateTimePartMenuProps> = ({ field, onUpdate }) 
             className={menuStyles.menuItem} 
             onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'timeline' })}
           >
-            {getDateTimePartDisplayName(part)} {field.dateTimePart === part && field.dateTimeMode === 'timeline' && '✔'}
+            {getDateTimePartDisplayName(part)} {resolution.part === part && resolution.mode === 'timeline' && '✔'}
           </div>
         ))}
       </SubMenu>

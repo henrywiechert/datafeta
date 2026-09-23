@@ -16,6 +16,7 @@ import {
 } from './localSqlBuilder';
 import { arrowTableToRows } from './arrowResultAdapter';
 import { logSqlQuery } from '../devtools/queryLog';
+import { dateTimeOutputName, resolveDateTime } from '../datetime/datetimeSemantics';
 
 export interface PointBudgetOptions {
   isPointChart: boolean;
@@ -89,7 +90,8 @@ class QueryExecutionOrchestrator {
   }
 
   private _getDimOutputName(d: any): string {
-    return d?.date_part && d?.date_mode ? `${d.field}_${d.date_part}_${d.date_mode}` : d.field;
+    // Part-only by rule: "Full DateTime" keeps the plain field name.
+    return dateTimeOutputName(d.field, resolveDateTime(d));
   }
 
   private _selectItemKey(item: SelectItem): string {
@@ -124,11 +126,15 @@ class QueryExecutionOrchestrator {
   private _buildLocalDimensionSelectItems(dimensions: any[] | undefined): SelectItem[] {
     const dims = dimensions || [];
     const items = dims.map((d: any): SelectItem => {
-      if (d?.date_part && d?.date_mode) {
+      // Mode-only: "Full DateTime" has a mode but no part, and still needs the
+      // timestamp expression so local execution matches remote instead of
+      // returning the raw source string.
+      const r = resolveDateTime(d);
+      if (r.isDateTime) {
         return buildDuckDbDateTimePartSelectItem({
           field: d.field,
-          datePart: d.date_part,
-          dateMode: d.date_mode,
+          datePart: r.part,
+          dateMode: r.mode!,
         });
       }
       return { kind: 'column', column: d.field };

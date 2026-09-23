@@ -81,3 +81,38 @@ def get_modulo(part: DateTimePart):
 
 def build_datetime_alias(field: str, part: DateTimePart, mode: DateTimeMode) -> str:
     return f"{field}_{part}_{mode}"
+
+
+# --------------------------------------------------------------------------- #
+# The two rules, each stated exactly once. Mirrored in the frontend by
+# resolveDateTime() in frontend/src/datetime/datetimeSemantics.ts.
+# --------------------------------------------------------------------------- #
+
+def applies_datetime(date_mode) -> bool:
+    """
+    Whether datetime handling applies at all -- MODE-only.
+
+    "Full DateTime" carries a mode but no part: the value is the parsed timestamp
+    itself. The mode is still required, because it is what triggers parsing a
+    text-stored column into a real timestamp. Gating on part AND mode here makes
+    the WHERE clause compare the raw source string while the SELECT compares a
+    parsed timestamp.
+    """
+    return bool(date_mode)
+
+
+def has_derived_alias(date_part) -> bool:
+    """
+    Whether the column is emitted under a derived alias -- PART-only.
+
+    Full DateTime keeps the plain field name; only an explicit part produces
+    "<field>_<part>_<mode>".
+    """
+    return bool(date_part)
+
+
+def output_name(field: str, date_part, date_mode) -> str:
+    """The output column name a dimension resolves to."""
+    if has_derived_alias(date_part):
+        return build_datetime_alias(field, date_part, date_mode)
+    return field
