@@ -18,6 +18,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import StraightenIcon from '@mui/icons-material/Straighten';
+import HexagonOutlinedIcon from '@mui/icons-material/HexagonOutlined';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
@@ -504,12 +505,64 @@ const MarginalRugControls: React.FC<{
   );
 };
 
+const HexbinControls: React.FC<{
+  params: OverlayParams;
+  onUpdate: (p: Partial<OverlayParams>) => void;
+  hasDiscreteColor?: boolean;
+  hideSourceData?: boolean;
+  onToggleHideSource?: (v: boolean) => void;
+}> = ({ params, onUpdate, hasDiscreteColor, hideSourceData, onToggleHideSource }) => {
+  const perGroup = params.perGroup ?? false;
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      {/* Hexagon size + colour */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 46 }}>Size</Typography>
+        <Slider
+          size="small"
+          min={6}
+          max={60}
+          step={2}
+          value={params.binWidth ?? 20}
+          onChange={(_, v) => onUpdate({ binWidth: v as number })}
+          valueLabelDisplay="auto"
+          valueLabelFormat={v => `${v}px`}
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+        {!perGroup && (
+          <InlineColorPicker value={params.color ?? DEFAULT_MANUAL_COLOR} onChange={c => onUpdate({ color: c })} />
+        )}
+      </Box>
+      {/* Per group — colour each hexagon by its dominant group */}
+      {hasDiscreteColor && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption">Colour by dominant group</Typography>
+          <Switch
+            size="small"
+            checked={perGroup}
+            onChange={(_, v) => onUpdate({ perGroup: v })}
+          />
+        </Box>
+      )}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption">Hide points</Typography>
+        <Switch
+          size="small"
+          checked={hideSourceData ?? true}
+          onChange={(_, v) => onToggleHideSource?.(v)}
+        />
+      </Box>
+    </Box>
+  );
+};
+
 const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean; hideSourceData?: boolean; onToggleHideSource?: (v: boolean) => void }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
   density: DensityControls,
   referenceLines: ReferenceLineControls,
   marginalRug: MarginalRugControls,
+  hexbin: HexbinControls,
 };
 
 // Icon per overlay type
@@ -519,6 +572,7 @@ const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
   density: BlurOnIcon,
   referenceLines: HorizontalRuleIcon,
   marginalRug: StraightenIcon,
+  hexbin: HexagonOutlinedIcon,
 };
 
 // --- Main section component --------------------------------------------------

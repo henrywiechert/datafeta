@@ -18,6 +18,7 @@ import { buildMovingAverage } from './movingAverage';
 import { buildDensity } from './density';
 import { buildReferenceLines } from './referenceLines';
 import { buildMarginalRug } from './marginalRug';
+import { buildHexbin, HEXBIN_OPACITY_SCALE } from './hexbin';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -36,6 +37,15 @@ const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   density: buildDensity,
   referenceLines: buildReferenceLines,
   marginalRug: buildMarginalRug,
+  hexbin: buildHexbin,
+};
+
+/**
+ * Plot-level scale options an overlay's marks rely on. Applied only when the
+ * chart has not configured that scale itself.
+ */
+const SCALE_DEFAULTS: Partial<Record<OverlayType, Partial<Plot.PlotOptions>>> = {
+  hexbin: { opacity: HEXBIN_OPACITY_SCALE as Plot.ScaleOptions },
 };
 
 /**
@@ -45,7 +55,7 @@ const BUILDERS: Record<OverlayType, OverlayBuilder> = {
  * their element indices resolve against the same array as the chart's marks
  * during highlight stamping.
  */
-const USES_RENDERED_ROWS: ReadonlySet<OverlayType> = new Set<OverlayType>(['marginalRug']);
+const USES_RENDERED_ROWS: ReadonlySet<OverlayType> = new Set<OverlayType>(['marginalRug', 'hexbin']);
 
 /** The rows the chart's marks bind — the same lookup `stampColorCategories` uses. */
 function renderedRows(options: Plot.PlotOptions): any[] | undefined {
@@ -82,9 +92,6 @@ export function applyOverlays(
   const active = overlays.filter(o => o.enabled);
   if (active.length === 0) return options;
 
-  // Suppress primary marks when any active overlay requests it
-  const shouldHideSource = active.some(o => o.hideSourceData);
-
   const extraMarks: Plot.Markish[] = [];
 
   // Pre-sort data by the independent axis so the moving average
@@ -98,12 +105,22 @@ export function applyOverlays(
     return 0;
   });
 
+  const scaleDefaults: Partial<Plot.PlotOptions> = {};
+  // Suppress primary marks when an overlay that applies here requests it (an
+  // enabled hexbin must not hide the bars of a bar chart it does not apply to).
+  let shouldHideSource = false;
+
   for (const overlay of active) {
     const applicable = APPLICABILITY[overlay.type];
     if (!applicable?.has(meta.chartType)) continue;
 
     const builder = BUILDERS[overlay.type];
     if (!builder) continue;
+
+    if (overlay.hideSourceData) shouldHideSource = true;
+    for (const [key, value] of Object.entries(SCALE_DEFAULTS[overlay.type] ?? {})) {
+      if ((options as any)[key] == null) (scaleDefaults as any)[key] = value;
+    }
 
     const rows = USES_RENDERED_ROWS.has(overlay.type) ? (renderedRows(options) ?? meta.data) : sorted;
     extraMarks.push(
@@ -117,6 +134,7 @@ export function applyOverlays(
 
   return {
     ...options,
+    ...scaleDefaults,
     marks: [...baseMasks, ...extraMarks],
   };
 }
