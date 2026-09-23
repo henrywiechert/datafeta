@@ -56,7 +56,7 @@ interface ChartGridProps {
   grid: GridResultModel | null;
   cellSizeOverrides: CellSizeOverrides;
   onPlotRenderComplete?: (plotId: string) => void;
-  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
+  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number | null; yWidthPx: number | null }) => void;
   onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
   globalChartType: UserChartType | null;
   /** Gantt-specific configuration (omit for non-Gantt charts). */
@@ -137,7 +137,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     stabilization.pendingRowHeightRef,
     stabilization.isStabilizing
   );
-  const containerDimensions = useContainerDimensions(containerRef, stabilization.isStabilizing);
+  const containerDimensions = useContainerDimensions(containerRef, stabilization.isStabilizing, usesGridLayout);
   const scrollSync = useScrollSync(
     hScrollRef,
     vScrollRef,
@@ -202,12 +202,17 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   }, [layoutCalcs, rowHeightPx]);
 
   useEffect(() => {
-    if (!layoutCalcs || !onAutoCategoryTickMeasure) return;
+    if (!layoutCalcs || !onAutoCategoryTickMeasure || !grid) return;
+    // The sizes only drive category (band) tick truncation during generation.
+    // Report null for non-band axes so e.g. a numeric line chart doesn't get a
+    // second, identical generatePlot + full facet re-render after first paint.
+    const hasBandAxis = (axis: 'x' | 'y') =>
+      grid.cells.some((cell) => cell.content.kind === 'plot' && (cell.content.options as any)?.[axis]?.type === 'band');
     onAutoCategoryTickMeasure({
-      xHeightPx: layoutCalcs.dynamicXAxisPx,
-      yWidthPx: layoutCalcs.dynamicYAxisPx,
+      xHeightPx: hasBandAxis('x') ? layoutCalcs.dynamicXAxisPx : null,
+      yWidthPx: hasBandAxis('y') ? layoutCalcs.dynamicYAxisPx : null,
     });
-  }, [layoutCalcs, onAutoCategoryTickMeasure]);
+  }, [grid, layoutCalcs, onAutoCategoryTickMeasure]);
 
   useEffect(() => {
     onHeatmapSizeToolbarChange?.(heatmapToolbarState);

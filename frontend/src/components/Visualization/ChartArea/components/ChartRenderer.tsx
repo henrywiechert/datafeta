@@ -20,7 +20,7 @@ import { UserChartType } from '../../../../types';
 interface ChartRendererProps {
   grid: GridResultModel | null;
   cellSizeOverrides: CellSizeOverrides;
-  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
+  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number | null; yWidthPx: number | null }) => void;
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];

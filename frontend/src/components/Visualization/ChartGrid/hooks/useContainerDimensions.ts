@@ -21,6 +21,11 @@ export interface Dimensions {
 export function useContainerDimensions(
   containerRef: RefObject<HTMLDivElement>,
   isStabilizing: boolean = false,
+  // Changes whenever the ref moves to a different element. ChartGrid attaches
+  // containerRef to an empty-state placeholder until the grid arrives (always
+  // the case after a sheet switch), then to MultiPlotGrid's root; without this
+  // the observer would stay on the detached placeholder.
+  elementKey: unknown = null,
 ): Dimensions {
   const [dimensions, setDimensions] = useState<Dimensions>({ width: 0, height: 0 });
   // Set to true when a ResizeObserver-driven update is dropped because the
@@ -111,7 +116,7 @@ export function useContainerDimensions(
         clearTimeout(debounceTimeoutId);
       }
     };
-  }, [containerRef]); // Empty deps - container size tracking is independent of spec
+  }, [containerRef, elementKey]); // Independent of spec; re-subscribe only when the element swaps
 
   // Apply any deferred measurement once stabilization ends. Triggered by
   // `isStabilizing` going from true → false, which matches the contract in

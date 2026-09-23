@@ -44,6 +44,15 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
     // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
     const observedWidth = dimensions.width;
     const observedHeight = dimensions.height;
+    // Size not reported yet, but the element has one: useElementSize's
+    // pre-paint measurement is about to re-render us. Wait instead of drawing
+    // at the 400×300 fallback and immediately redrawing at full size. A truly
+    // zero-sized (hidden) container still gets the fallback render.
+    const needsObservedSize = options.width === undefined || options.height === undefined;
+    if (needsObservedSize && observedWidth === 0 && observedHeight === 0) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) return;
+    }
     const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
     const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 

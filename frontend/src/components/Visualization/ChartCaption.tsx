@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
@@ -39,9 +39,14 @@ const ChartCaption: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const renderedHtml = DOMPurify.sanitize(
-    marked.parse(state.chartCaption ?? 'Chart') as string,
-    { USE_PROFILES: { html: true } },
+  // Memoized: DOMPurify builds a DOMParser document per call, and this
+  // component re-renders on every VisualizationContext update.
+  const renderedHtml = useMemo(
+    () => DOMPurify.sanitize(
+      marked.parse(state.chartCaption ?? 'Chart') as string,
+      { USE_PROFILES: { html: true } },
+    ),
+    [state.chartCaption],
   );
 
   return (
