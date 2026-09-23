@@ -13,6 +13,13 @@ import styles from './FieldsPanel.module.css';
 import { useSelectionStore } from '../../../stores/selectionStore';
 import { fetchFieldStats } from '../../../apiService';
 
+// Sorting the field lists calls the comparator O(n log n) times, and it re-runs
+// on every field edit (a datetime part/mode change reallocates availableFields).
+// String.prototype.localeCompare re-derives ICU collation state on each call and
+// is 1-2 orders of magnitude slower than a reused collator, which stalls the main
+// thread once the field count reaches the thousands. Reuse one collator instance.
+const fieldNameCollator = new Intl.Collator(undefined, { sensitivity: 'variant' });
+
 interface FieldsPanelProps {
   availableFields: Field[];
   fieldsSearch: string;
@@ -231,14 +238,14 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     availableFields
       .filter(field => field.type === 'dimension')
       .filter(filterBySearch)
-      .sort((a, b) => a.columnName.localeCompare(b.columnName))
+      .sort((a, b) => fieldNameCollator.compare(a.columnName, b.columnName))
   ), [availableFields, filterBySearch]);
 
   const filteredMeasures = useMemo(() => (
     availableFields
       .filter(field => field.type === 'measure')
       .filter(filterBySearch)
-      .sort((a, b) => a.columnName.localeCompare(b.columnName))
+      .sort((a, b) => fieldNameCollator.compare(a.columnName, b.columnName))
   ), [availableFields, filterBySearch]);
 
   return (
