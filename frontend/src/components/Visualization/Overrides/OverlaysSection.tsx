@@ -17,6 +17,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
+import StraightenIcon from '@mui/icons-material/Straighten';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
@@ -433,11 +434,82 @@ const ReferenceLineControls: React.FC<{
   );
 };
 
+const MarginalRugControls: React.FC<{
+  params: OverlayParams;
+  onUpdate: (p: Partial<OverlayParams>) => void;
+  hasDiscreteColor?: boolean;
+}> = ({ params, onUpdate, hasDiscreteColor }) => {
+  const perGroup = params.perGroup ?? false;
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      {/* Axes + colour */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 46 }}>Axes</Typography>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={params.rugAxes ?? 'both'}
+          onChange={(_, v: 'both' | 'x' | 'y' | null) => { if (v) onUpdate({ rugAxes: v }); }}
+          sx={{ flex: 1, '& .MuiToggleButton-root': { py: 0.1, px: 0.75, fontSize: 11, textTransform: 'none', flex: 1 } }}
+        >
+          <ToggleButton value="both">Both</ToggleButton>
+          <ToggleButton value="x">X</ToggleButton>
+          <ToggleButton value="y">Y</ToggleButton>
+        </ToggleButtonGroup>
+        {!perGroup && (
+          <InlineColorPicker value={params.color ?? DEFAULT_MANUAL_COLOR} onChange={c => onUpdate({ color: c })} />
+        )}
+      </Box>
+      {/* Tick length */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 46 }}>Length</Typography>
+        <Slider
+          size="small"
+          min={3}
+          max={20}
+          step={1}
+          value={params.rugLength ?? 8}
+          onChange={(_, v) => onUpdate({ rugLength: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+      </Box>
+      {/* Tick opacity */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 46 }}>Opacity</Typography>
+        <Slider
+          size="small"
+          min={0.05}
+          max={1}
+          step={0.05}
+          value={params.opacity ?? 0.35}
+          onChange={(_, v) => onUpdate({ opacity: v as number })}
+          valueLabelDisplay="auto"
+          valueLabelFormat={v => `${Math.round(v * 100)}%`}
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+      </Box>
+      {/* Per group — only shown when a discrete color field is active */}
+      {hasDiscreteColor && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption">Per group</Typography>
+          <Switch
+            size="small"
+            checked={perGroup}
+            onChange={(_, v) => onUpdate({ perGroup: v })}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean; hideSourceData?: boolean; onToggleHideSource?: (v: boolean) => void }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
   density: DensityControls,
   referenceLines: ReferenceLineControls,
+  marginalRug: MarginalRugControls,
 };
 
 // Icon per overlay type
@@ -446,6 +518,7 @@ const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
   movingAverage: ShowChartIcon,
   density: BlurOnIcon,
   referenceLines: HorizontalRuleIcon,
+  marginalRug: StraightenIcon,
 };
 
 // --- Main section component --------------------------------------------------

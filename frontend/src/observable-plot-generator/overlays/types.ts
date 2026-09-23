@@ -2,8 +2,8 @@
 /**
  * Overlay Types
  *
- * Types for statistical overlay marks (regression, moving average, density,
- * reference lines).
+ * Types for overlay marks (regression, moving average, density, reference
+ * lines, marginal rug).
  * Overlays are add-on marks appended to existing chart PlotOptions — they never
  * modify the primary chart handler logic.
  */
@@ -14,7 +14,7 @@ import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR, DEFAULT_REFERENCE_LINE_COL
 
 // --- Overlay type identifiers ------------------------------------------------
 
-export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines';
+export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 'referenceLines' | 'marginalRug';
 
 /** Summary statistics a reference line can mark. */
 export type ReferenceStat = 'mean' | 'median' | 'percentile' | 'min' | 'max';
@@ -60,6 +60,10 @@ export interface OverlayParams {
   percentile?: number;         // Percentile for the 'percentile' stat, 0–100 (default 95)
   refValue?: number | null;    // Fixed value line; null/undefined = none
   showLabels?: boolean;        // Label each line at the frame edge (default true)
+
+  // Marginal rug
+  rugAxes?: 'both' | 'x' | 'y';  // Which frame edges get a rug (default 'both')
+  rugLength?: number;            // Tick length in pixels (default 8)
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -78,6 +82,7 @@ export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: DEFAULT_OVERLAY_COLOR, strokeWidth: 1.5, perGroup: false, showCI: true } },
   { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: DEFAULT_MANUAL_COLOR, strokeWidth: 2, perGroup: false } },
   { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: false },
+  { type: 'marginalRug',      enabled: false, params: { rugAxes: 'both', rugLength: 8, opacity: 0.35, strokeWidth: 1, color: DEFAULT_MANUAL_COLOR, perGroup: false } },
   { type: 'referenceLines',   enabled: false, params: { refStats: ['mean'], percentile: 95, refValue: null, showLabels: true, color: DEFAULT_REFERENCE_LINE_COLOR, strokeWidth: 1.5, perGroup: false } },
 ];
 
@@ -116,6 +121,11 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
     type: 'density',
     label: 'Density',
     applicableTo: new Set<UserChartType>(['scatter']),
+  },
+  {
+    type: 'marginalRug',
+    label: 'Marginal Rug',
+    applicableTo: new Set<UserChartType>(['scatter', 'line']),
   },
   {
     type: 'referenceLines',
