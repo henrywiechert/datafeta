@@ -7,9 +7,9 @@ import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import DatasetIcon from '@mui/icons-material/Dataset';
-import TuneIcon from '@mui/icons-material/Tune';
 import { Database, Table, Field } from '../../../types';
 import { DatabaseMirrorPlan, UnionTableRef } from '../../../utils/schemaValidation';
+import RelationshipIcon from '../../icons/RelationshipIcon';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
 import TableAddPicker from './TableAddPicker';
@@ -447,7 +447,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
                 onClick={() => setRelationshipEditorOpen(true)}
                 sx={{ width: 20, height: 20 }}
               >
-                <TuneIcon fontSize="inherit" />
+                <RelationshipIcon fontSize="inherit" />
               </IconButton>
             </Tooltip>
           )}
