@@ -111,14 +111,19 @@ async def _build_csv_multipart_connect_args(service, cfg: BaseModel, uploaded_fi
 
     try:
         for uploaded_file in uploaded_files:
-            temp_file_path = await service._save_and_validate_uploaded_file(uploaded_file, session_upload_dir)
-            temp_file_paths.append(temp_file_path)
-            file_infos.append(
-                {
-                    "file_path": temp_file_path,
-                    "original_filename": uploaded_file.filename,
-                }
-            )
+            saved = await service._save_and_validate_uploaded_files(uploaded_file, session_upload_dir)
+            for temp_file_path, original_filename in saved:
+                temp_file_paths.append(temp_file_path)
+                file_infos.append(
+                    {
+                        "file_path": temp_file_path,
+                        "original_filename": original_filename,
+                    }
+                )
+    except Exception:
+        # Files saved for earlier uploads are not tracked by the caller yet.
+        service._remove_paths(temp_file_paths)
+        raise
     finally:
         for uploaded_file in uploaded_files:
             await uploaded_file.close()

@@ -8,6 +8,7 @@
 import React, { ChangeEvent } from 'react';
 import { SqliteFormState } from './types';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
+import { SQLITE_FILE_ACCEPT } from '../../utils/uploadFileTypes';
 
 interface SqliteConnectionFormProps {
   state: SqliteFormState;
@@ -30,7 +31,7 @@ export function SqliteConnectionForm({
         <label className={styles.label}>SQLite Database File (.sqlite, .sqlite3, .db)</label>
         <input
           type="file"
-          accept=".sqlite,.sqlite3,.db"
+          accept={SQLITE_FILE_ACCEPT}
           onChange={handleFileChange}
           disabled={disabled}
           className={styles.input}
@@ -40,7 +41,8 @@ export function SqliteConnectionForm({
         )}
         <div className={styles.demoHint}>
           All tables and views in the file become queryable. The file is opened
-          read-only and is never modified.
+          read-only and is never modified. It may be compressed (e.g. shop.db.gz,
+          or a .zip containing a single database).
         </div>
       </div>
     </div>

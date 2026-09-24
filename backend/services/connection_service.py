@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Collection, Optional, Dict, Any, List, Tuple
 
 from fastapi import Request, UploadFile, status
 from pydantic import ValidationError
@@ -23,6 +23,13 @@ from backend.exceptions import (
     FileProcessingError,
 )
 from backend.session_state import ConnectionStateManager
+from backend.utils.compression import (
+    ALLOWED_COMPRESSED_MIME_TYPES,
+    COMPRESSION_EXTENSIONS,
+    ZIP_EXTENSION,
+    decompress_file,
+    split_compression_suffix,
+)
 from backend.utils.logging_utils import redact_sensitive
 
 
@@ -30,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 
 MAX_FILE_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB per file
+
+# Total size a single compressed upload may expand to (guards against zip bombs).
+MAX_DECOMPRESSED_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024  # 10 GB
 
 # Supported file extensions
 ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet', '.json', '.ndjson', '.jsonl'}
@@ -127,46 +137,104 @@ class ConnectionService:
         _, ext = os.path.splitext(filename)
         return ext.lower()
 
-    async def _save_and_validate_uploaded_file(
+    async def _save_upload(
         self,
         uploaded_file: UploadFile,
         session_upload_dir: str,
-    ) -> str:
+        allowed_extensions: Collection[str],
+        allowed_mime_types: Collection[str],
+        max_members: Optional[int] = None,
+    ) -> List[Tuple[str, str]]:
         """
-        Validate, save, and content-check a single uploaded file.
+        Check extension and MIME type, save an upload and decompress it if needed.
 
-        Returns the temp file path on success. Cleans up the temp file and
-        re-raises on any validation or I/O error.
+        Compressed uploads (e.g. ``data.csv.gz`` or a ``.zip`` archive) are
+        decompressed into plain files and the compressed copy is discarded.
+        Returns ``(temp_path, original_filename)`` pairs, where the filename is
+        the inner (decompressed) name used for table naming. Content validation
+        is left to the caller.
         """
         if not uploaded_file.filename:
             raise InvalidInputError("Missing filename for uploaded file.")
 
-        file_ext = self._get_file_extension(uploaded_file.filename)
-        if file_ext not in ALLOWED_FILE_EXTENSIONS:
+        inner_name, compression_ext = split_compression_suffix(uploaded_file.filename)
+        file_ext = self._get_file_extension(inner_name)
+        content_type = uploaded_file.content_type or ""
+
+        # Zip member names are only known after the upload; stream formats
+        # carry the inner type in the filename (``.csv.gz``) and fail early.
+        if compression_ext != ZIP_EXTENSION and file_ext not in allowed_extensions:
+            allowed = sorted(allowed_extensions)
             raise InvalidInputError(
-                f"Invalid file type: {file_ext}. Allowed: {', '.join(sorted(ALLOWED_FILE_EXTENSIONS))}"
+                f"Invalid file type: {file_ext or uploaded_file.filename}. Allowed: {', '.join(allowed)} "
+                f"(optionally compressed as {', '.join(sorted(COMPRESSION_EXTENSIONS))})"
             )
 
-        if uploaded_file.content_type not in ALLOWED_FILE_MIME_TYPES:
+        mime_types = ALLOWED_COMPRESSED_MIME_TYPES if compression_ext else allowed_mime_types
+        if content_type not in mime_types:
             raise InvalidInputError(
                 detail=f"Unsupported content type: {uploaded_file.content_type}",
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             )
 
-        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
+        fd, temp_file_path = tempfile.mkstemp(suffix=compression_ext or file_ext, dir=session_upload_dir)
         os.close(fd)
 
         try:
             await self._save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES)
-            handler = FILE_HANDLER_REGISTRY[file_ext]({})
-            await run_in_threadpool(handler.validate, temp_file_path)
+            if not compression_ext:
+                return [(temp_file_path, uploaded_file.filename)]
+            saved = await run_in_threadpool(
+                decompress_file,
+                temp_file_path,
+                compression_ext,
+                uploaded_file.filename,
+                allowed_extensions,
+                session_upload_dir,
+                MAX_DECOMPRESSED_UPLOAD_BYTES,
+                max_members,
+            )
         except Exception:
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            self._remove_paths([temp_file_path])
             raise
 
-        logger.info(f"Saved uploaded file: {uploaded_file.filename} -> {temp_file_path}")
-        return temp_file_path
+        # The decompressed copies are all that is needed from here on.
+        self._remove_paths([temp_file_path])
+        logger.info(f"Decompressed upload {uploaded_file.filename} -> {[name for _, name in saved]}")
+        return saved
+
+    @staticmethod
+    def _remove_paths(paths: List[str]) -> None:
+        for path in paths:
+            if path and os.path.exists(path):
+                os.remove(path)
+
+    async def _save_and_validate_uploaded_files(
+        self,
+        uploaded_file: UploadFile,
+        session_upload_dir: str,
+    ) -> List[Tuple[str, str]]:
+        """
+        Validate, save, and content-check a single uploaded data file.
+
+        A compressed upload may expand to several files (zip archives), so this
+        returns ``(temp_path, original_filename)`` pairs - one table each.
+        Cleans up the temp files and re-raises on any validation or I/O error.
+        """
+        saved = await self._save_upload(
+            uploaded_file, session_upload_dir, ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_MIME_TYPES
+        )
+        try:
+            for temp_file_path, _ in saved:
+                handler = FILE_HANDLER_REGISTRY[self._get_file_extension(temp_file_path)]({})
+                await run_in_threadpool(handler.validate, temp_file_path)
+        except Exception:
+            self._remove_paths([path for path, _ in saved])
+            raise
+
+        for temp_file_path, name in saved:
+            logger.info(f"Saved uploaded file: {name} -> {temp_file_path}")
+        return saved
 
     async def _save_and_validate_sqlite_upload(
         self,
@@ -176,38 +244,26 @@ class ConnectionService:
         """
         Validate, save, and content-check an uploaded SQLite database file.
 
-        Kept separate from _save_and_validate_uploaded_file because that path
+        Kept separate from _save_and_validate_uploaded_files because that path
         validates through FILE_HANDLER_REGISTRY, which maps one file to exactly
-        one table - a SQLite file contains a whole schema instead.
+        one table - a SQLite file contains a whole schema instead. A compressed
+        upload must therefore contain exactly one database file.
 
         Returns the temp file path on success. Cleans up the temp file and
         re-raises on any validation or I/O error.
         """
-        if not uploaded_file.filename:
-            raise InvalidInputError("Missing filename for uploaded file.")
-
-        file_ext = self._get_file_extension(uploaded_file.filename)
-        if file_ext not in ALLOWED_SQLITE_EXTENSIONS:
-            raise InvalidInputError(
-                f"Invalid file type: {file_ext}. "
-                f"Allowed: {', '.join(sorted(ALLOWED_SQLITE_EXTENSIONS))}"
-            )
-
-        if (uploaded_file.content_type or "") not in ALLOWED_SQLITE_MIME_TYPES:
-            raise InvalidInputError(
-                detail=f"Unsupported content type: {uploaded_file.content_type}",
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            )
-
-        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
-        os.close(fd)
-
+        saved = await self._save_upload(
+            uploaded_file,
+            session_upload_dir,
+            ALLOWED_SQLITE_EXTENSIONS,
+            ALLOWED_SQLITE_MIME_TYPES,
+            max_members=1,
+        )
+        temp_file_path = saved[0][0]
         try:
-            await self._save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES)
             await run_in_threadpool(validate_sqlite_file, temp_file_path)
         except Exception:
-            if os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            self._remove_paths([temp_file_path])
             raise
 
         logger.info(f"Saved uploaded SQLite database: {uploaded_file.filename} -> {temp_file_path}")
@@ -628,15 +684,16 @@ class ConnectionService:
 
             try:
                 for uploaded_file in uploaded_files:
-                    temp_file_path = await self._save_and_validate_uploaded_file(
+                    saved = await self._save_and_validate_uploaded_files(
                         uploaded_file, session_upload_dir
                     )
-                    temp_file_paths.append(temp_file_path)
-                    table_name = await run_in_threadpool(
-                        connector.add_file, temp_file_path, uploaded_file.filename, csv_config
-                    )
-                    added_tables.append(table_name)
-                    logger.info(f"Added file to session: {uploaded_file.filename} -> table '{table_name}'")
+                    temp_file_paths.extend(path for path, _ in saved)
+                    for temp_file_path, original_filename in saved:
+                        table_name = await run_in_threadpool(
+                            connector.add_file, temp_file_path, original_filename, csv_config
+                        )
+                        added_tables.append(table_name)
+                        logger.info(f"Added file to session: {original_filename} -> table '{table_name}'")
 
                 for uploaded_file in uploaded_files:
                     await uploaded_file.close()
