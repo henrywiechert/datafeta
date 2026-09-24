@@ -216,6 +216,80 @@ class TestColumnResolution:
         assert '"created_at"' in _sql_calls(connector)[0]
 
 
+class TestUnionBranches:
+    """A UNION field is profiled over every branch, not just the primary table."""
+
+    def _union_table(self):
+        return VirtualTableDefinition(
+            primary_table="sales_2023",
+            mode="union",
+            union_tables=[
+                UnionTableDefinition(table_name="sales_2024"),
+                UnionTableDefinition(table_name="archive", database="cold"),
+            ],
+        )
+
+    def _service(self, columns_by_table):
+        service, connector = _service(CLICKHOUSE, rows=[
+            (["c"], [[0] * 6]),
+            (["c"], []),
+        ])
+        connector.list_columns.side_effect = lambda database, table: [
+            Column(name=name, data_type="String") for name in columns_by_table[table]
+        ]
+        return service, connector
+
+    def test_every_branch_contributes_rows(self):
+        service, connector = self._service({
+            "sales_2023": ["region"], "sales_2024": ["region"], "archive": ["region"],
+        })
+        service.profile(_request(
+            field="region",
+            table="sales_2023",
+            database="shop",
+            profileKind="string",
+            virtualTable=self._union_table(),
+        ))
+
+        for sql in _sql_calls(connector):
+            assert (
+                "FROM (SELECT `region` AS `_qv_expr` FROM `shop`.`sales_2023` "
+                "UNION ALL SELECT `region` AS `_qv_expr` FROM `shop`.`sales_2024` "
+                "UNION ALL SELECT `region` AS `_qv_expr` FROM `cold`.`archive`) AS _qv_sub"
+            ) in sql
+
+    def test_branch_without_the_column_is_left_out(self):
+        service, connector = self._service({
+            "sales_2023": ["region"], "sales_2024": ["region"], "archive": ["other"],
+        })
+        service.profile(_request(
+            field="region",
+            table="sales_2023",
+            database="shop",
+            profileKind="string",
+            virtualTable=self._union_table(),
+        ))
+
+        sql = _sql_calls(connector)[0]
+        assert "`shop`.`sales_2024`" in sql
+        assert "archive" not in sql
+
+    def test_column_only_in_a_secondary_branch(self):
+        service, connector = self._service({
+            "sales_2023": ["other"], "sales_2024": ["region"], "archive": ["other"],
+        })
+        service.profile(_request(
+            field="region",
+            table="sales_2023",
+            database="shop",
+            profileKind="string",
+            virtualTable=self._union_table(),
+        ))
+
+        sql = _sql_calls(connector)[0]
+        assert "FROM (SELECT `region` AS `_qv_expr` FROM `shop`.`sales_2024`) AS _qv_sub" in sql
+
+
 class TestSourceTrackingFields:
     """_source_table / _source_database are UNION literals, not real columns."""
 
