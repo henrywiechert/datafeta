@@ -3,12 +3,9 @@
   flex-direction: column;
   /* Minimum height to show header + a few items */
   min-height: 80px;
-  /* Each legend section can take at most 50% of available space */
-  max-height: 50%;
+  /* No max-height: the height share is decided by LegendStack's grid rows. */
   background-color: var(--df-surface-panel);
   border-bottom: 1px solid var(--df-border-hairline);
-  /* Allow shrinking but prefer natural size */
-  flex: 0 1 auto;
 }
 
 .header {
