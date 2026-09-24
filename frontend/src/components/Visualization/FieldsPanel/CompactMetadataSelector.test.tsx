@@ -174,6 +174,52 @@ describe('CompactMetadataSelector', () => {
   });
 });
 
+describe('CompactMetadataSelector — add files', () => {
+  const pickFiles = (container: HTMLElement, files: File[]) => {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files } });
+  };
+
+  it('shows progress while files are being added and clears it when done', async () => {
+    let resolve!: () => void;
+    const onAddFiles = jest.fn(() => new Promise<void>((r) => { resolve = r; }));
+    const { container } = renderSelector({ onAddFiles });
+
+    pickFiles(container, [new File(['a,b\n1,2\n'], 'second.csv', { type: 'text/csv' })]);
+
+    expect(onAddFiles).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Adding second\.csv/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add more files' })).toBeDisabled();
+
+    await act(async () => { resolve(); });
+
+    expect(screen.queryByText(/Adding second\.csv/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add more files' })).toBeEnabled();
+  });
+
+  it('summarises multiple files by count', async () => {
+    const onAddFiles = jest.fn(() => new Promise<void>(() => {}));
+    const { container } = renderSelector({ onAddFiles });
+
+    pickFiles(container, [
+      new File(['x'], 'a.csv', { type: 'text/csv' }),
+      new File(['y'], 'b.json', { type: 'application/json' }),
+    ]);
+
+    expect(await screen.findByText(/Adding 2 files/)).toBeInTheDocument();
+  });
+
+  it('reports a failed upload instead of silently dropping it', async () => {
+    const onAddFiles = jest.fn(() => Promise.reject(new Error('File too large')));
+    const { container } = renderSelector({ onAddFiles });
+
+    pickFiles(container, [new File(['x'], 'big.csv', { type: 'text/csv' })]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('File too large');
+    expect(screen.queryByText(/Adding big\.csv/)).not.toBeInTheDocument();
+  });
+});
+
 describe('CompactMetadataSelector — database mirror', () => {
   const ADD_DB_LABEL = 'Add matching tables from database';
 
