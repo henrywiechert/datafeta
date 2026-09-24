@@ -17,6 +17,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { SavedConnectionMetadata } from '../types';
+import { DATA_FILE_ACCEPT, SQLITE_FILE_ACCEPT } from '../utils/uploadFileTypes';
 
 /**
  * Override values for ClickHouse connection parameters.
@@ -393,7 +394,7 @@ export default function ConnectionRestoreDialog({
                 {file ? `Selected: ${file.name}` : 'Select Data File (CSV/Parquet/JSON)'}
                 <input
                   type="file"
-                  accept=".csv,.parquet,.json,.ndjson,.jsonl"
+                  accept={DATA_FILE_ACCEPT}
                   hidden
                   onChange={handleFileChange}
                 />
@@ -440,7 +441,7 @@ export default function ConnectionRestoreDialog({
                 {file ? `Selected: ${file.name}` : 'Select Database File (.sqlite/.sqlite3/.db)'}
                 <input
                   type="file"
-                  accept=".sqlite,.sqlite3,.db"
+                  accept={SQLITE_FILE_ACCEPT}
                   hidden
                   onChange={handleFileChange}
                 />

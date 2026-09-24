@@ -1,13 +1,14 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * CsvConnectionForm - File upload with advanced CSV configuration options.
- * Supports both CSV and Parquet files, with multi-file upload capability.
+ * Supports CSV, Parquet and JSON files (optionally compressed), with multi-file upload capability.
  */
 
 import React, { ChangeEvent, useMemo } from 'react';
 import { CsvFormState } from './types';
 import { CsvParsingOptionsSection } from './CsvParsingOptionsSection';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
+import { DATA_FILE_ACCEPT, isZipArchive, stripCompressionSuffix } from '../../utils/uploadFileTypes';
 
 interface CsvConnectionFormProps {
   state: CsvFormState;
@@ -33,9 +34,12 @@ export function CsvConnectionForm({
     }
   };
 
-  // Check if any CSV files are selected (to show CSV-specific options)
+  // Check if any CSV files are selected (to show CSV-specific options).
+  // A zip may hold CSVs, so it counts too.
   const hasCsvFiles = useMemo(() => {
-    return state.selectedFiles.some((file) => file.name.toLowerCase().endsWith('.csv'));
+    return state.selectedFiles.some(
+      (file) => isZipArchive(file.name) || stripCompressionSuffix(file.name).endsWith('.csv')
+    );
   }, [state.selectedFiles]);
 
   // Format file summary
@@ -44,16 +48,20 @@ export function CsvConnectionForm({
     if (count === 0) return null;
     if (count === 1) return state.fileNames[0];
 
-    const csvCount = state.selectedFiles.filter((f) => f.name.toLowerCase().endsWith('.csv')).length;
-    const jsonCount = state.selectedFiles.filter((f) =>
-      JSON_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
+    const names = state.selectedFiles.map((f) => f.name);
+    const zipCount = names.filter(isZipArchive).length;
+    const innerNames = names.filter((n) => !isZipArchive(n)).map(stripCompressionSuffix);
+    const csvCount = innerNames.filter((n) => n.endsWith('.csv')).length;
+    const jsonCount = innerNames.filter((n) =>
+      JSON_EXTENSIONS.some((ext) => n.endsWith(ext))
     ).length;
-    const parquetCount = count - csvCount - jsonCount;
+    const parquetCount = innerNames.length - csvCount - jsonCount;
 
     const parts = [];
     if (csvCount > 0) parts.push(`${csvCount} CSV`);
     if (parquetCount > 0) parts.push(`${parquetCount} Parquet`);
     if (jsonCount > 0) parts.push(`${jsonCount} JSON`);
+    if (zipCount > 0) parts.push(`${zipCount} ZIP`);
 
     return `${count} files (${parts.join(', ')})`;
   }, [state.selectedFiles, state.fileNames]);
@@ -61,10 +69,10 @@ export function CsvConnectionForm({
   return (
     <div className={styles.formGroup}>
       <div className={styles.fileUpload}>
-        <label className={styles.label}>Data Files (CSV, Parquet or JSON)</label>
+        <label className={styles.label}>Data Files (CSV, Parquet or JSON; may be compressed)</label>
         <input
           type="file"
-          accept=".csv,.parquet,.json,.ndjson,.jsonl"
+          accept={DATA_FILE_ACCEPT}
           multiple
           onChange={handleFileChange}
           disabled={disabled}
@@ -73,6 +81,10 @@ export function CsvConnectionForm({
         {fileSummary && (
           <div className={styles.selectedFile}>Selected: {fileSummary}</div>
         )}
+        <div className={styles.demoHint}>
+          Compressed files (.gz, .bz2, .xz, .zst) are decompressed on upload; name them
+          like data.csv.gz. Each supported file in a .zip becomes its own table.
+        </div>
         {state.fileNames.length > 1 && (
           <div className={styles.fileList}>
             {state.fileNames.map((name, idx) => (

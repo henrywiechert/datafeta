@@ -16,6 +16,7 @@ import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import SectionHeader from '../Properties/SectionHeader';
 import styles from './CompactMetadataSelector.module.css';
+import { DATA_FILE_ACCEPT } from '../../../utils/uploadFileTypes';
 import {
   compactAutocompleteClassName,
   compactAutocompleteListboxProps,
@@ -399,7 +400,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               <input
                 ref={addFilesInputRef}
                 type="file"
-                accept=".csv,.parquet,.json,.ndjson,.jsonl"
+                accept={DATA_FILE_ACCEPT}
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

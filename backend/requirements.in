@@ -8,3 +8,5 @@ duckdb>=1.5.5
 pyarrow>=24.0.0
 kaggle>=2.2.4
 huggingface_hub>=1.32.0
+# .zst upload decompression (stdlib compression.zstd from Python 3.14)
+backports-zstd; python_version < "3.14"

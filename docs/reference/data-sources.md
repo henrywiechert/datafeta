@@ -83,6 +83,24 @@ caches it; on a fully offline server, pre-populate the DuckDB extension cache.
 
 ---
 
+## Compressed Files
+
+File and SQLite uploads may be compressed. They are decompressed once on upload, then handled exactly like the plain file.
+
+| Format | Extensions | Naming |
+|---|---|---|
+| gzip | `.gz`, `.gzip` | Keep the inner extension: `sales.csv.gz`, `shop.db.gz` |
+| bzip2 | `.bz2` | `events.jsonl.bz2` |
+| xz | `.xz` | `data.parquet.xz` |
+| Zstandard | `.zst` | `sales.csv.zst` |
+| Zip | `.zip` | Any name; the file types inside the archive are what count |
+
+**Zip archives:** For **File** connections, every supported file in the archive (CSV, Parquet, JSON) becomes its own table, named after the file inside the archive. Folders are flattened, and other files (README, `__MACOSX/`, dotfiles) are ignored. For **SQLite**, the archive must contain exactly one database file.
+
+**Limits:** The compressed upload is capped at 1 GB, like any other upload. Its decompressed contents may total up to 10 GB.
+
+---
+
 ## ClickHouse
 
 | Option | Default | Notes |
