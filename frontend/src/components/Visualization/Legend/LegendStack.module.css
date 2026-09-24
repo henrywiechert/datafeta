@@ -10,9 +10,18 @@
   box-sizing: border-box;
 }
 
+/* Grid rows sized minmax(auto, max-content) share the height by water-filling:
+   the free space is handed out equally and each row freezes once it reaches
+   its content height. So a short legend keeps its natural size and the longer
+   one takes everything that is left; two long legends split 50/50. The auto
+   minimum honours each panel's min-height, and the outer scroll takes over
+   only when those minimums alone overflow. */
 .stackContent {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-auto-rows: minmax(auto, max-content);
+  /* Pin the column to the panel width; an auto column would grow to fit long
+     nowrap labels instead of letting each legend's content scroll sideways. */
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   height: 100%;
   /* Allow overall stack to scroll if all sections together exceed height */
