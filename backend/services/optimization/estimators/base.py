@@ -3,7 +3,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Iterable, List, Optional
 
 from backend.models.query import QueryDescription
 from backend.connectors.base import BaseConnector
@@ -34,6 +34,34 @@ class ResultSizeEstimator(ABC):
     
     def __init__(self, connector: BaseConnector):
         self.connector = connector
+
+    def _build_filter_criteria(
+        self,
+        table: Any,
+        query_desc: QueryDescription,
+        db_type: str,
+        skip_fields: Iterable[str] = (),
+    ) -> List[Any]:
+        """Translate the query's row filters into WHERE criteria for an estimation query.
+
+        Filters on ``skip_fields`` (virtual columns absent from the physical table)
+        are dropped. Delegates to the same FilterBuilder pipeline as the real query.
+        """
+        skip = set(skip_fields)
+        filters = [f for f in query_desc.filters if f.field not in skip]
+        if not filters:
+            return []
+
+        from backend.services.query_service import QueryService
+
+        scoped_desc = query_desc.model_copy(update={"filters": filters})
+        return QueryService()._build_filter_criteria(
+            scoped_desc,
+            table_map={query_desc.target_table: table},
+            default_table=table,
+            db_type=db_type,
+            primary_table=table,
+        )
     
     @abstractmethod
     def estimate_size(
