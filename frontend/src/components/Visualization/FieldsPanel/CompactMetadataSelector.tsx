@@ -96,6 +96,43 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
   );
 };
 
+/** Inline "something is happening" row for long-running file uploads. */
+const BusyRow: React.FC<{ label: string }> = ({ label }) => (
+  <Box
+    role="status"
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0.75,
+      mt: 0.5,
+      py: 0.5,
+      px: 0.75,
+      bgcolor: 'action.hover',
+      borderRadius: 1,
+      border: '1px solid',
+      borderColor: 'divider',
+    }}
+  >
+    <CircularProgress size={14} />
+    <Typography variant="caption" noWrap sx={{ color: 'text.secondary', minWidth: 0 }}>
+      {label}
+    </Typography>
+  </Box>
+);
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+};
+
+const describeAddingFiles = (files: File[]): string => {
+  const size = formatBytes(files.reduce((sum, f) => sum + f.size, 0));
+  const what = files.length === 1 ? files[0].name : `${files.length} files`;
+  return `Adding ${what} (${size})…`;
+};
+
 interface CompactMetadataSelectorProps {
   connectionType: string;
   selectedDatabase: string;
@@ -167,6 +204,25 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   isSwitchingDatabase,
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
+  // Upload + ingest of a large file can take a while; without this the
+  // button looks like it did nothing.
+  const [addingFilesLabel, setAddingFilesLabel] = React.useState<string | null>(null);
+  const [addFilesError, setAddFilesError] = React.useState<string | null>(null);
+  const handleAddFiles = React.useCallback(
+    async (files: File[]) => {
+      if (!onAddFiles) return;
+      setAddFilesError(null);
+      setAddingFilesLabel(describeAddingFiles(files));
+      try {
+        await onAddFiles(files);
+      } catch (err) {
+        setAddFilesError(err instanceof Error ? err.message : 'Failed to add files');
+      } finally {
+        setAddingFilesLabel(null);
+      }
+    },
+    [onAddFiles]
+  );
   const [isPatternDialogOpen, setIsPatternDialogOpen] = React.useState(false);
   const [relationshipEditorOpen, setRelationshipEditorOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(() => {
@@ -406,22 +462,29 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
                 onChange={(e) => {
                   const files = e.target.files ? Array.from(e.target.files) : [];
                   if (files.length > 0) {
-                    onAddFiles(files);
+                    void handleAddFiles(files);
                   }
                   // Reset so the same file can be re-selected if needed
                   e.target.value = '';
                 }}
               />
-              <Tooltip title="Add more files to this connection" placement="left">
+              <Tooltip
+                title={addingFilesLabel ?? 'Add more files to this connection'}
+                placement="left"
+              >
                 <span>
                   <IconButton
                     size="small"
                     aria-label="Add more files"
+                    aria-busy={!!addingFilesLabel}
                     onClick={() => addFilesInputRef.current?.click()}
-                    disabled={isLoadingMetadata}
+                    disabled={isLoadingMetadata || !!addingFilesLabel}
                     sx={{ width: 20, height: 20 }}
                   >
-                    <UploadFileIcon fontSize="inherit" />
+                    {/* The header stays visible when the section is collapsed. */}
+                    {addingFilesLabel
+                      ? <CircularProgress color="inherit" size={12} />
+                      : <UploadFileIcon fontSize="inherit" />}
                   </IconButton>
                 </span>
               </Tooltip>
@@ -543,25 +606,15 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           />
 
           {connectionType === 'hive_parquet' && isLoadingPartition && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                mt: 0.5,
-                py: 0.5,
-                px: 0.75,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <CircularProgress size={14} />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Uploading partition files…
-              </Typography>
-            </Box>
+            <BusyRow label="Uploading partition files…" />
+          )}
+
+          {addingFilesLabel && <BusyRow label={addingFilesLabel} />}
+
+          {addFilesError && (
+            <Typography variant="caption" className={styles.error} role="alert">
+              {addFilesError}
+            </Typography>
           )}
 
           {/* Show selected tables list for Hive Parquet when primary is set */}
