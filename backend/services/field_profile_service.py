@@ -42,6 +42,10 @@ from backend.services.query_components.column_source_resolver import (
 )
 from backend.services.query_components.finite_guard_sql import finite_predicate_sql
 from backend.services.query_components.schema_type_provider import SchemaTypeProvider
+from backend.services.query_components.union.virtual_column_checker import (
+    can_compute_virtual_column,
+    get_virtual_column_source_fields,
+)
 from backend.services.validation_service import ValidationService
 
 logger = logging.getLogger(__name__)
@@ -304,7 +308,23 @@ class FieldProfileService:
         return f"'{escaped}'"
 
     def _resolve_expression(self, request: FieldProfileRequest) -> Tuple[str, str]:
-        """Return (aggregated column alias, FROM clause projecting it)."""
+        """Return (aggregated column alias, FROM clause projecting it).
+
+        In UNION mode the column is read from every branch that has it, so the
+        profile covers the combined rows rather than the primary table alone.
+        """
+        branches = self._union_branches_with_field(request)
+        if branches:
+            projections = [
+                self._branch_projection(request, database, table)
+                for database, table in branches
+            ]
+        else:
+            projections = [self._single_source_projection(request)]
+        from_sql = f"FROM ({' UNION ALL '.join(projections)}) AS _qv_sub"
+        return self._quote(_EXPR), from_sql
+
+    def _single_source_projection(self, request: FieldProfileRequest) -> str:
         resolved = resolve_column_source(
             field=request.field,
             table=request.table,
@@ -317,20 +337,64 @@ class FieldProfileService:
             source_table=request.sourceTable,
             log_context="Field profile",
         )
+        return self._projection_sql(resolved, request, request.database)
+
+    def _branch_projection(
+        self, request: FieldProfileRequest, database: Optional[str], table: str
+    ) -> str:
+        # Each branch is resolved as a plain table: the union definition would
+        # steer a dotted field to the one table named by its prefix.
+        resolved = resolve_column_source(
+            field=request.field,
+            table=table,
+            database=database,
+            dialect=self._dialect,
+            db_type=self.conn_details.type,
+            type_provider=self._type_provider,
+            virtual_columns=request.virtualColumns,
+            log_context="Field profile",
+        )
+        return self._projection_sql(resolved, request, database)
+
+    def _projection_sql(
+        self, resolved: Any, request: FieldProfileRequest, database: Optional[str]
+    ) -> str:
         term = build_column_expression(
             resolved,
             dialect=self._dialect,
-            database=request.database,
+            database=database,
             type_provider=self._type_provider,
             datetime_part=request.dateTimePart,
             datetime_mode=request.dateTimeMode,
         )
         column_sql = term.get_sql(quote_char=self._dialect.quote_char)
-        table_ref = self._dialect.table_ref(resolved.resolved_table_name, request.database)
-        from_sql = (
-            f"FROM (SELECT {self._alias(column_sql, _EXPR)} FROM {table_ref}) AS _qv_sub"
-        )
-        return self._quote(_EXPR), from_sql
+        table_ref = self._dialect.table_ref(resolved.resolved_table_name, database)
+        return f"SELECT {self._alias(column_sql, _EXPR)} FROM {table_ref}"
+
+    def _union_branches_with_field(
+        self, request: FieldProfileRequest
+    ) -> List[Tuple[Optional[str], str]]:
+        """UNION branches that can supply the field; empty outside UNION mode.
+
+        A branch lacking the column is left out rather than counted as NULLs,
+        matching how UNION filters only scope the tables that have the field.
+        """
+        virtual_table = request.virtualTable
+        if not (virtual_table and virtual_table.mode == 'union' and virtual_table.union_tables):
+            return []
+
+        vc_sources = get_virtual_column_source_fields(request.virtualColumns, logger)
+        branches = []
+        for database, table in self._resolve_source_branches(request):
+            # Unknown schema: assume the column exists, as the union builder does.
+            columns = set(self._type_provider.get_types(database, table) or ())
+            if request.field in vc_sources:
+                present = can_compute_virtual_column(request.field, vc_sources, columns)
+            else:
+                present = not columns or request.field in columns
+            if present:
+                branches.append((database, table))
+        return branches
 
     def _build_scalar_sql(
         self, request: FieldProfileRequest, expr_sql: str, from_sql: str
