@@ -168,8 +168,10 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     colorColumnName,
   });
 
-  const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
-  const yIsTime = effectiveDomain?.y?.[0] instanceof Date;
+  // axisKind describes the independent axis, which is y for vertical lines.
+  const independentIsTime = axisKind === 'time';
+  const xIsTime = (O.independentAxis === 'x' && independentIsTime) || (effectiveDomain?.x?.[0] instanceof Date);
+  const yIsTime = (O.independentAxis === 'y' && independentIsTime) || (effectiveDomain?.y?.[0] instanceof Date);
 
   const areaMarks = buildAreaMarks({
     variant,
