@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
+import { resolveDateTime } from '../../datetime/datetimeSemantics';
 
 function parseNumericCategory(value: any): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -72,8 +73,10 @@ export function computeSharedNumericDomains(
   const domains: Record<string, [number, number] | [Date, Date]> = {};
   for (const label of labels) {
     const field = fieldMap[label];
-    // Frontend fields use camelCase: dateTimeMode ('timeline' | 'distinct')
-    const isTimeline = field?.dateTimeMode === 'timeline' || field?.date_mode === 'timeline';
+    // Mode-only by rule: a freshly dropped "Full DateTime" field has no explicit
+    // mode yet but its values are still timestamps. Reading the raw mode here
+    // dropped the x domain, and the shared axis fell back to [0, 1] -> 1970.
+    const isTimeline = resolveDateTime(field).isTemporalValue;
     const minSummaryLabel = `${label}__min`;
     const maxSummaryLabel = `${label}__max`;
     if (isTimeline) {
