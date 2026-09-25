@@ -648,3 +648,30 @@ describe('buildLineOptions – series end labels', () => {
     expect(sharedMark.opts.fill(gamma)).toBe('#e15759');
   });
 });
+
+describe('buildLineOptions – time axis follows the independent axis', () => {
+  const rows = Array.from({ length: 5 }, (_, i) => ({
+    utc: new Date(Date.UTC(2026, 0, 16, 12, 27, i * 30)),
+    'SUM(v)': 10 + i,
+  }));
+
+  test('horizontal: x is the time axis, y stays numeric', () => {
+    const opts: any = buildLineOptions({
+      data: rows, xColumn: 'utc', yColumn: 'SUM(v)', orientation: 'horizontal', labels: { x: 'utc', y: 'SUM(v)' },
+    });
+    expect(opts.x.type).toBe('utc');
+    expect(opts.x.tickFormat).toBeDefined();
+    expect(opts.y.type).toBeUndefined();
+    expect(opts.y.tickFormat).toBeUndefined();
+  });
+
+  test('vertical (swapped axes): y is the time axis, x stays numeric', () => {
+    const opts: any = buildLineOptions({
+      data: rows, xColumn: 'SUM(v)', yColumn: 'utc', orientation: 'vertical', labels: { x: 'SUM(v)', y: 'utc' },
+    });
+    expect(opts.y.type).toBe('utc');
+    expect(opts.y.tickFormat).toBeDefined();
+    expect(opts.x.type).toBeUndefined();
+    expect(opts.x.tickFormat).toBeUndefined();
+  });
+});
