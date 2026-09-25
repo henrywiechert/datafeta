@@ -8,6 +8,7 @@ import SaveAsIcon from '@mui/icons-material/SaveAs';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import ShareIcon from '@mui/icons-material/Share';
 import { SavedConfiguration } from '../types';
 
 function startFromScratch() {
@@ -23,6 +24,8 @@ interface SaveLoadMenuProps {
   onSave?: () => Promise<void>;
   /** Always create a new snapshot under a new name. */
   onSaveAs?: () => void;
+  /** Open the Share dialog for the open snapshot. */
+  onShare?: () => void;
   /** Start from scratch by reloading the app. */
   onNew?: () => void;
   serverStorageReadable?: boolean;
@@ -35,6 +38,7 @@ export default function SaveLoadMenu({
   onOpenGallery,
   onSave,
   onSaveAs,
+  onShare,
   onNew = startFromScratch,
   serverStorageReadable = true,
   serverStorageWritable = true,
@@ -73,6 +77,11 @@ export default function SaveLoadMenu({
   const handleSaveAs = () => {
     handleClose();
     onSaveAs?.();
+  };
+
+  const handleShare = () => {
+    handleClose();
+    onShare?.();
   };
 
   const handleNew = () => {
@@ -188,6 +197,14 @@ export default function SaveLoadMenu({
               </ListItemIcon>
               <ListItemText>Saved Configurations...</ListItemText>
             </MenuItem>
+            {onShare && (
+              <MenuItem onClick={handleShare}>
+                <ListItemIcon>
+                  <ShareIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Share...</ListItemText>
+              </MenuItem>
+            )}
             <Divider sx={{ my: 0.5 }} />
           </>
         )}

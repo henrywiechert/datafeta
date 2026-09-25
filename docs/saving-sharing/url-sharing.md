@@ -6,10 +6,26 @@ Every saved snapshot has a **unique URL** that you can send to others. Anyone wi
 
 ## Getting the share URL
 
-1. Save your visualization as a [Snapshot](snapshots.md).
-2. In the Snapshot Gallery, hover over the snapshot and click the **share / link** icon.  
-   The URL is shown so you can select and copy it.
-3. Alternatively, after loading a snapshot the URL in your browser's address bar already contains the snapshot ID — you can copy that directly.
+Choose **Share…** from the **File** menu, or click the **share** icon next to the snapshot name in
+the bottom bar. Click **Copy link** to put the URL on the clipboard.
+
+A link always opens what is saved on the server, so **Share…** only hands one out for saved work:
+
+| Workspace | What Share offers |
+|---|---|
+| Open snapshot, no unsaved changes | The link, ready to copy |
+| Open snapshot with unsaved changes (`•` in the bottom bar) | **Save & share** — saves the snapshot in place, then shows the link |
+| New analysis (no snapshot open) | **Save as snapshot…** — name the snapshot, then the link is shown |
+
+On a read-only server, unsaved changes cannot be saved; **Share…** then gives the link to the last
+saved version. A new analysis cannot be shared as a link there — use
+[Export to File](export-import.md) instead.
+
+On plain-HTTP deployments the browser may block clipboard access. The link field is then selected
+for you — press `Cmd+C` / `Ctrl+C` to copy it.
+
+You can also copy a link from the Snapshot Gallery (hover over a snapshot and click the **link**
+icon), or from your browser's address bar after loading a snapshot.
 
 The URL looks like:  
 ```
@@ -39,7 +55,7 @@ When you open this URL:
 2. **Same schema — swap database only** is enabled (and locked) so table selections and sheet layouts are kept.
 3. You still enter the ClickHouse password, then connect.
 
-If the snapshot is not ClickHouse, or it uses a cross-database UNION, the `database` parameter is ignored and a short message explains why. The gallery share link still uses `?snapshot=` only — append `&database=` yourself when needed.
+If the snapshot is not ClickHouse, or it uses a cross-database UNION, the `database` parameter is ignored and a short message explains why. **Share…** keeps the `database` parameter in the link it gives you, so recipients see the same database. The gallery share link uses `?snapshot=` only — append `&database=` yourself when needed.
 
 See [Export & Import](./export-import.md#swapping-the-data-source-same-schema) for the same-schema assumption.
 

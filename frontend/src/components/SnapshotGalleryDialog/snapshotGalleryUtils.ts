@@ -75,9 +75,18 @@ export function expandFolderPath(path: string): Set<string> {
   return expanded;
 }
 
-export function buildSnapshotShareUrl(snapshotId: string, origin: string = window.location.origin): string {
+/**
+ * `database` carries a ClickHouse `?database=` override through to the link,
+ * so the recipient opens the snapshot against the same database as the sender.
+ */
+export function buildSnapshotShareUrl(
+  snapshotId: string,
+  origin: string = window.location.origin,
+  database?: string | null,
+): string {
   const url = new URL(origin);
   url.searchParams.set('snapshot', snapshotId);
+  if (database) url.searchParams.set('database', database);
   return url.toString();
 }
 
