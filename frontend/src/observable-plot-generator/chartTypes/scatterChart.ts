@@ -16,7 +16,7 @@ import {
   MANUAL_NO_SHAPE,
   resolveManualShapeOption,
 } from '../utils/shapeUtils';
-import { formatDateTick } from '../utils/dateFormatUtils';
+import { formatDateAxisTick } from '../utils/dateFormatUtils';
 
 type ScatterResultBudget = {
   maxPoints: number;
@@ -174,14 +174,14 @@ export function scatterChart(
         grid: true,
         domain: options?.domain?.x,
         // If axis inferred as date, ensure time scale with concise formatting
-        ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
+        ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {})
       } as any,
       y: {
         label: options?.y || yColumn,
         domainKey: yColumn,
         grid: true,
         domain: options?.domain?.y,
-        ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
+        ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {})
       } as any,
       marks: [],
     };
@@ -366,7 +366,7 @@ export function scatterChart(
       grid: true,
       domain: xDomain,
       nice: false,
-      ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
       ...(xIsDiscrete ? { type: 'band' as any, padding: 0.5 } : {})
     } as any,
     y: {
@@ -375,7 +375,7 @@ export function scatterChart(
       grid: true,
       domain: yDomain,
       nice: false,
-      ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
       ...(yIsDiscrete ? { type: 'band' as any, padding: 0.5 } : {})
     } as any,
     r: { type: 'identity' } as any,
