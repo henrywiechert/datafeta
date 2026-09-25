@@ -80,4 +80,17 @@ describe('SaveLoadMenu', () => {
     expect(props.onExportFile).toHaveBeenCalledTimes(1);
     expect(props.onSave).not.toHaveBeenCalled();
   });
+
+  it('invokes onShare for Share', async () => {
+    const props = setup({ onShare: jest.fn() });
+    await openMenu();
+    await userEvent.click(screen.getByText('Share...'));
+    expect(props.onShare).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Share when no onShare handler is given', async () => {
+    setup();
+    await openMenu();
+    expect(screen.queryByText('Share...')).not.toBeInTheDocument();
+  });
 });

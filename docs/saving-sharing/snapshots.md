@@ -8,7 +8,7 @@ Snapshots save the complete state of a visualization — data source connection,
 
 Snapshots behave like documents: you open one, work on it, and save it.
 
-All snapshot actions live in the **⋮** menu at the right-hand end of the bottom bar.
+All snapshot actions live in the **File** menu next to the app name.
 
 ### Save As…
 
@@ -24,13 +24,13 @@ continues working against the snapshot you just created.
 ### Save
 
 Updates the snapshot you currently have open, in place — no name prompt, no picking it out of a
-list. Press `Cmd+S` / `Ctrl+S`, or choose **Save** from the **⋮** menu.
+list. Press `Cmd+S` / `Ctrl+S`, or choose **Save** from the **File** menu.
 
-The name of the open snapshot is shown in the bottom bar next to the **⋮** menu. A bullet (`•`)
+The name of the open snapshot is shown at the right-hand end of the bottom bar. A bullet (`•`)
 in front of the name means there are unsaved changes:
 
 ```
-• Sales/Reports / Q3 Revenue     ⋮
+• Sales/Reports / Q3 Revenue
 ```
 
 If no snapshot is open — for example you just imported a file or loaded a demo dataset — **Save**
@@ -39,9 +39,16 @@ leaves the workspace untitled so that saving cannot overwrite a shared demo conf
 
 ---
 
+## Sharing a snapshot
+
+Choose **Share…** from the **File** menu, or click the **share** icon next to the snapshot name in
+the bottom bar. See [Sharing via URL](url-sharing.md) for details.
+
+---
+
 ## Opening the Snapshot Gallery
 
-Choose **Saved Configurations…** from the **⋮** menu, or click **Saved Configurations…** on the
+Choose **Saved Configurations…** from the **File** menu, or click **Saved Configurations…** on the
 Connect page.
 
 The gallery shows all saved snapshots, organised by folder. Click any snapshot to load it. The

@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Typography, Snackbar, Alert } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ShareIcon from '@mui/icons-material/Share';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
 import { useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
@@ -15,6 +16,7 @@ import ThemeModeToggle from './theme/ThemeModeToggle';
 import ConnectionRestoreDialog, { ClickHouseOverrides, ConnectionRestoreOptions } from './components/ConnectionRestoreDialog';
 import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
 import SnapshotSaveAsDialog from './components/SnapshotSaveAsDialog';
+import ShareSnapshotDialog from './components/ShareSnapshotDialog';
 import { 
   exportConfiguration, 
   saveConfigFile, 
@@ -118,6 +120,7 @@ function AppContent() {
   // State for snapshot gallery
   const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
   const [showSaveAs, setShowSaveAs] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   // Identity of the snapshot open in the workspace, so "Save" can update it in
   // place instead of making the user re-pick it in the gallery.
@@ -296,11 +299,7 @@ function AppContent() {
       return;
     }
     try {
-      const config = getCurrentConfiguration();
-      const meta = await apiService.overwriteSnapshot(currentSnapshot.current.id, config);
-      currentSnapshot.adopt(meta);
-      currentSnapshot.markSaved(config);
-      setSaveStatus({ severity: 'success', message: `Saved "${meta.name}"` });
+      await saveSnapshotInPlace();
     } catch (error) {
       console.error('Failed to save snapshot:', error);
       setSaveStatus({
@@ -308,6 +307,16 @@ function AppContent() {
         message: 'Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'),
       });
     }
+  };
+
+  // Throws on failure so callers with their own error UI (the Share dialog) can show it.
+  const saveSnapshotInPlace = async () => {
+    if (!currentSnapshot.current) throw new Error('No snapshot is open');
+    const config = getCurrentConfiguration();
+    const meta = await apiService.overwriteSnapshot(currentSnapshot.current.id, config);
+    currentSnapshot.adopt(meta);
+    currentSnapshot.markSaved(config);
+    setSaveStatus({ severity: 'success', message: `Saved "${meta.name}"` });
   };
 
   // Always creates a new snapshot, then continues working against that one.
@@ -321,6 +330,13 @@ function AppContent() {
   };
 
   const canSaveToServer = appConfig.snapshots.enabled && appConfig.snapshots.writable;
+  const canShare = appConfig.snapshots.enabled && !appConfig.isDemoMode;
+  // Carry a ?database= override into the share link only while the URL still
+  // belongs to the open snapshot — Save As replaces the URL and drops it.
+  const shareDatabaseOverride =
+    currentSnapshot.current && searchParams.get('snapshot') === currentSnapshot.current.id
+      ? searchParams.get('database')
+      : null;
 
   // Ctrl/Cmd+S saves the open configuration. Registered here rather than
   // alongside the undo/redo shortcuts in VisualizationPage because the save
@@ -687,6 +703,7 @@ function AppContent() {
       onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
       onSave={canSaveToServer ? handleSaveSnapshot : undefined}
       onSaveAs={canSaveToServer ? () => setShowSaveAs(true) : undefined}
+      onShare={canShare ? () => setShowShare(true) : undefined}
       serverStorageReadable={!appConfig.isDemoMode}
       serverStorageWritable={appConfig.snapshots.writable}
     />
@@ -802,6 +819,13 @@ function AppContent() {
               </Typography>
             </Tooltip>
           )}
+          {currentSnapshot.current && canShare && (
+            <Tooltip title="Share">
+              <IconButton aria-label="Share" size="small" onClick={() => setShowShare(true)}>
+                <ShareIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Box>
 
@@ -893,6 +917,19 @@ function AppContent() {
         onSave={handleSaveAs}
         initialName={currentSnapshot.current?.name ?? ''}
         initialFolder={currentSnapshot.current?.folder ?? ''}
+      />
+
+      {/* "Save as snapshot…" opens Save As on top of this dialog; once the new
+          snapshot is adopted this re-renders with the link. */}
+      <ShareSnapshotDialog
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        snapshot={currentSnapshot.current}
+        isDirty={currentSnapshot.isDirty}
+        canSave={canSaveToServer}
+        databaseOverride={shareDatabaseOverride}
+        onSave={saveSnapshotInPlace}
+        onSaveAs={() => setShowSaveAs(true)}
       />
 
       <Snackbar
