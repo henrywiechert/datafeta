@@ -357,8 +357,11 @@ export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, column
     if (xType === 'band' && Array.isArray(xDomain)) {
       const visibleTickPx = Math.min(estimateLongestTickPx(xDomain), MAX_X_BAND_TICK_HEIGHT_PX);
       height = Math.max(30, 14 + visibleTickPx); // base tick + vertical label extent
+    } else if (xType === 'utc') {
+      // time ticks may carry the date on a second line (formatDateAxisTick)
+      height = 38;
     } else {
-      // numeric or time, modest ticks
+      // numeric, modest ticks
       height = 30;
     }
     if (height > maxHeight) maxHeight = height;

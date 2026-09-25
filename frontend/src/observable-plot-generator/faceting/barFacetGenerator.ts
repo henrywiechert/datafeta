@@ -11,7 +11,7 @@ import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { formatDateTick } from '../utils/dateFormatUtils';
+import { formatDateAxisTick } from '../utils/dateFormatUtils';
 import { normalizeCategoryForChart } from '../../datetime/chartDateTimeNormalizer';
 import { warnIfNonUtc } from '../../datetime/utcWarnings';
 import { boxPlot } from '../chartTypes/boxPlot';
@@ -419,7 +419,7 @@ function buildTickStripOptions(
             domain: axisDomain,
             nice: false,
             grid: true,
-            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
           } as any
         : { label: dimensionLabel, domainKey: dimCol, grid: true } as any,
       y: { label: categoryLabel, type: 'band', domain: categories, padding: bandPadding } as any,
@@ -436,7 +436,7 @@ function buildTickStripOptions(
             domain: axisDomain,
             nice: false,
             grid: true,
-            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
           } as any
         : { label: dimensionLabel, domainKey: dimCol, grid: true } as any,
       x: { label: categoryLabel, type: 'band', domain: categories, padding: bandPadding } as any,

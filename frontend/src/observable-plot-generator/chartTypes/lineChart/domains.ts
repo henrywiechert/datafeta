@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DOMAIN_PAD_RATIO } from '../../../config/chartLayoutConfig';
-import { formatDateTick } from '../../utils/dateFormatUtils';
+import { formatDateAxisTick } from '../../utils/dateFormatUtils';
 import { estimateGutterRatio } from '../../utils/seriesEndLabels';
 import { toXNumber } from './dataPrep';
 import type { LineBuildParams, XKind } from './types';
@@ -103,14 +103,14 @@ export function buildLineAxes(params: {
       domainKey: xColumn,
       grid: true,
       domain: effectiveDomain?.x,
-      ...(xIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(xIsTime ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
     } as any,
     y: {
       label: labels?.y || yColumn,
       domainKey: yColumn,
       grid: true,
       domain: effectiveDomain?.y,
-      ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateAxisTick } : {}),
     } as any,
   };
 }
