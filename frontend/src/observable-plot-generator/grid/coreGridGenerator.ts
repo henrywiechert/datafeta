@@ -3,12 +3,11 @@ import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { lineColorSplitsSeries } from '../../utils/lineColorEncoding';
-import { ChartTypeOverrides, mapUserChartTypeToCellChartType, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
+import { createCellChartTypeResolver } from './cellChartType';
 import { getFieldColumnName } from '../helpers/fields';
 import { CartesianPlotsConfig } from '../types';
-import { FieldOverrideState } from '../../types';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides, resolveContextColorChannel } from '../utils/colorSchemeUtils';
-import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
+import { isMeasureValuesField } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 import { applyOverlays } from '../overlays';
 import { cellChartTypeToUserType } from '../overlays/types';
@@ -92,12 +91,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     fieldOverrides
   );
 
-  // Build lookup maps for overrides and fields
-  const overrideMap: Record<string, FieldOverrideState> = fieldOverrides || {};
-  const targetAxisByFieldId: Record<string, 'x' | 'y'> = {};
-  (fieldOverrideTargets || []).forEach((t) => {
-    targetAxisByFieldId[t.fieldId] = t.axis;
-  });
+  // Build lookup map for fields
   const fieldById: Record<string, Field> = {};
   (allFields || []).forEach((f) => {
     if (!fieldById[f.id]) {
@@ -105,11 +99,14 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     }
   });
 
-  // Pre-compute combined override for MeasureValues if applicable
-  const measureValuesOverride = combineMeasureValuesOverrides(
+  const resolveCell = createCellChartTypeResolver({
+    overrides,
+    fieldOverrides,
+    fieldOverrideTargets,
+    globalChartType,
+    distributionVariant,
     measureValuesSourceFields,
-    fieldOverrides
-  );
+  });
 
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
@@ -120,20 +117,11 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       const xIsMeasureValues = isMeasureValuesField(xField);
       const yIsMeasureValues = isMeasureValuesField(yField);
 
-      // Resolve effective overrides for this cell based on which axis is configured
-      const xTargetAxis = targetAxisByFieldId[xField.id];
-      const yTargetAxis = targetAxisByFieldId[yField.id];
-      
-      // For MeasureValues fields, use the combined override from source measures
-      const xOverride = xIsMeasureValues 
-        ? measureValuesOverride 
-        : (xTargetAxis === 'x' ? overrideMap[xField.id] : undefined);
-      const yOverride = yIsMeasureValues 
-        ? measureValuesOverride 
-        : (yTargetAxis === 'y' ? overrideMap[yField.id] : undefined);
-
-      // Prefer X-axis override when both are present (defensive; rules should prevent this)
-      const cellOverride: FieldOverrideState | undefined = xOverride || yOverride;
+      const {
+        cellOverride,
+        chartTypeOverrides: cellChartTypeOverrides,
+        cellChartType: resolvedCellType,
+      } = resolveCell(xField, yField);
 
       // Start from global encodings
       let cellColorField: Field | undefined | null = colorField;
@@ -148,41 +136,6 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       let cellAreaFillOpacity = cellOverride?.areaFillOpacity ?? areaFillOpacity;
       const cellLineColorMode = lineColorMode;
 
-      // Build per-cell chart type override from fieldOverrides or global chart type
-      let cellChartTypeOverrides: ChartTypeOverrides | undefined = overrides;
-      if (cellOverride?.chartType) {
-        // Per-field chart type override takes precedence
-        // Determine which axis has the override (prefer X if both have it)
-        const overrideAxis = xOverride?.chartType ? 'x' : 'y';
-        const cellChartType = mapUserChartTypeToCellChartType(
-          cellOverride.chartType,
-          overrideAxis,
-          xField,
-          yField,
-          distributionVariant
-        );
-        cellChartTypeOverrides = {
-          ...overrides,
-          byFieldId: {
-            ...(overrides?.byFieldId || {}),
-            [overrideAxis === 'x' ? xField.id : yField.id]: cellChartType,
-          },
-        };
-      } else if (globalChartType) {
-        // Fall back to global chart type when no per-field override is set
-        // Use x-axis field as the primary for mapping (arbitrary choice, works for most cases)
-        const globalCellChartType = mapUserChartTypeToCellChartType(
-          globalChartType,
-          xField.type === 'measure' ? 'x' : 'y',
-          xField,
-          yField,
-          distributionVariant
-        );
-        cellChartTypeOverrides = {
-          ...overrides,
-          global: globalCellChartType,
-        };
-      }
 
       if (cellOverride) {
         // Color field: prefer stored field object, fallback to lookup by ID
@@ -324,7 +277,6 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
 
       // Apply statistical overlays (regression, moving average, Bollinger bands)
       if (overlayConfigs?.length) {
-        const resolvedCellType = resolveChartTypeForPair(xField, yField, cellChartTypeOverrides);
         const userChartType = cellChartTypeToUserType(resolvedCellType);
         // Determine orientation: dependent (value) axis — Y for most charts, X for barX/tickX/ganttX
         const depAxis: 'x' | 'y' = (resolvedCellType === 'barX' || resolvedCellType === 'tickX' || resolvedCellType === 'boxX' || resolvedCellType === 'ganttX') ? 'x' : 'y';

@@ -5,7 +5,8 @@
  * Collapsible section in the Overrides panel that shows overlay rows
  * (regression, moving average) with inline parameter controls.
  * Each overlay type is a card row styled to match FieldOverrideRow.
- * Only rendered when the active chart type supports at least one overlay.
+ * Only lists overlays that take effect on the rendered chart (see
+ * `getAvailableOverlayTypes`); hidden entirely when none do.
  *
  * Self-contained: reads and dispatches to VisualizationContext directly.
  */
@@ -32,10 +33,10 @@ import {
   withAllOverlays,
   normalizePercentile,
 } from '../../../observable-plot-generator/overlays/types';
-import { UserChartType, Field } from '../../../types';
+import { Field } from '../../../types';
 import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
-import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
-import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
+import { getAvailableOverlayTypes } from '../../../observable-plot-generator/overlays/availability';
+import { activeAxisFields } from '../../../viewPlanner';
 import { T } from '../../../theme/tokens';
 import { DEFAULT_MANUAL_COLOR, DEFAULT_OVERLAY_COLOR, DEFAULT_REFERENCE_LINE_COLOR } from '../../../config/colorSchemes';
 
@@ -614,43 +615,33 @@ const OverlaysSection: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
   const recordUndoPoint = useRecordUndoPoint();
 
-  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField, chartTypeParams } = state;
+  const {
+    globalChartType,
+    overlays: overlayConfigs,
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    chartTypeParams,
+    fieldOverrides,
+    measureValuesSourceFields,
+    showTableRows,
+  } = state;
   const overlays: OverlayConfig[] = withAllOverlays(overlayConfigs);
 
-  // Resolve effective chart type: user-selected or auto-detected
-  const chartType: UserChartType | undefined = useMemo(() => {
-    if (globalChartType) return globalChartType;
-    const xFields = xAxisFields as Field[];
-    const yFields = yAxisFields as Field[];
-    if (!xFields?.length && !yFields?.length) return undefined;
+  // Offer only the overlays the renderer would actually draw for this
+  // configuration (same routing and per-cell chart types as the generator).
+  const availableTypes = useMemo(() => getAvailableOverlayTypes({
+    xFields: activeAxisFields(xAxisFields as Field[]),
+    yFields: activeAxisFields(yAxisFields as Field[]),
+    globalChartType,
+    colorField: colorField as Field | null,
+    fieldOverrides,
+    measureValuesSourceFields,
+    distributionVariant: chartTypeParams.distribution.variant,
+  }), [xAxisFields, yAxisFields, globalChartType, colorField, fieldOverrides, measureValuesSourceFields, chartTypeParams.distribution.variant]);
 
-    const xCandidates = xFields.filter((f) => f.flavour === 'continuous');
-    const yCandidates = yFields.filter((f) => f.flavour === 'continuous');
-
-    if (xCandidates.length > 0 && yCandidates.length > 0) {
-      const cellType: CellChartType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
-      if (cellType === 'barX' || cellType === 'barY') return 'bar';
-      if (cellType === 'tickX' || cellType === 'tickY') return 'tick';
-      if (cellType === 'dot') return 'scatter';
-      if (cellType === 'ganttX' || cellType === 'ganttY') return 'gantt';
-      if (cellType === 'scatter' || cellType === 'line') return cellType;
-      return undefined;
-    }
-
-    const analysis = analyzeFields(xFields, yFields);
-    const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
-    const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');
-    const hasMeasures = analysis.hasMeasure;
-
-    if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
-    if (hasMeasures) return 'bar';
-    return 'scatter';
-  }, [globalChartType, xAxisFields, yAxisFields]);
-
-  // Determine which overlays apply to the current chart type
-  const applicableMeta = OVERLAY_META.filter(
-    m => chartType && m.applicableTo.has(chartType),
-  );
+  // The raw-rows table view replaces the chart, so no overlay has an effect there.
+  const applicableMeta = showTableRows ? [] : OVERLAY_META.filter(m => availableTypes.has(m.type));
 
   // Hide section entirely when no overlays are applicable
   if (applicableMeta.length === 0) return null;
