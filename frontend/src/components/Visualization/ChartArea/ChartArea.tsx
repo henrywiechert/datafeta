@@ -70,7 +70,7 @@ interface ChartAreaProps {
 
 const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   // -- Contexts ----------------------------------------------------------------
-  const { state, dispatch, startOperation, completeOperation } =
+  const { state, dispatch, startOperation, completeOperation, showOperationModal } =
     useVisualizationContext();
   const { discardLastAction } = useUndoRedo();
   const { dataSource } = useDataSource();
@@ -222,6 +222,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       queryVersion,
       startOperation,
       completeOperation,
+      showOperationModal,
       independentDomains,
       fieldOverrides,
       globalChartType,

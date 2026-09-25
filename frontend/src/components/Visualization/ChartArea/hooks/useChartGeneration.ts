@@ -14,9 +14,20 @@ import { isTablePresentation } from '../../../../observable-plot-generator/chart
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 import { ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
+import { LOADING_CONFIG } from '../../../../config/loadingConfig';
 
 /** Debounce delay for zoom-triggered regeneration (ms) */
 const ZOOM_REGEN_DEBOUNCE_MS = 150;
+
+/**
+ * Resolves once the current DOM has been painted (start of the frame after
+ * next). Falls back to a timer because rAF is paused in background tabs.
+ */
+const waitForPaint = () =>
+  Promise.race([
+    new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    new Promise<void>((resolve) => setTimeout(resolve, 250)),
+  ]);
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
@@ -27,6 +38,7 @@ interface UseChartGenerationProps {
   queryVersion?: number; // Add queryVersion to detect union/join changes
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
+  showOperationModal: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   lineVariant?: LineVariant;
@@ -71,6 +83,7 @@ export const useChartGeneration = ({
   queryVersion, // Destructure queryVersion
   startOperation,
   completeOperation,
+  showOperationModal,
   fieldOverrides = {},
   globalChartType,
   lineVariant = 'line',
@@ -140,15 +153,24 @@ export const useChartGeneration = ({
       devLog('[useChartGeneration] Generated grid with', cellCount, 'cells');
     }
 
-    // For large numbers of cells, the synchronous DOM rendering will block
-    // the main thread for seconds. Yield to the event loop BEFORE setting
-    // the grid to give the modal a chance to appear.
-    if (cellCount > 100) {
+    // Drawing many cells or many rows blocks the main thread for seconds
+    // (Plot.plot, then style recalc/layout/commit of every SVG node). The
+    // rendering modal's timeout can't fire during that block, so show the
+    // modal now and let it paint before handing the grid to React. Grids
+    // without plot/pie cells complete immediately and would only flash it.
+    const hasRenderableCells = generatedGrid.cells?.some(
+      (cell) => cell.content.kind === 'plot' || cell.content.kind === 'pie',
+    );
+    const rowCount = context.queryResult?.rows?.length ?? 0;
+    if (
+      hasRenderableCells &&
+      (cellCount > 100 || rowCount >= LOADING_CONFIG.performance.immediateRenderModalRows)
+    ) {
       if (process.env.NODE_ENV === 'development') {
-        devLog('[useChartGeneration] Large cell count detected, yielding to show modal');
+        devLog('[useChartGeneration] Heavy render detected, showing modal before drawing', { cellCount, rowCount });
       }
-      // Yield to event loop to let modal appear
-      await new Promise(resolve => setTimeout(resolve, 0));
+      showOperationModal('rendering', true);
+      await waitForPaint();
     }
 
     setGrid(generatedGrid);
@@ -156,7 +178,7 @@ export const useChartGeneration = ({
     setRenderingError(null);
 
     logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
-  }, []);
+  }, [showOperationModal]);
 
   /**
    * Called when user chooses to proceed despite facet limit warning.
@@ -338,8 +360,8 @@ export const useChartGeneration = ({
       }
       startOperation('rendering', true);
 
-      // CRITICAL: Yield to event loop BEFORE starting heavy synchronous work
-      // This allows the modal timeout to fire and display the modal
+      // Yield so the loading state commits before the synchronous grid
+      // generation. (Heavy renders show the modal explicitly in doGenerateChart.)
       await new Promise(resolve => setTimeout(resolve, 0));
 
       await doGenerateChart(context, overrideTargets, startTime);

@@ -61,6 +61,7 @@ export interface VisualizationContextType {
   dispatch: React.Dispatch<VisualizationAction>;
   startOperation: (operationType: LoadingOperationType, canCancel?: boolean) => void;
   completeOperation: (operationType: LoadingOperationType) => void;
+  showOperationModal: (operationType: LoadingOperationType, canCancel?: boolean) => void;
   cancelOperation: () => void;
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
   getUndoableSnapshot: () => VisualizationStateSnapshot;
@@ -204,6 +205,18 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     }, timeoutMs);
   }, []);
 
+  // Show a started operation's modal now instead of after its timeout. The
+  // timeout can't fire while synchronous work blocks the main thread, so a
+  // caller about to block (e.g. drawing a huge chart) shows the modal up front.
+  const showOperationModal = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
+    if (timeoutRefs.current[operationType]) {
+      clearTimeout(timeoutRefs.current[operationType]!);
+      timeoutRefs.current[operationType] = null;
+    }
+    dispatch({ type: 'ENSURE_PRIMARY_OPERATION', payload: operationType });
+    dispatch({ type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } });
+  }, []);
+
   // Complete an operation
   const completeOperation = useCallback((operationType: LoadingOperationType) => {
     if (process.env.NODE_ENV === 'development') {
@@ -277,10 +290,11 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       dispatch, 
       startOperation, 
       completeOperation, 
+      showOperationModal,
       cancelOperation, 
       timeoutRefs,
       getUndoableSnapshot
-    }), [state, startOperation, completeOperation, cancelOperation, getUndoableSnapshot])}>
+    }), [state, startOperation, completeOperation, showOperationModal, cancelOperation, getUndoableSnapshot])}>
       {children}
     </VisualizationContext.Provider>
   );
