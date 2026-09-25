@@ -23,6 +23,7 @@ export interface LoadingConfig {
     workerFallbackThreshold: number;  // Time before falling back to sync rendering
     largeDatasetThreshold: number;    // Row count considered "large dataset"
     complexChartThreshold: number;    // Field count considered "complex chart"
+    immediateRenderModalRows: number; // Row count at which the rendering modal is shown before drawing
   };
 }
 
@@ -47,6 +48,7 @@ export const DEFAULT_LOADING_CONFIG: LoadingConfig = {
     workerFallbackThreshold: 5000,    // 5 seconds
     largeDatasetThreshold: 10000,     // 10,000 rows
     complexChartThreshold: 10,        // 10 fields
+    immediateRenderModalRows: 25000,  // 25,000 rows
   },
 };
 

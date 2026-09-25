@@ -13,6 +13,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { duration } from '@mui/material/styles';
 import { LoadingOperationType } from '../contexts/VisualizationContext';
 import { T } from '../theme/tokens';
 
@@ -97,6 +98,9 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
     <Dialog
       open={open}
       disableEscapeKeyDown
+      // No fade-in: the modal is often shown right before the main thread
+      // blocks, which would freeze it at a nearly transparent first frame.
+      transitionDuration={{ enter: 0, exit: duration.leavingScreen }}
       maxWidth="sm"
       fullWidth
       aria-labelledby="loading-modal-title"
