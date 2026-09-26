@@ -36,12 +36,16 @@ MANIFEST
 *.manifest
 *.spec
 !desktop/sidecar/*.spec
+!desktop/qt/*.spec
 
 # Desktop packaging artifacts
 desktop/node_modules/
 desktop/dist/
 desktop/dist-sidecar/
 desktop/build-sidecar/
+desktop/qt/dist/
+desktop/qt/dist-pyinstaller/
+desktop/qt/build-pyinstaller/
 backend/static/
 
 # Installer logs
