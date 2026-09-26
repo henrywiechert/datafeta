@@ -2,6 +2,7 @@
 """Qt shell entry: single instance, in-process backend, main window, menu, updater."""
 from __future__ import annotations
 
+import faulthandler
 import logging
 import os
 import signal
@@ -24,17 +25,37 @@ log = logging.getLogger("datafeta_qt")
 
 STARTUP_TIMEOUT_S = 90
 HEALTH_POLL_MS = 250
+# While starting, dump all thread stacks to desktop.log this often, so a hang shows where it is.
+STALL_DUMP_S = 30
 
 
 def _setup_logging() -> None:
     logs = paths.data_dir() / "logs"
     logs.mkdir(parents=True, exist_ok=True)
-    # Windowed builds have no console: give uvicorn / print() a real stream to write to.
+    # Always log to a file: GUI launches have no console (Windows: stdout is None; macOS
+    # Finder / Linux desktop launches: stdout is /dev/null).
+    log_file = open(logs / "desktop.log", "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+    # Give uvicorn / print() a real stream to write to.
     if sys.stdout is None or sys.stderr is None:
-        stream = open(logs / "desktop.log", "a", buffering=1, encoding="utf-8")  # noqa: SIM115
-        sys.stdout = sys.stdout or stream
-        sys.stderr = sys.stderr or stream
-    logging.basicConfig(level=logging.INFO, format="[desktop] %(levelname)s %(name)s: %(message)s")
+        sys.stdout = sys.stdout or log_file
+        sys.stderr = sys.stderr or log_file
+
+    # Configure only the shell's logger: root stays unconfigured so backend.main's
+    # logging.basicConfig still installs its backend.log handler.
+    formatter = logging.Formatter("%(asctime)s [desktop] %(levelname)s %(name)s: %(message)s")
+    shell_log = logging.getLogger("datafeta_qt")
+    shell_log.setLevel(logging.INFO)
+    shell_log.propagate = False
+    streams = [log_file] if sys.stderr is log_file else [log_file, sys.stderr]
+    for stream in streams:
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(formatter)
+        shell_log.addHandler(handler)
+    shell_log.info("Starting %s %s (%s)", paths.PRODUCT_NAME, paths.app_version(), sys.platform)
+
+    # Native crashes (SIGSEGV/SIGABRT) and startup hangs leave a Python traceback in the log.
+    faulthandler.enable(file=log_file, all_threads=True)
+    faulthandler.dump_traceback_later(STALL_DUMP_S, repeat=True, file=log_file)
 
 
 def _configure_chromium() -> None:
@@ -142,6 +163,8 @@ class DesktopApp:
         self.quit()
 
     def _close_splash(self) -> None:
+        # Startup is over (window shown or error reported): stop the stall dumps.
+        faulthandler.cancel_dump_traceback_later()
         if self.splash is not None:
             self.splash.close()
             self.splash = None
@@ -210,25 +233,35 @@ def main() -> int:
         return 0
 
     splash = _show_splash(icon)
-    try:
-        port = find_free_port()
-        prepare_environment(port)
-        # Before any QtWebEngine object exists (see load_backend_app).
-        backend = BackendServer(port, load_backend_app())
-        desktop = DesktopApp(qt_app, backend, splash)
-    except Exception as exc:  # noqa: BLE001
-        log.exception("Startup failed")
-        if splash is not None:
-            splash.close()
-        QMessageBox.critical(
-            None,
-            "Data Slicer failed to start",
-            f"{exc}\n\nCheck logs under:\n{paths.data_dir() / 'logs'}",
-        )
-        return 1
-    lock.activated.connect(desktop.activate)
-    _route_signals_to_quit(desktop)
+    started: list[DesktopApp] = []
 
+    def start() -> None:
+        try:
+            port = find_free_port()
+            prepare_environment(port)
+            # Before any QtWebEngine object exists (see load_backend_app).
+            backend = BackendServer(port, load_backend_app())
+            desktop = DesktopApp(qt_app, backend, splash)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Startup failed")
+            faulthandler.cancel_dump_traceback_later()
+            if splash is not None:
+                splash.close()
+            QMessageBox.critical(
+                None,
+                "Data Slicer failed to start",
+                f"{exc}\n\nCheck logs under:\n{paths.data_dir() / 'logs'}",
+            )
+            qt_app.exit(1)
+            return
+        started.append(desktop)
+        lock.activated.connect(desktop.activate)
+        _route_signals_to_quit(desktop)
+
+    # The backend import is slow (seconds on a cold start). Run it from inside the event loop:
+    # macOS keeps bouncing the Dock icon, and may not draw the splash, until exec() runs.
+    QTimer.singleShot(0, start)
     code = qt_app.exec()
-    desktop.shutdown()
+    if started:
+        started[0].shutdown()
     return code
