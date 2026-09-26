@@ -4,6 +4,8 @@ Double-click desktop shell: **Electron** hosts the UI window and spawns a packag
 
 This mirrors the all-in-one Docker layout (frontend build served from the backend) without requiring Docker, Node, or Python on the end-user machine.
 
+A PySide6 / QtWebEngine alternative to this Electron shell is prototyped in [`qt/`](qt/README.md).
+
 ## What you get
 
 - Installer / zip for the current OS (`desktop/dist/`)
