@@ -23,7 +23,7 @@ interface ChipWithTooltipProps {
   isDragging: boolean;
   isSelected?: boolean;
   isInvalid?: boolean;
-  dragCount?: number;
+  dragCount?: number; // Number of fields being dragged (for visual feedback)
   displayNameOverride?: string;
   /** When false, HTML5 drag is disabled (tablet tap-to-assign). Default true. */
   draggable?: boolean;
@@ -49,11 +49,14 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
 }) => {
   const isAvailableFields = source === 'AVAILABLE_FIELDS';
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
+  // Create a stable key for field properties to minimize re-renders
+  // Note: displayAlias is NOT included here because it's looked up from context at render time
   const fieldPropertiesKey = useMemo(() =>
     `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
     [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
   );
 
+  // Use custom hook for truncation detection and tooltip management
   const {
     isTruncated,
     chipLabelRef,
@@ -67,9 +70,13 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     isDragging,
   });
 
+  // Width properties based on source
   const widthProps = useMemo(() => getChipWidthProps(source), [source]);
+
+  // Full label for tooltip
   const fullLabel = useMemo(() => formatFullLabel(field), [field]);
 
+  // ChipLabel component with forwarded ref
   const chipLabel = useMemo(() => (
     <FieldChipLabel
       ref={chipLabelRef}
@@ -79,6 +86,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     />
   ), [field, source, displayNameOverride, chipLabelRef]);
 
+  // Chip props
   const chipProps = useMemo(() => {
     const handleDragStartInternal = (e: React.DragEvent) => {
       handleTooltipClose();
@@ -106,6 +114,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onClick,
       onMouseDown: handleMouseDownInternal,
       style: {
+        // Inline opacity would override `.disabledAxisField`; omit when disabled.
         ...((source === 'X_AXIS' || source === 'Y_AXIS') && field.disabled ? {} : { opacity: 1 }),
         cursor: draggable ? 'grab' : 'pointer',
         ...widthProps,
@@ -143,8 +152,9 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       e.preventDefault();
       return;
     }
+    // Delegate to chip's drag start (ensures dataTransfer set when dragging wrapper)
     if ((e.target as HTMLElement).closest('.field-chip')) {
-      return;
+      return; // Chip itself will handle
     }
     onDragStart(e);
   };
@@ -165,10 +175,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         maxWidth: '100%',
         alignItems: 'center',
         minWidth: 0,
-        minHeight: isAvailableFields ? '20px' : 'auto',
+        minHeight: isAvailableFields ? '20px' : 'auto', // Match chip height
         position: 'relative',
       }}
     >
+      {/* Show badge when dragging multiple fields */}
       {isDragging && dragCount && dragCount > 1 && (
         <div style={{
           position: 'absolute',
@@ -238,6 +249,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
             }
           }}
         >
+          {/* Wrap Chip in a span with draggable to ensure drag events even through Tooltip cloning */}
           <span
             draggable={draggable}
             onDragStart={draggable ? handleWrapperDragStart : undefined}
@@ -260,7 +272,15 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   );
 };
 
+// Memoize to prevent unnecessary re-renders
+// Only re-render if key props actually change
+// Note: displayAlias is NOT compared here because aliases are looked up from context
+// by the FieldChipLabel child component, which will re-render independently when context changes
 export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
+  // Compare field properties that affect rendering.
+  // `disabled` must be included: otherwise a disable toggle while selected keeps
+  // the green/blue selected paint until Esc changes isSelected.
+  // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   return (
     prevProps.field.id === nextProps.field.id &&
     prevProps.field.columnName === nextProps.field.columnName &&
