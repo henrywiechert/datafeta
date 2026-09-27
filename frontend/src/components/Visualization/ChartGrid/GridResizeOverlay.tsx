@@ -349,6 +349,16 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     return positions;
   }, [topHeaderHeight, bandRowTotal, measureBandRowHeightsPx]);
 
+  // Plot gridline handles move with the scrolled grid. Once a gridline leaves the
+  // visible plot range it would sit over the fixed strips (Y axis/facet labels,
+  // top headers, X axis) — hide it there instead of drawing/grabbing in them.
+  const EDGE_TOLERANCE_PX = 0.5;
+  const isColumnLineVisible = (x: number) =>
+    x >= leftFixedWidth - EDGE_TOLERANCE_PX && x <= containerWidth + EDGE_TOLERANCE_PX;
+  const isRowLineVisible = (y: number) =>
+    y >= topHeaderHeight - EDGE_TOLERANCE_PX
+    && y <= containerHeight - bottomFixedHeight + EDGE_TOLERANCE_PX;
+
   // Column resize handlers report the dragged track; the parent owns uniform sizing policy.
   const handleColumnResizeStart = (index: number) => {
     // Column handles live in the bottom X-axis area, which scrolls horizontally.
@@ -535,13 +545,15 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       {/* Top facet header vertical resize handles (same track as plot columns) */}
       {canResizePlotColumns && topHeaderHeight > 0 && columnPositions.map((xPos, index) => {
         if (index === 0) return null;
+        const x = leftFixedWidth + xPos - horizontalScrollOffset;
+        if (!isColumnLineVisible(x)) return null;
 
         return (
           <GridResizeHandle
             key={`top-facet-col-${index}`}
             testId={`top-facet-col-handle-${index}`}
             orientation="vertical"
-            position={leftFixedWidth + xPos - horizontalScrollOffset}
+            position={x}
             length={topHeaderHeight}
             crossAxisOffset={0}
             isInAxisArea={true}
@@ -557,13 +569,15 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           top-right drag affordance available even when there is no facet header band. */}
       {canResizePlotColumns && topHeaderHeight === 0 && topColumnHandleLength > 0 && columnPositions.map((xPos, index) => {
         if (index === 0) return null;
+        const x = leftFixedWidth + xPos - horizontalScrollOffset;
+        if (!isColumnLineVisible(x)) return null;
 
         return (
           <GridResizeHandle
             key={`top-plot-col-${index}`}
             testId={`top-plot-col-handle-${index}`}
             orientation="vertical"
-            position={leftFixedWidth + xPos - horizontalScrollOffset}
+            position={x}
             length={topColumnHandleLength}
             crossAxisOffset={0}
             isInAxisArea={true}
@@ -647,14 +661,16 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       {canResizePlotColumns && columnPositions.map((xPos, index) => {
         // Skip first position (left edge) for now - add if needed for rightmost
         if (index === 0) return null;
+        // Adjust for horizontal scroll so the handle tracks the visible gridline.
+        const x = leftFixedWidth + xPos - horizontalScrollOffset;
+        if (!isColumnLineVisible(x)) return null;
         
         return (
           <GridResizeHandle
             key={`col-${index}`}
             testId={`plot-col-handle-${index}`}
             orientation="vertical"
-            // Adjust for horizontal scroll so the handle tracks the visible gridline.
-            position={leftFixedWidth + xPos - horizontalScrollOffset}
+            position={x}
             length={columnHandleLength ?? bottomFixedHeight} // Usually X-axis area; axisless charts use plot area.
             crossAxisOffset={containerHeight - (columnHandleLength ?? bottomFixedHeight)}
             isInAxisArea={true}
@@ -670,14 +686,16 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       {canResizePlotRows && rowPositions.map((yPos, index) => {
         // Skip first position (top edge) for now - add if needed for bottom
         if (index === 0) return null;
+        // Adjust for vertical scroll so the handle tracks the visible gridline.
+        const y = topHeaderHeight + yPos - verticalScrollOffset;
+        if (!isRowLineVisible(y)) return null;
         
         return (
           <GridResizeHandle
             key={`row-${index}`}
             testId={`plot-row-handle-${index}`}
             orientation="horizontal"
-            // Adjust for vertical scroll so the handle tracks the visible gridline.
-            position={topHeaderHeight + yPos - verticalScrollOffset}
+            position={y}
             length={rowHandleLength ?? leftFixedWidth} // Usually Y-axis area; axisless charts use plot area.
             crossAxisOffset={0}
             isInAxisArea={true}

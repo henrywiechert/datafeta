@@ -12,6 +12,13 @@
     overscroll-behavior: contain; /* prevent scroll chaining/navigation gestures */
 }
 
+/* Double-tap zooms a facet; keep iOS text selection (magnifier lens) and callout out of chart gestures. */
+:global([data-ui="tablet"]) .container {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
 /* Force scrollbars to always be visible (override macOS overlay behavior) */
 .container::-webkit-scrollbar {
     width: 12px;

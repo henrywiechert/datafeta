@@ -25,8 +25,6 @@ interface ChipWithTooltipProps {
   isInvalid?: boolean;
   dragCount?: number; // Number of fields being dragged (for visual feedback)
   displayNameOverride?: string;
-  /** Optional control rendered after the chip (e.g. tablet field-options button). */
-  endAdornment?: React.ReactNode;
 }
 
 const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
@@ -42,7 +40,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   isInvalid = false,
   dragCount,
   displayNameOverride,
-  endAdornment,
 }) => {
   const isAvailableFields = source === 'AVAILABLE_FIELDS';
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
@@ -122,7 +119,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         alignItems: 'center',
         justifyContent: 'flex-start',
         fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
-        ...(endAdornment && isAvailableFields ? { flex: 1, minWidth: 0 } : {}),
       },
       label: chipLabel
     };
@@ -139,8 +135,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     widthProps,
     chipLabel,
     handleTooltipClose,
-    endAdornment,
-    isAvailableFields,
   ]);
 
   const handleWrapperDragStart = (e: React.DragEvent) => {
@@ -250,7 +244,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
               display: isAxis ? 'inline-flex' : 'flex',
               width: isAxis ? 'auto' : '100%',
               minWidth: 0,
-              flex: endAdornment && isAvailableFields ? 1 : undefined,
             }}
           >
             <Chip {...chipProps} />
@@ -259,7 +252,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       ) : (
         <Chip {...chipProps} />
       )}
-      {endAdornment}
     </div>
   );
 };
@@ -288,7 +280,6 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInvalid === nextProps.isInvalid &&
     prevProps.dragCount === nextProps.dragCount &&
-    prevProps.displayNameOverride === nextProps.displayNameOverride &&
-    prevProps.endAdornment === nextProps.endAdornment
+    prevProps.displayNameOverride === nextProps.displayNameOverride
   );
 });

@@ -63,6 +63,7 @@ interface MultiPlotGridProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -117,6 +118,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   brushDisabled,
   onBrushEnd,
   onCellContextMenu,
+  onCellZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -375,6 +377,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             brushDisabled={brushDisabled}
             onBrushEnd={onBrushEnd}
             onCellContextMenu={onCellContextMenu}
+            onCellZoom={onCellZoom}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
