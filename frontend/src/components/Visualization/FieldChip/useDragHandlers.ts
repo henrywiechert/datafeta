@@ -5,6 +5,7 @@ import { DragSource } from './types';
 import { useSelectionStore, SelectedField } from '../../../stores/selectionStore';
 import { createDragImageWithBadge, setDragImage, removeDragImage, createDragPayload } from './dragImageUtils';
 import { setDragData, clearDragData } from '../../../utils/dragDataStore';
+import { useTabletUi } from '../../../hooks/useTabletUi';
 
 interface UseDragHandlersProps {
   field: Field;
@@ -33,6 +34,7 @@ export const useDragHandlers = ({
   allFields,
 }: UseDragHandlersProps): UseDragHandlersReturn => {
   const [isDragging, setIsDragging] = useState(false);
+  const { isTablet } = useTabletUi();
   // The element handed to `setDragImage`, alive until this drag ends.
   const dragImageRef = useRef<HTMLElement | null>(null);
   
@@ -76,10 +78,15 @@ export const useDragHandlers = ({
     // Create and set custom drag image. Any leftover from a gesture that never
     // reported its end goes first, so at most one is ever attached.
     removeDragImage(dragImageRef.current);
-    const chipElement = e.currentTarget as HTMLElement;
-    const dragImageWrapper = createDragImageWithBadge(chipElement, fields.length);
-    setDragImage(e, dragImageWrapper);
-    dragImageRef.current = dragImageWrapper;
+    dragImageRef.current = null;
+    // Touch: keep the platform's native lift preview for single-field drags;
+    // a custom image under the finger renders poorly on iPadOS.
+    if (!isTablet || fields.length > 1) {
+      const chipElement = e.currentTarget as HTMLElement;
+      const dragImageWrapper = createDragImageWithBadge(chipElement, fields.length);
+      setDragImage(e, dragImageWrapper);
+      dragImageRef.current = dragImageWrapper;
+    }
     
     // Primary channel: store drag data in memory (immune to browser dataTransfer bugs)
     setDragData({ fields, source: sourceRef.current, indices });
@@ -93,7 +100,7 @@ export const useDragHandlers = ({
       try { e.dataTransfer.setData('text/plain', payload); } catch { /* ignore */ }
     }
     e.dataTransfer.effectAllowed = 'copyMove';
-  }, [field, source, allFields]);
+  }, [field, source, allFields, isTablet]);
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);

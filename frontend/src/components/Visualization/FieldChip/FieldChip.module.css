@@ -233,9 +233,11 @@
 }
 
 /* Tablet hit targets — only when the root sets data-ui="tablet". */
+/* Long-press starts a drag; suppress the iOS callout that would claim it. */
 :global([data-ui="tablet"]) .chip {
     min-height: var(--df-touch-target) !important;
     height: var(--df-touch-target) !important;
+    -webkit-touch-callout: none;
 }
 
 /* No hover on touch: show a faint resting pill so the tap target is visible. */

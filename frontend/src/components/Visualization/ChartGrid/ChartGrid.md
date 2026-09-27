@@ -183,7 +183,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 | Hook | Purpose | Key State |
 |------|---------|-----------|
 | `useChartGridLayout` | All layout math: grid dimensions, gutters, templates | `LayoutCalculations` |
-| `useScrollSync` | Keeps Layer 1 plots in sync with Layer 2 vertical scroll | `scrollOffsets`, `onWheelCapture` |
+| `useScrollSync` | Keeps Layer 1 plots in sync with Layer 2 vertical scroll; forwards wheel and vertical touch drags on Layer 1 to Layer 2 | `scrollOffsets`, `onWheelCapture` |
 | `useCellSizeOverrides` | User can drag gridlines to resize cells | `userCellWidth`, `userCellHeight`, `handleReset` |
 | `useRowHeightCalculation` | Computes row height from container / row count | `rowHeightPx` |
 | `useContainerDimensions` | ResizeObserver tracking container size | `{ width, height }` |

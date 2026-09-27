@@ -28,6 +28,9 @@ const ZOOM_PAN_FACTOR = 0.2;
 /** Key repeat delay for held keys (ms) */
 const KEY_REPEAT_DELAY = 150;
 
+/** Finger travel before a touch drag commits to horizontal or vertical (px) */
+const TOUCH_AXIS_LOCK_PX = 6;
+
 /**
  * Hook for synchronizing scroll between horizontal and vertical layers
  * Handles wheel event routing, scroll offset tracking, and Gantt chart keyboard navigation
@@ -126,6 +129,62 @@ export function useScrollSync(
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
   }, [usesGridLayout, hScrollRef]);
+
+  // Touch counterpart of onWheelCapture. The horizontal layer (touch-action:
+  // pan-x) scrolls natively left/right but cannot scroll vertically, so a
+  // vertical finger drag on it is forwarded to the vertical scroller.
+  useEffect(() => {
+    const surface = hScrollRef.current;
+    if (!surface) return;
+
+    let startX = 0;
+    let startY = 0;
+    let lastY: number | null = null;
+    let axis: 'x' | 'y' | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        lastY = null;
+        return;
+      }
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      lastY = t.clientY;
+      axis = null;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (lastY === null || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      if (!axis) {
+        const dx = Math.abs(t.clientX - startX);
+        const dy = Math.abs(t.clientY - startY);
+        if (dx < TOUCH_AXIS_LOCK_PX && dy < TOUCH_AXIS_LOCK_PX) return;
+        axis = dy > dx ? 'y' : 'x';
+      }
+      if (axis === 'y' && vScrollRef.current) {
+        vScrollRef.current.scrollTop += lastY - t.clientY;
+      }
+      lastY = t.clientY;
+    };
+
+    const onTouchEnd = () => {
+      lastY = null;
+      axis = null;
+    };
+
+    surface.addEventListener('touchstart', onTouchStart, { passive: true });
+    surface.addEventListener('touchmove', onTouchMove, { passive: true });
+    surface.addEventListener('touchend', onTouchEnd);
+    surface.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      surface.removeEventListener('touchstart', onTouchStart);
+      surface.removeEventListener('touchmove', onTouchMove);
+      surface.removeEventListener('touchend', onTouchEnd);
+      surface.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [usesGridLayout, hScrollRef, vScrollRef]);
 
   // Handle zoom/pan action
   const handleZoomPan = useCallback((action: 'zoomIn' | 'zoomOut' | 'panLeft' | 'panRight') => {

@@ -22,7 +22,7 @@ import { useFieldAssign, FieldAssignShelf } from '../../../contexts/FieldAssignC
  * 2. The Axes drop zones - source: X_AXIS or Y_AXIS
  *
  * Features:
- * - Draggable for drag and drop operations (desktop)
+ * - Draggable for drag and drop operations (desktop; long-press on tablet)
  * - Tap-to-assign shelf menu (tablet, available fields)
  * - Context menu for changing field properties (right-click desktop; button tablet)
  * - Tooltips that only show when text is truncated
@@ -156,7 +156,6 @@ const FieldChip: React.FC<
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         dragCount={dragCount}
-        draggable={!isTablet}
         endAdornment={moreButton}
         // Flagged upstream by field validation; a zone can override to opt out.
         isInvalid={isInvalid ?? field.isInvalid === true}
