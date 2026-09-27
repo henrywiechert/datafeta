@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { T } from '../../../theme/tokens';
+import { devLog } from '../../../utils/devLog';
 
 const LOCK_THRESHOLD_PX = 5;
 
@@ -85,14 +86,14 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
 
     const handleUp = (e: PointerEvent) => {
       const b = brushRef.current;
-      console.debug('[BrushOverlay] pointerup', { active: b.active, locked: b.locked });
+      devLog('[BrushOverlay] pointerup', { active: b.active, locked: b.locked });
 
       if (b.locked) {
         const coords = getLocalCoords(e);
         const cur = coords ?? { x: b.currentX, y: b.currentY };
         const start = b.locked === 'x' ? b.originX : b.originY;
         const end = b.locked === 'x' ? cur.x : cur.y;
-        console.debug('[BrushOverlay] brush end', { axis: b.locked, start, end, dist: Math.abs(end - start) });
+        devLog('[BrushOverlay] brush end', { axis: b.locked, start, end, dist: Math.abs(end - start) });
         if (Math.abs(end - start) >= LOCK_THRESHOLD_PX) {
           onBrushEndRef.current({
             axis: b.locked,

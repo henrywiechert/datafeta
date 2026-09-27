@@ -382,9 +382,10 @@ That inset is `--df-section-inset` (12px), and its top edge doubles as the gap
 between the header and the first control. Like `--df-panel-radius` it is
 geometry rather than colour, and rides in the token layer for the same reason:
 CSS modules need to read it, and this is the one place both views are generated
-from. `tokens.test.ts` lists both in `NON_COLOR_TOKENS` and `SCHEME_INVARIANT`,
-which is what exempts them from the "every token differs between light and
-dark" rule.
+from. `--df-touch-target` is the same kind of geometry token (tablet tap-target
+height). `tokens.test.ts` lists all three in `NON_COLOR_TOKENS` and
+`SCHEME_INVARIANT`, which is what exempts them from the "every token differs
+between light and dark" rule.
 
 ## Guardrails
 
