@@ -98,14 +98,31 @@ const {
   handleReorderFields,      // Reorder within axis
   handleMoveFieldBetweenAxes,   // X↔Y transfer
   handleFilterDrop,         // Drop onto filter zone
-  handleColorDrop,          // Drop onto color zone
-  handleSizeDrop,           // Drop onto size zone
-  handleLabelDrop,          // Drop onto label zone
-  // ... removal handlers
+  handleTableColumnsDrop,   // Drop onto table columns
+  // ... removal handlers (encoding drops live in useShelfActions)
 } = useDragDrop(availableFields);
 ```
 
 **Key behavior:** Every operation calls `recordUndoPoint()` before modifying state.
+
+---
+
+### `useShelfActions`
+
+Global encoding-shelf assignments (color, size, shape, labels, tooltip, background,
+measure group). Single source of truth shared by the Properties drop zones
+(`FieldOverridesPanel`, `MeasureGroupsPanel`) and the tablet tap-to-assign menu, so both
+input paths produce the same state (undo point, per-field override clearing, color
+scheme switching). Callers pass an already-resolved field; callbacks are stable.
+
+---
+
+### `useTabletUi`
+
+Returns `{ isTablet, isPortrait }` from one module-level `matchMedia` store and owns the
+`data-ui="tablet"` attribute on the document root. Safe to call from any number of
+components. `TABLET_TOUCH_TARGET_PX` is the single tap-target height; it is also set as the
+`--df-touch-target` CSS variable for tablet styles.
 
 ---
 

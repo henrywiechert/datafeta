@@ -5,9 +5,7 @@ import { Field, DragSource } from '../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
-import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
 import { useRecordUndoPoint } from './useRecordUndoPoint';
-import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
 
 /**
  * Custom hook for handling drag and drop operations in the visualization
@@ -36,7 +34,6 @@ export function useDragDrop(
   const yAxisFieldsRef = useRef(yAxisFields);
   const filterFieldsRef = useRef(filterFields);
   const fieldsToUseRef = useRef(fieldsToUse);
-  const colorFieldRef = useRef(state.colorField);
   const tableColumnFieldsRef = useRef(tableColumnFields);
   
   // Keep refs synchronized with latest state
@@ -56,10 +53,6 @@ export function useDragDrop(
     fieldsToUseRef.current = fieldsToUse;
   }, [fieldsToUse]);
   
-  useEffect(() => {
-    colorFieldRef.current = state.colorField;
-  }, [state.colorField]);
-
   useEffect(() => {
     tableColumnFieldsRef.current = tableColumnFields;
   }, [tableColumnFields]);
@@ -323,34 +316,6 @@ export function useDragDrop(
   }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
 
   /**
-   * Handle drops on the color zone (replaces existing field)
-   */
-  const handleColorDrop = useCallback((field: Field, source: DragSource) => {
-    // Record current state for undo
-    recordUndoPoint();
-    
-    // Read current state from refs for stable callback
-    const currentFieldsToUse = fieldsToUseRef.current;
-    const currentColorField = colorFieldRef.current;
-    
-    const fieldToSet = resolveSingleEncodingDropField({
-      field,
-      source,
-      zoneSource: 'COLOR_ZONE',
-      availableFields: currentFieldsToUse,
-    });
-    if (!fieldToSet) return;
-    
-    // Replace the existing color field with the new one
-    dispatch({ type: 'SET_COLOR_FIELD', payload: fieldToSet });
-
-    if (!currentColorField || currentColorField.flavour !== fieldToSet.flavour) {
-      const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
-      dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
-    }
-  }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
-
-  /**
    * Remove the field from the color zone
    * @param _fieldIds - Unused; included for signature consistency with other zones
    */
@@ -360,28 +325,6 @@ export function useDragDrop(
     
     dispatch({ type: 'REMOVE_COLOR_FIELD' });
   }, [dispatch, recordUndoPoint]);
-
-  /**
-   * Handle drops on the size zone (replaces existing field)
-   */
-  const handleSizeDrop = useCallback((field: Field, source: DragSource) => {
-    // Record current state for undo
-    recordUndoPoint();
-    
-    // Read current state from refs for stable callback
-    const currentFieldsToUse = fieldsToUseRef.current;
-    
-    const fieldToSet = resolveSingleEncodingDropField({
-      field,
-      source,
-      zoneSource: 'SIZE_ZONE',
-      availableFields: currentFieldsToUse,
-    });
-    if (!fieldToSet) return;
-    
-    // Replace the existing size field with the new one
-    dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
-  }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
 
   /**
    * Remove the field from the size zone
@@ -395,28 +338,6 @@ export function useDragDrop(
   }, [dispatch, recordUndoPoint]);
 
   /**
-   * Handle drops on the shape zone (replaces existing field, discrete only)
-   */
-  const handleShapeDrop = useCallback((field: Field, source: DragSource) => {
-    // Record current state for undo
-    recordUndoPoint();
-
-    // Read current state from refs for stable callback
-    const currentFieldsToUse = fieldsToUseRef.current;
-
-    const fieldToSet = resolveSingleEncodingDropField({
-      field,
-      source,
-      zoneSource: 'SHAPE_ZONE',
-      availableFields: currentFieldsToUse,
-      requiredFlavour: 'discrete',
-    });
-    if (!fieldToSet) return;
-
-    dispatch({ type: 'SET_SHAPE_FIELD', payload: fieldToSet });
-  }, [dispatch, recordUndoPoint]);
-
-  /**
    * Remove the field from the shape zone
    * @param _fieldIds - Unused; included for signature consistency with other zones
    */
@@ -426,37 +347,6 @@ export function useDragDrop(
 
     dispatch({ type: 'REMOVE_SHAPE_FIELD' });
   }, [dispatch, recordUndoPoint]);
-
-  // Label drop: similar to color/size but supports multiple fields (set semantics by columnName)
-  const handleLabelDrop = useCallback((field: Field, source: DragSource) => {
-    // Record current state for undo
-    recordUndoPoint();
-    
-    // Read current state from refs for stable callback
-    const currentFieldsToUse = fieldsToUseRef.current;
-    const currentXFields = xAxisFieldsRef.current;
-    const currentYFields = yAxisFieldsRef.current;
-    
-    let fieldToAdd: Field;
-    if (source === 'AVAILABLE_FIELDS') {
-      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
-      fieldToAdd = { ...sourceField, id: uuidv4() };
-    } else if (source === 'X_AXIS' || source === 'Y_AXIS' || source === 'COLOR_ZONE' || source === 'SIZE_ZONE') {
-      const axisFields = source === 'X_AXIS' ? currentXFields : currentYFields;
-      const measureCount = axisFields.filter(f => f.type === 'measure').length;
-      if (field.type === 'measure' && measureCount > 1) {
-        fieldToAdd = { id: uuidv4(), columnName: '__current_measure__', type: 'special' } as any;
-      } else {
-        const { disabled: _disabled, ...rest } = field;
-        fieldToAdd = { ...rest, id: uuidv4() };
-      }
-    } else {
-      const { disabled: _disabled, ...rest } = field;
-      fieldToAdd = { ...rest, id: uuidv4() };
-    }
-    dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
-  }, [dispatch, recordUndoPoint]); // Stable deps only - state read from refs
 
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
     // Record current state for undo
@@ -577,13 +467,9 @@ export function useDragDrop(
     handleMoveFieldBetweenAxes,
     handleFilterDrop,
     handleRemoveFromFilter,
-    handleColorDrop,
     handleRemoveFromColor,
-    handleSizeDrop,
     handleRemoveFromSize,
-    handleShapeDrop,
     handleRemoveFromShape,
-    handleLabelDrop,
     handleRemoveFromLabel,
     handleRemoveFromTooltip,
     handleRemoveFromBackground,

@@ -5,7 +5,7 @@ import { List } from 'react-window';
 import FieldChip from '../FieldChip/index';
 import { Field } from '../../../types';
 import styles from './FieldsPanel.module.css';
-import { useTabletUi } from '../../../hooks/useTabletUi';
+import { useTabletUi, TABLET_TOUCH_TARGET_PX } from '../../../hooks/useTabletUi';
 
 interface FieldCategoryProps {
   title: string;
@@ -18,7 +18,7 @@ interface FieldCategoryProps {
 // Lower threshold since full-width chips cause more reflow during resize
 const VIRTUALIZATION_THRESHOLD = 50;
 const DESKTOP_ITEM_HEIGHT = 21; // Height of each field chip (20px chip + 1px margin)
-const TABLET_ITEM_HEIGHT = 46; // 44px chip + 2px margin
+const TABLET_ITEM_HEIGHT = TABLET_TOUCH_TARGET_PX + 2; // chip + 2px margin (FieldChip.module.css)
 
 // Stable style object for virtualized rows (defined outside component to avoid recreation)
 const ROW_BASE_STYLE = {

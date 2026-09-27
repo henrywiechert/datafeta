@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 const TABLET_POINTER_QUERY = '(hover: none) and (pointer: coarse)';
 const PORTRAIT_QUERY = '(orientation: portrait)';
@@ -11,11 +11,68 @@ export interface TabletUiState {
   isPortrait: boolean;
 }
 
-function readMedia(query: string): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
+/** Tablet tap-target height. Exposed to CSS as `--df-touch-target`. */
+export const TABLET_TOUCH_TARGET_PX = 36;
+
+const DESKTOP_STATE: TabletUiState = { isTablet: false, isPortrait: false };
+
+let current: TabletUiState = DESKTOP_STATE;
+let started = false;
+const listeners = new Set<() => void>();
+
+function hasMatchMedia(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+}
+
+function readState(): TabletUiState {
+  const isTablet = window.matchMedia(TABLET_POINTER_QUERY).matches;
+  const isPortrait = window.matchMedia(PORTRAIT_QUERY).matches;
+  return { isTablet, isPortrait: isTablet && isPortrait };
+}
+
+function applyRootAttribute(isTablet: boolean): void {
+  const root = document.documentElement;
+  if (isTablet) {
+    root.setAttribute('data-ui', 'tablet');
+    root.style.setProperty('--df-touch-target', `${TABLET_TOUCH_TARGET_PX}px`);
+  } else {
+    root.removeAttribute('data-ui');
+    root.style.removeProperty('--df-touch-target');
   }
-  return window.matchMedia(query).matches;
+}
+
+/**
+ * Single app-wide listener pair. Owns `data-ui="tablet"` on the document root;
+ * individual components never write or remove it.
+ */
+function start(): void {
+  if (started || !hasMatchMedia()) return;
+  started = true;
+  current = readState();
+  applyRootAttribute(current.isTablet);
+
+  const update = () => {
+    const next = readState();
+    if (next.isTablet === current.isTablet && next.isPortrait === current.isPortrait) return;
+    current = next;
+    applyRootAttribute(next.isTablet);
+    listeners.forEach((listener) => listener());
+  };
+  window.matchMedia(TABLET_POINTER_QUERY).addEventListener('change', update);
+  window.matchMedia(PORTRAIT_QUERY).addEventListener('change', update);
+}
+
+function subscribe(listener: () => void): () => void {
+  start();
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): TabletUiState {
+  start();
+  return current;
 }
 
 /**
@@ -23,37 +80,8 @@ function readMedia(query: string): boolean {
  * root so CSS can enlarge hit targets. An iPad with a trackpad reports a fine
  * pointer and stays in computer style.
  *
- * Mount once near the app root. Consumers that need the boolean in React
- * should call this hook (it is cheap: two matchMedia listeners).
+ * Safe to call from many components: all share one module-level store.
  */
 export function useTabletUi(): TabletUiState {
-  const [isTablet, setIsTablet] = useState(() => readMedia(TABLET_POINTER_QUERY));
-  const [isPortrait, setIsPortrait] = useState(() => readMedia(PORTRAIT_QUERY));
-
-  useEffect(() => {
-    const pointerMq = window.matchMedia(TABLET_POINTER_QUERY);
-    const portraitMq = window.matchMedia(PORTRAIT_QUERY);
-
-    const sync = () => {
-      const tablet = pointerMq.matches;
-      setIsTablet(tablet);
-      setIsPortrait(portraitMq.matches);
-      if (tablet) {
-        document.documentElement.setAttribute('data-ui', 'tablet');
-      } else {
-        document.documentElement.removeAttribute('data-ui');
-      }
-    };
-
-    sync();
-    pointerMq.addEventListener('change', sync);
-    portraitMq.addEventListener('change', sync);
-    return () => {
-      pointerMq.removeEventListener('change', sync);
-      portraitMq.removeEventListener('change', sync);
-      document.documentElement.removeAttribute('data-ui');
-    };
-  }, []);
-
-  return { isTablet, isPortrait: isTablet && isPortrait };
+  return useSyncExternalStore(subscribe, getSnapshot, () => DESKTOP_STATE);
 }

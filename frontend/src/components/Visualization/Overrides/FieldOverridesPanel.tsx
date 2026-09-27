@@ -6,6 +6,7 @@ import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useRecordUndoPoint } from '../../../hooks/useRecordUndoPoint';
+import { useShelfActions } from '../../../hooks/useShelfActions';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
@@ -111,6 +112,7 @@ const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
   const { dataSource } = useDataSource();
   const recordUndoPoint = useRecordUndoPoint();
+  const shelfActions = useShelfActions();
 
   // Get availableFields from DataSourceContext (session-scoped)
   const { availableFields } = dataSource;
@@ -465,20 +467,7 @@ const FieldOverridesPanel: React.FC = () => {
           colorBias={effectiveColorBias}
           colorReversed={effectiveColorReversed}
           manualColor={effectiveManualColor}
-          onDrop={(field) => {
-            // Auto-select appropriate color scheme based on field flavour
-            const isCategoricalScheme = categoricalSchemes.some(s => s.id === effectiveColorScheme);
-            const actions: any[] = [{ type: 'SET_COLOR_FIELD', payload: field }];
-            if (field.flavour === 'continuous' && isCategoricalScheme) {
-              // Switching to continuous field but have categorical scheme - use sequential default
-              actions.push({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_SEQUENTIAL_SCHEME });
-            } else if (field.flavour === 'discrete' && !isCategoricalScheme) {
-              // Switching to discrete field but have sequential/diverging scheme - use categorical default
-              actions.push({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_CATEGORICAL_SCHEME });
-            }
-
-            applyGlobalActions(actions, { clearOverrides: clearColorOverridesForAllFields });
-          }}
+          onDrop={shelfActions.setColorField}
           onRemove={(_fieldIds) => {
             applyGlobalAction(
               { type: 'SET_COLOR_FIELD', payload: null },
@@ -532,9 +521,7 @@ const FieldOverridesPanel: React.FC = () => {
           field={facetBackgroundField as Field | null}
           colorScheme={facetBackgroundScheme || 'tableau10'}
           opacity={facetBackgroundOpacity ?? 0.12}
-          onDrop={(field) => {
-            applyGlobalAction({ type: 'SET_FACET_BACKGROUND_FIELD', payload: field });
-          }}
+          onDrop={shelfActions.setBackgroundField}
           onRemove={(_fieldIds) => {
             applyGlobalAction({ type: 'SET_FACET_BACKGROUND_FIELD', payload: null });
           }}
@@ -550,12 +537,7 @@ const FieldOverridesPanel: React.FC = () => {
           field={resolvedGlobalSizeField}
           sizeRange={sizeRange}
           manualSize={manualSize}
-          onDrop={(field) => {
-            applyGlobalAction(
-              { type: 'SET_SIZE_FIELD', payload: field },
-              { clearOverrides: clearSizeOverridesForAllFields },
-            );
-          }}
+          onDrop={shelfActions.setSizeField}
           onRemove={(_fieldIds) => {
             applyGlobalAction(
               { type: 'SET_SIZE_FIELD', payload: null },
@@ -574,9 +556,7 @@ const FieldOverridesPanel: React.FC = () => {
         <ShapeFieldControl
           field={shapeField}
           manualShape={manualShape}
-          onDrop={(field) => {
-            applyGlobalAction({ type: 'SET_SHAPE_FIELD', payload: field });
-          }}
+          onDrop={shelfActions.setShapeField}
           onManualShapeChange={(shape) => {
             applyGlobalAction({ type: 'SET_MANUAL_SHAPE', payload: shape });
           }}
@@ -590,15 +570,7 @@ const FieldOverridesPanel: React.FC = () => {
           showLabelsEnabled={true}
           labelsEnabled={labelsEnabled}
           labelFontSize={labelFontSize}
-          onLabelDrop={(field) => {
-            const currentLabelFields = labelFields as Field[] || [];
-            if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
-              applyGlobalAction(
-                { type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] },
-                { clearOverrides: clearLabelOverridesForAllFields },
-              );
-            }
-          }}
+          onLabelDrop={shelfActions.addLabelField}
           onLabelRemove={(fieldId) => {
             const currentLabelFields = labelFields as Field[] || [];
             const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);
@@ -617,11 +589,7 @@ const FieldOverridesPanel: React.FC = () => {
 
         <TooltipFieldControl
           tooltipFields={(tooltipFields as Field[]) || []}
-          onTooltipDrop={(field, _source) => {
-            const current = (tooltipFields as Field[]) || [];
-            if (current.some((f) => f.columnName === field.columnName)) return;
-            applyGlobalAction({ type: 'ADD_TOOLTIP_FIELD', payload: field });
-          }}
+          onTooltipDrop={shelfActions.addTooltipField}
           onTooltipRemove={(fieldId) => {
             applyGlobalAction({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
           }}
