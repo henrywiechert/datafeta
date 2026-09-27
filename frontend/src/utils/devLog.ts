@@ -2,7 +2,7 @@
 
 // Tree-shakeable in production builds via NODE_ENV constant folding (CRA does
 // this via webpack DefinePlugin).
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = process.env.NODE_ENV === 'development';
 
 export const devLog = (...args: unknown[]): void => {
   if (isDev) {

@@ -129,8 +129,9 @@ resolution plus `useShelfActions` for encoding shelves.
 
 Returns `{ isTablet, isPortrait }` from one module-level `matchMedia` store and owns the
 `data-ui="tablet"` attribute on the document root. Safe to call from any number of
-components. `TABLET_TOUCH_TARGET_PX` is the single tap-target height; it is also set as the
-`--df-touch-target` CSS variable for tablet styles.
+components. `TABLET_TOUCH_TARGET_PX` is the JS view of the `--df-touch-target` token,
+used for layout math (virtual list row height). Tablet CSS reads the token under
+`[data-ui="tablet"]`.
 
 ---
 

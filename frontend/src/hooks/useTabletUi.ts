@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useSyncExternalStore } from 'react';
+import { TOKENS } from '../theme/tokens.def';
 
 const TABLET_POINTER_QUERY = '(hover: none) and (pointer: coarse)';
 const PORTRAIT_QUERY = '(orientation: portrait)';
@@ -11,8 +12,8 @@ export interface TabletUiState {
   isPortrait: boolean;
 }
 
-/** Tablet tap-target height. Exposed to CSS as `--df-touch-target`. */
-export const TABLET_TOUCH_TARGET_PX = 36;
+/** Tablet tap-target height. Same value as the `--df-touch-target` token. */
+export const TABLET_TOUCH_TARGET_PX = parseInt(TOKENS.light.touchTarget, 10);
 
 const DESKTOP_STATE: TabletUiState = { isTablet: false, isPortrait: false };
 
@@ -34,10 +35,8 @@ function applyRootAttribute(isTablet: boolean): void {
   const root = document.documentElement;
   if (isTablet) {
     root.setAttribute('data-ui', 'tablet');
-    root.style.setProperty('--df-touch-target', `${TABLET_TOUCH_TARGET_PX}px`);
   } else {
     root.removeAttribute('data-ui');
-    root.style.removeProperty('--df-touch-target');
   }
 }
 
