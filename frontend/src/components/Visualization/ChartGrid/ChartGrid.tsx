@@ -17,6 +17,7 @@ import { PlotBrushEvent } from './PlotArea';
 import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../contexts/VisualizationContext/types';
 import { UserChartType } from '../../../types';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
+import { useTabletUi } from '../../../hooks/useTabletUi';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -181,6 +182,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     setContextMenu(null);
   }, [contextMenu]);
 
+  const { isTablet } = useTabletUi();
+  const handleCellZoom = useCallback((plotId: string) => setZoomedPlotId(plotId), []);
+
   const handleMenuClose = useCallback(() => setContextMenu(null), []);
   const handleZoomClose = useCallback(() => setZoomedPlotId(null), []);
 
@@ -255,6 +259,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
           onCellContextMenu={handleCellContextMenu}
+          onCellZoom={isTablet ? handleCellZoom : undefined}
           autoExpandPinnedComparison={autoExpandPinnedComparison}
           onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
         />

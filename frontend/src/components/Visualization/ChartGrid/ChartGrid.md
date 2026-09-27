@@ -24,6 +24,7 @@ ChartGrid/
 │   ├── useCellSizeOverrides # User-adjusted cell widths/heights
 │   ├── useRowHeightCalculation # Dynamic row height from container
 │   ├── useContainerDimensions # ResizeObserver for container
+│   ├── useDoubleTap         # Touch double tap → Zoom facet (tablet)
 │   └── useStabilization     # Prevents layout thrash on transitions
 └── utils/
     └── layoutUtils.ts       # Pure layout calculation functions
@@ -188,6 +189,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 | `useRowHeightCalculation` | Computes row height from container / row count | `rowHeightPx` |
 | `useContainerDimensions` | ResizeObserver tracking container size | `{ width, height }` |
 | `useStabilization` | Prevents rapid re-layout during transitions | `pendingRowHeightRef` |
+| `useDoubleTap` | Touch double tap on a cell opens Zoom facet directly (tablet only; desktop uses the right-click menu) | capture-phase pointer handlers |
 
 ---
 

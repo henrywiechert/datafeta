@@ -1,7 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState, useCallback, useMemo } from 'react';
-import { IconButton } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { FieldChipProps } from './types';
 import ChipWithTooltip from './ChipWithTooltip';
 import FieldContextMenu from './FieldContextMenu';
@@ -14,6 +12,9 @@ import { FieldMenuConfig, getDefaultFieldMenuConfig } from './fieldMenuConfig';
 import { useTabletUi } from '../../../hooks/useTabletUi';
 import { useFieldAssign, FieldAssignShelf } from '../../../contexts/FieldAssignContext';
 
+/** Max gap between two taps that counts as a double tap (ms) */
+const DOUBLE_TAP_MS = 300;
+
 /**
  * FieldChip Component
  *
@@ -24,7 +25,7 @@ import { useFieldAssign, FieldAssignShelf } from '../../../contexts/FieldAssignC
  * Features:
  * - Draggable for drag and drop operations (desktop; long-press on tablet)
  * - Tap-to-assign shelf menu (tablet, available fields)
- * - Context menu for changing field properties (right-click desktop; button tablet)
+ * - Context menu for changing field properties (right-click desktop; double-tap tablet)
  * - Tooltips that only show when text is truncated
  * - Visual styling based on field properties (continuous/discrete)
  * - Automatic truncation detection with ResizeObserver
@@ -91,21 +92,42 @@ const FieldChip: React.FC<
     setMenuPosition({ x: rect.left, y: rect.bottom });
   }, [field, source]);
 
-  const handleMoreClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    openContextMenuAt(event.currentTarget);
-  }, [openContextMenuAt]);
+  const lastTapRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+  }, []);
 
   const handleChipClick = useCallback((event: React.MouseEvent) => {
+    if (!isTablet) {
+      handleClick(event);
+      return;
+    }
+    const anchor = event.currentTarget as HTMLElement;
+    const now = Date.now();
+    if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+      lastTapRef.current = 0;
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = null;
+      event.preventDefault();
+      event.stopPropagation();
+      openContextMenuAt(anchor);
+      return;
+    }
+    lastTapRef.current = now;
     if (tabletAssign) {
       event.preventDefault();
       event.stopPropagation();
-      setShelfMenuAnchor(event.currentTarget as HTMLElement);
+      // Deferred so a second tap can claim the gesture before the shelf menu covers the chip.
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        setShelfMenuAnchor(anchor);
+      }, DOUBLE_TAP_MS);
       return;
     }
     handleClick(event);
-  }, [tabletAssign, handleClick]);
+  }, [isTablet, tabletAssign, handleClick, openContextMenuAt]);
 
   const handleShelfSelect = useCallback((shelf: FieldAssignShelf) => {
     fieldAssign?.assignToShelf(shelf, field, source);
@@ -124,24 +146,6 @@ const FieldChip: React.FC<
     [menuConfig, source]
   );
 
-  // Memoized: ChipWithTooltip's memo compares endAdornment by identity.
-  const moreButton = useMemo(() => (isTablet ? (
-    <IconButton
-      size="small"
-      aria-label={`Field options for ${field.columnName}`}
-      onClick={handleMoreClick}
-      onMouseDown={(e) => e.stopPropagation()}
-      sx={{
-        flexShrink: 0,
-        width: 'var(--df-touch-target)',
-        height: 'var(--df-touch-target)',
-        ml: 0.25,
-      }}
-    >
-      <MoreVertIcon fontSize="small" />
-    </IconButton>
-  ) : null), [isTablet, field.columnName, handleMoreClick]);
-
   return (
     <>
       <ChipWithTooltip
@@ -156,7 +160,6 @@ const FieldChip: React.FC<
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         dragCount={dragCount}
-        endAdornment={moreButton}
         // Flagged upstream by field validation; a zone can override to opt out.
         isInvalid={isInvalid ?? field.isInvalid === true}
       />

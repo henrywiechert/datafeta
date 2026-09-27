@@ -22,6 +22,7 @@ import {
 } from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 import { T } from '../../../theme/tokens';
+import { useDoubleTap } from './hooks/useDoubleTap';
 
 export interface PlotBrushEvent {
   brush: BrushResult;
@@ -40,6 +41,8 @@ interface PlotAreaProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  /** Touch double tap on a cell (tablet Zoom facet) */
+  onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -101,6 +104,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   brushDisabled,
   onBrushEnd,
   onCellContextMenu,
+  onCellZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -144,6 +148,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
                   onCellContextMenu={onCellContextMenu}
+                  onCellZoom={onCellZoom}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
                   onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
                 />
@@ -155,6 +160,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   cell={cell as PieGridCellModel}
                   onPlotRenderComplete={onPlotRenderComplete}
                   onCellContextMenu={onCellContextMenu}
+                  onCellZoom={onCellZoom}
                 />
               );
             case 'table-cell':
@@ -163,6 +169,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   key={key}
                   cell={cell as TableGridCellModel}
                   onCellContextMenu={onCellContextMenu}
+                  onCellZoom={onCellZoom}
                 />
               );
             case 'empty':
@@ -189,6 +196,7 @@ interface PlotCellProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -201,6 +209,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
   brushDisabled,
   onBrushEnd,
   onCellContextMenu,
+  onCellZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -226,9 +235,10 @@ const PlotCell: React.FC<PlotCellProps> = ({
     e.preventDefault();
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
+  const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
 
   return (
-    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu}>
+    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu} {...doubleTap}>
       {facetBg?.isMixed && (
         <Tooltip title="Mixed values in background field" placement="top" arrow>
           <DoNotDisturbAltIcon
@@ -265,17 +275,19 @@ interface PieCellProps {
   cell: PieGridCellModel;
   onPlotRenderComplete?: (plotId: string) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  onCellZoom?: (plotId: string) => void;
 }
 
-const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellContextMenu }) => {
+const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellContextMenu, onCellZoom }) => {
   const facetBg = cell.content.facetBackground;
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
+  const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
 
   return (
-    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu}>
+    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu} {...doubleTap}>
       {facetBg?.isMixed && (
         <Tooltip title="Mixed values in background field" placement="top" arrow>
           <DoNotDisturbAltIcon
@@ -306,6 +318,7 @@ const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellCon
 interface TableCellProps {
   cell: TableGridCellModel;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  onCellZoom?: (plotId: string) => void;
 }
 
 /**
@@ -315,11 +328,12 @@ interface TableCellProps {
  * only one is present the cell behaves like a pure symbol or pure text cell.
  * Text size follows the Labels font-size slider via `content.fontSize`.
  */
-const TableCell: React.FC<TableCellProps> = ({ cell, onCellContextMenu }) => {
+const TableCell: React.FC<TableCellProps> = ({ cell, onCellContextMenu, onCellZoom }) => {
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
+  const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
 
   const { symbols, rows, fontSize } = cell.content;
   const hasSymbols = symbols.length > 0;
@@ -333,6 +347,7 @@ const TableCell: React.FC<TableCellProps> = ({ cell, onCellContextMenu }) => {
       className={styles.tableCell}
       style={buildBaseCellStyle(cell)}
       onContextMenu={handleContextMenu}
+      {...doubleTap}
     >
       {hasSymbols && <SymbolStack symbols={symbols} idPrefix={cell.id} />}
       {hasText && (
