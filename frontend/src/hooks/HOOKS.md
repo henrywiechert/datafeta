@@ -117,6 +117,14 @@ scheme switching). Callers pass an already-resolved field; callbacks are stable.
 
 ---
 
+### `useAssignToShelf`
+
+Tablet tap-to-assign. Maps a shelf choice from the field menu to the same handlers a
+desktop drop reaches: `useDragDrop` for axes, filters and table columns; drop-zone field
+resolution plus `useShelfActions` for encoding shelves.
+
+---
+
 ### `useTabletUi`
 
 Returns `{ isTablet, isPortrait }` from one module-level `matchMedia` store and owns the

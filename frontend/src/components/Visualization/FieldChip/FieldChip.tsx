@@ -124,7 +124,8 @@ const FieldChip: React.FC<
     [menuConfig, source]
   );
 
-  const moreButton = isTablet ? (
+  // Memoized: ChipWithTooltip's memo compares endAdornment by identity.
+  const moreButton = useMemo(() => (isTablet ? (
     <IconButton
       size="small"
       aria-label={`Field options for ${field.columnName}`}
@@ -139,7 +140,7 @@ const FieldChip: React.FC<
     >
       <MoreVertIcon fontSize="small" />
     </IconButton>
-  ) : null;
+  ) : null), [isTablet, field.columnName, handleMoreClick]);
 
   return (
     <>
