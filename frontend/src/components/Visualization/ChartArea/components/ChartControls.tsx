@@ -17,6 +17,8 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import TitleIcon from '@mui/icons-material/Title';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
+import ViewSidebarOutlinedIcon from '@mui/icons-material/ViewSidebarOutlined';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -60,6 +62,10 @@ export interface ChartControlsProps {
   onToggleChartCaption?: (show: boolean) => void;
   /** When in table view, overrides the dataset status with exact table totals. */
   datasetStatusOverride?: { rows: number; cols: number } | null;
+  /** Tablet shell: whether Fields/Properties are currently visible. */
+  sidePanelsVisible?: boolean;
+  /** Tablet shell: one button that shows/hides both side panels. */
+  onToggleSidePanels?: () => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -92,6 +98,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   showChartCaption = false,
   onToggleChartCaption,
   datasetStatusOverride,
+  sidePanelsVisible = true,
+  onToggleSidePanels,
 }) => {
   const controlsRef = useRef<HTMLDivElement | null>(null);
   const [controlsWidth, setControlsWidth] = useState<number>(Infinity);
@@ -221,6 +229,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   return (
     <Box
       ref={controlsRef}
+      className="chart-controls-toolbar"
       sx={{ 
       display: 'flex', 
       alignItems: 'center', 
@@ -234,6 +243,27 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        {onToggleSidePanels && (
+          <Tooltip title={sidePanelsVisible ? 'Hide side panels' : 'Show side panels'}>
+            <IconButton
+              onClick={onToggleSidePanels}
+              size="small"
+              color={sidePanelsVisible ? 'primary' : 'default'}
+              aria-label={sidePanelsVisible ? 'Hide side panels' : 'Show side panels'}
+              aria-pressed={sidePanelsVisible}
+              sx={{
+                backgroundColor: sidePanelsVisible ? T.accentTintStrong : 'transparent',
+                '&:hover': {
+                  backgroundColor: sidePanelsVisible ? T.accentTintEmphasis : 'action.hover',
+                },
+              }}
+            >
+              {sidePanelsVisible
+                ? <ViewSidebarIcon fontSize="small" />
+                : <ViewSidebarOutlinedIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
         {showInlineDevSql && DevSqlViewerControl && (
           <Suspense fallback={null}>
             <DevSqlViewerControl />

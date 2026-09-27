@@ -23,8 +23,12 @@ interface ChipWithTooltipProps {
   isDragging: boolean;
   isSelected?: boolean;
   isInvalid?: boolean;
-  dragCount?: number; // Number of fields being dragged (for visual feedback)
+  dragCount?: number;
   displayNameOverride?: string;
+  /** When false, HTML5 drag is disabled (tablet tap-to-assign). Default true. */
+  draggable?: boolean;
+  /** Optional control rendered after the chip (e.g. tablet field-options button). */
+  endAdornment?: React.ReactNode;
 }
 
 const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
@@ -39,18 +43,17 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   isSelected = false,
   isInvalid = false,
   dragCount,
-  displayNameOverride
+  displayNameOverride,
+  draggable = true,
+  endAdornment,
 }) => {
   const isAvailableFields = source === 'AVAILABLE_FIELDS';
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
-  // Create a stable key for field properties to minimize re-renders
-  // Note: displayAlias is NOT included here because it's looked up from context at render time
-  const fieldPropertiesKey = useMemo(() => 
+  const fieldPropertiesKey = useMemo(() =>
     `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
     [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
   );
 
-  // Use custom hook for truncation detection and tooltip management
   const {
     isTruncated,
     chipLabelRef,
@@ -64,15 +67,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     isDragging,
   });
 
-  // Width properties based on source
   const widthProps = useMemo(() => getChipWidthProps(source), [source]);
-
-  // Full label for tooltip
   const fullLabel = useMemo(() => formatFullLabel(field), [field]);
 
-  // ChipLabel component with forwarded ref
   const chipLabel = useMemo(() => (
-    <FieldChipLabel 
+    <FieldChipLabel
       ref={chipLabelRef}
       field={field}
       source={source}
@@ -80,7 +79,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     />
   ), [field, source, displayNameOverride, chipLabelRef]);
 
-  // Chip props
   const chipProps = useMemo(() => {
     const handleDragStartInternal = (e: React.DragEvent) => {
       handleTooltipClose();
@@ -101,16 +99,15 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
 
     return {
       className: getChipClassNames(field, source, isInvalid, isSelected, styles),
-      draggable: true,
-      onDragStart: handleDragStartInternal,
-      onDragEnd: handleDragEndInternal,
+      draggable,
+      onDragStart: draggable ? handleDragStartInternal : undefined,
+      onDragEnd: draggable ? handleDragEndInternal : undefined,
       onContextMenu,
       onClick,
       onMouseDown: handleMouseDownInternal,
       style: {
-        // Inline opacity would override `.disabledAxisField`; omit when disabled.
         ...((source === 'X_AXIS' || source === 'Y_AXIS') && field.disabled ? {} : { opacity: 1 }),
-        cursor: 'grab',
+        cursor: draggable ? 'grab' : 'pointer',
         ...widthProps,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -119,6 +116,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         alignItems: 'center',
         justifyContent: 'flex-start',
         fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
+        ...(endAdornment && isAvailableFields ? { flex: 1, minWidth: 0 } : {}),
       },
       label: chipLabel
     };
@@ -134,13 +132,19 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onMouseDown,
     widthProps,
     chipLabel,
-    handleTooltipClose
+    handleTooltipClose,
+    draggable,
+    endAdornment,
+    isAvailableFields,
   ]);
 
   const handleWrapperDragStart = (e: React.DragEvent) => {
-    // Delegate to chip's drag start (ensures dataTransfer set when dragging wrapper)
+    if (!draggable) {
+      e.preventDefault();
+      return;
+    }
     if ((e.target as HTMLElement).closest('.field-chip')) {
-      return; // Chip itself will handle
+      return;
     }
     onDragStart(e);
   };
@@ -152,20 +156,19 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   return (
     <div
       ref={chipRef}
-      draggable={!isTruncated} // when truncated Tooltip wraps Chip; keep wrapper draggable when not truncated
-      onDragStart={handleWrapperDragStart}
-      onDragEnd={handleWrapperDragEnd}
-      style={{ 
+      draggable={draggable && !isTruncated}
+      onDragStart={draggable ? handleWrapperDragStart : undefined}
+      onDragEnd={draggable ? handleWrapperDragEnd : undefined}
+      style={{
         display: isAxis ? 'inline-flex' : 'flex',
         width: isAxis ? 'auto' : '100%',
         maxWidth: '100%',
         alignItems: 'center',
         minWidth: 0,
-        minHeight: isAvailableFields ? '20px' : 'auto', // Match chip height
+        minHeight: isAvailableFields ? '20px' : 'auto',
         position: 'relative',
       }}
     >
-      {/* Show badge when dragging multiple fields */}
       {isDragging && dragCount && dragCount > 1 && (
         <div style={{
           position: 'absolute',
@@ -188,8 +191,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         </div>
       )}
       {isTruncated ? (
-        <Tooltip 
-          title={<span className={labelStyles.tooltipContent}>{fullLabel}</span>} 
+        <Tooltip
+          title={<span className={labelStyles.tooltipContent}>{fullLabel}</span>}
           enterDelay={500}
           open={tooltipOpen}
           onOpen={handleTooltipOpen}
@@ -235,15 +238,15 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
             }
           }}
         >
-          {/* Wrap Chip in a span with draggable to ensure drag events even through Tooltip cloning */}
           <span
-            draggable
-            onDragStart={handleWrapperDragStart}
-            onDragEnd={handleWrapperDragEnd}
-            style={{ 
+            draggable={draggable}
+            onDragStart={draggable ? handleWrapperDragStart : undefined}
+            onDragEnd={draggable ? handleWrapperDragEnd : undefined}
+            style={{
               display: isAxis ? 'inline-flex' : 'flex',
               width: isAxis ? 'auto' : '100%',
               minWidth: 0,
+              flex: endAdornment && isAvailableFields ? 1 : undefined,
             }}
           >
             <Chip {...chipProps} />
@@ -252,19 +255,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       ) : (
         <Chip {...chipProps} />
       )}
+      {endAdornment}
     </div>
   );
 };
 
-// Memoize to prevent unnecessary re-renders
-// Only re-render if key props actually change
-// Note: displayAlias is NOT compared here because aliases are looked up from context
-// by the FieldChipLabel child component, which will re-render independently when context changes
 export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
-  // Compare field properties that affect rendering.
-  // `disabled` must be included: otherwise a disable toggle while selected keeps
-  // the green/blue selected paint until Esc changes isSelected.
-  // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   return (
     prevProps.field.id === nextProps.field.id &&
     prevProps.field.columnName === nextProps.field.columnName &&
@@ -280,6 +276,8 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInvalid === nextProps.isInvalid &&
     prevProps.dragCount === nextProps.dragCount &&
-    prevProps.displayNameOverride === nextProps.displayNameOverride
+    prevProps.displayNameOverride === nextProps.displayNameOverride &&
+    prevProps.draggable === nextProps.draggable &&
+    prevProps.endAdornment === nextProps.endAdornment
   );
 });

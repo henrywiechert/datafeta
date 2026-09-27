@@ -66,9 +66,15 @@ import type {
  */
 interface ChartAreaProps {
   axisDropFieldIdsRef?: React.MutableRefObject<string[] | null>;
+  sidePanelsVisible?: boolean;
+  onToggleSidePanels?: () => void;
 }
 
-const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
+const ChartArea: React.FC<ChartAreaProps> = ({
+  axisDropFieldIdsRef,
+  sidePanelsVisible,
+  onToggleSidePanels,
+}) => {
   // -- Contexts ----------------------------------------------------------------
   const { state, dispatch, startOperation, completeOperation, showOperationModal } =
     useVisualizationContext();
@@ -367,6 +373,8 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     onZoomReset: handleZoomReset,
     hasActiveZoomFilters,
     tableRowsData,
+    sidePanelsVisible,
+    onToggleSidePanels,
   });
 
   // -- Series highlight (legend click → dim non-matching marks) ----------------

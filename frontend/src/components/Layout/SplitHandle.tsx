@@ -19,6 +19,7 @@ import {
   SplitPanelSide,
   useSplitDrag,
 } from './useSplitDrag';
+import { useTabletUi } from '../../hooks/useTabletUi';
 
 /**
  * Whether the handle sits between two panel *cards* or divides two regions of
@@ -77,6 +78,9 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
   separatorId,
 }) => {
   const isVertical = orientation === 'vertical';
+  const { isTablet } = useTabletUi();
+  // Tablet: keep the visual 4px gap, expand the invisible hit area around it.
+  const hitPadPx = isTablet ? 12 : 0;
   const {
     isDragging,
     dragSizePx,
@@ -143,6 +147,19 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
         ...(isVertical
           ? { width: SPLIT_HANDLE_THICKNESS_PX, height: '100%' }
           : { height: SPLIT_HANDLE_THICKNESS_PX, width: '100%' }),
+        // Invisible padded hit target for tablet fingers; layout footprint stays
+        // at SPLIT_HANDLE_THICKNESS_PX so the visual gap is unchanged.
+        ...(hitPadPx > 0
+          ? {
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                ...(isVertical
+                  ? { top: 0, bottom: 0, left: -hitPadPx, right: -hitPadPx }
+                  : { left: 0, right: 0, top: -hitPadPx, bottom: -hitPadPx }),
+              },
+            }
+          : {}),
         // While dragging, the resting line stays thin — only the preview moves.
         ...(isDragging ? {} : {
           // Hover thickens the line only. Tinting the handle's full width as

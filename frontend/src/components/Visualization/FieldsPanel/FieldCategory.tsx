@@ -5,6 +5,7 @@ import { List } from 'react-window';
 import FieldChip from '../FieldChip/index';
 import { Field } from '../../../types';
 import styles from './FieldsPanel.module.css';
+import { useTabletUi } from '../../../hooks/useTabletUi';
 
 interface FieldCategoryProps {
   title: string;
@@ -16,7 +17,8 @@ interface FieldCategoryProps {
 // Use virtualization if more than this many fields
 // Lower threshold since full-width chips cause more reflow during resize
 const VIRTUALIZATION_THRESHOLD = 50;
-const ITEM_HEIGHT = 21; // Height of each field chip (20px chip + 1px margin)
+const DESKTOP_ITEM_HEIGHT = 21; // Height of each field chip (20px chip + 1px margin)
+const TABLET_ITEM_HEIGHT = 46; // 44px chip + 2px margin
 
 // Stable style object for virtualized rows (defined outside component to avoid recreation)
 const ROW_BASE_STYLE = {
@@ -67,6 +69,8 @@ const FieldRow = ({
 };
 
 const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, onCreateBins }) => {
+  const { isTablet } = useTabletUi();
+  const itemHeight = isTablet ? TABLET_ITEM_HEIGHT : DESKTOP_ITEM_HEIGHT;
   // Use virtualization for large lists
   const useVirtualization = fields.length > VIRTUALIZATION_THRESHOLD;
 
@@ -86,7 +90,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, 
     // height and shrinks into this category's share of the panel. The List
     // fills that box and measures itself (react-window v2 observes its own
     // size); `defaultHeight` only covers the first render.
-    const contentHeight = fields.length * ITEM_HEIGHT;
+    const contentHeight = fields.length * itemHeight;
 
     return (
       <Box className={styles.fieldCategory}>
@@ -97,7 +101,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, 
           <List
             defaultHeight={Math.min(contentHeight, 600)}
             rowCount={fields.length}
-            rowHeight={ITEM_HEIGHT}
+            rowHeight={itemHeight}
             rowComponent={FieldRow}
             rowProps={{ fields, onUpdate, onCreateBins }}
             rowKey={rowKey}
@@ -120,9 +124,9 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, 
       </Typography>
       <Box className={styles.fieldsContainer}>
         {fields.map(field => (
-          <FieldChip 
-            key={field.id} 
-            field={field} 
+          <FieldChip
+            key={field.id}
+            field={field}
             onUpdate={onUpdate}
             source="AVAILABLE_FIELDS"
             allFields={fields}

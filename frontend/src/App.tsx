@@ -30,6 +30,8 @@ import { rewriteUnionTablesForDatabase } from './utils/schemaValidation';
 import { resolveSnapshotDatabaseOverride } from './utils/snapshotDatabaseOverride';
 import { schemaCheckBus } from './services/schemaCheckBus';
 import { useAppConfig } from './contexts/AppConfigContext';
+import { useTabletUi } from './hooks/useTabletUi';
+import TabletRotateOverlay from './components/TabletRotateOverlay';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
@@ -40,6 +42,7 @@ function AppContent() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { appConfig, isLoading: isAppConfigLoading } = useAppConfig();
+  const { isPortrait } = useTabletUi();
   const isDataSourcePage = location.pathname === '/';
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
@@ -711,6 +714,7 @@ function AppContent() {
 
   return (
     <div className="App">
+      {isPortrait && <TabletRotateOverlay />}
       {/* Main content area */}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Suspense fallback={null}>
@@ -730,7 +734,9 @@ function AppContent() {
       </Box>
 
       {/* Bottom tabs - Data Sources + Sheet Tabs */}
-      <Box sx={{ 
+      <Box
+        className="sheet-tab-bar"
+        sx={{ 
         borderTop: 1, 
         borderColor: 'divider', 
         flexShrink: 0,

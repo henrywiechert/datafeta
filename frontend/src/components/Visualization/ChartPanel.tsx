@@ -28,6 +28,10 @@ interface ChartPanelProps {
   onRemoveTableColumn: (fieldIds: string[]) => void;
   onReorderTableColumns: (fromIndex: number, toIndex: number) => void;
   axisDropFieldIdsRef?: React.MutableRefObject<string[] | null>;
+  /** Tablet shell: whether Fields/Properties are currently visible. */
+  sidePanelsVisible?: boolean;
+  /** Tablet shell: one button that shows/hides both side panels. */
+  onToggleSidePanels?: () => void;
 }
 
 const ChartPanel: React.FC<ChartPanelProps> = ({
@@ -46,6 +50,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onRemoveTableColumn,
   onReorderTableColumns,
   axisDropFieldIdsRef,
+  sidePanelsVisible,
+  onToggleSidePanels,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { state } = useVisualizationContext();
@@ -144,7 +150,11 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       }} />
       {state.showChartCaption && <ChartCaption />}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <ChartArea axisDropFieldIdsRef={axisDropFieldIdsRef} />
+        <ChartArea
+          axisDropFieldIdsRef={axisDropFieldIdsRef}
+          sidePanelsVisible={sidePanelsVisible}
+          onToggleSidePanels={onToggleSidePanels}
+        />
       </Box>
     </Box>
   );

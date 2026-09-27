@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AppInfoDisplay from './AppInfoDisplay';
 import DataSlicerIcon from './icons/DataSlicerIcon';
@@ -29,6 +29,7 @@ export default function AppBrandHeader({ fileMenu }: AppBrandHeaderProps) {
         overflow: 'hidden',
         flexShrink: 0,
         gap: 0.5,
+        minWidth: 0,
       }}
     >
       <Box
@@ -40,11 +41,25 @@ export default function AppBrandHeader({ fileMenu }: AppBrandHeaderProps) {
           fontWeight: 700,
           letterSpacing: '0.02em',
           color: 'text.primary',
-          flexShrink: 0,
+          minWidth: 0,
+          flex: '1 1 auto',
+          overflow: 'hidden',
         }}
       >
-        <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
-        DataSlicer
+        <DataSlicerIcon sx={{ fontSize: '1.6rem', flexShrink: 0 }} />
+        <Typography
+          component="span"
+          noWrap
+          sx={{
+            fontSize: 'inherit',
+            fontWeight: 'inherit',
+            letterSpacing: 'inherit',
+            color: 'inherit',
+            minWidth: 0,
+          }}
+        >
+          DataSlicer
+        </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         {fileMenu}
