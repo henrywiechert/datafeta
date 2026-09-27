@@ -328,6 +328,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           bottom: 0,
           overflowX: 'scroll',
           overflowY: 'hidden',
+          // Vertical finger drags are forwarded to the vertical layer (useScrollSync).
+          touchAction: 'pan-x pinch-zoom',
           zIndex: 3,
           pointerEvents: 'auto',
           // Match the rendered (webkit) horizontal scrollbar to the reserved gutter.
