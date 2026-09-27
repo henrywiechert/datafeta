@@ -234,12 +234,16 @@
 
 /* Tablet hit targets — only when the root sets data-ui="tablet". */
 :global([data-ui="tablet"]) .chip {
-    min-height: 44px !important;
-    height: 44px !important;
+    min-height: var(--df-touch-target) !important;
+    height: var(--df-touch-target) !important;
 }
 
+/* No hover on touch: show a faint resting pill so the tap target is visible. */
 :global([data-ui="tablet"]) .chip.textOnly {
-    min-height: 44px !important;
-    height: 44px !important;
+    min-height: var(--df-touch-target) !important;
+    height: var(--df-touch-target) !important;
     margin: 0 0 2px 0;
+    padding: 0 8px !important;
+    border-radius: 16px;
+    border: 1px solid var(--df-border-hairline);
 }

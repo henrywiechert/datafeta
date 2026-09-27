@@ -126,26 +126,26 @@ th {
 
 /* Tablet UI: enlarge sheet tabs and chart-toolbar icon buttons. */
 [data-ui="tablet"] .compact-tabs {
-  min-height: 44px !important;
+  min-height: var(--df-touch-target) !important;
 }
 
 [data-ui="tablet"] .compact-tabs .MuiTabs-flexContainer {
-  min-height: 44px !important;
+  min-height: var(--df-touch-target) !important;
 }
 
 [data-ui="tablet"] .compact-tabs .MuiTab-root {
   font-size: 0.875rem !important;
-  min-height: 44px !important;
-  padding: 8px 16px !important;
-  height: 44px !important;
+  min-height: var(--df-touch-target) !important;
+  padding: 6px 16px !important;
+  height: var(--df-touch-target) !important;
 }
 
 [data-ui="tablet"] .chart-controls-toolbar .MuiIconButton-root {
-  width: 44px;
-  height: 44px;
+  width: var(--df-touch-target);
+  height: var(--df-touch-target);
 }
 
 [data-ui="tablet"] .sheet-tab-bar .MuiIconButton-root {
-  width: 44px;
-  height: 44px;
+  width: var(--df-touch-target);
+  height: var(--df-touch-target);
 }

@@ -132,8 +132,8 @@ const FieldChip: React.FC<
       onMouseDown={(e) => e.stopPropagation()}
       sx={{
         flexShrink: 0,
-        width: 36,
-        height: 36,
+        width: 'var(--df-touch-target)',
+        height: 'var(--df-touch-target)',
         ml: 0.25,
       }}
     >

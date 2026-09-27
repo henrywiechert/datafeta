@@ -3,17 +3,17 @@ import React, { useState } from 'react';
 import { Box, Button, IconButton, TextField, Typography } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
 import EditIcon from '@mui/icons-material/Edit';
-import { v4 as uuidv4 } from 'uuid';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Field } from '../../../types';
-import { isMeasureNamesField, isMeasureValuesField } from '../../../utils/syntheticFields';
+import { useShelfActions } from '../../../hooks/useShelfActions';
 import { readDragPayload } from '../../../utils/dragDataStore';
 import FieldChip from '../FieldChip';
 import filterDropZoneStyles from '../Filters/FilterDropZone.module.css';
 
 const MeasureGroupsPanel: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
+  const { addMeasureGroupMember } = useShelfActions();
   const [isOver, setIsOver] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -38,21 +38,7 @@ const MeasureGroupsPanel: React.FC = () => {
         return;
       }
 
-      fields.forEach((field) => {
-        if (isMeasureNamesField(field) || isMeasureValuesField(field)) {
-          return;
-        }
-        if (field.type !== 'measure') {
-          return;
-        }
-        // Fresh instance id: the member id is the stable key for per-member overrides.
-        // Same column with a different aggregation is a distinct member (Tableau-style);
-        // exact duplicates are rejected by the reducer.
-        dispatch({
-          type: 'ADD_MEASURE_GROUP_MEMBER',
-          payload: { ...field, id: uuidv4(), axis: undefined },
-        });
-      });
+      fields.forEach(addMeasureGroupMember);
     } catch (error) {
       console.error('Error parsing drag data:', error);
     }

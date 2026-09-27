@@ -159,6 +159,11 @@
   /* contain: layout; removed to prevent z-index stacking issues with context menus */
 }
 
+/* Rows keep their chip height; the container scrolls instead of squashing them. */
+.fieldsContainer > * {
+  flex-shrink: 0;
+}
+
 .emptyMessage {
   color: var(--df-text-disabled);
   font-style: italic;

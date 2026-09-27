@@ -28,6 +28,35 @@ interface FieldOverrideHandlers {
   resolveSizeField: (override: FieldOverrideState) => Field | null;
 }
 
+type FieldOverrides = Record<string, FieldOverrideState>;
+
+export const stripColorOverrides = (fieldOverrides: FieldOverrides): FieldOverrides => {
+  const next: FieldOverrides = {};
+  Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
+    const { colorFieldId, colorField, colorScheme, colorBias, colorReversed, manualColor, ...rest } = override || {};
+    next[id] = rest;
+  });
+  return next;
+};
+
+export const stripSizeOverrides = (fieldOverrides: FieldOverrides): FieldOverrides => {
+  const next: FieldOverrides = {};
+  Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
+    const { sizeFieldId, sizeField, sizeRange, manualSize, ...rest } = override || {};
+    next[id] = rest;
+  });
+  return next;
+};
+
+export const stripLabelOverrides = (fieldOverrides: FieldOverrides): FieldOverrides => {
+  const next: FieldOverrides = {};
+  Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
+    const { labelFields, ...rest } = override || {};
+    next[id] = rest;
+  });
+  return next;
+};
+
 export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideHandlers => {
   const {
     xAxisFields,
@@ -80,30 +109,15 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
   };
 
   const clearColorOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { colorFieldId, colorField, colorScheme, colorBias, colorReversed, manualColor, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
+    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: stripColorOverrides(fieldOverrides) });
   };
 
   const clearSizeOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { sizeFieldId, sizeField, sizeRange, manualSize, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
+    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: stripSizeOverrides(fieldOverrides) });
   };
 
   const clearLabelOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { labelFields, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
+    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: stripLabelOverrides(fieldOverrides) });
   };
 
   const clearChartTypeOverridesForAllFields = () => {

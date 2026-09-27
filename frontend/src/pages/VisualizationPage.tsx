@@ -45,10 +45,9 @@ import { apiService } from '../apiService';
 import { Field, DragSource } from '../types';
 import type { SheetPanelLayout } from '../types/sheet';
 import { FieldAssignProvider, FieldAssignShelf } from '../contexts/FieldAssignContext';
-import { useRecordUndoPoint } from '../hooks/useRecordUndoPoint';
+import { useShelfActions } from '../hooks/useShelfActions';
 import { useTabletUi } from '../hooks/useTabletUi';
 import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
-import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { v4 as uuidv4 } from 'uuid';
 
 interface VisualizationPageProps {
@@ -217,10 +216,6 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         handleReorderFields,
         handleMoveFieldBetweenAxes,
         handleFilterDrop,
-        handleColorDrop,
-        handleSizeDrop,
-        handleShapeDrop,
-        handleLabelDrop,
         handleRemoveFromColor,
         handleRemoveFromSize,
         handleRemoveFromLabel,
@@ -231,14 +226,21 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         handleReorderTableColumns,
     } = dragDropHandlers;
 
-    const recordUndoPoint = useRecordUndoPoint();
+    const shelfActions = useShelfActions();
     const { isTablet } = useTabletUi();
 
+    // Same resolution the Properties drop zones apply before committing.
     const assignToShelf = React.useCallback((
       shelf: FieldAssignShelf,
       field: Field,
       source: DragSource,
     ) => {
+      const resolveSingle = (
+        zoneSource: DragSource,
+        requiredFlavour?: Field['flavour'],
+      ) => resolveSingleEncodingDropField({ field, source, zoneSource, requiredFlavour });
+      const copy = (): Field => ({ ...field, id: uuidv4() });
+
       switch (shelf) {
         case 'x':
           handleAxisDrop('x', field, source);
@@ -249,65 +251,42 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         case 'filter':
           handleFilterDrop(field, source);
           break;
-        case 'color':
-          handleColorDrop(field, source);
-          break;
-        case 'size':
-          handleSizeDrop(field, source);
-          break;
-        case 'shape':
-          handleShapeDrop(field, source);
-          break;
-        case 'label':
-          handleLabelDrop(field, source);
-          break;
         case 'table':
           handleTableColumnsDrop(field, source);
           break;
-        case 'tooltip': {
-          recordUndoPoint();
-          const copy = { ...field, id: uuidv4() };
-          dispatch({ type: 'ADD_TOOLTIP_FIELD', payload: copy });
+        case 'color': {
+          const resolved = resolveSingle('COLOR_ZONE');
+          if (resolved) shelfActions.setColorField(resolved);
+          break;
+        }
+        case 'size': {
+          const resolved = resolveSingle('SIZE_ZONE');
+          if (resolved) shelfActions.setSizeField(resolved);
+          break;
+        }
+        case 'shape': {
+          const resolved = resolveSingle('SHAPE_ZONE', 'discrete');
+          if (resolved) shelfActions.setShapeField(resolved);
           break;
         }
         case 'background': {
-          recordUndoPoint();
-          const fieldToSet = resolveSingleEncodingDropField({
-            field,
-            source,
-            zoneSource: 'BACKGROUND_ZONE',
-            availableFields: dataSourceAvailableFields,
-            requiredFlavour: 'discrete',
-          });
-          if (!fieldToSet) return;
-          dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: fieldToSet });
+          const resolved = resolveSingle('BACKGROUND_ZONE', 'discrete');
+          if (resolved) shelfActions.setBackgroundField(resolved);
           break;
         }
-        case 'measureGroup': {
-          if (isMeasureNamesField(field) || isMeasureValuesField(field)) return;
-          if (field.type !== 'measure') return;
-          recordUndoPoint();
-          dispatch({
-            type: 'ADD_MEASURE_GROUP_MEMBER',
-            payload: { ...field, id: uuidv4(), axis: undefined },
-          });
+        case 'label':
+          shelfActions.addLabelField(copy());
           break;
-        }
+        case 'tooltip':
+          shelfActions.addTooltipField(copy());
+          break;
+        case 'measureGroup':
+          shelfActions.addMeasureGroupMember(field);
+          break;
         default:
           break;
       }
-    }, [
-      handleAxisDrop,
-      handleFilterDrop,
-      handleColorDrop,
-      handleSizeDrop,
-      handleShapeDrop,
-      handleLabelDrop,
-      handleTableColumnsDrop,
-      recordUndoPoint,
-      dispatch,
-      dataSourceAvailableFields,
-    ]);
+    }, [handleAxisDrop, handleFilterDrop, handleTableColumnsDrop, shelfActions]);
 
     const fieldAssignApi = React.useMemo(() => ({ assignToShelf }), [assignToShelf]);
 
