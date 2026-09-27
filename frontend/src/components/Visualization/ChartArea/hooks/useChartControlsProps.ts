@@ -28,6 +28,8 @@ interface UseChartControlsPropsParams {
   onZoomReset: () => void;
   hasActiveZoomFilters: boolean;
   tableRowsData: Pick<ReturnType<typeof useTableRowsQuery>, 'totalRows' | 'columns'>;
+  sidePanelsVisible?: boolean;
+  onToggleSidePanels?: () => void;
 }
 
 export function useChartControlsProps({
@@ -41,6 +43,8 @@ export function useChartControlsProps({
   onZoomReset,
   hasActiveZoomFilters,
   tableRowsData,
+  sidePanelsVisible,
+  onToggleSidePanels,
 }: UseChartControlsPropsParams): ChartControlsProps {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const channels = useChannels();
@@ -124,5 +128,7 @@ export function useChartControlsProps({
     showChartCaption,
     onToggleChartCaption: handleToggleChartCaption,
     datasetStatusOverride,
+    sidePanelsVisible,
+    onToggleSidePanels,
   };
 }

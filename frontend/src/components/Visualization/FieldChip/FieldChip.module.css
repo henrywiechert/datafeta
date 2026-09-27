@@ -231,3 +231,15 @@
 .chip.framed.continuous.selected {
     background-color: var(--df-flavour-continuous-selected-bg) !important;
 }
+
+/* Tablet hit targets — only when the root sets data-ui="tablet". */
+:global([data-ui="tablet"]) .chip {
+    min-height: 44px !important;
+    height: 44px !important;
+}
+
+:global([data-ui="tablet"]) .chip.textOnly {
+    min-height: 44px !important;
+    height: 44px !important;
+    margin: 0 0 2px 0;
+}

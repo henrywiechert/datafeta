@@ -44,6 +44,12 @@ import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
 import type { SheetPanelLayout } from '../types/sheet';
+import { FieldAssignProvider, FieldAssignShelf } from '../contexts/FieldAssignContext';
+import { useRecordUndoPoint } from '../hooks/useRecordUndoPoint';
+import { useTabletUi } from '../hooks/useTabletUi';
+import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
+import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
+import { v4 as uuidv4 } from 'uuid';
 
 interface VisualizationPageProps {
   fileMenu?: React.ReactNode;
@@ -211,6 +217,10 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         handleReorderFields,
         handleMoveFieldBetweenAxes,
         handleFilterDrop,
+        handleColorDrop,
+        handleSizeDrop,
+        handleShapeDrop,
+        handleLabelDrop,
         handleRemoveFromColor,
         handleRemoveFromSize,
         handleRemoveFromLabel,
@@ -219,7 +229,89 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         handleTableColumnsDrop,
         handleRemoveFromTableColumns,
         handleReorderTableColumns,
-    } = dragDropHandlers;    // Undo/Redo handlers
+    } = dragDropHandlers;
+
+    const recordUndoPoint = useRecordUndoPoint();
+    const { isTablet } = useTabletUi();
+
+    const assignToShelf = React.useCallback((
+      shelf: FieldAssignShelf,
+      field: Field,
+      source: DragSource,
+    ) => {
+      switch (shelf) {
+        case 'x':
+          handleAxisDrop('x', field, source);
+          break;
+        case 'y':
+          handleAxisDrop('y', field, source);
+          break;
+        case 'filter':
+          handleFilterDrop(field, source);
+          break;
+        case 'color':
+          handleColorDrop(field, source);
+          break;
+        case 'size':
+          handleSizeDrop(field, source);
+          break;
+        case 'shape':
+          handleShapeDrop(field, source);
+          break;
+        case 'label':
+          handleLabelDrop(field, source);
+          break;
+        case 'table':
+          handleTableColumnsDrop(field, source);
+          break;
+        case 'tooltip': {
+          recordUndoPoint();
+          const copy = { ...field, id: uuidv4() };
+          dispatch({ type: 'ADD_TOOLTIP_FIELD', payload: copy });
+          break;
+        }
+        case 'background': {
+          recordUndoPoint();
+          const fieldToSet = resolveSingleEncodingDropField({
+            field,
+            source,
+            zoneSource: 'BACKGROUND_ZONE',
+            availableFields: dataSourceAvailableFields,
+            requiredFlavour: 'discrete',
+          });
+          if (!fieldToSet) return;
+          dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: fieldToSet });
+          break;
+        }
+        case 'measureGroup': {
+          if (isMeasureNamesField(field) || isMeasureValuesField(field)) return;
+          if (field.type !== 'measure') return;
+          recordUndoPoint();
+          dispatch({
+            type: 'ADD_MEASURE_GROUP_MEMBER',
+            payload: { ...field, id: uuidv4(), axis: undefined },
+          });
+          break;
+        }
+        default:
+          break;
+      }
+    }, [
+      handleAxisDrop,
+      handleFilterDrop,
+      handleColorDrop,
+      handleSizeDrop,
+      handleShapeDrop,
+      handleLabelDrop,
+      handleTableColumnsDrop,
+      recordUndoPoint,
+      dispatch,
+      dataSourceAvailableFields,
+    ]);
+
+    const fieldAssignApi = React.useMemo(() => ({ assignToShelf }), [assignToShelf]);
+
+    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
         if (previousState) {
@@ -483,12 +575,30 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         };
     }, [handleUndo, handleRedo, toggleLeftPanel, toggleMiddlePanel]);
 
+    const sidePanelsVisible = !leftPanelCollapsed || !middlePanelCollapsed;
+    const toggleSidePanels = React.useCallback(() => {
+        if (sidePanelsVisible) {
+            if (!leftPanelCollapsed) toggleLeftPanel();
+            if (!middlePanelCollapsed) toggleMiddlePanel();
+        } else {
+            if (leftPanelCollapsed) toggleLeftPanel();
+            if (middlePanelCollapsed) toggleMiddlePanel();
+        }
+    }, [
+        sidePanelsVisible,
+        leftPanelCollapsed,
+        middlePanelCollapsed,
+        toggleLeftPanel,
+        toggleMiddlePanel,
+    ]);
+
     // Route guard in App.tsx redirects when disconnected; keep a safety net here.
     if (!connectionDetails) {
         return <Navigate to="/" replace />;
     }
 
     return (
+        <FieldAssignProvider value={fieldAssignApi}>
         <Box sx={{ 
             height: '100%', 
             display: 'flex',
@@ -516,20 +626,24 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         minSize={`${SHELL_PANELS.left.minPx}px`}
                         maxSize={`${SHELL_PANELS.left.maxPercent}%`}
                         collapsible
-                        collapsedSize={`${COLLAPSE_RAIL_THICKNESS_PX}px`}
+                        collapsedSize={isTablet ? '0px' : `${COLLAPSE_RAIL_THICKNESS_PX}px`}
                         // The panel element is not a scroll container: its
                         // content decides what scrolls. Without this the
                         // library's default overflow:auto adds a second
                         // scrollbar outside the one the content already has.
                         style={{ overflow: 'hidden' }}
                         onResize={(size) => {
-                            const collapsed = size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
+                            const collapsed = isTablet
+                                ? size.inPixels <= 1
+                                : size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
                             setLeftPanelCollapsed(collapsed);
                             persistLeftPanelLayout(collapsed, size.asPercentage);
                         }}
                     >
                         {leftPanelCollapsed ? (
+                            isTablet ? null : (
                             <CollapseRail label="Fields" onExpand={toggleLeftPanel} side="left" />
+                            )
                         ) : (
                             /*
                               A well rather than a card, like the Properties
@@ -656,16 +770,20 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         minSize={`${SHELL_PANELS.middle.minPx}px`}
                         maxSize={`${SHELL_PANELS.middle.maxPercent}%`}
                         collapsible
-                        collapsedSize={`${COLLAPSE_RAIL_THICKNESS_PX}px`}
+                        collapsedSize={isTablet ? '0px' : `${COLLAPSE_RAIL_THICKNESS_PX}px`}
                         style={{ overflow: 'hidden' }}
                         onResize={(size) => {
-                            const collapsed = size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
+                            const collapsed = isTablet
+                                ? size.inPixels <= 1
+                                : size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
                             setMiddlePanelCollapsed(collapsed);
                             persistMiddlePanelLayout(collapsed, size.asPercentage);
                         }}
                     >
                         {middlePanelCollapsed ? (
+                          isTablet ? null : (
                           <CollapseRail label="Properties" onExpand={toggleMiddlePanel} side="left" />
+                          )
                         ) : (
                           <Box sx={{
                               height: '100%',
@@ -750,6 +868,8 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                             onRemoveTableColumn={handleRemoveFromTableColumns}
                             onReorderTableColumns={handleReorderTableColumns}
                             axisDropFieldIdsRef={axisDropFieldIdsRef}
+                            sidePanelsVisible={sidePanelsVisible}
+                            onToggleSidePanels={isTablet ? toggleSidePanels : undefined}
                         />
                         </Box>
                     </Panel>
@@ -774,6 +894,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                 operationStartTimes={state.operationStartTimes}
             />
         </Box>
+        </FieldAssignProvider>
     );
 };
 
