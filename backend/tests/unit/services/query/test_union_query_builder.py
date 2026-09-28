@@ -348,6 +348,54 @@ def test_virtual_column_filter_does_not_cause_where_1_eq_0():
     assert "UNION ALL" in query_sql
 
 
+def test_union_branches_promote_narrow_int_columns_in_virtual_columns():
+    """Each UNION branch must see column types so narrow ints are promoted to BIGINT.
+
+    Hive Parquet partitions store hfnTickCount as USMALLINT; without promotion
+    DuckDB evaluates hfnTickCount*20*1024 in UINT16 and raises
+    "Overflow in multiplication of UINT16 (20480 * 11808)".
+    """
+    mock_connector = MagicMock()
+    mock_connector.list_columns.return_value = [
+        Column(name="slot", data_type="UTINYINT"),
+        Column(name="sfn", data_type="USMALLINT"),
+        Column(name="hfnTickCount", data_type="USMALLINT"),
+        Column(name="lcrId", data_type="USMALLINT"),
+    ]
+    mock_connector.estimate_table_size.return_value = 100
+
+    query_description = QueryDescription(
+        target_table="dlFdSchedData",
+        dimensions=[
+            Dimension(field="cslot_tdd", flavour="continuous"),
+            Dimension(field="lcrId", flavour="discrete"),
+        ],
+        virtual_columns=[
+            VirtualColumnDefinition(
+                name="cslot_tdd",
+                expression="slot + sfn * 20 + hfnTickCount * 20 * 1024",
+                output_type="numeric",
+            )
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="dlFdSchedData",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="dlLoadControlData")],
+        ),
+    )
+
+    query_sql, _ = QueryService().translate_to_sql(
+        query_description,
+        table_name="dlFdSchedData",
+        db_type="hive_parquet",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    assert query_sql.count('CAST("hfnTickCount" AS BIGINT)') >= 2
+    assert 'CAST("sfn" AS BIGINT)' in query_sql
+
+
 def test_null_filter_on_field_missing_from_primary_table_skips_primary():
     """Filtering non-null on a field absent from the primary table must skip that table entirely.
 

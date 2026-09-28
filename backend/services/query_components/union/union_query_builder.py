@@ -331,6 +331,7 @@ class UnionQueryBuilder:
                 with_sampling=with_sampling,
                 with_optimization=with_optimization,
                 optimizer=optimizer,
+                connector=self._connector,
             )
 
             if "FROM" in single_sql:
@@ -451,6 +452,7 @@ class UnionQueryBuilder:
                 with_sampling=with_sampling,
                 with_optimization=with_optimization,
                 optimizer=optimizer,
+                connector=self._connector,
             )
 
             if "FROM" in single_sql:
@@ -713,6 +715,7 @@ class UnionQueryBuilder:
                     with_sampling=with_sampling,
                     with_optimization=with_optimization,
                     optimizer=optimizer,
+                    connector=self._connector,
                 )
                 
                 # Rebuild SELECT clause to include all fields in correct order, with NULLs for missing
