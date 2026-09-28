@@ -118,7 +118,11 @@ export function buildLineAxes(params: {
 export type LineDomainInfo = {
   axis: 'x' | 'y';
   column: string;
-  domain: [number, number] | [Date, Date];
+  /**
+   * Absent for a receiver: an empty facet cell that has no extent of its own to
+   * contribute but must still adopt the harmonized domain of its track.
+   */
+  domain?: [number, number] | [Date, Date];
 };
 
 /** Appends one entry; a plot may register both its dependent and independent axis. */
@@ -134,6 +138,21 @@ export function attachLineDomainMetadata(params: {
   const target = plotOptions as any;
   const infos: LineDomainInfo[] = target.__lineChartDomainInfo ?? (target.__lineChartDomainInfo = []);
   infos.push({ axis, column, domain });
+}
+
+/**
+ * Registers an empty facet cell for harmonization without contributing to the
+ * shared extent. The axis gutters sample the first plot cell of each grid track,
+ * so a leading empty cell left without a domain would render as Plot's [0, 1].
+ */
+export function attachLineDomainReceiver(params: {
+  plotOptions: Plot.PlotOptions;
+  axis: 'x' | 'y';
+  column: string;
+}): void {
+  const target = params.plotOptions as any;
+  const infos: LineDomainInfo[] = target.__lineChartDomainInfo ?? (target.__lineChartDomainInfo = []);
+  infos.push({ axis: params.axis, column: params.column });
 }
 
 /**
@@ -161,30 +180,35 @@ export function harmonizeLineChartDomains(
   plots: Array<{ options: Plot.PlotOptions; position?: { row: number; col: number } }>,
   independentDomains?: { x?: boolean; y?: boolean }
 ): void {
-  type Entry = { options: any; domain: [number, number] | [Date, Date]; info: LineDomainInfo };
+  type Entry = { options: any; info: LineDomainInfo };
   const groups = new Map<string, Entry[]>();
 
   for (const plot of plots) {
     const infos: LineDomainInfo[] | undefined = (plot.options as any)?.__lineChartDomainInfo;
     if (!infos) continue;
     for (const info of infos) {
-      if (!info?.domain) continue;
+      if (!info) continue;
       const key = `${info.axis}:${info.column}:${facetTrackKey(info.axis, plot.position, independentDomains)}`;
       let group = groups.get(key);
       if (!group) {
         group = [];
         groups.set(key, group);
       }
-      group.push({ options: plot.options, domain: info.domain, info });
+      group.push({ options: plot.options, info });
     }
   }
 
   groups.forEach((group) => {
-    if (group.length <= 1) return;
+    // Receivers (empty cells) only adopt a domain; a track with no contributing
+    // cell has nothing to share.
+    const domains = group
+      .map((g: Entry) => g.info.domain)
+      .filter((d): d is [number, number] | [Date, Date] => d !== undefined);
+    if (domains.length === 0 || group.length <= 1) return;
 
-    const isDate = group[0].domain[0] instanceof Date;
-    const sharedMin = Math.min(...group.map((g: Entry) => Number(g.domain[0])));
-    const sharedMax = Math.max(...group.map((g: Entry) => Number(g.domain[1])));
+    const isDate = domains[0][0] instanceof Date;
+    const sharedMin = Math.min(...domains.map((d) => Number(d[0])));
+    const sharedMax = Math.max(...domains.map((d) => Number(d[1])));
     const shared = (isDate
       ? [new Date(sharedMin), new Date(sharedMax)]
       : [sharedMin, sharedMax]) as [number, number] | [Date, Date];

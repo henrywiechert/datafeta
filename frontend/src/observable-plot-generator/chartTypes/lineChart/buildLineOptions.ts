@@ -10,7 +10,7 @@ import {
 } from '../../utils/colorSchemeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../../utils/labelUtils';
 import { prepareLineData } from './dataPrep';
-import { attachLineDomainMetadata, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
+import { attachLineDomainMetadata, attachLineDomainReceiver, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
 import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale } from './encodings';
 import {
   buildAreaMarks,
@@ -76,11 +76,16 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   });
 
   if (clean.length === 0) {
-    return {
-      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
-      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
+    // An empty facet cell still owns an axis gutter when it leads its grid row
+    // or column, so it keeps the caller's domain and adopts the harmonized one.
+    const emptyOptions: Plot.PlotOptions = {
+      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
+      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
       marks: [],
     };
+    attachLineDomainReceiver({ plotOptions: emptyOptions, axis: O.dependentAxis, column: dependentColumn });
+    attachLineDomainReceiver({ plotOptions: emptyOptions, axis: O.independentAxis, column: independentColumn });
+    return emptyOptions;
   }
 
   // Always compute the dependent-axis domain from the actually-plotted data.

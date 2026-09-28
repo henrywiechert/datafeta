@@ -309,6 +309,50 @@ describe('harmonizeLineChartDomains', () => {
   });
 });
 
+describe('empty facet cells share the harmonized domain', () => {
+  // Faceting two dimensions where some combinations have no rows leaves empty
+  // cells in the grid. The Y gutter draws each row's axis from the first plot
+  // cell in that row, so an empty leading cell must carry the row's domain too;
+  // otherwise the gutter falls back to [0, 1].
+  const makeParams = (data: any[]): LineBuildParams => ({
+    data,
+    xColumn: 'x',
+    yColumn: 'AVG(y)',
+    orientation: 'horizontal',
+    labels: { x: 'X', y: 'AVG(y)' },
+  });
+
+  test.each([
+    ['shared Y', undefined],
+    ['independent Y', { y: true }],
+  ])('empty leading cell receives the row domain (%s)', (_label, independent) => {
+    const empty = buildLineOptions(makeParams([]));
+    const filled = buildLineOptions(makeParams(generateRows(10, 500, 50)));
+    const plots = [
+      { options: empty, position: { row: 0, col: 0 } },
+      { options: filled, position: { row: 0, col: 1 } },
+    ];
+
+    harmonizeLineChartDomains(plots, independent);
+
+    const filledDomain = (filled.y as any).domain;
+    expect(filledDomain).toBeDefined();
+    expect((empty.y as any).domain).toEqual(filledDomain);
+  });
+
+  test('empty cell keeps the caller-supplied independent domain', () => {
+    const empty = buildLineOptions({ ...makeParams([]), domain: { x: [0, 42] } });
+    expect((empty.x as any).domain).toEqual([0, 42]);
+  });
+
+  test('a row with only empty cells stays undefined', () => {
+    const a = buildLineOptions(makeParams([]));
+    const b = buildLineOptions(makeParams([]));
+    harmonizeLineChartDomains([{ options: a }, { options: b }]);
+    expect((a.y as any).domain).toBeUndefined();
+  });
+});
+
 describe('buildLineOptions – pinned comparison metadata', () => {
   const discreteColorField = {
     id: 'series',
