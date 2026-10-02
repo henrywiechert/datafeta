@@ -8,7 +8,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import { Database, Table, Field } from '../../../types';
-import { DatabaseMirrorPlan, UnionTableRef } from '../../../utils/schemaValidation';
+import { DatabaseMirrorPlan, TableFanoutPlan, UnionTableRef } from '../../../utils/schemaValidation';
 import RelationshipIcon from '../../icons/RelationshipIcon';
 import JoinTableSelector from './JoinTableSelector';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
@@ -332,6 +332,33 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     [onAddUnionTables]
   );
 
+  const handleAddTableEverywhere = React.useCallback(
+    (table: string, plan: TableFanoutPlan) => {
+      if (plan.toAdd.length === 0) return;
+      onAddUnionTables?.(plan.toAdd);
+
+      const parts: string[] = [];
+      if (plan.missing.length > 0) {
+        parts.push(
+          `${table} not in ${plan.missing.length} database${plan.missing.length === 1 ? '' : 's'}`,
+        );
+      }
+      if (plan.droppedOverLimit.length > 0) {
+        parts.push(`${plan.droppedOverLimit.length} over the union limit`);
+      }
+      setSkipNotice(
+        parts.length === 0
+          ? null
+          : {
+              key: Date.now(),
+              label: parts.join(' · '),
+              detail: [...plan.missing, ...plan.droppedOverLimit.map((t) => t.database)].join(', '),
+            },
+      );
+    },
+    [onAddUnionTables]
+  );
+
   const handleRemoveDatabase = React.useCallback(
     (_database: string, tables: UnionTableRef[]) => {
       if (tables.length === 0) return;
@@ -547,6 +574,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             onAdd={handleAddTable}
             onDatabaseSwitch={onDatabaseSwitch}
             onAddDatabase={onAddUnionTables ? handleAddDatabase : undefined}
+            onAddTableEverywhere={onAddUnionTables ? handleAddTableEverywhere : undefined}
             isSwitchingDatabase={isSwitchingDatabase}
           />
 

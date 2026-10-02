@@ -125,6 +125,93 @@ export function planDatabaseMirror({
   return plan;
 }
 
+/**
+ * Databases contributing to the current selection, in selection order: the
+ * primary's (only once a primary table is chosen), then each union member's.
+ */
+export function connectedDatabases(
+  primaryDatabase: string,
+  primaryTable: string,
+  unionTables: UnionTableRef[],
+): string[] {
+  const databases: string[] = [];
+  const push = (db: string) => {
+    if (db && !databases.includes(db)) databases.push(db);
+  };
+  if (primaryTable) push(primaryDatabase);
+  unionTables.forEach((ut) => push(ut.database || primaryDatabase));
+  return databases;
+}
+
+export interface TableFanoutPlan {
+  /** Refs to add, in `targetDatabases` order. */
+  toAdd: UnionTableRef[];
+  /** Target databases that do not have the table. */
+  missing: string[];
+  /** Targets where the table is already selected (primary or a union). */
+  alreadyPresent: UnionTableRef[];
+  /** Candidates dropped because the union would exceed MAX_UNION_TABLES. */
+  droppedOverLimit: UnionTableRef[];
+}
+
+/**
+ * What "add this table from all connected databases" would do: add `table`
+ * from every target database that has it as a union secondary.
+ *
+ * The counterpart of {@link planDatabaseMirror} (one database, many tables):
+ * this is one table, many databases. Pure for the same reason — the picker
+ * shows the exact outcome before the click.
+ */
+export function planTableFanout({
+  table,
+  targetDatabases,
+  primaryDatabase,
+  primaryTable,
+  unionTables,
+  tableNamesByDatabase,
+  maxUnionTables = MAX_UNION_TABLES,
+}: {
+  table: string;
+  targetDatabases: string[];
+  primaryDatabase: string;
+  primaryTable: string;
+  unionTables: UnionTableRef[];
+  tableNamesByDatabase: Record<string, string[] | undefined>;
+  maxUnionTables?: number;
+}): TableFanoutPlan {
+  const plan: TableFanoutPlan = {
+    toAdd: [],
+    missing: [],
+    alreadyPresent: [],
+    droppedOverLimit: [],
+  };
+  if (!table) return plan;
+
+  const selected = new Set(
+    unionTables.map((ut) => `${ut.database || primaryDatabase}\u0000${ut.table_name}`),
+  );
+
+  targetDatabases.forEach((database) => {
+    const ref: UnionTableRef = { database, table_name: table };
+    const isPrimary = database === primaryDatabase && table === primaryTable;
+    if (isPrimary || selected.has(`${database}\u0000${table}`)) {
+      plan.alreadyPresent.push(ref);
+      return;
+    }
+    if (!(tableNamesByDatabase[database] ?? []).includes(table)) {
+      plan.missing.push(database);
+      return;
+    }
+    if (unionTables.length + plan.toAdd.length >= maxUnionTables) {
+      plan.droppedOverLimit.push(ref);
+      return;
+    }
+    plan.toAdd.push(ref);
+  });
+
+  return plan;
+}
+
 /** Why a keep-tables database switch cannot be performed. */
 export type SwitchBlocker =
   | 'no-primary-table'
