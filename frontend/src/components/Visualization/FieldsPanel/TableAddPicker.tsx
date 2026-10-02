@@ -3,12 +3,16 @@ import React from 'react';
 import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
+import ControlPointDuplicateIcon from '@mui/icons-material/ControlPointDuplicate';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
+  connectedDatabases,
   DatabaseMirrorPlan,
   planDatabaseMirror,
   planDatabaseSwitch,
+  planTableFanout,
+  TableFanoutPlan,
   UnionTableRef,
 } from '../../../utils/schemaValidation';
 import {
@@ -37,6 +41,8 @@ interface TableAddPickerProps {
   onDatabaseSwitch?: (database: string) => void;
   /** Mirror the current selection from the staged database as UNION secondaries. */
   onAddDatabase?: (database: string, plan: DatabaseMirrorPlan) => void;
+  /** Add the staged table from every connected database that has it. */
+  onAddTableEverywhere?: (table: string, plan: TableFanoutPlan) => void;
   isSwitchingDatabase?: boolean;
 }
 
@@ -62,6 +68,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   onAdd,
   onDatabaseSwitch,
   onAddDatabase,
+  onAddTableEverywhere,
   isSwitchingDatabase = false,
 }) => {
   const [stagedDatabase, setStagedDatabase] = React.useState<string>(primaryDatabase || '');
@@ -123,6 +130,51 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
     [stagedDatabase, primaryDatabase, primaryTable, joinedTables, unionTables, rawTableOptions],
   );
 
+  // Fan-out targets: every database already in the selection, plus the staged
+  // one (it is where the table was picked, so leaving it out would surprise).
+  const fanoutTargets = React.useMemo(() => {
+    const targets = connectedDatabases(primaryDatabase, primaryTable, unionTables);
+    if (stagedDatabase && !targets.includes(stagedDatabase)) targets.push(stagedDatabase);
+    return targets;
+  }, [primaryDatabase, primaryTable, unionTables, stagedDatabase]);
+
+  const pendingFanoutDatabases = React.useMemo(
+    () =>
+      onLoadTablesForDatabase
+        ? fanoutTargets.filter((db) => tablesCache[db] === undefined)
+        : [],
+    [fanoutTargets, tablesCache, onLoadTablesForDatabase],
+  );
+
+  // The staged database loads on staging; connected ones normally are cached
+  // already (they were added through this picker) but a restored session may
+  // not have them yet.
+  const pendingConnectedKey = pendingFanoutDatabases
+    .filter((db) => db !== stagedDatabase)
+    .join('\u0000');
+  React.useEffect(() => {
+    if (!onAddTableEverywhere || !onLoadTablesForDatabase || !pendingConnectedKey) return;
+    pendingConnectedKey.split('\u0000').forEach((db) => onLoadTablesForDatabase(db));
+    // Keyed on the pending set, not the callback identity, so a parent
+    // re-render cannot re-issue in-flight loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingConnectedKey]);
+
+  const fanoutPlan = React.useMemo(
+    () =>
+      planTableFanout({
+        table: stagedTable,
+        targetDatabases: fanoutTargets,
+        primaryDatabase,
+        primaryTable,
+        unionTables,
+        tableNamesByDatabase: Object.fromEntries(
+          fanoutTargets.map((db) => [db, tablesCache[db]?.map((t) => t.name)]),
+        ),
+      }),
+    [stagedTable, fanoutTargets, primaryDatabase, primaryTable, unionTables, tablesCache],
+  );
+
   const canAdd = !!stagedDatabase && !!stagedTable;
 
   const handleDatabaseChange = (_: unknown, value: string | null) => {
@@ -140,6 +192,35 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   const handleAdd = () => {
     if (!canAdd) return;
     onAdd({ database: stagedDatabase, table: stagedTable });
+    setStagedTable('');
+  };
+
+  const addEverywhereDisabledReason = (): string | null => {
+    if (isSwitchingDatabase) return 'Database switch in progress';
+    if (!stagedTable) return 'Select a table';
+    if (!fanoutTargets.some((db) => db !== stagedDatabase)) return 'No other database connected';
+    if (pendingFanoutDatabases.length > 0) return 'Loading tables…';
+    if (fanoutPlan.toAdd.length > 0) return null;
+    if (fanoutPlan.droppedOverLimit.length > 0) return 'Union table limit reached';
+    return `${stagedTable} adds nothing — already selected`;
+  };
+
+  const addEverywhereBlocked = addEverywhereDisabledReason();
+
+  const addEverywhereTooltip = addEverywhereBlocked
+    ?? [
+      `Add ${stagedTable} from ${joinNames(fanoutPlan.toAdd.map((ref) => ref.database))}`,
+      fanoutPlan.missing.length > 0 ? `· not in ${joinNames(fanoutPlan.missing)}` : '',
+      fanoutPlan.droppedOverLimit.length > 0
+        ? `· ${fanoutPlan.droppedOverLimit.length} over the union limit`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  const handleAddEverywhere = () => {
+    if (addEverywhereBlocked || !onAddTableEverywhere) return;
+    onAddTableEverywhere(stagedTable, fanoutPlan);
     setStagedTable('');
   };
 
@@ -315,8 +396,24 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
           />
         </Box>
-        {/* Spacer keeping both dropdowns the same width as the two-slot DB row. */}
-        <Box sx={actionColumnSx} />
+        {/* Inner slot: add from every connected database. Aligns with switch. */}
+        <Box sx={actionColumnSx}>
+          {onAddTableEverywhere ? (
+            <Tooltip title={addEverywhereTooltip} placement="right">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleAddEverywhere}
+                  disabled={!!addEverywhereBlocked}
+                  aria-label="Add table from all connected databases"
+                  sx={actionButtonSx}
+                >
+                  <ControlPointDuplicateIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Box>
         <Box sx={actionColumnSx}>
           <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
             <span>

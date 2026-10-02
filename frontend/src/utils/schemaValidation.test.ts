@@ -1,10 +1,12 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import {
   collectReferencedColumnNames,
+  connectedDatabases,
   hasCrossDatabaseUnion,
   isSchemaCheckReady,
   planDatabaseMirror,
   planDatabaseSwitch,
+  planTableFanout,
   rewriteUnionTablesForDatabase,
   validateSheetSchema,
 } from './schemaValidation';
@@ -239,6 +241,105 @@ describe('planDatabaseMirror', () => {
     });
 
     expect(plan.toAdd.map((t) => t.table_name)).toEqual(['orders', 'events']);
+  });
+});
+
+describe('connectedDatabases', () => {
+  it('lists the primary then union databases once each, in selection order', () => {
+    expect(
+      connectedDatabases('prod_us', 'orders', [
+        { database: 'prod_eu', table_name: 'orders' },
+        { database: 'prod_us', table_name: 'events' },
+        { database: 'staging', table_name: 'orders' },
+        { database: 'prod_eu', table_name: 'events' },
+      ]),
+    ).toEqual(['prod_us', 'prod_eu', 'staging']);
+  });
+
+  it('does not count the primary database before a primary table is chosen', () => {
+    expect(connectedDatabases('prod_us', '', [])).toEqual([]);
+  });
+
+  it('resolves database-less union refs to the primary database', () => {
+    expect(
+      connectedDatabases('prod_us', 'orders', [{ database: '', table_name: 'events' }]),
+    ).toEqual(['prod_us']);
+  });
+});
+
+describe('planTableFanout', () => {
+  const base = {
+    table: 'events',
+    targetDatabases: ['prod_us', 'prod_eu', 'staging'],
+    primaryDatabase: 'prod_us',
+    primaryTable: 'orders',
+    unionTables: [
+      { database: 'prod_eu', table_name: 'orders' },
+      { database: 'staging', table_name: 'orders' },
+    ],
+    tableNamesByDatabase: {
+      prod_us: ['orders', 'events'],
+      prod_eu: ['orders', 'events'],
+      staging: ['orders', 'events'],
+    },
+  };
+
+  it('adds the table from every target database, in target order', () => {
+    const plan = planTableFanout(base);
+
+    expect(plan.toAdd).toEqual([
+      { database: 'prod_us', table_name: 'events' },
+      { database: 'prod_eu', table_name: 'events' },
+      { database: 'staging', table_name: 'events' },
+    ]);
+    expect(plan.missing).toEqual([]);
+    expect(plan.alreadyPresent).toEqual([]);
+    expect(plan.droppedOverLimit).toEqual([]);
+  });
+
+  it('reports target databases that do not have the table', () => {
+    const plan = planTableFanout({
+      ...base,
+      tableNamesByDatabase: { ...base.tableNamesByDatabase, staging: ['orders'] },
+    });
+
+    expect(plan.toAdd.map((t) => t.database)).toEqual(['prod_us', 'prod_eu']);
+    expect(plan.missing).toEqual(['staging']);
+  });
+
+  it('treats an unloaded table list as not having the table', () => {
+    const plan = planTableFanout({
+      ...base,
+      tableNamesByDatabase: { ...base.tableNamesByDatabase, staging: undefined },
+    });
+
+    expect(plan.missing).toEqual(['staging']);
+  });
+
+  it('skips the primary and tables already unioned', () => {
+    const plan = planTableFanout({
+      ...base,
+      table: 'orders',
+      unionTables: [{ database: 'prod_eu', table_name: 'orders' }],
+    });
+
+    expect(plan.toAdd).toEqual([{ database: 'staging', table_name: 'orders' }]);
+    expect(plan.alreadyPresent).toEqual([
+      { database: 'prod_us', table_name: 'orders' },
+      { database: 'prod_eu', table_name: 'orders' },
+    ]);
+  });
+
+  it('clamps at the union limit, counting tables already selected', () => {
+    const plan = planTableFanout({ ...base, maxUnionTables: 3 });
+
+    // 2 already selected + 1 addition hits the cap of 3.
+    expect(plan.toAdd).toEqual([{ database: 'prod_us', table_name: 'events' }]);
+    expect(plan.droppedOverLimit.map((t) => t.database)).toEqual(['prod_eu', 'staging']);
+  });
+
+  it('has nothing to add without a table', () => {
+    expect(planTableFanout({ ...base, table: '' }).toAdd).toEqual([]);
   });
 });
 

@@ -5,11 +5,13 @@ import TableAddPicker from './TableAddPicker';
 
 const SWITCH_LABEL = 'Switch to this database, keeping current tables';
 const ADD_DB_LABEL = 'Add matching tables from database';
+const ADD_EVERYWHERE_LABEL = 'Add table from all connected databases';
 
 const renderPicker = (overrides: Partial<React.ComponentProps<typeof TableAddPicker>> = {}) => {
   const onAdd = jest.fn();
   const onDatabaseSwitch = jest.fn();
   const onAddDatabase = jest.fn();
+  const onAddTableEverywhere = jest.fn();
   const onLoadTablesForDatabase = jest.fn();
   const result = render(
     <TableAddPicker
@@ -24,11 +26,19 @@ const renderPicker = (overrides: Partial<React.ComponentProps<typeof TableAddPic
       onAdd={onAdd}
       onDatabaseSwitch={onDatabaseSwitch}
       onAddDatabase={onAddDatabase}
+      onAddTableEverywhere={onAddTableEverywhere}
       onLoadTablesForDatabase={onLoadTablesForDatabase}
       {...overrides}
     />
   );
-  return { ...result, onAdd, onDatabaseSwitch, onAddDatabase, onLoadTablesForDatabase };
+  return {
+    ...result,
+    onAdd,
+    onDatabaseSwitch,
+    onAddDatabase,
+    onAddTableEverywhere,
+    onLoadTablesForDatabase,
+  };
 };
 
 /** Stage a database through the DB dropdown, the way a user would. */
@@ -36,6 +46,12 @@ const stageDatabase = (name: string) => {
   const input = screen.getByPlaceholderText('Database');
   fireEvent.mouseDown(input);
   fireEvent.click(screen.getByRole('option', { name }));
+};
+
+/** Stage a table through the Table dropdown. */
+const stageTable = (name: string) => {
+  fireEvent.mouseDown(screen.getByPlaceholderText('Search table'));
+  fireEvent.click(within(screen.getByRole('listbox')).getByText(name));
 };
 
 const button = (name: string) => screen.getByRole('button', { name });
@@ -218,5 +234,94 @@ describe('TableAddPicker — table row', () => {
     fireEvent.click(button('Add table'));
 
     expect(onAdd).toHaveBeenCalledWith({ database: 'prod_us', table: 'events' });
+  });
+});
+
+describe('TableAddPicker — add-from-all-connected action', () => {
+  it('hands up the staged table and a plan covering every connected database', () => {
+    const { onAddTableEverywhere } = renderPicker({
+      unionTables: [{ database: 'prod_eu', table_name: 'orders' }],
+    });
+
+    stageTable('events');
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('Add events from prod_us, prod_eu');
+    fireEvent.click(button(ADD_EVERYWHERE_LABEL));
+
+    expect(onAddTableEverywhere).toHaveBeenCalledTimes(1);
+    const [table, plan] = onAddTableEverywhere.mock.calls[0];
+    expect(table).toBe('events');
+    expect(plan.toAdd).toEqual([
+      { database: 'prod_us', table_name: 'events' },
+      { database: 'prod_eu', table_name: 'events' },
+    ]);
+  });
+
+  it('includes the staged database when it is not connected yet', () => {
+    renderPicker();
+
+    stageDatabase('prod_eu');
+    stageTable('events');
+
+    expect(button(ADD_EVERYWHERE_LABEL)).toBeEnabled();
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('Add events from prod_us, prod_eu');
+  });
+
+  it('reports connected databases that do not have the table', () => {
+    renderPicker({
+      databases: ['prod_us', 'prod_eu', 'staging'],
+      tablesCache: {
+        prod_us: [{ name: 'orders' }, { name: 'events' }],
+        prod_eu: [{ name: 'orders' }, { name: 'events' }],
+        staging: [{ name: 'orders' }],
+      },
+      unionTables: [
+        { database: 'prod_eu', table_name: 'orders' },
+        { database: 'staging', table_name: 'orders' },
+      ],
+    });
+
+    stageTable('events');
+
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe(
+      'Add events from prod_us, prod_eu · not in staging',
+    );
+  });
+
+  it('is blocked until a table is staged', () => {
+    renderPicker({ unionTables: [{ database: 'prod_eu', table_name: 'orders' }] });
+
+    expect(button(ADD_EVERYWHERE_LABEL)).toBeDisabled();
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('Select a table');
+  });
+
+  it('is blocked when no other database is connected', () => {
+    renderPicker();
+
+    stageTable('events');
+
+    expect(button(ADD_EVERYWHERE_LABEL)).toBeDisabled();
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('No other database connected');
+  });
+
+  it('loads uncached connected table lists and waits for them', () => {
+    const { onLoadTablesForDatabase } = renderPicker({
+      databases: ['prod_us', 'prod_eu', 'staging'],
+      unionTables: [{ database: 'staging', table_name: 'orders' }],
+    });
+
+    expect(onLoadTablesForDatabase).toHaveBeenCalledWith('staging');
+
+    stageTable('events');
+
+    expect(button(ADD_EVERYWHERE_LABEL)).toBeDisabled();
+    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('Loading tables…');
+  });
+
+  it('is absent when the parent does not support it', () => {
+    renderPicker({ onAddTableEverywhere: undefined });
+
+    expect(
+      screen.queryByRole('button', { name: ADD_EVERYWHERE_LABEL })
+    ).not.toBeInTheDocument();
   });
 });
