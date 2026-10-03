@@ -498,6 +498,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               <Tooltip
                 title={addingFilesLabel ?? 'Add more files to this connection'}
                 placement="left"
+                disableInteractive
               >
                 <span>
                   <IconButton
@@ -518,7 +519,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             </>
           )}
           {connectionType === 'clickhouse' && (
-            <Tooltip title="Add tables by pattern" placement="left">
+            <Tooltip title="Add tables by pattern" placement="left" disableInteractive>
               <IconButton
                 size="small"
                 aria-label="Add tables by pattern"
@@ -530,7 +531,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             </Tooltip>
           )}
           {supportsJoins && selectedTable && onToggleJoinedTable && (
-            <Tooltip title="Manage relationships" placement="left">
+            <Tooltip title="Manage relationships" placement="left" disableInteractive>
               <IconButton
                 size="small"
                 aria-label="Manage relationships"
@@ -541,7 +542,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               </IconButton>
             </Tooltip>
           )}
-          <Tooltip title="Refresh metadata" placement="left">
+          <Tooltip title="Refresh metadata" placement="left" disableInteractive>
             <span>
               <IconButton
                 size="small"
