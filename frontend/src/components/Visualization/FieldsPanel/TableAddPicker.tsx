@@ -323,7 +323,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           {isSwitchingDatabase ? (
             <CircularProgress size={14} />
           ) : onDatabaseSwitch ? (
-            <Tooltip title={switchTooltip} placement="right">
+            <Tooltip title={switchTooltip} placement="right" disableInteractive>
               <span>
                 <IconButton
                   size="small"
@@ -341,7 +341,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         {/* Rightmost slot: add. Aligns with the Table row's add button. */}
         <Box sx={actionColumnSx}>
           {onAddDatabase ? (
-            <Tooltip title={addDatabaseTooltip} placement="right">
+            <Tooltip title={addDatabaseTooltip} placement="right" disableInteractive>
               <span>
                 <IconButton
                   size="small"
@@ -399,7 +399,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         {/* Inner slot: add from every connected database. Aligns with switch. */}
         <Box sx={actionColumnSx}>
           {onAddTableEverywhere ? (
-            <Tooltip title={addEverywhereTooltip} placement="right">
+            <Tooltip title={addEverywhereTooltip} placement="right" disableInteractive>
               <span>
                 <IconButton
                   size="small"
@@ -415,7 +415,11 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           ) : null}
         </Box>
         <Box sx={actionColumnSx}>
-          <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+          <Tooltip
+            title={canAdd ? 'Add table' : 'Select DB and table'}
+            placement="right"
+            disableInteractive
+          >
             <span>
               <IconButton
                 size="small"

@@ -283,29 +283,34 @@ function TableRow({
       {(onRemove || onRemoveDatabase) && (
         <ListItemSecondaryAction className={styles.secondaryAction}>
           {onRemoveDatabase && (
-            <Tooltip title={`Remove all ${removeDatabaseCount} tables from ${database}`}>
+            <Tooltip
+              title={`Remove all ${removeDatabaseCount} tables from ${database}`}
+              disableInteractive
+            >
               <IconButton
                 size="small"
                 aria-label={`Remove all tables from ${database}`}
                 onClick={onRemoveDatabase}
-                sx={{ padding: '2px' }}
+                sx={{ padding: '2px' }} 
               >
                 <DeleteSweepIcon sx={{ fontSize: '1rem' }} />
               </IconButton>
             </Tooltip>
           )}
           {onRemove && (
-            <IconButton
-              size="small"
-              edge="end"
-              // Qualified: mirroring a database puts the same table name on
-              // several rows, so the bare name is not a unique label.
-              aria-label={hasDb ? `Remove ${database}.${table}` : `Remove ${table}`}
-              onClick={onRemove}
-              sx={{ padding: '2px' }}
-            >
-              <DeleteOutlineIcon sx={{ fontSize: '1rem' }} />
-            </IconButton>
+            <Tooltip title={`Remove ${hasDb ? `${database}.` : ''}${table}`} disableInteractive>
+              <IconButton
+                size="small"
+                edge="end"
+                // Qualified: mirroring a database puts the same table name on
+                // several rows, so the bare name is not a unique label.
+                aria-label={hasDb ? `Remove ${database}.${table}` : `Remove ${table}`}
+                onClick={onRemove}
+                sx={{ padding: '2px' }}
+              >
+                <DeleteOutlineIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+            </Tooltip>
           )}
         </ListItemSecondaryAction>
       )}
