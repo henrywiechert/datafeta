@@ -195,10 +195,14 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
     setStagedTable('');
   };
 
+  // With a single database in play the fan-out is just the plain add, so the
+  // action is hidden rather than shown disabled.
+  const showAddEverywhere =
+    !!onAddTableEverywhere && fanoutTargets.some((db) => db !== stagedDatabase);
+
   const addEverywhereDisabledReason = (): string | null => {
     if (isSwitchingDatabase) return 'Database switch in progress';
     if (!stagedTable) return 'Select a table';
-    if (!fanoutTargets.some((db) => db !== stagedDatabase)) return 'No other database connected';
     if (pendingFanoutDatabases.length > 0) return 'Loading tables…';
     if (fanoutPlan.toAdd.length > 0) return null;
     if (fanoutPlan.droppedOverLimit.length > 0) return 'Union table limit reached';
@@ -219,7 +223,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
       .join(' ');
 
   const handleAddEverywhere = () => {
-    if (addEverywhereBlocked || !onAddTableEverywhere) return;
+    if (addEverywhereBlocked || !showAddEverywhere || !onAddTableEverywhere) return;
     onAddTableEverywhere(stagedTable, fanoutPlan);
     setStagedTable('');
   };
@@ -396,9 +400,10 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
           />
         </Box>
-        {/* Inner slot: add from every connected database. Aligns with switch. */}
+        {/* Inner slot: add from every connected database. Aligns with switch.
+            The slot stays when the button is hidden so the Table field keeps its width. */}
         <Box sx={actionColumnSx}>
-          {onAddTableEverywhere ? (
+          {showAddEverywhere ? (
             <Tooltip title={addEverywhereTooltip} placement="right" disableInteractive>
               <span>
                 <IconButton
