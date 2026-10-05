@@ -42,7 +42,8 @@ import { isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../u
 import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
 import { apiService } from '../apiService';
 
-import { Field, DragSource } from '../types';
+import { Field, DragSource, RemovableDragSource } from '../types';
+import type { RemoveFromZone } from '../hooks/useFieldsPanelDrag';
 import type { SheetPanelLayout } from '../types/sheet';
 import { FieldAssignProvider } from '../contexts/FieldAssignContext';
 import { useAssignToShelf } from '../hooks/useAssignToShelf';
@@ -223,6 +224,14 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         handleRemoveFromTableColumns,
         handleReorderTableColumns,
     } = dragDropHandlers;
+    // A multi-chip drag out of an axis is removed in one batched update.
+    const removeFromAxes = (fieldIds: string[]) => {
+        if (fieldIds.length > 1) {
+            handleRemoveMultipleFromAxis(fieldIds);
+        } else {
+            fieldIds.forEach(handleRemoveFromAxis);
+        }
+    };
 
     const { isTablet } = useTabletUi();
     const assignToShelf = useAssignToShelf(dragDropHandlers);
@@ -429,6 +438,34 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         // Reducer bumps queryVersion when members actually change
         dispatch({ type: 'REMOVE_MEASURE_GROUP_MEMBERS', payload: fieldIds });
     }, [dispatch]);
+
+    // Dragging chips out of a zone onto the Fields panel removes them there.
+    // The Record covers every removable drag source, so a new zone is a type
+    // error until its removal is wired up here.
+    const zoneRemovers: Record<RemovableDragSource, (fieldIds: string[]) => void> = {
+        X_AXIS: removeFromAxes,
+        Y_AXIS: removeFromAxes,
+        FILTER_ZONE: (ids) => ids.forEach(filterController.removeFilter),
+        COLOR_ZONE: handleRemoveFromColor,
+        BACKGROUND_ZONE: handleRemoveFromBackground,
+        SIZE_ZONE: handleRemoveFromSize,
+        SHAPE_ZONE: dragDropHandlers.handleRemoveFromShape,
+        LINE_STYLE_ZONE: dragDropHandlers.handleRemoveFromLineStyle,
+        LABEL_ZONE: (ids) => ids.forEach(handleRemoveFromLabel),
+        TOOLTIP_ZONE: (ids) => ids.forEach(handleRemoveFromTooltip),
+        TABLE_ZONE: handleRemoveFromTableColumns,
+        MEASURE_GROUP: handleRemoveFromMeasureGroup,
+    };
+    // FieldsPanel's memo ignores callback props, so it keeps the first handler
+    // it receives; a stable callback reading the latest removers stays current.
+    const zoneRemoversRef = useRef(zoneRemovers);
+    zoneRemoversRef.current = zoneRemovers;
+    const handleRemoveFromZone = useCallback<RemoveFromZone>((source, fieldIds) => {
+        const removers = zoneRemoversRef.current;
+        if (Object.prototype.hasOwnProperty.call(removers, source)) {
+            removers[source as RemovableDragSource](fieldIds);
+        }
+    }, []);
     
     // Handler to load tables for a specific database (for cross-database union)
     const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {
@@ -646,18 +683,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                                     fieldsSearch={fieldsSearch}
                                     onFieldsSearchChange={setFieldsSearch}
                                     onFieldUpdate={handleFieldUpdate}
-                                    onRemoveFromAxis={handleRemoveFromAxis}
-                                    onRemoveMultipleFromAxis={handleRemoveMultipleFromAxis}
-                                    onRemoveFromFilter={(ids) => ids.forEach(filterController.removeFilter)}
-                                    onRemoveFromColor={handleRemoveFromColor}
-                                    onRemoveFromSize={handleRemoveFromSize}
-                                    onRemoveFromLabel={(ids) => ids.forEach(handleRemoveFromLabel)}
-                                    onRemoveFromTooltip={(ids) => ids.forEach(handleRemoveFromTooltip)}
-                                    onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
-                                    onRemoveFromBackground={handleRemoveFromBackground}
-                                    onRemoveFromShape={dragDropHandlers.handleRemoveFromShape}
-                                    onRemoveFromTableColumns={handleRemoveFromTableColumns}
-                                    onRemoveFromLineStyle={dragDropHandlers.handleRemoveFromLineStyle}
+                                    onRemoveFromZone={handleRemoveFromZone}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
                                     virtualColumns={virtualColumns}

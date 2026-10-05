@@ -4,27 +4,17 @@ import { useSelectionStore } from '../stores/selectionStore';
 import { getDragData, readDragPayload } from '../utils/dragDataStore';
 
 /**
- * Custom hook to handle drag and drop operations in the fields panel
- * @param onRemoveFromAxis Function to call when removing a single field from an axis
- * @param onRemoveMultipleFromAxis Optional function to call when removing multiple fields (batched)
- *
- * Every zone other than the axes removes its whole batch in one call, so a
- * multi-field drag out of a zone lands as a single state update.
+ * Removes the given fields from the zone they were dragged out of. `source` is
+ * the drag payload's source as received, so unknown values must be ignored.
  */
-export function useFieldsPanelDrag(
-  onRemoveFromAxis: (fieldId: string) => void,
-  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void,
-  onRemoveFromFilter?: (fieldIds: string[]) => void,
-  onRemoveFromColor?: (fieldIds: string[]) => void,
-  onRemoveFromSize?: (fieldIds: string[]) => void,
-  onRemoveFromLabel?: (fieldIds: string[]) => void,
-  onRemoveFromTooltip?: (fieldIds: string[]) => void,
-  onRemoveFromMeasureGroup?: (fieldIds: string[]) => void,
-  onRemoveFromBackground?: (fieldIds: string[]) => void,
-  onRemoveFromShape?: (fieldIds: string[]) => void,
-  onRemoveFromTableColumns?: (fieldIds: string[]) => void,
-  onRemoveFromLineStyle?: (fieldIds: string[]) => void
-) {
+export type RemoveFromZone = (source: string, fieldIds: string[]) => void;
+
+/**
+ * Custom hook to handle drag and drop operations in the fields panel.
+ * Dropping chips dragged out of any zone removes them from that zone in one
+ * `onRemoveFromZone` call, so a multi-field drag lands as a single update.
+ */
+export function useFieldsPanelDrag(onRemoveFromZone: RemoveFromZone) {
   const [isDragOver, setIsDragOver] = useState(false);
   
   // Get clearSelection action (stable reference, never causes re-render)
@@ -72,36 +62,7 @@ export function useFieldsPanelDrag(
         return;
       }
 
-      const fieldIds = fields.map((f: any) => f.id);
-
-      if (source === 'X_AXIS' || source === 'Y_AXIS') {
-        // Use batch removal for multiple fields to avoid race conditions
-        if (fieldIds.length > 1 && onRemoveMultipleFromAxis) {
-          onRemoveMultipleFromAxis(fieldIds);
-        } else {
-          fieldIds.forEach(onRemoveFromAxis);
-        }
-      } else if (source === 'FILTER_ZONE') {
-        onRemoveFromFilter?.(fieldIds);
-      } else if (source === 'COLOR_ZONE') {
-        onRemoveFromColor?.(fieldIds);
-      } else if (source === 'SIZE_ZONE') {
-        onRemoveFromSize?.(fieldIds);
-      } else if (source === 'LABEL_ZONE') {
-        onRemoveFromLabel?.(fieldIds);
-      } else if (source === 'TOOLTIP_ZONE') {
-        onRemoveFromTooltip?.(fieldIds);
-      } else if (source === 'MEASURE_GROUP') {
-        onRemoveFromMeasureGroup?.(fieldIds);
-      } else if (source === 'BACKGROUND_ZONE') {
-        onRemoveFromBackground?.(fieldIds);
-      } else if (source === 'SHAPE_ZONE') {
-        onRemoveFromShape?.(fieldIds);
-      } else if (source === 'LINE_STYLE_ZONE') {
-        onRemoveFromLineStyle?.(fieldIds);
-      } else if (source === 'TABLE_ZONE') {
-        onRemoveFromTableColumns?.(fieldIds);
-      }
+      onRemoveFromZone(source, fields.map((f: any) => f.id));
 
       // Clear selection after successful removal
       clearSelection();

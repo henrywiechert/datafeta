@@ -82,6 +82,7 @@ export type {
   DistributionVariant,
   PieVariant,
   DragSource,
+  RemovableDragSource,
   Field,
   MeasureGroup,
   DataLabelMode,

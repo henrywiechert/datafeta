@@ -34,6 +34,9 @@ export type DragSource =
   | 'TABLE_ZONE'
   | 'MEASURE_GROUP';
 
+/** Zones a field can be dragged out of (everything but the field list itself). */
+export type RemovableDragSource = Exclude<DragSource, 'AVAILABLE_FIELDS'>;
+
 export interface Field {
   id: string; // A unique ID for each chip instance
   columnName: string;

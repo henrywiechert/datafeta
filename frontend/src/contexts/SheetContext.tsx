@@ -2,9 +2,8 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, SheetPanelLayout, Field, FilterConfig } from '../types';
-import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
-import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
-import { DEFAULT_MANUAL_LINE_STYLE } from '../observable-plot-generator/utils/lineStyleUtils';
+import { initialState as initialVisualizationState } from './VisualizationContext/initialState';
+import { buildSheetSnapshot } from './VisualizationContext/sheetSnapshot';
 import { createMeasureGroup } from '../utils/syntheticFields';
 import { refreshRelativeDateTimeFilters } from '../services/relativeDateTimeFilters';
 
@@ -22,119 +21,17 @@ export function clearSheetStorage(): void {
   }
 }
 
-// Helper to create empty visualization state
+// Helper to create empty visualization state: the visualization defaults
+// restricted to the keys a sheet stores, so a new sheet and a freshly mounted
+// VisualizationProvider start from the same values.
 // Note: These are NOT included because they are shared across all sheets:
 // - selectedDatabase, selectedTable (data source selection)
 // - availableFields (derived from selected table)
-function createEmptyVisualizationState(): VisualizationStateSnapshot {
+export function createEmptyVisualizationState(): VisualizationStateSnapshot {
   return {
-    xAxisFields: [],
-    yAxisFields: [],
-    filterFields: [],
-    filterConfigurations: {},
-    appliedFilterConfigurations: {},
-    colorField: null,
-    colorScheme: 'tableau10',
-    colorBias: 0,
-    colorReversed: false,
-    manualColor: DEFAULT_MANUAL_COLOR,
-    sizeField: null,
-    sizeRange: [4, 20],
-    manualSize: 10,
-    labelFields: [],
-    labelsEnabled: false,
-    labelSamplingStrategy: 'auto',
-    labelSamplingThreshold: 300,
-    labelSampleEvery: 1,
-    shapeField: null,
-    manualShape: DEFAULT_MANUAL_SHAPE,
-    lineStyleField: null,
-    manualLineStyle: DEFAULT_MANUAL_LINE_STYLE,
-    bandThicknessScale: 1.0,
-    globalChartType: null,
-    selectedChartType: 'auto',
-    independentDomains: { x: false, y: false },
-    tooltipFields: [],
-    labelFontSize: 10,
-    fieldOverrides: {},
-    optimizationSettings: {
-      forceRemote: true,
-      sizeThreshold: 5_000_000,
-      maxPointsSingle: 50_000,
-      maxPointsFaceted: 50_000,
-      maxPointsWithDiscreteColor: 20_000,
-      minPerStratumWithDiscreteColor: 200,
-      lineBudgetMaxRows: 50_000,
-      enableRounding: false,
-      roundingThresholdLight: 1000,
-      roundingThresholdBalanced: 500,
-      roundingThresholdAggressive: 200,
-    },
+    ...buildSheetSnapshot(initialVisualizationState, new Set()),
+    // Each sheet owns its measure group.
     measureGroup: createMeasureGroup(),
-    axisLabelStyles: {
-      xAxis: {
-        fontSize: 10,
-        orientation: 'horizontal',
-        categoryOrientation: 'vertical',
-        heightPx: null,
-      },
-      yAxis: {
-        fontSize: 10,
-        orientation: 'vertical',
-        widthPx: null,
-      },
-    },
-    facetLabelStyles: {
-      topHeader: {
-        fontSize: 12,
-        fontSizeByDepth: [],
-        orientation: 'horizontal',
-        orientationByDepth: [],
-        horizontalAlign: 'center',
-        verticalAlign: 'center',
-        horizontalAlignByDepth: [],
-        verticalAlignByDepth: [],
-      },
-      topValues: {
-        fontSize: 10,
-        orientation: 'horizontal',
-        orientationByDepth: [],
-        heightPx: null,
-        heightPxByDepth: [],
-        horizontalAlign: 'center',
-        verticalAlign: 'center',
-        horizontalAlignByDepth: [],
-        verticalAlignByDepth: [],
-        wrapMode: 'wrap',
-        wrapModeByDepth: [],
-      },
-      leftHeader: {
-        fontSize: 12,
-        fontSizeByDepth: [],
-        orientation: 'vertical',
-        orientationByDepth: [],
-        widthPx: null,
-        horizontalAlign: 'center',
-        verticalAlign: 'center',
-        horizontalAlignByDepth: [],
-        verticalAlignByDepth: [],
-      },
-      leftValues: {
-        fontSize: 10,
-        orientation: 'horizontal',
-        orientationByDepth: [],
-        widthPx: null,
-        widthPxByDepth: [],
-        horizontalAlign: 'center',
-        verticalAlign: 'center',
-        horizontalAlignByDepth: [],
-        verticalAlignByDepth: [],
-        wrapMode: 'wrap',
-        wrapModeByDepth: [],
-      },
-    },
-    chartCaption: '# Chart Title',
-    showChartCaption: false,
   };
 }
 
