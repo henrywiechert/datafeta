@@ -294,13 +294,26 @@ describe('TableAddPicker — add-from-all-connected action', () => {
     expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('Select a table');
   });
 
-  it('is blocked when no other database is connected', () => {
+  it('is hidden when no other database is connected', () => {
     renderPicker();
 
     stageTable('events');
 
-    expect(button(ADD_EVERYWHERE_LABEL)).toBeDisabled();
-    expect(tooltipFor(ADD_EVERYWHERE_LABEL)).toBe('No other database connected');
+    expect(
+      screen.queryByRole('button', { name: ADD_EVERYWHERE_LABEL })
+    ).not.toBeInTheDocument();
+  });
+
+  it('appears once another database is staged', () => {
+    renderPicker();
+
+    expect(
+      screen.queryByRole('button', { name: ADD_EVERYWHERE_LABEL })
+    ).not.toBeInTheDocument();
+
+    stageDatabase('prod_eu');
+
+    expect(button(ADD_EVERYWHERE_LABEL)).toBeInTheDocument();
   });
 
   it('loads uncached connected table lists and waits for them', () => {
