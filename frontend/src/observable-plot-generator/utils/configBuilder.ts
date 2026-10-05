@@ -11,6 +11,7 @@ import { listMarkEncodingFields } from '../../utils/encodingFields';
 import { computeSharedDomainsForFaceting } from '../faceting/facetDomains';
 import { buildCategoryTickFormatter } from './categoryTickFormatter';
 import { resolveContextColorChannel } from './colorSchemeUtils';
+import { buildLineStyleEncoding } from './lineStyleUtils';
 
 /**
  * Compute SharedDomains from ChartGenerationContext.
@@ -200,6 +201,7 @@ export function buildCartesianPlotsConfig(
         field: context.shapeField,
         manual: context.manualShape,
       },
+      lineStyle: buildLineStyleEncoding(context.lineStyleField, context.manualLineStyle, context.queryResult.rows),
     },
     labels: labelCfg,
     tooltipFields: context.tooltipFields,

@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import { useVisualizationContext } from './useVisualizationContext';
 import { Channels } from '../../types/channels';
+import { isEffectiveLineChart } from '../../utils/effectiveChartType';
 
 /**
  * Selector hook that assembles the grouped Channels object from the flat
@@ -10,9 +11,14 @@ import { Channels } from '../../types/channels';
  * dependency instead of ~16 individual state fields.
  *
  * The flat VisualizationState and its reducer remain unchanged.
+ *
+ * The line-style field only reaches the channels while the sheet renders as a
+ * line chart. It stays in state (so switching back restores it) but is not
+ * queried, drawn or shown in a legend for other chart types.
  */
 export function useChannels(): Channels {
   const { state } = useVisualizationContext();
+  const lineChart = isEffectiveLineChart(state);
 
   return useMemo<Channels>(() => ({
     color: {
@@ -31,6 +37,10 @@ export function useChannels(): Channels {
     shape: {
       field: state.shapeField,
       manual: state.manualShape,
+    },
+    lineStyle: {
+      field: lineChart ? state.lineStyleField : null,
+      manual: state.manualLineStyle,
     },
     label: {
       fields: state.labelFields,
@@ -52,6 +62,7 @@ export function useChannels(): Channels {
     state.colorField, state.colorScheme, state.colorBias, state.colorReversed, state.manualColor,
     state.sizeField, state.sizeRange, state.manualSize, state.bandThicknessScale,
     state.shapeField, state.manualShape,
+    lineChart, state.lineStyleField, state.manualLineStyle,
     state.labelFields, state.labelsEnabled, state.labelSamplingStrategy,
     state.labelSamplingThreshold, state.labelSampleEvery, state.labelFontSize,
     state.tooltipFields,

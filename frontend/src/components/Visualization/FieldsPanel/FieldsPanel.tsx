@@ -35,6 +35,7 @@ interface FieldsPanelProps {
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void;
   onRemoveFromBackground?: (fieldIds: string[]) => void;
   onRemoveFromShape?: (fieldIds: string[]) => void;
+  onRemoveFromLineStyle?: (fieldIds: string[]) => void;
   /** Removes columns from the table view's "Columns" zone (raw rows mode). */
   onRemoveFromTableColumns?: (fieldIds: string[]) => void;
   /**
@@ -69,6 +70,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveFromBackground,
   onRemoveFromShape,
   onRemoveFromTableColumns,
+  onRemoveFromLineStyle,
   selectedDatabase,
   selectedTable,
   // Virtual columns props
@@ -113,7 +115,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     onRemoveFromMeasureGroup,
     onRemoveFromBackground,
     onRemoveFromShape,
-    onRemoveFromTableColumns
+    onRemoveFromTableColumns,
+    onRemoveFromLineStyle
   );
   
   // Handle keyboard shortcuts

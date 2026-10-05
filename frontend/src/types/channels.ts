@@ -31,6 +31,11 @@ export interface ShapeChannel {
   manual: string;
 }
 
+export interface LineStyleChannel {
+  field: Field | null;
+  manual: string;
+}
+
 export interface LabelChannel {
   fields: Field[];
   enabled: boolean;
@@ -54,6 +59,7 @@ export interface Channels {
   color: ColorChannel;
   size: SizeChannel;
   shape: ShapeChannel;
+  lineStyle: LineStyleChannel;
   label: LabelChannel;
   tooltip: TooltipChannel;
   facetBackground: FacetBackgroundChannel;

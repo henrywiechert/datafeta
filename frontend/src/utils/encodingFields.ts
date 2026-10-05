@@ -15,13 +15,15 @@ import type { Field } from '../types/field';
  * - `scope`: `'mark'` encodings are drawn on marks and flow into the plot
  *   generator; `'pane'` encodings only style facet cells.
  *
- * Order is significant: it fixes the order of the cache-hash parts.
+ * Order is significant: it fixes the order of the cache-hash parts, so new
+ * entries go at the end.
  */
 export const ENCODING_FIELDS = [
   { key: 'colorField', channel: 'color', scope: 'mark' },
   { key: 'sizeField', channel: 'size', scope: 'mark' },
   { key: 'shapeField', channel: 'shape', scope: 'mark' },
   { key: 'facetBackgroundField', channel: 'facetBackground', scope: 'pane' },
+  { key: 'lineStyleField', channel: 'lineStyle', scope: 'mark' },
 ] as const;
 
 export type EncodingFieldKey = (typeof ENCODING_FIELDS)[number]['key'];

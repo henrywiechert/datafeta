@@ -21,6 +21,7 @@ export interface ShelfActions {
   setColorField: (field: Field) => void;
   setSizeField: (field: Field) => void;
   setShapeField: (field: Field) => void;
+  setLineStyleField: (field: Field) => void;
   addLabelField: (field: Field) => void;
   addTooltipField: (field: Field) => void;
   setBackgroundField: (field: Field) => void;
@@ -67,6 +68,10 @@ export function useShelfActions(): ShelfActions {
     setShapeField: (field) => {
       recordUndoPoint();
       dispatch({ type: 'SET_SHAPE_FIELD', payload: field });
+    },
+    setLineStyleField: (field) => {
+      recordUndoPoint();
+      dispatch({ type: 'SET_LINE_STYLE_FIELD', payload: field });
     },
     addLabelField: (field) => {
       const { labelFields, fieldOverrides } = stateRef.current;

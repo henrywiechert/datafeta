@@ -3,6 +3,7 @@ import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVari
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
+import type { LineStyleEncoding } from './utils/lineStyleUtils';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import type { ViewSpec } from '../viewPlanner/types';
 import * as Plot from '@observablehq/plot';
@@ -59,6 +60,7 @@ export interface CartesianPlotsConfig {
     color?: ColorChannel;
     size?: { field?: Field; range?: [number, number]; manual?: number; scaleData?: any[] };
     shape?: { field?: Field; manual?: string };
+    lineStyle?: LineStyleEncoding;
   };
   labels?: LabelConfig;
   tooltipFields?: Field[];
@@ -97,6 +99,9 @@ export interface ChartGenerationContext {
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field;
   manualShape?: string;
+  // Line style encoding (line charts only, discrete only)
+  lineStyleField?: Field;
+  manualLineStyle?: string;
   // Facet background encoding
   facetBackgroundField?: Field;
   facetBackgroundScheme?: string;

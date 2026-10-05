@@ -16,6 +16,7 @@ const SHELF_OPTIONS: Array<{ shelf: FieldAssignShelf; label: string }> = [
   { shelf: 'color', label: 'Color' },
   { shelf: 'size', label: 'Size' },
   { shelf: 'shape', label: 'Shape' },
+  { shelf: 'lineStyle', label: 'Line style' },
   { shelf: 'label', label: 'Labels' },
   { shelf: 'tooltip', label: 'Tooltip' },
   { shelf: 'background', label: 'Background' },

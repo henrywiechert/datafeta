@@ -22,7 +22,8 @@ export function useFieldsPanelDrag(
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void,
   onRemoveFromBackground?: (fieldIds: string[]) => void,
   onRemoveFromShape?: (fieldIds: string[]) => void,
-  onRemoveFromTableColumns?: (fieldIds: string[]) => void
+  onRemoveFromTableColumns?: (fieldIds: string[]) => void,
+  onRemoveFromLineStyle?: (fieldIds: string[]) => void
 ) {
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -96,6 +97,8 @@ export function useFieldsPanelDrag(
         onRemoveFromBackground?.(fieldIds);
       } else if (source === 'SHAPE_ZONE') {
         onRemoveFromShape?.(fieldIds);
+      } else if (source === 'LINE_STYLE_ZONE') {
+        onRemoveFromLineStyle?.(fieldIds);
       } else if (source === 'TABLE_ZONE') {
         onRemoveFromTableColumns?.(fieldIds);
       }

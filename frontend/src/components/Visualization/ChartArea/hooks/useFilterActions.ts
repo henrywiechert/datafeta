@@ -33,7 +33,7 @@ export function useFilterActions({
   virtualColumns,
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
-  const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
+  const { colorField, filterFields, filterConfigurations, queryResult, shapeField, lineStyleField } = state;
   const recordUndoPoint = useRecordUndoPoint();
 
   // Names of virtual columns whose value is a URL.
@@ -119,6 +119,14 @@ export function useFilterActions({
       applyDiscreteLegendFilterAction(shapeField, action, values, allDomainValues);
     },
     [applyDiscreteLegendFilterAction, shapeField],
+  );
+
+  // ── Line Style Legend → Filter bridge ────────────────────────────────
+  const handleLineStyleLegendFilterAction = useCallback(
+    (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
+      applyDiscreteLegendFilterAction(lineStyleField, action, values, allDomainValues);
+    },
+    [applyDiscreteLegendFilterAction, lineStyleField],
   );
 
   // ── Tooltip → Filter bridge ──────────────────────────────────────────
@@ -238,5 +246,5 @@ export function useFilterActions({
     return mutated ? { ...grid, cells } : grid;
   }, [grid, handleTooltipFilterAction, linkColumns]);
 
-  return { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction };
+  return { handleLegendFilterAction, handleShapeLegendFilterAction, handleLineStyleLegendFilterAction, gridWithTooltipAction };
 }

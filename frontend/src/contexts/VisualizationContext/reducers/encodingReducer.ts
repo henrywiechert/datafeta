@@ -81,6 +81,16 @@ export function encodingReducer(state: VisualizationState, action: Visualization
     case 'REMOVE_SHAPE_FIELD':
       if (!state.shapeField) return state;
       return { ...state, shapeField: null, queryVersion: state.queryVersion + 1 };
+
+    // Line style encoding (line charts only, discrete only)
+    case 'SET_LINE_STYLE_FIELD':
+      if (state.lineStyleField === action.payload) return state;
+      return { ...state, lineStyleField: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'SET_MANUAL_LINE_STYLE':
+      return { ...state, manualLineStyle: action.payload };
+    case 'REMOVE_LINE_STYLE_FIELD':
+      if (!state.lineStyleField) return state;
+      return { ...state, lineStyleField: null, queryVersion: state.queryVersion + 1 };
     
     // Label encoding
     case 'SET_LABEL_FIELDS': {

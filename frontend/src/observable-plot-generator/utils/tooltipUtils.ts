@@ -86,6 +86,7 @@ export function formatTooltipValue(val: any, sourceField?: Field): string {
  * @param tooltipFields - Additional user-selected tooltip fields
  * @param excludeColumns - Columns to exclude from tooltip
  * @param facetFields - Fields used for faceting (shown at top of tooltip for context)
+ * @param encodingFields - Further encoding fields (e.g. shape, line style), shown after size
  */
 export function createTooltipFieldsGetter(
   mainFields: { label: string; column: string; sourceField?: Field }[],
@@ -94,7 +95,7 @@ export function createTooltipFieldsGetter(
   tooltipFields?: Field[],
   excludeColumns?: string[],
   facetFields?: Field[],
-  shapeField?: Field
+  encodingFields: Array<Field | undefined> = []
 ): (d: any) => TooltipField[] {
   return (d: any): TooltipField[] => {
     const fields: TooltipField[] = [];
@@ -164,19 +165,20 @@ export function createTooltipFieldsGetter(
       }
     }
 
-    // Add shape field if present
-    if (shapeField) {
-      const shapeColumnName = getResultColumnName(shapeField);
-      if (!exclude.has(shapeColumnName)) {
-        const value = d[shapeColumnName];
+    // Add further encoding fields (shape, line style) if present
+    for (const encodingField of encodingFields) {
+      if (!encodingField) continue;
+      const columnName = getResultColumnName(encodingField);
+      if (!exclude.has(columnName)) {
+        const value = d[columnName];
         fields.push({
-          label: tooltipLabel(shapeField),
+          label: tooltipLabel(encodingField),
           value: value,
-          formattedValue: formatTooltipValue(value, shapeField),
-          sourceField: shapeField,
+          formattedValue: formatTooltipValue(value, encodingField),
+          sourceField: encodingField,
           rawValue: value,
         });
-        exclude.add(shapeColumnName);
+        exclude.add(columnName);
       }
     }
     

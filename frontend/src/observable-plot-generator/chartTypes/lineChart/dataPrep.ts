@@ -1,6 +1,4 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import type { Field, LineColorMode } from '../../../types';
-import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
 import type { LineBudget, LineOrientation, PreparedLineData, XKind } from './types';
 
 const LINE_POINT_BUDGET = 1_000;
@@ -8,15 +6,15 @@ const DISCRETE_LINE_MIN_POINTS_PER_SERIES = 200;
 const LINE_DOT_BUDGET = 2_000;
 const DISCRETE_LINE_DOT_BUDGET = 5_000;
 
-function computeLineBudget(hasDiscreteColor: boolean): LineBudget {
+function computeLineBudget(splitsSeries: boolean): LineBudget {
   // Lines (and dots) can stack overflow when we render hundreds of thousands of points.
   // Dots are heavier than line segments so they get a separate (lower) cap.
   return {
     maxPoints: LINE_POINT_BUDGET,
-    minPerSeries: hasDiscreteColor ? DISCRETE_LINE_MIN_POINTS_PER_SERIES : 0,
+    minPerSeries: splitsSeries ? DISCRETE_LINE_MIN_POINTS_PER_SERIES : 0,
     // 5_000 lets typical multi-series datasets (e.g. 200 countries x 25 years)
     // show every dot while still protecting against stack overflows.
-    maxDots: hasDiscreteColor ? DISCRETE_LINE_DOT_BUDGET : LINE_DOT_BUDGET,
+    maxDots: splitsSeries ? DISCRETE_LINE_DOT_BUDGET : LINE_DOT_BUDGET,
   };
 }
 
@@ -191,10 +189,18 @@ export function normalizeTooltipComparisonKey(value: any): string {
   return `__OTHER__:${String(value)}`;
 }
 
-export function groupRowsByColorSeries(rows: any[], colorColumnName: string): Map<string, any[]> {
+/**
+ * Key of the line a row belongs to: its values in the series columns. With a
+ * single column this is that column's comparison key.
+ */
+export function seriesKeyOf(row: any, seriesColumns: readonly string[]): string {
+  return seriesColumns.map((column) => normalizeTooltipComparisonKey(row?.[column])).join('\u0000');
+}
+
+export function groupRowsBySeries(rows: any[], seriesColumns: readonly string[]): Map<string, any[]> {
   const groups = new Map<string, any[]>();
   for (const row of rows) {
-    const key = normalizeTooltipComparisonKey(row?.[colorColumnName]);
+    const key = seriesKeyOf(row, seriesColumns);
     const seriesRows = groups.get(key) || [];
     seriesRows.push(row);
     groups.set(key, seriesRows);
@@ -230,12 +236,11 @@ export function prepareLineData(params: {
   data: any[];
   independentColumn: string;
   dependentColumn: string;
-  colorField?: Field;
-  colorColumnName?: string;
+  /** Columns that split the data into separate lines; empty for a single line. */
+  seriesColumns: readonly string[];
   orientation: LineOrientation;
-  lineColorMode?: LineColorMode;
 }): PreparedLineData {
-  const { data, independentColumn, dependentColumn, colorField, colorColumnName, orientation, lineColorMode } = params;
+  const { data, independentColumn, dependentColumn, seriesColumns, orientation } = params;
 
   // Filter to finite numeric values for the dependent axis
   const clean = Array.isArray(data)
@@ -246,16 +251,16 @@ export function prepareLineData(params: {
   const cleanSorted = clean.slice().sort(compareByColumn(independentColumn));
 
   // ---- Auto bin-aggregation (line-specific) --------------------------------
-  const splitsSeries = lineColorSplitsSeries(colorField, lineColorMode);
+  const splitsSeries = seriesColumns.length > 0;
   const budget = computeLineBudget(splitsSeries);
   const axisKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[independentColumn]));
 
   const maxBins = budget.maxPoints;
   let budgetedSorted = cleanSorted;
   if (cleanSorted.length > maxBins) {
-    if (splitsSeries && colorColumnName) {
-      // Group by color, bin-aggregate each group separately
-      const groups = groupRowsByColorSeries(cleanSorted, colorColumnName);
+    if (splitsSeries) {
+      // Group by series, bin-aggregate each group separately
+      const groups = groupRowsBySeries(cleanSorted, seriesColumns);
       const reduced: any[] = [];
       for (const [, arr] of Array.from(groups.entries())) {
         const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
@@ -271,12 +276,12 @@ export function prepareLineData(params: {
 
   // Series grouping is derived once from the (globally sorted) budgeted rows, so
   // every group is already ordered by the independent column.
-  const seriesGroups = splitsSeries && colorColumnName
-    ? groupRowsByColorSeries(budgetedSorted, colorColumnName)
+  const seriesGroups = splitsSeries
+    ? groupRowsBySeries(budgetedSorted, seriesColumns)
     : undefined;
 
   // Dots are expensive at scale; cap dot density separately.
-  // When there is a discrete color field (multiple series), sample per-series so
+  // When the data splits into multiple series, sample per-series so
   // that the stride is independent of backend row order — otherwise a global
   // stride can skip entire countries or pick different rows on each re-query.
   // Use the actual total dot count to decide whether sampling is needed at all;

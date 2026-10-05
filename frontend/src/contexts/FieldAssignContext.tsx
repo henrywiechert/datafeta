@@ -13,6 +13,7 @@ export type FieldAssignShelf =
   | 'color'
   | 'size'
   | 'shape'
+  | 'lineStyle'
   | 'label'
   | 'tooltip'
   | 'background'

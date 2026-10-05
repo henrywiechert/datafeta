@@ -30,6 +30,7 @@ import HeatmapSizeBar from './components/HeatmapSizeBar';
 import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
+import LineStyleLegendPanel from '../Legend/LineStyleLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
@@ -289,7 +290,12 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     yAxisFields,
   ]);
 
-  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({ grid, virtualColumns });
+  const {
+    handleLegendFilterAction,
+    handleShapeLegendFilterAction,
+    handleLineStyleLegendFilterAction,
+    gridWithTooltipAction,
+  } = useFilterActions({ grid, virtualColumns });
   const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction);
 
   const handleHeatmapSizeToolbarChange = useCallback((toolbarState: HeatmapSizeToolbarState | null) => {
@@ -532,7 +538,8 @@ const ChartArea: React.FC<ChartAreaProps> = ({
   const showBackgroundLegend =
     Boolean(channels.facetBackground.field && queryResult?.rows?.length) && !showTableRows;
   const showShapeLegend = Boolean(channels.shape.field && queryResult?.rows?.length) && !showTableRows;
-  const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend;
+  const showLineStyleLegend = Boolean(channels.lineStyle.field && queryResult?.rows?.length) && !showTableRows;
+  const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend || showLineStyleLegend;
 
   // Grouped prop bags forwarded to ChartRenderer (and on to ChartGrid). Memoized
   // so ChartRenderer's React.memo isn't defeated by fresh object identities.
@@ -673,6 +680,13 @@ const ChartArea: React.FC<ChartAreaProps> = ({
                 shapeField={channels.shape.field}
                 queryResult={queryResult}
                 onFilterAction={handleShapeLegendFilterAction}
+              />
+            )}
+            {showLineStyleLegend && (
+              <LineStyleLegendPanel
+                lineStyleField={channels.lineStyle.field}
+                queryResult={queryResult}
+                onFilterAction={handleLineStyleLegendFilterAction}
               />
             )}
               </LegendStack>

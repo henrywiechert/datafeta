@@ -3,6 +3,7 @@ import { VisualizationState } from './types';
 import { DEFAULT_AREA_FILL_OPACITY, SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../../observable-plot-generator/utils/shapeUtils';
+import { DEFAULT_MANUAL_LINE_STYLE } from '../../observable-plot-generator/utils/lineStyleUtils';
 import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
 import { DEFAULT_DENSITY_PARAMS } from '../../types';
 import { createMeasureGroup } from '../../utils/syntheticFields';
@@ -45,6 +46,9 @@ export const initialState: VisualizationState = {
   // Shape encoding state (scatter only, discrete only)
   shapeField: null,
   manualShape: DEFAULT_MANUAL_SHAPE,
+  // Line style encoding state (line charts only, discrete only)
+  lineStyleField: null,
+  manualLineStyle: DEFAULT_MANUAL_LINE_STYLE,
   // Label configuration defaults
   labelFields: [],
   labelsEnabled: false,

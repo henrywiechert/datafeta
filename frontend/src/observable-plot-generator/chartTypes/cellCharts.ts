@@ -214,6 +214,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       lineColorMode: ctx.lineColorMode,
       seriesLabels: ctx.lineSeriesLabels,
       colorScaleInfo: ctx.colorScaleInfo,
+      lineStyle: ctx.lineStyle,
     });
   }
   
@@ -244,6 +245,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       lineColorMode: ctx.lineColorMode,
       seriesLabels: ctx.lineSeriesLabels,
       colorScaleInfo: ctx.colorScaleInfo,
+      lineStyle: ctx.lineStyle,
     });
   }
   

@@ -28,6 +28,7 @@ export type DragSource =
   | 'BACKGROUND_ZONE'
   | 'SIZE_ZONE'
   | 'SHAPE_ZONE'
+  | 'LINE_STYLE_ZONE'
   | 'LABEL_ZONE'
   | 'TOOLTIP_ZONE'
   | 'TABLE_ZONE'

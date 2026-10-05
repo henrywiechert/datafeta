@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { buildLineOptions, LineBuildParams, harmonizeLineChartDomains } from './lineChart';
+import { buildLineStyleEncoding, getLineStyleDashArray } from '../utils/lineStyleUtils';
 
 let warnSpy: jest.SpyInstance;
 
@@ -717,5 +718,100 @@ describe('buildLineOptions – time axis follows the independent axis', () => {
     expect(opts.y.tickFormat).toBeDefined();
     expect(opts.x.type).toBeUndefined();
     expect(opts.x.tickFormat).toBeUndefined();
+  });
+});
+
+describe('buildLineOptions – line style', () => {
+  const discreteField = (columnName: string) => ({
+    id: columnName,
+    columnName,
+    type: 'dimension',
+    flavour: 'discrete',
+  } as any);
+  const styleField = discreteField('channel');
+  const colorField = discreteField('region');
+
+  // Two regions × two channels: four lines.
+  const rows = [
+    { x: 1, 'AVG(y)': 10, region: 'East', channel: 'Online' },
+    { x: 2, 'AVG(y)': 12, region: 'East', channel: 'Online' },
+    { x: 1, 'AVG(y)': 20, region: 'East', channel: 'Store' },
+    { x: 2, 'AVG(y)': 22, region: 'East', channel: 'Store' },
+    { x: 1, 'AVG(y)': 30, region: 'West', channel: 'Online' },
+    { x: 2, 'AVG(y)': 32, region: 'West', channel: 'Online' },
+    { x: 1, 'AVG(y)': 40, region: 'West', channel: 'Store' },
+    { x: 2, 'AVG(y)': 42, region: 'West', channel: 'Store' },
+  ];
+
+  const build = (overrides: Partial<LineBuildParams> = {}): any =>
+    buildLineOptions({
+      data: rows,
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      ...overrides,
+    } as LineBuildParams);
+
+  const lineMarks = (opts: any): any[] => (opts.marks as any[]).filter((m) => m.type === 'line');
+  const markRows = (mark: any): any[] => (mark.opts.filter ? mark.data.filter(mark.opts.filter) : mark.data);
+
+  test('without a line style the single line mark carries no dash pattern', () => {
+    const marks = lineMarks(build());
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0].opts.strokeDasharray).toBeUndefined();
+    expect(marks[0].opts.filter).toBeUndefined();
+  });
+
+  test('applies the fixed style to the single line mark', () => {
+    const marks = lineMarks(build({ lineStyle: buildLineStyleEncoding(undefined, 'dashed', rows) }));
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0].opts.strokeDasharray).toBe(getLineStyleDashArray('dashed'));
+  });
+
+  test('emits one line mark per style, each over the shared rows', () => {
+    const opts = build({ lineStyle: buildLineStyleEncoding(styleField, 'solid', rows) });
+    const marks = lineMarks(opts);
+
+    // Ties in frequency sort alphabetically: Online → solid, Store → dashed.
+    expect(marks.map((m) => m.opts.strokeDasharray)).toEqual([undefined, getLineStyleDashArray('dashed')]);
+    expect(markRows(marks[0]).every((d: any) => d.channel === 'Online')).toBe(true);
+    expect(markRows(marks[1]).every((d: any) => d.channel === 'Store')).toBe(true);
+    // Every mark binds the highlight rows so path indices resolve against them.
+    marks.forEach((m) => expect(m.data).toBe(opts.__seriesHighlightData));
+  });
+
+  test('groups lines by color and line style together', () => {
+    const opts = build({
+      color: color(colorField),
+      lineStyle: buildLineStyleEncoding(styleField, 'solid', rows),
+    });
+    const [mark] = lineMarks(opts);
+    const seriesKeys = new Set(rows.map((d) => mark.opts.z(d)));
+
+    expect(seriesKeys.size).toBe(4);
+  });
+
+  test('labels each line end with its color and line style values', () => {
+    const opts = build({
+      color: color(colorField),
+      lineStyle: buildLineStyleEncoding(styleField, 'solid', rows),
+      seriesLabels: 'end',
+    });
+    const mark = (opts.marks as any[]).find((m) => m.type === 'text');
+
+    expect(markRows(mark).map((d: any) => mark.opts.text(d)).sort())
+      .toEqual(['East · Online', 'East · Store', 'West · Online', 'West · Store']);
+  });
+
+  test('lists every line in the pinned comparison and shows the field in the tooltip', () => {
+    const opts = build({ lineStyle: buildLineStyleEncoding(styleField, 'solid', rows) });
+    const tooltip = opts.__customTooltip;
+    const comparison = tooltip.getPinnedComparison(tooltip.data.find((d: any) => d.x === 1));
+
+    expect(comparison.items.map((item: any) => item.seriesLabel).sort()).toEqual(['Online', 'Online', 'Store', 'Store']);
+    expect(tooltip.getFields(rows[0]).map((f: any) => f.value)).toContain('Online');
   });
 });

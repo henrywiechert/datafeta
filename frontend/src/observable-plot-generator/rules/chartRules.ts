@@ -13,6 +13,7 @@ import { getResultColumnName, getFieldDisplayName as getFieldDisplayNameUtil } f
 import { BAR_STEP_PX, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { buildLineStyleEncoding } from '../utils/lineStyleUtils';
 import { T } from '../../theme/tokens';
 
 interface SizeOptions {
@@ -138,6 +139,7 @@ export function generateChartOptions(
   const color = resolveContextColorChannel(context);
   const colorField = color.field ?? undefined;
   const data = queryResult.rows;
+  const lineStyle = buildLineStyleEncoding(context.lineStyleField, context.manualLineStyle, data);
   
   devLog('[generateChartOptions] Entry - colorField:', colorField?.columnName, 'flavour:', colorField?.flavour,
     'data rows:', data?.length);
@@ -266,6 +268,7 @@ export function generateChartOptions(
         manualSize,
         labelCfg,
         tooltipFields,
+        lineStyle,
         xField: yDim,
         yField: xMeasureWithAgg,
       }),
@@ -292,6 +295,7 @@ export function generateChartOptions(
         manualSize,
         labelCfg,
         tooltipFields,
+        lineStyle,
         xField: xDim,
         yField: yMeasureWithAgg,
       }),
@@ -471,6 +475,7 @@ export function generateChartOptions(
         manualSize,
         labelCfg,
         tooltipFields,
+        lineStyle,
         xField: yDim,
         yField: xMeasureWithAgg,
       }),
@@ -497,6 +502,7 @@ export function generateChartOptions(
         manualSize,
         labelCfg,
         tooltipFields,
+        lineStyle,
         xField: xDim,
         yField: yMeasureWithAgg,
       }),

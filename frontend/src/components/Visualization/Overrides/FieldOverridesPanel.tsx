@@ -23,6 +23,7 @@ import ColorFieldControl from './ColorFieldControl';
 import BackgroundFieldControl from './BackgroundFieldControl';
 import SizeFieldControl from './SizeFieldControl';
 import ShapeFieldControl from './ShapeFieldControl';
+import LineStyleFieldControl from './LineStyleFieldControl';
 import LabelFieldControl from './LabelFieldControl';
 import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
@@ -32,6 +33,7 @@ import LineColorModeControl from './LineColorModeControl';
 import SeriesLabelControl from './SeriesLabelControl';
 import { shouldShowLineColorModeControl, shouldShowSeriesLabelControl } from '../../../utils/lineColorEncoding';
 import { resolveColorChannel } from '../../../utils/colorChannel';
+import { isEffectiveLineChart } from '../../../utils/effectiveChartType';
 import { getMeasureMemberLabel } from '../../../utils/syntheticFields';
 import { T } from '../../../theme/tokens';
 
@@ -142,6 +144,8 @@ const FieldOverridesPanel: React.FC = () => {
     facetBackgroundOpacity,
     shapeField,
     manualShape,
+    lineStyleField,
+    manualLineStyle,
   } = state;
 
   const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode, seriesLabels: lineSeriesLabels } = chartTypeParams.line;
@@ -207,8 +211,12 @@ const FieldOverridesPanel: React.FC = () => {
     ) ?? undefined;
   }, [globalChartType, xAxisFields, yAxisFields, colorField]);
 
-  const isLineChart =
-    globalChartType === 'line' || (!globalChartType && autoSelectedType === 'line');
+  const isLineChart = isEffectiveLineChart({
+    globalChartType,
+    xAxisFields: xAxisFields as Field[],
+    yAxisFields: yAxisFields as Field[],
+    colorField: colorField as Field | null,
+  });
   const showLineColorMode = shouldShowLineColorModeControl(
     colorField as Field | null,
     isLineChart,
@@ -564,6 +572,20 @@ const FieldOverridesPanel: React.FC = () => {
             applyGlobalAction({ type: 'REMOVE_SHAPE_FIELD' });
           }}
         />
+
+        {isLineChart && (
+          <LineStyleFieldControl
+            field={lineStyleField}
+            manualLineStyle={manualLineStyle}
+            onDrop={shelfActions.setLineStyleField}
+            onManualLineStyleChange={(style) => {
+              applyGlobalAction({ type: 'SET_MANUAL_LINE_STYLE', payload: style });
+            }}
+            onRemove={(_fieldIds) => {
+              applyGlobalAction({ type: 'REMOVE_LINE_STYLE_FIELD' });
+            }}
+          />
+        )}
 
         <LabelFieldControl
           labelFields={labelFields as Field[] || []}

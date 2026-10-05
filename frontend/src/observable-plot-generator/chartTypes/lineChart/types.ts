@@ -2,8 +2,18 @@
 import { ColorChannel, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../../types';
 import { LabelConfig } from '../../types';
 import type { ColorScaleInfo } from '../../utils/colorSchemeUtils';
+import type { LineStyleEncoding } from '../../utils/lineStyleUtils';
 
 export type LineOrientation = 'horizontal' | 'vertical';
+
+/**
+ * A column that splits the data into separate lines (color, line style).
+ * A line is one combination of values across all series parts.
+ */
+export interface SeriesPart {
+  column: string;
+  field?: Field;
+}
 
 export interface LineBuildParams {
   data: any[];
@@ -40,6 +50,8 @@ export interface LineBuildParams {
   lineColorMode?: LineColorMode;
   /** Direct labelling of each line's end with its color category value. */
   seriesLabels?: LineSeriesLabelMode;
+  /** Dash pattern per line, from a discrete field or one fixed style. */
+  lineStyle?: LineStyleEncoding;
 }
 
 export type LineBudget = {
@@ -57,7 +69,10 @@ export type PreparedLineData = {
   budgetedSorted: any[];
   dotData: any[];
   axisKind: XKind;
-  /** Rows grouped per color series, ordered by the independent column. Undefined when color does not split series. */
+  /**
+   * Rows grouped per line (one group per combination of the series columns),
+   * ordered by the independent column. Undefined when nothing splits series.
+   */
   seriesGroups?: Map<string, any[]>;
 };
 

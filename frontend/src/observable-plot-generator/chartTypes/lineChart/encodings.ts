@@ -5,6 +5,14 @@ import type { Field } from '../../../types';
 import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
 import { createSizeScale } from '../../utils/sizeUtils';
 import { resolveColorForRow, type ColorScaleInfo } from '../../utils/colorSchemeUtils';
+import {
+  getLineStyleDashArray,
+  getLineStyleForValue,
+  LINE_STYLES,
+  LINE_STYLE_OTHER,
+  type LineStyleEncoding,
+  type LineStyleName,
+} from '../../utils/lineStyleUtils';
 
 const DEFAULT_LINE_STROKE_WIDTH = 2;
 
@@ -141,4 +149,45 @@ export function attachLineColorScale(params: {
       label: getFieldDisplayName(colorField),
     } as any;
   }
+}
+
+/** Palette order, used to emit one line mark per style deterministically. */
+const LINE_STYLE_ORDER: readonly LineStyleName[] = [...LINE_STYLES, LINE_STYLE_OTHER];
+
+function withDashArray(config: any, style: LineStyleName): any {
+  const dashArray = getLineStyleDashArray(style);
+  return dashArray ? { ...config, strokeDasharray: dashArray } : config;
+}
+
+/**
+ * Line marks for the configured line style.
+ *
+ * Plot's `strokeDasharray` is constant per mark, so a line-style field becomes
+ * one line mark per style present in `data`. Each mark binds the full `data`
+ * array and selects its rows with `filter`, which keeps the path's element
+ * indices pointing into `data` (series highlighting resolves them there).
+ * Without a field, a single mark uses the fixed style.
+ */
+export function buildStyledLineMarks(params: {
+  data: any[];
+  lineConfig: any;
+  lineStyle?: LineStyleEncoding;
+  lineStyleColumn?: string;
+}): any[] {
+  const { data, lineConfig, lineStyle, lineStyleColumn } = params;
+  const scale = lineStyle?.scale;
+
+  if (!scale || !lineStyleColumn) {
+    return [Plot.line(data, lineStyle ? withDashArray(lineConfig, lineStyle.manual) : lineConfig)];
+  }
+
+  const styleOf = (d: any) => getLineStyleForValue(d?.[lineStyleColumn], scale);
+  const present = new Set(data.map(styleOf));
+
+  return LINE_STYLE_ORDER
+    .filter((style) => present.has(style))
+    .map((style) => Plot.line(data, withDashArray({
+      ...lineConfig,
+      filter: (d: any) => styleOf(d) === style,
+    }, style)));
 }

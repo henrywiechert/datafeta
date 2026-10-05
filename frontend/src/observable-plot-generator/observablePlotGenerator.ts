@@ -22,6 +22,7 @@ import { isTablePresentation } from './chartTypes/chartTypePresentation';
 import { resolveContextColorChannel } from './utils/colorSchemeUtils';
 import { T } from '../theme/tokens';
 import { listMarkEncodingFields } from '../utils/encodingFields';
+import { buildLineStyleEncoding } from './utils/lineStyleUtils';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -300,6 +301,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
         },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
         shape: { field: context.shapeField, manual: context.manualShape },
+        lineStyle: buildLineStyleEncoding(context.lineStyleField, context.manualLineStyle, queryResult.rows),
       },
       labels: labelCfg,
       tooltipFields: context.tooltipFields,
