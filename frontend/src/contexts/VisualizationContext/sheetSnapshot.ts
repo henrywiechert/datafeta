@@ -28,7 +28,7 @@ function stripSessionConfigs(
 export function buildSheetSnapshot(
   state: VisualizationState,
   sessionFilterIds: ReadonlySet<string>,
-): Partial<VisualizationStateSnapshot> {
+): VisualizationStateSnapshot {
   const persisted = Object.fromEntries(
     SHEET_SNAPSHOT_KEYS.map((key) => [key, state[key]]),
   ) as Pick<VisualizationState, SheetSnapshotKey>;

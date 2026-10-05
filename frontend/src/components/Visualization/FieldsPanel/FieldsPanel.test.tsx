@@ -39,7 +39,7 @@ const renderPanel = (overrides: Partial<React.ComponentProps<typeof FieldsPanel>
       fieldsSearch=""
       onFieldsSearchChange={jest.fn()}
       onFieldUpdate={jest.fn()}
-      onRemoveFromAxis={jest.fn()}
+      onRemoveFromZone={jest.fn()}
       selectedDatabase=""
       selectedTable="sample.csv"
       {...overrides}

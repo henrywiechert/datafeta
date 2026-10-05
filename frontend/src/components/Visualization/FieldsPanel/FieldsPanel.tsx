@@ -8,7 +8,7 @@ import SectionHeader from '../Properties/SectionHeader';
 import VirtualColumnManager from '../../VirtualColumns/VirtualColumnManager';
 import BinConfigDialog, { FieldStats } from '../../VirtualColumns/BinConfigDialog';
 import { Field, VirtualColumnDefinition } from '../../../types';
-import { useFieldsPanelDrag } from '../../../hooks/useFieldsPanelDrag';
+import { useFieldsPanelDrag, RemoveFromZone } from '../../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 import { useSelectionStore } from '../../../stores/selectionStore';
 import { fetchFieldStats } from '../../../apiService';
@@ -25,19 +25,8 @@ interface FieldsPanelProps {
   fieldsSearch: string;
   onFieldsSearchChange: (search: string) => void;
   onFieldUpdate: (fields: Field | Field[]) => void;
-  onRemoveFromAxis: (fieldId: string) => void;
-  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void;
-  onRemoveFromFilter?: (fieldIds: string[]) => void;
-  onRemoveFromColor?: (fieldIds: string[]) => void;
-  onRemoveFromSize?: (fieldIds: string[]) => void;
-  onRemoveFromLabel?: (fieldIds: string[]) => void;
-  onRemoveFromTooltip?: (fieldIds: string[]) => void;
-  onRemoveFromMeasureGroup?: (fieldIds: string[]) => void;
-  onRemoveFromBackground?: (fieldIds: string[]) => void;
-  onRemoveFromShape?: (fieldIds: string[]) => void;
-  onRemoveFromLineStyle?: (fieldIds: string[]) => void;
-  /** Removes columns from the table view's "Columns" zone (raw rows mode). */
-  onRemoveFromTableColumns?: (fieldIds: string[]) => void;
+  /** Removes chips dragged out of a zone (axis, filter, encoding, ...) and dropped on the panel. */
+  onRemoveFromZone: RemoveFromZone;
   /**
    * Names the table the "Create Bins..." action fetches column statistics
    * from. Everything else about picking a data source now lives in the
@@ -59,18 +48,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   fieldsSearch,
   onFieldsSearchChange,
   onFieldUpdate,
-  onRemoveFromAxis,
-  onRemoveMultipleFromAxis,
-  onRemoveFromFilter,
-  onRemoveFromColor,
-  onRemoveFromSize,
-  onRemoveFromLabel,
-  onRemoveFromTooltip,
-  onRemoveFromMeasureGroup,
-  onRemoveFromBackground,
-  onRemoveFromShape,
-  onRemoveFromTableColumns,
-  onRemoveFromLineStyle,
+  onRemoveFromZone,
   selectedDatabase,
   selectedTable,
   // Virtual columns props
@@ -104,20 +82,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     handleDragOver,
     handleDragLeave,
     handleDrop
-  } = useFieldsPanelDrag(
-    onRemoveFromAxis,
-    onRemoveMultipleFromAxis,
-    onRemoveFromFilter,
-    onRemoveFromColor,
-    onRemoveFromSize,
-    onRemoveFromLabel,
-    onRemoveFromTooltip,
-    onRemoveFromMeasureGroup,
-    onRemoveFromBackground,
-    onRemoveFromShape,
-    onRemoveFromTableColumns,
-    onRemoveFromLineStyle
-  );
+  } = useFieldsPanelDrag(onRemoveFromZone);
   
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -359,7 +324,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 };
 
 // Memoize FieldsPanel to prevent unnecessary re-renders
-// PERFORMANCE NOTE: Callbacks (onFieldUpdate, onRemoveFromAxis, etc.) are NOT compared
+// PERFORMANCE NOTE: Callbacks (onFieldUpdate, onRemoveFromZone, etc.) are NOT compared
 // because they are now stable thanks to refs pattern in useDragDrop and useFieldOperations.
 // This prevents FieldsPanel from re-rendering when chart state changes.
 export default React.memo(FieldsPanel, (prevProps, nextProps) => {
