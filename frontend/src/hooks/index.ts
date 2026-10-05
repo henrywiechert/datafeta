@@ -37,4 +37,3 @@ export { useUndoRedo } from './useUndoRedo';
 
 // Sheet caching hooks
 export { useSheetCacheSave, useSheetCacheRestore, useSheetCacheGridUpdate, useChartAreaCache } from './useSheetCacheCoordinator';
-export { useSheetRenderCache } from './useSheetRenderCache';

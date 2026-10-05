@@ -8,7 +8,7 @@ import ShareIcon from '@mui/icons-material/Share';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
 import { useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
-import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
+import { useDataSourceVersionSync } from './hooks/useDataSourceVersionSync';
 import { useSheetManagement } from './hooks/useSheetManagement';
 import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
