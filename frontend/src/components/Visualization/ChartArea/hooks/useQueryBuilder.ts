@@ -13,16 +13,15 @@ import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, Vir
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 import { buildViewSpec, ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
+import { EncodingFields } from '../../../../utils/encodingFields';
 
 export interface UseQueryBuilderProps {
   selectedTable: string | null;
   selectedDatabase: string | null;
   xAxisFields: Field[];
   yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField: Field | null;
-  shapeField?: Field | null;
-  facetBackgroundField?: Field | null;
+  /** Single-field encodings; identity should only change when one of them does. */
+  encodingFields: EncodingFields;
   filterConfigurations: Record<string, any>;
   labelFields: Field[];
   tooltipFields: Field[];
@@ -60,10 +59,7 @@ export const useQueryBuilder = ({
   selectedDatabase,
   xAxisFields,
   yAxisFields,
-  colorField,
-  sizeField,
-  shapeField,
-  facetBackgroundField,
+  encodingFields,
   filterConfigurations,
   labelFields,
   tooltipFields,
@@ -81,6 +77,9 @@ export const useQueryBuilder = ({
   globalChartType,
   distributionVariant = 'tick-strip',
 }: UseQueryBuilderProps): UseQueryBuilderReturn => {
+  // Color and size also steer optimization hints and query shape.
+  const colorField = encodingFields.colorField ?? null;
+  const sizeField = encodingFields.sizeField ?? null;
 
   const viewSpec = useMemo((): ViewSpec | null => {
     if (xAxisFields.length === 0 && yAxisFields.length === 0) {
@@ -91,10 +90,7 @@ export const useQueryBuilder = ({
       xAxisFields,
       yAxisFields,
       filterConfigurations,
-      colorField,
-      sizeField,
-      shapeField,
-      facetBackgroundField,
+      ...encodingFields,
       labelFields,
       tooltipFields,
       measureGroupMembers,
@@ -111,10 +107,7 @@ export const useQueryBuilder = ({
     xAxisFields,
     yAxisFields,
     filterConfigurations,
-    colorField,
-    sizeField,
-    shapeField,
-    facetBackgroundField,
+    encodingFields,
     labelFields,
     tooltipFields,
     measureGroupMembers,

@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field } from '../../../types';
 import { validateFields, validateOptionalField } from '../../../utils/fieldValidation';
+import { ENCODING_FIELD_KEYS, EncodingFieldKey } from '../../../utils/encodingFields';
 import { VisualizationState, VisualizationAction } from '../types';
 import { sameFieldArray } from './utils';
 
@@ -44,10 +45,10 @@ export function fieldValidationReducer(
   const labelFields = validateFields(state.labelFields, validNames);
   const tooltipFields = validateFields(state.tooltipFields, validNames);
   const tableColumnFields = validateFields(state.tableColumnFields, validNames);
-  const colorField = validateOptionalField(state.colorField, validNames);
-  const sizeField = validateOptionalField(state.sizeField, validNames);
-  const shapeField = validateOptionalField(state.shapeField, validNames);
-  const facetBackgroundField = validateOptionalField(state.facetBackgroundField, validNames);
+  const encodingFields = {} as Pick<VisualizationState, EncodingFieldKey>;
+  for (const key of ENCODING_FIELD_KEYS) {
+    encodingFields[key] = validateOptionalField(state[key], validNames);
+  }
   const members = validateFields(state.measureGroup.members, validMeasureNames);
 
   const unchanged =
@@ -58,10 +59,7 @@ export function fieldValidationReducer(
     sameFieldArray(state.tooltipFields, tooltipFields) &&
     sameFieldArray(state.tableColumnFields, tableColumnFields) &&
     sameFieldArray(state.measureGroup.members, members) &&
-    sameField(state.colorField, colorField) &&
-    sameField(state.sizeField, sizeField) &&
-    sameField(state.shapeField, shapeField) &&
-    sameField(state.facetBackgroundField, facetBackgroundField);
+    ENCODING_FIELD_KEYS.every((key) => sameField(state[key], encodingFields[key]));
 
   // Identity-stable no-op: this runs after every schema fetch, and a fresh
   // state object would re-render the whole sheet each time.
@@ -77,10 +75,7 @@ export function fieldValidationReducer(
     labelFields,
     tooltipFields,
     tableColumnFields,
-    colorField,
-    sizeField,
-    shapeField,
-    facetBackgroundField,
+    ...encodingFields,
     measureGroup: { ...state.measureGroup, members },
   };
 }

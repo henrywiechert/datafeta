@@ -3,6 +3,7 @@ import { getChartTypeDescriptor } from '../observable-plot-generator/chartTypeRe
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
 import { getResultColumnName } from '../utils/fieldUtils';
+import { listEncodingFields } from '../utils/encodingFields';
 import { Field } from '../types';
 import {
   BuildViewSpecInput,
@@ -124,12 +125,7 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 
   const allFields: Field[] = [...normalizedXFields, ...normalizedYFields];
   const axisFields = [...input.xAxisFields, ...input.yAxisFields];
-  const singleFields = [
-    input.colorField,
-    input.sizeField,
-    input.shapeField,
-    input.facetBackgroundField,
-  ].filter((field): field is Field => !!field);
+  const singleFields = listEncodingFields(input);
 
   for (const field of singleFields) {
     const entry = normalizeFieldWithDefaultAgg(field, true, axisFields);

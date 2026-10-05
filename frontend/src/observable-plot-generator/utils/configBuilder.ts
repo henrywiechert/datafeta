@@ -7,6 +7,7 @@
 import { Field } from '../../types';
 import { ChartGenerationContext, CartesianPlotsConfig, LabelConfig, SharedDomains } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { listMarkEncodingFields } from '../../utils/encodingFields';
 import { computeSharedDomainsForFaceting } from '../faceting/facetDomains';
 import { buildCategoryTickFormatter } from './categoryTickFormatter';
 import { resolveContextColorChannel } from './colorSchemeUtils';
@@ -173,9 +174,7 @@ export function buildCartesianPlotsConfig(
   const allFields = [
     ...xCandidates,
     ...yCandidates,
-    ...(color.field ? [color.field] : []),
-    ...(context.sizeField ? [context.sizeField] : []),
-    ...(context.shapeField ? [context.shapeField] : []),
+    ...listMarkEncodingFields(context, { colorField: color.field }),
   ];
 
   return {

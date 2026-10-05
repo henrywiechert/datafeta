@@ -34,16 +34,15 @@ import {
   SamplingBudget,
 } from './queryExecutorPlan';
 import { createQueryAffectingConfig, createRawQueryFieldsForCache } from '../../../../utils/queryAffectingConfig';
+import { EncodingFields } from '../../../../utils/encodingFields';
 
 export interface UseQueryExecutorProps {
   selectedTable: string | null;
   selectedDatabase: string | null;
   xAxisFields: Field[];
   yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField: Field | null;
-  shapeField?: Field | null;
-  facetBackgroundField?: Field | null;
+  /** Single-field encodings; identity should only change when one of them does. */
+  encodingFields: EncodingFields;
   filterConfigurations: Record<string, any>;
   appliedFilterConfigurations: Record<string, any>;
   labelFields: Field[];
@@ -88,10 +87,7 @@ export const useQueryExecutor = ({
   selectedDatabase,
   xAxisFields,
   yAxisFields,
-  colorField,
-  sizeField,
-  shapeField = null,
-  facetBackgroundField = null,
+  encodingFields,
   filterConfigurations,
   appliedFilterConfigurations,
   labelFields,
@@ -153,9 +149,7 @@ export const useQueryExecutor = ({
             appliedFilterConfigurations,
             labelFields,
             tooltipFields,
-            colorField,
-            sizeField,
-            shapeField,
+            ...encodingFields,
             virtualTable,
             virtualColumns,
             optimizationHints,
@@ -168,7 +162,7 @@ export const useQueryExecutor = ({
 
           const preparedQuery = prepareBudgetedQuery({
             queryDesc,
-            colorField,
+            colorField: encodingFields.colorField ?? null,
             distributionVariant,
             globalChartType,
             optimizationSettings,
@@ -234,10 +228,7 @@ export const useQueryExecutor = ({
                     xAxisFields,
                     yAxisFields,
                     appliedFilterConfigurations,
-                    colorField,
-                    sizeField,
-                    shapeField,
-                    facetBackgroundField,
+                    ...encodingFields,
                     labelFields,
                     tooltipFields,
                   })
@@ -331,8 +322,7 @@ export const useQueryExecutor = ({
           const fieldsForRemapping = buildFieldsForResultRemapping({
             xAxisFields,
             yAxisFields,
-            colorField,
-            sizeField,
+            encodingFields,
           });
 
           devLog('📊 Query result:', {
@@ -387,8 +377,7 @@ export const useQueryExecutor = ({
       startOperation,
       completeOperation,
       dispatch,
-      colorField,
-      sizeField,
+      encodingFields,
       xAxisFields,
       yAxisFields,
       measureGroupMembers,
@@ -396,8 +385,6 @@ export const useQueryExecutor = ({
       appliedFilterConfigurations,
       labelFields,
       tooltipFields,
-      shapeField,
-      facetBackgroundField,
       virtualTable,
       virtualColumns,
       selectedTable,

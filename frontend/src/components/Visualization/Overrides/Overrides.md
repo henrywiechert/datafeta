@@ -15,6 +15,8 @@ Overrides/
 ├── ColorFieldControl.tsx      # Color field drop zone + palette picker
 ├── SizeFieldControl.tsx       # Size field drop zone + range popover
 ├── SizeRangeControl.tsx       # Slider for size range/manual size
+├── ShapeFieldControl.tsx      # Shape config for DiscreteEncodingControl
+├── DiscreteEncodingControl.tsx # Discrete-only drop zone + manual value picker
 ├── LabelFieldControl.tsx      # Label fields drop zone + mode selector
 ├── TooltipFieldControl.tsx    # Tooltip fields drop zone
 └── overrideUtils.ts           # Shared utilities (chip styles, drag parsing)

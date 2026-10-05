@@ -3,6 +3,7 @@ import { Field } from '../../types';
 import { ChartGenerationContext } from '../types';
 import { buildRenderPlan, buildViewSpec, ViewSpec } from '../../viewPlanner';
 import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { pickEncodingFields } from '../../utils/encodingFields';
 
 /**
  * Simplified facet plan - only specifies which fields create facets.
@@ -48,10 +49,8 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   const viewSpec = buildViewSpec({
     xAxisFields: context.xFields,
     yAxisFields: context.yFields,
+    ...pickEncodingFields(context),
     colorField: color.field,
-    sizeField: context.sizeField || null,
-    shapeField: context.shapeField || null,
-    facetBackgroundField: context.facetBackgroundField || null,
     labelFields: context.labelFields || [],
     tooltipFields: context.tooltipFields || [],
     measureValuesSourceFields: context.measureValuesSourceFields || [],

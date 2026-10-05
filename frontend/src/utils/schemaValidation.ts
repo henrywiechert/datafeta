@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, Sheet, VirtualColumnDefinition } from '../types';
+import { ENCODING_FIELD_KEYS } from './encodingFields';
 
 export interface SchemaCheckResult {
   totalReferencedColumns: number;
@@ -285,10 +286,9 @@ export function collectReferencedColumnNames(
     // New entity plus legacy key for not-yet-migrated snapshots
     addFields(columns, vs.measureGroup?.members);
     addFields(columns, vs.measureGroupFields);
-    addColumnName(columns, vs.colorField);
-    addColumnName(columns, vs.sizeField);
-    addColumnName(columns, vs.shapeField);
-    addColumnName(columns, vs.facetBackgroundField);
+    for (const key of ENCODING_FIELD_KEYS) {
+      addColumnName(columns, vs[key]);
+    }
   });
 
   return columns;
