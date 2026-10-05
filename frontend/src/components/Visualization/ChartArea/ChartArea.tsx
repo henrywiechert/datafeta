@@ -44,6 +44,7 @@ import {
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
+import { encodingFieldsFromChannels } from '../../../utils/encodingFields';
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
@@ -468,10 +469,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
       xAxisFields,
       yAxisFields,
       appliedFilterConfigurations: chartFilterConfigurations,
-      colorField: channels.color.field,
-      sizeField: channels.size.field,
-      shapeField: channels.shape.field,
-      facetBackgroundField: channels.facetBackground.field,
+      ...encodingFieldsFromChannels(channels),
       labelFields: channels.label.fields,
       tooltipFields: channels.tooltip.fields,
       measureGroup,

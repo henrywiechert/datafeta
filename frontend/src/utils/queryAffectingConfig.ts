@@ -1,14 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, FilterConfig, FieldOverrideState, MeasureGroup, UserChartType, DistributionVariant, LineVariant, LineColorMode, LineSeriesLabelMode } from '../types';
+import { EncodingFieldKey, EncodingFields, listEncodingFieldEntries, pickEncodingFields } from './encodingFields';
 
-export interface QueryAffectingConfig {
+export interface QueryAffectingConfig extends EncodingFields {
   xAxisFields: Field[];
   yAxisFields: Field[];
   appliedFilterConfigurations: Record<string, FilterConfig>;
-  colorField: Field | null;
-  sizeField: Field | null;
-  shapeField?: Field | null;
-  facetBackgroundField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
   measureGroup?: MeasureGroup | null;
@@ -42,21 +39,14 @@ export interface ChartAffectingConfig extends QueryAffectingConfig {
   labelSampleEvery?: number;
 }
 
-export type QueryAffectingSingleFieldKey =
-  | 'colorField'
-  | 'sizeField'
-  | 'shapeField'
-  | 'facetBackgroundField';
+export type QueryAffectingSingleFieldKey = EncodingFieldKey;
 
 export function createQueryAffectingConfig(config: QueryAffectingConfig): QueryAffectingConfig {
   return {
     xAxisFields: config.xAxisFields,
     yAxisFields: config.yAxisFields,
     appliedFilterConfigurations: config.appliedFilterConfigurations,
-    colorField: config.colorField,
-    sizeField: config.sizeField,
-    shapeField: config.shapeField ?? null,
-    facetBackgroundField: config.facetBackgroundField ?? null,
+    ...pickEncodingFields(config),
     labelFields: config.labelFields ?? [],
     tooltipFields: config.tooltipFields ?? [],
     measureGroup: config.measureGroup ?? null,
@@ -93,14 +83,7 @@ export function createChartAffectingConfig(config: ChartAffectingConfig): ChartA
 export function getQueryAffectingSingleFields(
   config: QueryAffectingConfig,
 ): Array<{ key: QueryAffectingSingleFieldKey; field: Field }> {
-  const singleFields: Array<{ key: QueryAffectingSingleFieldKey; field: Field | null | undefined }> = [
-    { key: 'colorField', field: config.colorField },
-    { key: 'sizeField', field: config.sizeField },
-    { key: 'shapeField', field: config.shapeField },
-    { key: 'facetBackgroundField', field: config.facetBackgroundField },
-  ];
-
-  return singleFields.filter((entry): entry is { key: QueryAffectingSingleFieldKey; field: Field } => !!entry.field);
+  return listEncodingFieldEntries(config);
 }
 
 function rawFieldCacheKey(field: Field): string {

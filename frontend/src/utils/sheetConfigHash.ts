@@ -11,11 +11,17 @@
 
 import { Field, FilterConfig, FieldOverrideState } from '../types';
 import { ChartAffectingConfig, QueryAffectingConfig } from './queryAffectingConfig';
+import { ENCODING_FIELD_KEYS, EncodingFields } from './encodingFields';
 
 /**
  * Extract stable identity from a field for hashing.
  * Uses id and columnName as primary identifiers.
  */
+/** One hash part per registered encoding field, assigned or not. */
+function encodingFieldsToHashKeys(config: EncodingFields): string[] {
+  return ENCODING_FIELD_KEYS.map((key) => fieldToHashKey(config[key]));
+}
+
 function fieldToHashKey(field: Field | null | undefined): string {
   if (!field) return 'null';
   // Include properties that affect query/rendering
@@ -116,10 +122,7 @@ export function computeQueryConfigHash(config: QueryAffectingConfig): string {
     fieldsToHashKey(config.xAxisFields),
     fieldsToHashKey(config.yAxisFields),
     filtersToHashKey(config.appliedFilterConfigurations),
-    fieldToHashKey(config.colorField),
-    fieldToHashKey(config.sizeField),
-    fieldToHashKey(config.shapeField || null),
-    fieldToHashKey(config.facetBackgroundField || null),
+    ...encodingFieldsToHashKeys(config),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroup?.members || []),
@@ -140,10 +143,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     fieldsToHashKey(config.xAxisFields),
     fieldsToHashKey(config.yAxisFields),
     filtersToHashKey(config.appliedFilterConfigurations),
-    fieldToHashKey(config.colorField),
-    fieldToHashKey(config.sizeField),
-    fieldToHashKey(config.shapeField || null),
-    fieldToHashKey(config.facetBackgroundField || null),
+    ...encodingFieldsToHashKeys(config),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroup?.members || []),

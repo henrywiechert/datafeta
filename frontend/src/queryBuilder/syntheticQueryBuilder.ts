@@ -11,6 +11,7 @@ import {
 } from '../utils/syntheticFields';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { apiService } from '../apiService';
+import { EncodingFields, listEncodingFields } from '../utils/encodingFields';
 
 /**
  * Detect if synthetic fields (MeasureNames or MeasureValues) are being used
@@ -49,14 +50,12 @@ export async function buildUnpivotedQuery({
   appliedFilterConfigurations,
   labelFields = [],
   tooltipFields = [],
-  colorField = null,
-  sizeField = null,
-  shapeField = null,
   virtualTable = null,
   virtualColumns = [],
   optimizationHints = undefined,
   measureGroupMembers,
   signal,
+  ...encodingFields
 }: {
   xFields: Field[];
   yFields: Field[];
@@ -66,27 +65,20 @@ export async function buildUnpivotedQuery({
   appliedFilterConfigurations: Record<string, FilterConfig>;
   labelFields?: Field[];
   tooltipFields?: Field[];
-  colorField?: Field | null;
-  sizeField?: Field | null;
-  shapeField?: Field | null;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   optimizationHints?: any;
   measureGroupMembers: Field[];
   signal?: AbortSignal;
-}): Promise<QueryResult> {
+} & EncodingFields): Promise<QueryResult> {
   // Detect synthetic field usage - include all fields that should be in the query
   const allFields = [...xFields, ...yFields];
   
-  // Add colorField and sizeField if present (and not synthetic)
-  if (colorField && !isSyntheticField(colorField)) {
-    allFields.push(colorField);
-  }
-  if (sizeField && !isSyntheticField(sizeField)) {
-    allFields.push(sizeField);
-  }
-  if (shapeField && !isSyntheticField(shapeField)) {
-    allFields.push(shapeField);
+  // Add encoding fields if present (and not synthetic)
+  for (const field of listEncodingFields(encodingFields)) {
+    if (!isSyntheticField(field)) {
+      allFields.push(field);
+    }
   }
   const { hasMeasureNames, hasMeasureValues } = detectSyntheticFieldUsage(allFields);
 

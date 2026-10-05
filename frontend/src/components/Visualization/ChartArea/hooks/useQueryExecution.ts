@@ -13,7 +13,7 @@
  * Query execution is delegated to useQueryExecutor.
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { useSheetContext } from '../../../../contexts/SheetContext';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, Channels } from '../../../../types';
@@ -28,6 +28,7 @@ import { useQueryExecutor } from './useQueryExecutor';
 import { sheetRenderCacheStore } from '../../../../stores';
 import { computeFullConfigHash } from '../../../../utils/sheetConfigHash';
 import { createQueryAffectingConfig } from '../../../../utils/queryAffectingConfig';
+import { ENCODING_FIELDS, encodingFieldsFromChannels } from '../../../../utils/encodingFields';
 import { ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
 
@@ -93,10 +94,13 @@ export const useQueryExecution = ({
   additionalLabelFields = [],
   optimizationSettings,
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
-  const colorField = channels.color.field;
-  const sizeField = channels.size.field;
-  const shapeField = channels.shape.field;
-  const facetBackgroundField = channels.facetBackground.field;
+  const encodingFields = useMemo(
+    () => encodingFieldsFromChannels(channels),
+    // REASON: deps come from the encoding registry so the object's identity only
+    // changes when an encoding field does, not on scheme/size/label tweaks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ENCODING_FIELDS.map((entry) => channels[entry.channel].field),
+  );
   const labelFields = channels.label.fields;
   const tooltipFields = channels.tooltip.fields;
 
@@ -141,10 +145,7 @@ export const useQueryExecution = ({
         xAxisFields,
         yAxisFields,
         appliedFilterConfigurations: filterConfigurations,
-        colorField,
-        sizeField,
-        shapeField,
-        facetBackgroundField,
+        ...encodingFields,
         labelFields,
         tooltipFields,
         measureGroup: vizState.measureGroup,
@@ -185,10 +186,7 @@ export const useQueryExecution = ({
     selectedDatabase,
     xAxisFields,
     yAxisFields,
-    colorField,
-    sizeField,
-    shapeField,
-    facetBackgroundField,
+    encodingFields,
     filterConfigurations,
     labelFields,
     tooltipFields,
@@ -213,10 +211,7 @@ export const useQueryExecution = ({
     selectedDatabase,
     xAxisFields,
     yAxisFields,
-    colorField,
-    sizeField,
-    shapeField,
-    facetBackgroundField,
+    encodingFields,
     filterConfigurations,
     appliedFilterConfigurations: filterConfigurations,
     labelFields,

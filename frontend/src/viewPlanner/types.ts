@@ -6,6 +6,7 @@ import {
   FilterConfig,
   UserChartType,
 } from '../types';
+import type { EncodingFields } from '../utils/encodingFields';
 
 export type ViewGrain =
   | 'rawRows'
@@ -122,15 +123,11 @@ export interface ViewSpec {
   };
 }
 
-export interface BuildViewSpecInput {
+export interface BuildViewSpecInput extends EncodingFields {
   xAxisFields: Field[];
   yAxisFields: Field[];
   filterConfigurations?: Record<string, FilterConfig>;
   appliedFilterConfigurations?: Record<string, FilterConfig>;
-  colorField?: Field | null;
-  sizeField?: Field | null;
-  shapeField?: Field | null;
-  facetBackgroundField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
   /** Members of the sheet's measure group (member Field.id keys per-member overrides). */

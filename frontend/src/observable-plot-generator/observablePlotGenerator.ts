@@ -21,6 +21,7 @@ import { generateTableGrid, TableGridInput } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
 import { resolveContextColorChannel } from './utils/colorSchemeUtils';
 import { T } from '../theme/tokens';
+import { listMarkEncodingFields } from '../utils/encodingFields';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -306,7 +307,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       overrides,
       fieldOverrides: context.fieldOverrides,
       fieldOverrideTargets: context.fieldOverrideTargets,
-      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : []), ...(context.shapeField ? [context.shapeField] : [])],
+      allFields: [...xFields, ...yFields, ...listMarkEncodingFields(context, { colorField })],
       globalChartType: context.globalChartType,
       lineVariant: context.lineVariant,
       areaFillOpacity: context.areaFillOpacity,
@@ -412,9 +413,7 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
   const allFields: Field[] = [
     ...enrichedXFields,
     ...enrichedYFields,
-    ...(enrichedColorField ? [enrichedColorField] : []),
-    ...(enrichedSizeField ? [enrichedSizeField] : []),
-    ...(context.shapeField ? [context.shapeField] : []),
+    ...listMarkEncodingFields(context, { colorField: enrichedColorField, sizeField: enrichedSizeField }),
   ];
   const normalizedRows = normalizeTimelineData(queryResult.rows, allFields);
   const normalizedQueryResult = normalizedRows !== queryResult.rows

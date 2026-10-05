@@ -27,6 +27,21 @@ Session-scoped filters live in `DataSourceContext`; sheet-scoped filters live in
 `VisualizationContext`. Merge logic should go through `utils/effectiveFilters`
 instead of being reimplemented in hooks or components.
 
+## Encoding Fields
+
+The single-field encoding shelves (color, size, shape, facet background) are
+registered once in `utils/encodingFields.ts` (`ENCODING_FIELDS`). Query field
+collection, cache hashes, schema/field validation and result remapping iterate
+that registry, and the query hooks pass the fields as one `encodingFields`
+object, so a new single-field channel does not need to be threaded through each
+of them. Code that gives a channel a special role (color steering the point
+budget, size as Gantt duration) still reads that channel by name.
+
+Discrete palette channels (shape today) share three building blocks:
+`deriveDiscretePaletteScale` (top-N + Other bucketing), `DiscreteEncodingLegendPanel`
+and `DiscreteEncodingControl` (drop zone + manual picker). A new one supplies
+its palette and swatch renderer.
+
 ## Chart Grid: Cell-Kind Model
 
 The `ChartGrid` consumes a generic `GridResultModel` whose cells carry a

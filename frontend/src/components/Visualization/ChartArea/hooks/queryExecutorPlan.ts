@@ -2,6 +2,7 @@
 import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult, UserChartType, LineColorMode } from '../../../../types';
 import { classifyChartType, computePointBudget } from '../../../../services/chartTypeClassifier';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
+import { EncodingFields, listEncodingFields } from '../../../../utils/encodingFields';
 
 export interface SamplingBudget {
   maxPoints: number;
@@ -91,14 +92,12 @@ export function getQueryDimensions(queryDesc: QueryDescription): string[] {
 export function buildFieldsForResultRemapping(args: {
   xAxisFields: Field[];
   yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField: Field | null;
+  encodingFields: EncodingFields;
 }): Field[] {
   return [
     ...args.xAxisFields,
     ...args.yAxisFields,
-    ...(args.colorField ? [args.colorField] : []),
-    ...(args.sizeField ? [args.sizeField] : []),
+    ...listEncodingFields(args.encodingFields),
   ];
 }
 
