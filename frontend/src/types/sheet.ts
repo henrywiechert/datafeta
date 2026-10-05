@@ -119,6 +119,7 @@ export interface VisualizationStateSnapshot {
   measureGroupFields?: Field[];
   measureGroup?: MeasureGroup;
   axisLabelStyles?: AxisLabelStyles;
+  categoryTickStyles?: import('../contexts/VisualizationContext/types').CategoryTickStyles;
   facetLabelStyles?: FacetLabelStyles;
   // Facet background encoding
   facetBackgroundField?: Field | null;

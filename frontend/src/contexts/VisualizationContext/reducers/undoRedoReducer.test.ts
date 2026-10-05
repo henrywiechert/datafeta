@@ -32,6 +32,7 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
       globalChartType: 'cdf',
       labelsEnabled: true,
       labelSamplingThreshold: 999,
+      tooltipFields: [{ id: 't', columnName: 't', type: 'dimension', flavour: 'discrete', dataType: 'string' }],
       bandThicknessScale: 1.7,
       independentDomains: { x: true, y: false },
       chartTypeParams: {

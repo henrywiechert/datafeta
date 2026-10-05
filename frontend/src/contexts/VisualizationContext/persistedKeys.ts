@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import type { VisualizationStateSnapshot } from '../../types/sheet';
 import type { VisualizationState } from './types';
 
 /**
@@ -28,6 +29,7 @@ export const PERSISTED_STATE_KEYS = [
   'sizeRange',
   'manualSize',
   'labelFields',
+  'tooltipFields',
   'labelsEnabled',
   'labelSamplingStrategy',
   'labelSamplingThreshold',
@@ -65,3 +67,33 @@ type ValidPersistedKey = Exclude<PersistedStateKey, keyof VisualizationState> ex
   : never;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _persistedKeysGuard: readonly ValidPersistedKey[] = PERSISTED_STATE_KEYS;
+
+/**
+ * Keys saved with each sheet but deliberately not undoable: their actions do
+ * not record undo points.
+ */
+export const SHEET_ONLY_STATE_KEYS = [
+  'disabledFilterIds',
+  'optimizationSettings',
+  'measureGroup',
+] as const;
+
+/**
+ * Every `VisualizationState` key written into a sheet's `visualizationState`
+ * (see `buildSheetSnapshot`), so a persisted setting survives sheet switches,
+ * duplication and file save/load.
+ */
+export const SHEET_SNAPSHOT_KEYS = [...PERSISTED_STATE_KEYS, ...SHEET_ONLY_STATE_KEYS] as const;
+
+export type SheetSnapshotKey = (typeof SHEET_SNAPSHOT_KEYS)[number];
+
+// Compile-time guard: every snapshot key must be a VisualizationState key and
+// be declared on VisualizationStateSnapshot, the type sheets are stored as.
+type ValidSheetSnapshotKey = Exclude<
+  SheetSnapshotKey,
+  keyof VisualizationState & keyof VisualizationStateSnapshot
+> extends never
+  ? SheetSnapshotKey
+  : never;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _sheetSnapshotKeysGuard: readonly ValidSheetSnapshotKey[] = SHEET_SNAPSHOT_KEYS;

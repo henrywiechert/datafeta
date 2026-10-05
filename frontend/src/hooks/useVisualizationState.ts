@@ -3,8 +3,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
+import { SHEET_SNAPSHOT_KEYS } from '../contexts/VisualizationContext/persistedKeys';
+import { buildSheetSnapshot } from '../contexts/VisualizationContext/sheetSnapshot';
 import { useDataSource } from '../contexts/DataSourceContext';
-import { FilterConfig, VisualizationStateSnapshot } from '../types';
+import { VisualizationStateSnapshot } from '../types';
 import { useVirtualColumns } from './useVirtualColumns';
 import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
@@ -17,7 +19,6 @@ import {
     mergeFilterFields,
     mergeFilterMetadata,
 } from '../utils/effectiveFilters';
-import { getSessionFilterIds } from '../utils/scopedFilters';
 
 
 export function useVisualizationState() {
@@ -158,59 +159,14 @@ export function useVisualizationState() {
     // Flushed on unmount so a sheet switch never loses pending edits.
     const isTestEnv = process.env.NODE_ENV === 'test';
     const pendingSnapshotRef = useRef<Partial<VisualizationStateSnapshot> | null>(null);
+    const sheetSnapshotDeps = [
+        ...SHEET_SNAPSHOT_KEYS.map((key) => state[key]),
+        sessionFilterIds,
+        updateActiveSheetState,
+        isTestEnv,
+    ];
     useEffect(() => {
-        // Never persist session-scoped (global) filters into a sheet's stored
-        // local state. A filter that was just promoted to global has already
-        // been removed from the sheet stores; persisting a snapshot that still
-        // contains it (e.g. a pre-promotion render flushed on cleanup) would
-        // resurrect it as a sheet-level filter, leaving it live in both scopes.
-        const sessionIds = getSessionFilterIds(dataSource.sessionFilterFields);
-        const sheetFilterFields = state.filterFields.filter(f => !sessionIds.has(f.id));
-        const stripSession = (configs: Record<string, FilterConfig>) => {
-            if (sessionIds.size === 0) return configs;
-            const next: Record<string, FilterConfig> = {};
-            for (const [id, config] of Object.entries(configs)) {
-                if (!sessionIds.has(id)) next[id] = config;
-            }
-            return next;
-        };
-        const snapshot: Partial<VisualizationStateSnapshot> = {
-            xAxisFields: state.xAxisFields,
-            yAxisFields: state.yAxisFields,
-            filterFields: sheetFilterFields,
-            filterConfigurations: stripSession(state.filterConfigurations),
-            appliedFilterConfigurations: stripSession(state.appliedFilterConfigurations),
-            disabledFilterIds: state.disabledFilterIds,
-            colorField: state.colorField,
-            colorScheme: state.colorScheme,
-            colorBias: state.colorBias,
-            colorReversed: state.colorReversed,
-            manualColor: state.manualColor,
-            sizeField: state.sizeField,
-            sizeRange: state.sizeRange,
-            manualSize: state.manualSize,
-            labelFields: state.labelFields,
-            labelsEnabled: state.labelsEnabled,
-            labelSamplingStrategy: state.labelSamplingStrategy,
-            labelSamplingThreshold: state.labelSamplingThreshold,
-            labelSampleEvery: state.labelSampleEvery,
-            shapeField: state.shapeField,
-            manualShape: state.manualShape,
-            bandThicknessScale: state.bandThicknessScale,
-            independentDomains: state.independentDomains,
-            tooltipFields: state.tooltipFields,
-            labelFontSize: state.labelFontSize,
-            fieldOverrides: state.fieldOverrides,
-            globalChartType: state.globalChartType,
-            chartTypeParams: state.chartTypeParams,
-            selectedChartType: state.globalChartType ?? 'auto',
-            optimizationSettings: state.optimizationSettings,
-            measureGroup: state.measureGroup,
-            axisLabelStyles: state.axisLabelStyles,
-            facetLabelStyles: state.facetLabelStyles,
-            chartCaption: state.chartCaption,
-            showChartCaption: state.showChartCaption,
-        };
+        const snapshot = buildSheetSnapshot(state, sessionFilterIds);
         pendingSnapshotRef.current = snapshot;
         if (isTestEnv) {
             updateActiveSheetState(snapshot);
@@ -230,45 +186,11 @@ export function useVisualizationState() {
                 pendingSnapshotRef.current = null;
             }
         };
-    }, [
-        state.xAxisFields,
-        state.yAxisFields,
-        state.filterFields,
-        state.filterConfigurations,
-        state.appliedFilterConfigurations,
-        state.disabledFilterIds,
-        dataSource.sessionFilterFields,
-        state.colorField,
-        state.colorScheme,
-        state.colorBias,
-        state.colorReversed,
-        state.manualColor,
-        state.sizeField,
-        state.sizeRange,
-        state.manualSize,
-        state.labelFields,
-        state.labelsEnabled,
-        state.labelSamplingStrategy,
-        state.labelSamplingThreshold,
-        state.labelSampleEvery,
-        state.shapeField,
-        state.manualShape,
-        state.bandThicknessScale,
-        state.independentDomains,
-        state.tooltipFields,
-        state.labelFontSize,
-        state.fieldOverrides,
-        state.globalChartType,
-        state.chartTypeParams,
-        state.optimizationSettings,
-        state.measureGroup,
-        state.axisLabelStyles,
-        state.facetLabelStyles,
-        state.chartCaption,
-        state.showChartCaption,
-        updateActiveSheetState,
-        isTestEnv,
-    ]);
+    // REASON: deps are derived from SHEET_SNAPSHOT_KEYS so every persisted key
+    // triggers a sync without listing it here; `state` itself changes on every
+    // reducer tick and is read only through those keys.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, sheetSnapshotDeps);
 
     const lastVirtualColumnsSignature = useRef<string | null>(null);
     useEffect(() => {
