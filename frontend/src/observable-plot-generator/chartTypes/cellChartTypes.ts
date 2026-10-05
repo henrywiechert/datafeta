@@ -9,6 +9,7 @@ import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode,
 import { LabelConfig, GanttZoomRange } from '../types';
 import { BarLayoutMarkStyle, ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import type { ColorScaleInfo } from '../utils/colorSchemeUtils';
+import type { LineStyleEncoding } from '../utils/lineStyleUtils';
 
 /**
  * Domain types for shared scales
@@ -41,6 +42,8 @@ export interface ChartContext {
   shapeField?: Field;
   /** Manual single-shape fallback when no shape field is assigned */
   manualShape?: string;
+  /** Line style encoding (line charts only) */
+  lineStyle?: LineStyleEncoding;
   /** Variant for the distribution chart family when rendering tick charts. */
   distributionVariant?: DistributionVariant;
   /** Variant for the line chart family when rendering line charts. */

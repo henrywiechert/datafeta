@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, SheetPanelLayout, Field, FilterConfig } from '../types';
 import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
+import { DEFAULT_MANUAL_LINE_STYLE } from '../observable-plot-generator/utils/lineStyleUtils';
 import { createMeasureGroup } from '../utils/syntheticFields';
 import { refreshRelativeDateTimeFilters } from '../services/relativeDateTimeFilters';
 
@@ -47,6 +48,8 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     labelSampleEvery: 1,
     shapeField: null,
     manualShape: DEFAULT_MANUAL_SHAPE,
+    lineStyleField: null,
+    manualLineStyle: DEFAULT_MANUAL_LINE_STYLE,
     bandThicknessScale: 1.0,
     globalChartType: null,
     selectedChartType: 'auto',

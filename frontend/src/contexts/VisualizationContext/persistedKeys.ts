@@ -51,6 +51,8 @@ export const PERSISTED_STATE_KEYS = [
   'chartTypeParams',
   'shapeField',
   'manualShape',
+  'lineStyleField',
+  'manualLineStyle',
   'chartCaption',
   'showChartCaption',
 ] as const;

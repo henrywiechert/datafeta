@@ -16,6 +16,7 @@ Overrides/
 ├── SizeFieldControl.tsx       # Size field drop zone + range popover
 ├── SizeRangeControl.tsx       # Slider for size range/manual size
 ├── ShapeFieldControl.tsx      # Shape config for DiscreteEncodingControl
+├── LineStyleFieldControl.tsx  # Line style config for DiscreteEncodingControl (line charts only)
 ├── DiscreteEncodingControl.tsx # Discrete-only drop zone + manual value picker
 ├── LabelFieldControl.tsx      # Label fields drop zone + mode selector
 ├── TooltipFieldControl.tsx    # Tooltip fields drop zone

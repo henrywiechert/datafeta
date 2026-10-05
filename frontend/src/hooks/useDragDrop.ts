@@ -348,6 +348,15 @@ export function useDragDrop(
     dispatch({ type: 'REMOVE_SHAPE_FIELD' });
   }, [dispatch, recordUndoPoint]);
 
+  /**
+   * Remove the field from the line style zone
+   * @param _fieldIds - Unused; included for signature consistency with other zones
+   */
+  const handleRemoveFromLineStyle = useCallback((_fieldIds: string[]) => {
+    recordUndoPoint();
+    dispatch({ type: 'REMOVE_LINE_STYLE_FIELD' });
+  }, [dispatch, recordUndoPoint]);
+
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
     // Record current state for undo
     recordUndoPoint();
@@ -470,6 +479,7 @@ export function useDragDrop(
     handleRemoveFromColor,
     handleRemoveFromSize,
     handleRemoveFromShape,
+    handleRemoveFromLineStyle,
     handleRemoveFromLabel,
     handleRemoveFromTooltip,
     handleRemoveFromBackground,

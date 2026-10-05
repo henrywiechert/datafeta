@@ -41,9 +41,10 @@ export function createBaseMarkConfigs(params: {
 export function createHoverDotConfig(params: {
   xColumn: string;
   yColumn: string;
-  colorColumnName?: string;
+  /** Series grouping, matching the visible line marks. */
+  z?: string | ((d: any) => string);
 }): any {
-  const { xColumn, yColumn, colorColumnName } = params;
+  const { xColumn, yColumn, z } = params;
 
   return {
     x: xColumn,
@@ -52,7 +53,7 @@ export function createHoverDotConfig(params: {
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
-    ...(colorColumnName ? { z: colorColumnName } : {}),
+    ...(z ? { z } : {}),
   };
 }
 
@@ -96,6 +97,11 @@ export function buildAreaMarks(params: {
   ];
 }
 
+/** Text naming a line: its value in each series column. */
+function seriesLabelText(row: any, seriesColumns: readonly string[]): string {
+  return seriesColumns.map((column) => formatValue(row?.[column])).join(' · ');
+}
+
 /**
  * One label per line, anchored at the series' last point.
  * 'end' places it in the padded gutter past the line; 'endInside' keeps it
@@ -114,6 +120,8 @@ export function buildSeriesEndLabelMarks(params: {
   xColumn: string;
   yColumn: string;
   colorColumnName?: string;
+  /** Columns naming each line in its label. */
+  seriesColumns: readonly string[];
   colorField?: Field;
   colorInfo: ColorScaleInfo | null;
   fallbackColor: string;
@@ -121,7 +129,7 @@ export function buildSeriesEndLabelMarks(params: {
 }): any[] {
   const {
     mode, orientation, seriesGroups, sourceRows, xColumn, yColumn,
-    colorColumnName, colorField, colorInfo, fallbackColor, fontSize,
+    colorColumnName, seriesColumns, colorField, colorInfo, fallbackColor, fontSize,
   } = params;
 
   if (mode === 'off' || !seriesGroups || !colorColumnName || !colorField) return [];
@@ -139,7 +147,7 @@ export function buildSeriesEndLabelMarks(params: {
       orientation,
       xColumn,
       yColumn,
-      getText: (d: any) => formatValue(d[colorColumnName]),
+      getText: (d: any) => seriesLabelText(d, seriesColumns),
       getFill: (d: any) => resolveColorForRow(d, colorInfo, colorField, fallbackColor),
       fontSize,
     }),
@@ -150,10 +158,11 @@ export function buildSeriesEndLabelMarks(params: {
 export function seriesEndLabelTexts(params: {
   seriesGroups?: Map<string, any[]>;
   colorColumnName?: string;
+  seriesColumns: readonly string[];
 }): string[] {
-  const { seriesGroups, colorColumnName } = params;
+  const { seriesGroups, colorColumnName, seriesColumns } = params;
   if (!seriesGroups || !colorColumnName) return [];
   if (seriesGroups.size === 0 || seriesGroups.size > MAX_SERIES_LABELS) return [];
 
-  return lastRowPerSeries(seriesGroups).map((row) => formatValue(row[colorColumnName]));
+  return lastRowPerSeries(seriesGroups).map((row) => seriesLabelText(row, seriesColumns));
 }

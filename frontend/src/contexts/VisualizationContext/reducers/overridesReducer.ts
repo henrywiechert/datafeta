@@ -2,6 +2,7 @@
 import { VisualizationState, VisualizationAction } from '../types';
 import { getChartTypeDescriptor } from '../../../observable-plot-generator/chartTypeRegistry';
 import { withAllOverlays } from '../../../observable-plot-generator/overlays/types';
+import { isEffectiveLineChart } from '../../../utils/effectiveChartType';
 
 /**
  * Handles field overrides and global chart type actions.
@@ -57,7 +58,11 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
       // `bumpsQueryVersion`.
       const prevBumps = getChartTypeDescriptor(prev)?.bumpsQueryVersion ?? false;
       const nextBumps = getChartTypeDescriptor(next)?.bumpsQueryVersion ?? false;
-      const requiresRequery = prev !== next && (prevBumps || nextBumps);
+      // A line-style field is only queried on line charts, so entering or
+      // leaving one changes the query's grouping.
+      const lineStyleToggles = !!state.lineStyleField
+        && isEffectiveLineChart(state) !== isEffectiveLineChart({ ...state, globalChartType: next });
+      const requiresRequery = prev !== next && (prevBumps || nextBumps || lineStyleToggles);
       return {
         ...state,
         globalChartType: next,

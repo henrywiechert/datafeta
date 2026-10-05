@@ -136,6 +136,11 @@ jest.mock('../Legend/ShapeLegendPanel', () => ({
   default: () => <div data-testid="shape-legend" />,
 }));
 
+jest.mock('../Legend/LineStyleLegendPanel', () => ({
+  __esModule: true,
+  default: () => <div data-testid="line-style-legend" />,
+}));
+
 jest.mock('../FacetLimitDialog', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) => open ? <div data-testid="facet-limit-dialog" /> : null,
@@ -194,6 +199,7 @@ function buildChannels(overrides: Partial<ReturnType<typeof useChannels>> = {}):
     color: { field: null, scheme: 'tableau10', bias: 0, reversed: false, manual: {}, ...overrides.color },
     size: { field: null, range: [4, 20], manual: {}, bandThicknessScale: 1, ...overrides.size },
     shape: { field: null, manual: {}, ...overrides.shape },
+    lineStyle: { field: null, manual: 'solid', ...overrides.lineStyle },
     facetBackground: { field: null, scheme: 'tableau10', opacity: 0.12, ...overrides.facetBackground },
     label: { fields: [], enabled: false, samplingStrategy: 'auto', samplingThreshold: 300, sampleEvery: 1, ...overrides.label },
     tooltip: { fields: [], ...overrides.tooltip },
@@ -243,6 +249,10 @@ describe('ChartArea', () => {
       shape: {
         field: buildField({ id: 'shape-field', columnName: 'shape_field' }),
         manual: 'manual-shape',
+      },
+      lineStyle: {
+        field: buildField({ id: 'line-style-field', columnName: 'line_style_field' }),
+        manual: 'solid',
       },
     }));
 
@@ -314,6 +324,7 @@ describe('ChartArea', () => {
     expect(screen.getByTestId('color-legend')).toBeInTheDocument();
     expect(screen.getByTestId('background-legend')).toBeInTheDocument();
     expect(screen.getByTestId('shape-legend')).toBeInTheDocument();
+    expect(screen.getByTestId('line-style-legend')).toBeInTheDocument();
     expect(screen.getByTestId('facet-limit-dialog')).toBeInTheDocument();
   });
 
@@ -346,6 +357,7 @@ describe('ChartArea', () => {
     expect(screen.queryByTestId('color-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('background-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('shape-legend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('line-style-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('facet-limit-dialog')).not.toBeInTheDocument();
   });
 
@@ -370,5 +382,6 @@ describe('ChartArea', () => {
     expect(screen.queryByTestId('color-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('background-legend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('shape-legend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('line-style-legend')).not.toBeInTheDocument();
   });
 });

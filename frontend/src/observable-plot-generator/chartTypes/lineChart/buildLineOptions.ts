@@ -2,16 +2,17 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY } from '../../../config/chartLayoutConfig';
 import type { LineSeriesLabelMode } from '../../../types';
-import { getResultColumnName } from '../../../utils/fieldUtils';
+import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
+import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
 import {
   deriveColorScaleInfo,
   deriveSplitSeriesGradientColorScale,
   resolveContextColorChannel,
 } from '../../utils/colorSchemeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../../utils/labelUtils';
-import { prepareLineData } from './dataPrep';
+import { prepareLineData, seriesKeyOf } from './dataPrep';
 import { attachLineDomainMetadata, attachLineDomainReceiver, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
-import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale } from './encodings';
+import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale, buildStyledLineMarks } from './encodings';
 import {
   buildAreaMarks,
   buildSeriesEndLabelMarks,
@@ -21,7 +22,7 @@ import {
 } from './marks';
 import { LINE_ORIENTATION } from './orientation';
 import { attachLineTooltipMetadata } from './tooltips';
-import type { LineBuildParams } from './types';
+import type { LineBuildParams, SeriesPart } from './types';
 
 function attachSeriesHighlightData(plotOptions: Plot.PlotOptions, budgetedSorted: any[]): void {
   // Series highlight stamping should resolve category values for line paths too.
@@ -55,6 +56,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     lineColorMode = 'alongPath',
     seriesLabels = 'off',
     colorScaleInfo,
+    lineStyle,
   } = params;
   const color = resolveContextColorChannel(params as any);
   const colorField = color.field ?? undefined;
@@ -65,14 +67,22 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
   const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  const lineStyleField = lineStyle?.field;
+  const lineStyleColumn = lineStyleField ? getResultColumnName(lineStyleField) : undefined;
+  // One line per combination of these columns' values.
+  const seriesParts: SeriesPart[] = [
+    ...(colorColumnName && lineColorSplitsSeries(colorField, lineColorMode)
+      ? [{ column: colorColumnName, field: colorField }]
+      : []),
+    ...(lineStyleColumn ? [{ column: lineStyleColumn, field: lineStyleField }] : []),
+  ];
+  const seriesColumns = seriesParts.map((part) => part.column);
   const { clean, budgetedSorted, dotData, axisKind, seriesGroups } = prepareLineData({
     data,
     independentColumn,
     dependentColumn,
-    colorField,
-    colorColumnName,
+    seriesColumns,
     orientation,
-    lineColorMode,
   });
 
   if (clean.length === 0) {
@@ -110,6 +120,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const labelTexts = seriesLabels === 'off' ? [] : seriesEndLabelTexts({
     seriesGroups,
     colorColumnName,
+    seriesColumns,
   });
   const paddedIndependent = seriesLabels === 'end' && seriesGroups
     ? padIndependentDomain(plotData, independentColumn, axisKind, labelTexts, labelCfg?.fontSize)
@@ -153,6 +164,15 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     manualColor,
   });
 
+  // A line-style field splits lines further than color does, so group every
+  // series-aware mark by the full series key.
+  const seriesZ = lineStyleColumn ? (d: any) => seriesKeyOf(d, seriesColumns) : undefined;
+  if (seriesZ && lineStyleField) {
+    lineConfig.z = seriesZ;
+    areaConfig.z = seriesZ;
+    dotConfig.channels[lineStyleField.columnName] = { value: lineStyleColumn, label: getFieldDisplayName(lineStyleField) };
+  }
+
   applyLineSizeEncoding({
     lineConfig,
     dotConfig,
@@ -170,7 +190,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const hoverDotConfig = createHoverDotConfig({
     xColumn,
     yColumn,
-    colorColumnName,
+    z: seriesZ ?? colorColumnName,
   });
 
   // axisKind describes the independent axis, which is y for vertical lines.
@@ -189,9 +209,15 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     manualColor,
   });
 
+  const styledLineMarks = buildStyledLineMarks({
+    data: budgetedSorted,
+    lineConfig,
+    lineStyle,
+    lineStyleColumn,
+  });
   const lineMarks = variant === 'area'
-    ? [...areaMarks, Plot.line(budgetedSorted, lineConfig)]
-    : [Plot.line(budgetedSorted, lineConfig)];
+    ? [...areaMarks, ...styledLineMarks]
+    : styledLineMarks;
   const axes = buildLineAxes({
     xColumn,
     yColumn,
@@ -215,6 +241,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         xColumn,
         yColumn,
         colorColumnName,
+        seriesColumns,
         colorField,
         colorInfo,
         fallbackColor: comparisonColorContext.fallbackColor,
@@ -252,8 +279,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     xLabel,
     yLabel,
     colorField,
-    colorColumnName,
-    lineColorMode,
+    seriesParts,
+    lineStyleField,
     colorContext: comparisonColorContext,
     sizeField,
     tooltipFields,

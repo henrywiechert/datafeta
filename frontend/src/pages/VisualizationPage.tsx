@@ -657,6 +657,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                                     onRemoveFromBackground={handleRemoveFromBackground}
                                     onRemoveFromShape={dragDropHandlers.handleRemoveFromShape}
                                     onRemoveFromTableColumns={handleRemoveFromTableColumns}
+                                    onRemoveFromLineStyle={dragDropHandlers.handleRemoveFromLineStyle}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
                                     virtualColumns={virtualColumns}

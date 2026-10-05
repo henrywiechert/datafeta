@@ -440,7 +440,7 @@ export function scatterChart(
       tooltipFields,
       undefined, // No excludeColumns
       facetFields,
-      shapeField
+      [shapeField]
     )
   };
 

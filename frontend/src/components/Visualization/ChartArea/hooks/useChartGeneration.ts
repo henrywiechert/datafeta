@@ -111,6 +111,7 @@ export const useChartGeneration = ({
   } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
   const { field: shapeField, manual: manualShape } = channels.shape;
+  const { field: lineStyleField, manual: manualLineStyle } = channels.lineStyle;
   const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery, fontSize: labelFontSize } = channels.label;
   const { fields: tooltipFields } = channels.tooltip;
   const { field: facetBackgroundField, scheme: facetBackgroundScheme, opacity: facetBackgroundOpacity } = channels.facetBackground;
@@ -320,6 +321,9 @@ export const useChartGeneration = ({
         // Shape encoding
         shapeField: shapeField || undefined,
         manualShape,
+        // Line style encoding
+        lineStyleField: lineStyleField || undefined,
+        manualLineStyle,
       };
       
       // Track which zoom range we generated with
@@ -413,6 +417,8 @@ export const useChartGeneration = ({
     bandThicknessScale,
     shapeField,
     manualShape,
+    lineStyleField,
+    manualLineStyle,
     labelFields,
     labelsEnabled,
     labelSamplingStrategy,

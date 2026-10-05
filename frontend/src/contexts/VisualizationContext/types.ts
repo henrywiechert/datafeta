@@ -131,6 +131,9 @@ export interface VisualizationState {
   // Shape encoding state (scatter only, discrete only)
   shapeField: Field | null;
   manualShape: string;
+  // Line style encoding (line charts only, discrete only)
+  lineStyleField: Field | null;
+  manualLineStyle: string;
   // Label configuration state
   labelFields: Field[];
   labelsEnabled: boolean;
@@ -282,6 +285,10 @@ export type VisualizationAction =
   | { type: 'SET_SHAPE_FIELD'; payload: Field | null }
   | { type: 'SET_MANUAL_SHAPE'; payload: string }
   | { type: 'REMOVE_SHAPE_FIELD' }
+  // Line style encoding actions (line charts only, discrete only)
+  | { type: 'SET_LINE_STYLE_FIELD'; payload: Field | null }
+  | { type: 'SET_MANUAL_LINE_STYLE'; payload: string }
+  | { type: 'REMOVE_LINE_STYLE_FIELD' }
   // Label actions
   | { type: 'SET_LABEL_FIELDS'; payload: Field[] }
   | { type: 'ADD_LABEL_FIELD'; payload: Field }

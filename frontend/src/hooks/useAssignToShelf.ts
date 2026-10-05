@@ -63,6 +63,11 @@ export function useAssignToShelf({
         if (resolved) shelfActions.setShapeField(resolved);
         break;
       }
+      case 'lineStyle': {
+        const resolved = resolveSingle('LINE_STYLE_ZONE', 'discrete');
+        if (resolved) shelfActions.setLineStyleField(resolved);
+        break;
+      }
       case 'background': {
         const resolved = resolveSingle('BACKGROUND_ZONE', 'discrete');
         if (resolved) shelfActions.setBackgroundField(resolved);

@@ -67,6 +67,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   const sizeScaleData = encoding?.size?.scaleData;
   const shapeField = encoding?.shape?.field;
   const manualShape = encoding?.shape?.manual;
+  const lineStyle = encoding?.lineStyle;
   const thicknessScale = bandThicknessScale;
 
   // Combine measure and numeric domains
@@ -264,6 +265,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           ganttZoomRange,
           shapeField,
           manualShape,
+          lineStyle,
           distributionVariant,
           lineVariant: cellLineVariant,
           areaFillOpacity: cellAreaFillOpacity,

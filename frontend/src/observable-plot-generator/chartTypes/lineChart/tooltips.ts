@@ -1,11 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
-import type { Field, LineColorMode, PinnedTooltipComparison } from '../../../types';
-import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
+import type { Field, PinnedTooltipComparison } from '../../../types';
 import { resolveColorForRow, type ColorScaleInfo } from '../../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter, formatTooltipValue } from '../../utils/tooltipUtils';
-import { normalizeTooltipComparisonKey } from './dataPrep';
-import type { LineOrientation } from './types';
+import { normalizeTooltipComparisonKey, seriesKeyOf } from './dataPrep';
+import type { LineOrientation, SeriesPart } from './types';
 
 function buildPinnedLineComparisonResolver(params: {
   dotData: any[];
@@ -13,16 +12,16 @@ function buildPinnedLineComparisonResolver(params: {
   yColumn: string;
   xLabel: string;
   yLabel: string;
-  colorColumnName: string;
+  seriesParts: readonly SeriesPart[];
   colorContext: {
     scale: ColorScaleInfo | null;
     field?: Field;
     fallbackColor: string;
   };
   xField?: Field;
-  colorField?: Field;
 }): (datum: any) => PinnedTooltipComparison | undefined {
-  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorContext, xField, colorField } = params;
+  const { dotData, xColumn, yColumn, xLabel, yLabel, seriesParts, colorContext, xField } = params;
+  const seriesColumns = seriesParts.map((part) => part.column);
 
   return (datum: any): PinnedTooltipComparison | undefined => {
     const selectedXKey = normalizeTooltipComparisonKey(datum?.[xColumn]);
@@ -37,8 +36,10 @@ function buildPinnedLineComparisonResolver(params: {
 
     const items = peers
       .map((row) => {
-        const seriesValue = row?.[colorColumnName];
-        const seriesKey = normalizeTooltipComparisonKey(seriesValue);
+        const seriesKey = seriesKeyOf(row, seriesColumns);
+        const seriesLabel = seriesParts
+          .map((part) => formatTooltipValue(row?.[part.column], part.field))
+          .join(' · ');
         const rowValue = row?.[yColumn];
         const percentDifference = suppressPercentages || typeof rowValue !== 'number' || !Number.isFinite(rowValue)
           ? undefined
@@ -46,7 +47,7 @@ function buildPinnedLineComparisonResolver(params: {
 
         return {
           seriesKey,
-          seriesLabel: formatTooltipValue(seriesValue, colorField),
+          seriesLabel,
           colorHex: resolveColorForRow(row, colorContext.scale, colorContext.field, colorContext.fallbackColor),
           value: rowValue,
           formattedValue: formatTooltipValue(rowValue),
@@ -80,8 +81,9 @@ export function attachLineTooltipMetadata(params: {
   xLabel: string;
   yLabel: string;
   colorField?: Field;
-  colorColumnName?: string;
-  lineColorMode?: LineColorMode;
+  /** Columns splitting the data into lines; enables the pinned per-x comparison. */
+  seriesParts: readonly SeriesPart[];
+  lineStyleField?: Field;
   colorContext: {
     scale: ColorScaleInfo | null;
     field?: Field;
@@ -102,8 +104,8 @@ export function attachLineTooltipMetadata(params: {
     xLabel,
     yLabel,
     colorField,
-    colorColumnName,
-    lineColorMode,
+    seriesParts,
+    lineStyleField,
     colorContext,
     sizeField,
     tooltipFields,
@@ -121,17 +123,16 @@ export function attachLineTooltipMetadata(params: {
     data: dotData,
     showVerticalGuideLine: orientation === 'horizontal',
     comparisonColorContext: colorContext,
-    getPinnedComparison: lineColorSplitsSeries(colorField, lineColorMode) && colorColumnName
+    getPinnedComparison: seriesParts.length > 0
       ? buildPinnedLineComparisonResolver({
           dotData,
           xColumn,
           yColumn,
           xLabel,
           yLabel,
-          colorColumnName,
+          seriesParts,
           colorContext,
           xField,
-          colorField,
         })
       : undefined,
     getFields: createTooltipFieldsGetter(
@@ -143,7 +144,8 @@ export function attachLineTooltipMetadata(params: {
       sizeField,
       tooltipFields,
       undefined, // No excludeColumns
-      facetFields
+      facetFields,
+      [lineStyleField]
     )
   };
 }

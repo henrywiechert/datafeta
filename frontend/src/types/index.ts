@@ -98,6 +98,7 @@ export type {
   ColorChannel,
   SizeChannel,
   ShapeChannel,
+  LineStyleChannel,
   LabelChannel,
   TooltipChannel,
   FacetBackgroundChannel,

@@ -77,3 +77,38 @@ describe('overridesReducer SET_TABLE_PAGE (PR 8)', () => {
     expect(next!.queryVersion).toBe(7);
   });
 });
+
+describe('overridesReducer SET_GLOBAL_CHART_TYPE (line style re-query)', () => {
+  const field = (overrides: Record<string, unknown>) => ({
+    id: String(overrides.columnName),
+    dataType: 'string',
+    ...overrides,
+  }) as any;
+  const lineAxes = {
+    xAxisFields: [field({ columnName: 'day', type: 'dimension', flavour: 'continuous' })],
+    yAxisFields: [field({ columnName: 'sales', type: 'measure', flavour: 'continuous', aggregation: 'sum' })],
+  };
+  const lineStyleField = field({ columnName: 'channel', type: 'dimension', flavour: 'discrete' });
+  const at = (state: typeof initialState, payload: any) =>
+    overridesReducer(state, { type: 'SET_GLOBAL_CHART_TYPE', payload } as any);
+
+  test('re-queries when an assigned line style field stops applying (line -> bar)', () => {
+    const state = { ...initialState, ...lineAxes, lineStyleField, globalChartType: 'line' as const, queryVersion: 5 };
+    expect(at(state, 'bar')!.queryVersion).toBe(6);
+  });
+
+  test('re-queries when it starts applying again (bar -> auto-detected line)', () => {
+    const state = { ...initialState, ...lineAxes, lineStyleField, globalChartType: 'bar' as const, queryVersion: 5 };
+    expect(at(state, null)!.queryVersion).toBe(6);
+  });
+
+  test('does not re-query when the line style stays active (auto line -> line)', () => {
+    const state = { ...initialState, ...lineAxes, lineStyleField, globalChartType: null, queryVersion: 5 };
+    expect(at(state, 'line')!.queryVersion).toBe(5);
+  });
+
+  test('does not re-query without a line style field', () => {
+    const state = { ...initialState, ...lineAxes, globalChartType: 'line' as const, queryVersion: 5 };
+    expect(at(state, 'bar')!.queryVersion).toBe(5);
+  });
+});

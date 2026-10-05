@@ -132,6 +132,9 @@ export interface VisualizationStateSnapshot {
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
   manualShape?: string;
+  // Line style encoding (line charts only, discrete only)
+  lineStyleField?: Field | null;
+  manualLineStyle?: string;
   // Data label styling
   labelFontSize?: number;
   // Statistical overlays
