@@ -103,7 +103,7 @@ class FilterBuilder:
                 criteria.append(operator_func(field, wrapped_value))
 
         # Automatic NULL filtering for continuous dimensions
-        if query_desc.dimensions:
+        if query_desc.dimensions and not query_desc.keep_null_rows:
             for dim in query_desc.dimensions:
                 if dim.flavour == "continuous":
                     dim_field = resolver.resolve_base(dim.field)

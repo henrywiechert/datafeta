@@ -225,6 +225,11 @@ class QueryDescription(BaseModel):
     # Backend will also use this to disable optimizations/sampling to preserve fidelity.
     force_raw_rows: Optional[bool] = None
 
+    # Skip the automatic `IS NOT NULL` guard on continuous dimensions. The table
+    # view lists rows as they are: a NULL in one column (e.g. an all-NULL
+    # measure) must not hide the row.
+    keep_null_rows: Optional[bool] = None
+
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]
     rows: List[Dict[str, Any]] # e.g., [{"col1": "valA", "col2": 123}, ...]
