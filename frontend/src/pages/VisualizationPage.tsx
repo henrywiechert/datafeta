@@ -3,7 +3,7 @@ import React, { useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { Navigate } from 'react-router-dom';
 import { Panel, Group as PanelGroup } from "react-resizable-panels";
-import type { PanelImperativeHandle } from "react-resizable-panels";
+import type { GroupImperativeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
@@ -51,6 +51,70 @@ import { useTabletUi } from '../hooks/useTabletUi';
 
 interface VisualizationPageProps {
   fileMenu?: React.ReactNode;
+}
+
+/**
+ * Whether a shell panel is collapsed, asked of the library rather than read
+ * off the measured width. When the window resizes (browser zoom included), the
+ * library re-snaps a collapsed panel to its rail width, but the first
+ * `onResize` still measures the panel at its old percentage of the new width —
+ * 35px for a 28px rail on a zoom-out. Judged by pixels, that frame read as
+ * expanded and recorded ~2% as the size to expand back to, which then snapped
+ * straight back to the rail on every expand.
+ */
+function isPanelCollapsed(
+    panelRef: React.RefObject<PanelImperativeHandle>,
+    inPixels: number,
+    isTablet: boolean,
+): boolean {
+    const panel = panelRef.current;
+    if (panel) return panel.isCollapsed();
+    return inPixels <= (isTablet ? 1 : COLLAPSE_RAIL_THICKNESS_PX + 1);
+}
+
+/**
+ * Expands a collapsed panel to its remembered size, or to the default if that
+ * size is too small to clear the collapse threshold — sheets saved before
+ * `isPanelCollapsed` can carry such a size, and the panel would otherwise
+ * never open.
+ */
+function expandPanel(panel: PanelImperativeHandle, lastSizePercent: number, defaultPercent: number) {
+    panel.resize(`${lastSizePercent}%`);
+    if (panel.isCollapsed()) {
+        panel.resize(`${defaultPercent}%`);
+    }
+}
+
+/** Shell panel ids, so layouts can be read and written by panel. */
+const FIELDS_PANEL_ID = 'shell-panel-fields';
+const PROPERTIES_PANEL_ID = 'shell-panel-properties';
+const CHART_PANEL_ID = 'shell-panel-chart';
+
+/**
+ * Runs a collapse or expand of one side panel so that only the chart gives or
+ * takes the space.
+ *
+ * The library's imperative `collapse()`/`resize()` trade space with the
+ * panel *after* the target. For Fields that is Properties, so collapsing Fields
+ * reopened a collapsed Properties panel, and expanding Fields could squeeze or
+ * collapse an open one. The library still decides the target's new size
+ * (collapsed width, min/max snapping); this puts every other panel back and
+ * settles the difference on the chart.
+ */
+function resizeAgainstChart(
+    group: GroupImperativeHandle | null,
+    panelId: string,
+    apply: () => void,
+) {
+    const before = group?.getLayout() ?? {};
+    apply();
+    if (!group || before[panelId] === undefined || before[CHART_PANEL_ID] === undefined) return;
+    const size = group.getLayout()[panelId];
+    group.setLayout({
+        ...before,
+        [panelId]: size,
+        [CHART_PANEL_ID]: before[CHART_PANEL_ID] + before[panelId] - size,
+    });
 }
 
 // Inner component that uses both sheet and visualization contexts
@@ -174,6 +238,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     } = state;
 
     // Panel refs for imperative control
+    const panelGroupRef = useRef<GroupImperativeHandle>(null);
     const leftPanelRef = useRef<PanelImperativeHandle>(null);
     const middlePanelRef = useRef<PanelImperativeHandle>(null);
 
@@ -189,21 +254,25 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     const toggleLeftPanel = useCallback(() => {
         const panel = leftPanelRef.current;
         if (!panel) return;
-        if (panel.isCollapsed()) {
-            panel.resize(`${lastLeftSizeRef.current}%`);
-        } else {
-            panel.collapse();
-        }
+        resizeAgainstChart(panelGroupRef.current, FIELDS_PANEL_ID, () => {
+            if (panel.isCollapsed()) {
+                expandPanel(panel, lastLeftSizeRef.current, DEFAULT_LEFT_PANEL_PERCENT);
+            } else {
+                panel.collapse();
+            }
+        });
     }, []);
 
     const toggleMiddlePanel = useCallback(() => {
         const panel = middlePanelRef.current;
         if (!panel) return;
-        if (panel.isCollapsed()) {
-            panel.resize(`${lastMiddleSizeRef.current}%`);
-        } else {
-            panel.collapse();
-        }
+        resizeAgainstChart(panelGroupRef.current, PROPERTIES_PANEL_ID, () => {
+            if (panel.isCollapsed()) {
+                expandPanel(panel, lastMiddleSizeRef.current, DEFAULT_MIDDLE_PANEL_PERCENT);
+            } else {
+                panel.collapse();
+            }
+        });
     }, []);
 
     // Use our custom drag-and-drop hook with virtual columns included
@@ -572,9 +641,10 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                     backgroundColor: T.surfaceShell,
                     p: `${SHELL_GUTTER_PX}px`,
                 }}>
-                    <PanelGroup orientation="horizontal">
+                    <PanelGroup orientation="horizontal" groupRef={panelGroupRef}>
                     {/* Left Panel - Fields with metadata selector */}
                     <Panel
+                        id={FIELDS_PANEL_ID}
                         panelRef={leftPanelRef}
                         defaultSize={initialLeftCollapsed ? '0%' : `${initialLeftSize}%`}
                         minSize={`${SHELL_PANELS.left.minPx}px`}
@@ -587,9 +657,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         // scrollbar outside the one the content already has.
                         style={{ overflow: 'hidden' }}
                         onResize={(size) => {
-                            const collapsed = isTablet
-                                ? size.inPixels <= 1
-                                : size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
+                            const collapsed = isPanelCollapsed(leftPanelRef, size.inPixels, isTablet);
                             setLeftPanelCollapsed(collapsed);
                             persistLeftPanelLayout(collapsed, size.asPercentage);
                         }}
@@ -709,6 +777,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
 
                     {/* Middle Panel - Property sections stacked vertically */}
                     <Panel
+                        id={PROPERTIES_PANEL_ID}
                         panelRef={middlePanelRef}
                         defaultSize={initialMiddleCollapsed ? '0%' : `${initialMiddleSize}%`}
                         minSize={`${SHELL_PANELS.middle.minPx}px`}
@@ -717,9 +786,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         collapsedSize={isTablet ? '0px' : `${COLLAPSE_RAIL_THICKNESS_PX}px`}
                         style={{ overflow: 'hidden' }}
                         onResize={(size) => {
-                            const collapsed = isTablet
-                                ? size.inPixels <= 1
-                                : size.inPixels <= COLLAPSE_RAIL_THICKNESS_PX + 1;
+                            const collapsed = isPanelCollapsed(middlePanelRef, size.inPixels, isTablet);
                             setMiddlePanelCollapsed(collapsed);
                             persistMiddlePanelLayout(collapsed, size.asPercentage);
                         }}
@@ -791,6 +858,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
 
                     {/* Main Content - Chart */}
                     <Panel
+                        id={CHART_PANEL_ID}
                         defaultSize={`${initialChartSize}%`}
                         minSize={`${CHART_PANEL_MIN_PX}px`}
                         style={{ overflow: 'hidden' }}
