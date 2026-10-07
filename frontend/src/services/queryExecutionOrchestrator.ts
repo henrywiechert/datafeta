@@ -12,6 +12,7 @@ import {
   buildAggregateSql,
   buildDuckDbDateTimePartSelectItem,
   buildSelectSql,
+  quoteIdent,
   SelectItem,
 } from './localSqlBuilder';
 import { arrowTableToRows } from './arrowResultAdapter';
@@ -154,6 +155,33 @@ class QueryExecutionOrchestrator {
     return this._dedupePreserveOrder([...dimBaseCols, ...measureCols]);
   }
 
+  /**
+   * Base columns of the view's continuous dimensions — the columns the backend
+   * guards with IS NOT NULL when it runs the view query itself.
+   *
+   * Raw slices are fetched with `keep_null_rows`: the slice sends every column
+   * (measures included) as a dimension, so the backend guard would drop each
+   * row with a NULL in any carried measure — under-counting the other measures
+   * and emptying the slice for an all-NULL one. Local queries re-apply the
+   * guard for the view's own dimensions instead, so they match the backend.
+   */
+  private _getNullGuardColumns(viewQueryDesc: QueryDescription): string[] {
+    return this._dedupePreserveOrder(
+      (viewQueryDesc.dimensions || [])
+        .filter((d: any) => d.flavour === 'continuous')
+        .map((d: any) => d.field)
+    );
+  }
+
+  private _buildLocalWhereClause(
+    refinementWhere: string | null | undefined,
+    viewQueryDesc: QueryDescription
+  ): string | undefined {
+    const terms = this._getNullGuardColumns(viewQueryDesc).map((c) => `${quoteIdent(c)} IS NOT NULL`);
+    if (refinementWhere) terms.unshift(`(${refinementWhere})`);
+    return terms.length > 0 ? terms.join(' AND ') : undefined;
+  }
+
   async execute(input: QueryExecutionOrchestratorInput): Promise<OrchestratedQueryResult> {
     const {
       viewQueryDesc,
@@ -226,7 +254,10 @@ class QueryExecutionOrchestrator {
       );
 
       if (cacheTableName) {
-        const refinementWhere = this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+        const localWhere = this._buildLocalWhereClause(
+          this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs),
+          viewQueryDesc
+        );
         const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         let localSql = '';
@@ -235,7 +266,7 @@ class QueryExecutionOrchestrator {
           localSql = buildSelectSql({
             tableName: cacheTableName,
             selectItems: dimSelectItems,
-            whereClause: refinementWhere || undefined,
+            whereClause: localWhere,
             distinct: true,
           });
         } else {
@@ -243,7 +274,7 @@ class QueryExecutionOrchestrator {
             tableName: cacheTableName,
             dimensionSelectItems: dimSelectItems,
             measures: (viewQueryDesc.measures || []) as any,
-            whereClause: refinementWhere || undefined,
+            whereClause: localWhere,
           });
         }
 
@@ -330,14 +361,17 @@ class QueryExecutionOrchestrator {
         decision.baseFilterHash
       );
       if (cacheTableName) {
-        const refinementWhere = this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+        const localWhere = this._buildLocalWhereClause(
+          this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs),
+          viewQueryDesc
+        );
         const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         let localAggSql = buildAggregateSql({
           tableName: cacheTableName,
           dimensionSelectItems: dimSelectItems,
           measures: (viewQueryDesc.measures || []) as any,
-          whereClause: refinementWhere || undefined,
+          whereClause: localWhere,
         });
 
         // Apply point/line budget for local aggregation (same as cache_hit path)
@@ -385,14 +419,26 @@ class QueryExecutionOrchestrator {
 
     // Otherwise, convert Arrow table to the standard result format (row-oriented).
     const columns = arrowResult.columns;
-    const rows = arrowTableToRows(arrowResult.arrowTable);
+    let rows = arrowTableToRows(arrowResult.arrowTable);
+    let rowCount = arrowResult.rowCount;
+
+    // A raw slice returned as-is skipped the backend NULL guard (keep_null_rows);
+    // apply it here for the view's continuous dimensions, as the local queries do.
+    if (backendQueryDesc.keep_null_rows) {
+      const present = new Set(columns.map((c) => c.name));
+      const guardCols = this._getNullGuardColumns(viewQueryDesc).filter((c) => present.has(c));
+      if (guardCols.length > 0) {
+        rows = rows.filter((r) => guardCols.every((c) => r[c] !== null && r[c] !== undefined));
+        rowCount = rows.length;
+      }
+    }
 
     return {
       decision,
       result: {
         columns,
         rows,
-        row_count: arrowResult.rowCount,
+        row_count: rowCount,
         query_sql: arrowResult.querySql,
       },
     };
