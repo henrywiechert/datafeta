@@ -85,6 +85,10 @@ function expandPanel(panel: PanelImperativeHandle, lastSizePercent: number, defa
     }
 }
 
+/** How the panel shortcuts (Cmd/Ctrl+B, Cmd/Ctrl+J) are spelled in tooltips. */
+const SHORTCUT_MODIFIER = typeof navigator !== 'undefined'
+    && navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? '⌘' : 'Ctrl+';
+
 /** Shell panel ids, so layouts can be read and written by panel. */
 const FIELDS_PANEL_ID = 'shell-panel-fields';
 const PROPERTIES_PANEL_ID = 'shell-panel-properties';
@@ -773,6 +777,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         getBounds={leftSplit.getBounds}
                         onCommitPx={leftSplit.onCommitPx}
                         onToggle={toggleLeftPanel}
+                        collapseLabel={leftPanelCollapsed ? undefined : `Hide Fields (${SHORTCUT_MODIFIER}B)`}
                     />
 
                     {/* Middle Panel - Property sections stacked vertically */}
@@ -854,6 +859,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                         getBounds={middleSplit.getBounds}
                         onCommitPx={middleSplit.onCommitPx}
                         onToggle={toggleMiddlePanel}
+                        collapseLabel={middlePanelCollapsed ? undefined : `Hide Properties (${SHORTCUT_MODIFIER}J)`}
                     />
 
                     {/* Main Content - Chart */}

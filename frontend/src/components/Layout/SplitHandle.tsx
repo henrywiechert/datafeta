@@ -1,7 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Separator } from 'react-resizable-panels';
 import {
   SPLIT_HANDLE_THICKNESS_PX,
@@ -32,6 +36,9 @@ import { useTabletUi } from '../../hooks/useTabletUi';
  */
 export type SplitHandleVariant = 'gap' | 'divider';
 
+/** Hook for the handle's hover rule to reveal the collapse button. */
+const COLLAPSE_BUTTON_CLASS = 'split-handle-collapse';
+
 export interface SplitHandleProps {
   /** `vertical` = a vertical divider between columns. */
   orientation: SplitOrientation;
@@ -48,6 +55,13 @@ export interface SplitHandleProps {
   /** Double-click action. Collapses/expands the adjacent panel. */
   onToggle?: () => void;
   /**
+   * Tooltip for a collapse button revealed while the handle is hovered or
+   * focused, e.g. "Hide Fields (⌘B)". Clicking it runs `onToggle`. Pass it only
+   * while the panel is expanded: a collapsed panel's rail has its own expand
+   * button.
+   */
+  collapseLabel?: string;
+  /**
    * Wrap in a react-resizable-panels `Separator` — required when the handle
    * sits between two `Panel`s so the group accounts for its width.
    */
@@ -58,7 +72,8 @@ export interface SplitHandleProps {
 /**
  * The one resize handle in the app: a 6px pointer target drawing a 1px
  * divider that thickens to a 2px accent on hover, with a drag preview line,
- * double-click to collapse, and arrow-key resizing.
+ * double-click (or the hover-revealed button) to collapse, and arrow-key
+ * resizing.
  *
  * Inside a panel group the library `Separator` is rendered `disabled`. That is
  * deliberate, not an oversight: react-resizable-panels stays the sizing and
@@ -74,11 +89,15 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
   getBounds,
   onCommitPx,
   onToggle,
+  collapseLabel,
   inGroup = false,
   separatorId,
 }) => {
   const isVertical = orientation === 'vertical';
   const { isTablet } = useTabletUi();
+  // Hover-revealed, so there is nothing to reveal it on a touch screen; tablet
+  // mode has its own side-panel toggle in the chart toolbar.
+  const showCollapseButton = !!collapseLabel && !!onToggle && !isTablet;
   // Tablet: keep the visual 4px gap, expand the invisible hit area around it.
   const hitPadPx = isTablet ? 12 : 0;
   const {
@@ -123,6 +142,51 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
     }
   }, [isVertical, jumpTo, nudge, onToggle, panelSide]);
 
+  // The chevron points the way the panel will go.
+  const CollapseIcon = isVertical
+    ? (panelSide === 'before' ? ChevronLeftIcon : ChevronRightIcon)
+    : (panelSide === 'before' ? ExpandLessIcon : ExpandMoreIcon);
+
+  const collapseButton = showCollapseButton && (
+    <Tooltip title={collapseLabel} placement={isVertical ? 'right' : 'bottom'}>
+      <IconButton
+        className={COLLAPSE_BUTTON_CLASS}
+        size="small"
+        aria-label={collapseLabel}
+        onClick={onToggle}
+        // The button sits inside the handle: keep its pointer, double-click and
+        // key events from also starting a drag or toggling a second time.
+        onPointerDown={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+        sx={{
+          position: 'absolute',
+          // Above the handle's `::after` line, which runs through its centre.
+          zIndex: 1,
+          // Centred on the handle, along its length as well as across it.
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 20,
+          height: 20,
+          p: 0,
+          backgroundColor: 'background.paper',
+          border: 1,
+          borderColor: 'divider',
+          boxShadow: 1,
+          color: 'text.secondary',
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: 'opacity 0.15s',
+          '&:hover': { backgroundColor: 'background.paper', color: SPLIT_LINE_ACTIVE_COLOR },
+          '&:focus-visible': { opacity: 1, pointerEvents: 'auto' },
+        }}
+      >
+        <CollapseIcon sx={{ fontSize: 16 }} />
+      </IconButton>
+    </Tooltip>
+  );
+
   const handle = (
     <Box
       ref={handleRef}
@@ -162,6 +226,11 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
           : {}),
         // While dragging, the resting line stays thin — only the preview moves.
         ...(isDragging ? {} : {
+          // Reveal the collapse button with the hover/focus accent.
+          [`&:hover .${COLLAPSE_BUTTON_CLASS}, &:focus-visible .${COLLAPSE_BUTTON_CLASS}`]: {
+            opacity: 1,
+            pointerEvents: 'auto',
+          },
           // Hover thickens the line only. Tinting the handle's full width as
           // well made a boundary this narrow read as a heavy band.
           '&:hover::after': {
@@ -205,7 +274,9 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
               }),
         },
       }}
-    />
+    >
+      {collapseButton}
+    </Box>
   );
 
   // Size readout only while dragging — a tooltip on every hover would be noise.
