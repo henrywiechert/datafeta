@@ -16,6 +16,9 @@ import { getTabId } from '../../utils/tabSession';
 import { API_BASE_URL, createAbortController } from './apiClient';
 import { devLog } from '../../utils/devLog';
 
+/** Arrow schema metadata key carrying the executed SQL on /query-arrow responses. */
+const QUERY_SQL_METADATA_KEY = 'query_sql';
+
 export const queryApi = {
   /**
    * Execute a query with JSON transport
@@ -139,14 +142,11 @@ export const queryApi = {
 
       const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
       const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
-      
-      // Decode SQL from base64 header
-      const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
-      const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
       const durationMs = Math.round(performance.now() - start);
 
       const arrayBuffer = await response.arrayBuffer();
       const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
+      const querySql = arrowTable.schema.metadata.get(QUERY_SQL_METADATA_KEY);
 
       const columns = arrowTable.schema.fields.map(field => ({
         name: field.name,
@@ -240,15 +240,12 @@ export const queryApi = {
       // Get metadata from response headers
       const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
       const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
-      
-      // Decode SQL from base64 header
-      const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
-      const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
       const durationMs = Math.round(performance.now() - start);
 
       // Parse Arrow IPC stream
       const arrayBuffer = await response.arrayBuffer();
       const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
+      const querySql = arrowTable.schema.metadata.get(QUERY_SQL_METADATA_KEY);
 
       // Convert Arrow table to QueryResult format
       const columns = arrowTable.schema.fields.map(field => ({
