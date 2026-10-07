@@ -166,6 +166,11 @@ export function useTableRowsQuery({
       offset: page * pageSize,
       column_casts: columnCasts,
       force_raw_rows: true,
+      // Every column is sent as a dimension, so the backend's NULL guard on
+      // continuous dimensions would drop each row with a NULL in any measure
+      // column (all rows, for an all-NULL measure) — while the COUNT(*) behind
+      // the pager still counts them.
+      keep_null_rows: true,
       virtual_table: virtualTable ?? undefined,
       virtual_columns: virtualColumns && virtualColumns.length > 0 ? virtualColumns : undefined,
     };

@@ -108,6 +108,8 @@ export interface QueryDescription {
   virtual_columns?: VirtualColumnDefinition[];
   result_budget?: ResultBudget;
   force_raw_rows?: boolean;
+  /** Skip the backend's automatic IS NOT NULL guard on continuous dimensions. */
+  keep_null_rows?: boolean;
   query_mode?: 'standard' | 'cdf' | 'box_plot';
   cdf_fields?: CdfField[];
   cdf_partition_fields?: string[];

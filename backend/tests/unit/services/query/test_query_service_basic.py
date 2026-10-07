@@ -644,3 +644,46 @@ def test_join_filter_value_query_scopes_sibling_filters(query_service: QueryServ
     assert '"races.year"' not in sql
     # Other-table sibling: skipped rather than emitted as an unknown column.
     assert "points" not in sql
+
+
+def test_continuous_dimension_gets_null_guard_by_default(query_service: QueryService) -> None:
+    """Continuous dimensions are guarded with IS NOT NULL unless the request opts out."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(field="category", flavour="discrete"),
+            Dimension(field="revenue", flavour="continuous"),
+        ],
+        force_raw_rows=True,
+        limit=50,
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    assert 'NOT "revenue" IS NULL' in sql
+
+
+def test_keep_null_rows_skips_null_guard(query_service: QueryService) -> None:
+    """keep_null_rows (table view) must not drop rows whose measure column is NULL."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(field="category", flavour="discrete"),
+            Dimension(field="revenue", flavour="continuous"),
+        ],
+        force_raw_rows=True,
+        keep_null_rows=True,
+        limit=50,
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    assert "WHERE" not in sql
