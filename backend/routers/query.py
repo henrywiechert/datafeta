@@ -1,7 +1,6 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """API router for query execution operations."""
 
-import base64
 import logging
 
 import pyarrow as pa
@@ -30,6 +29,9 @@ from backend.services.query_execution_service import QueryExecutionService
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Arrow schema metadata key carrying the executed SQL on /query-arrow responses.
+QUERY_SQL_METADATA_KEY = b"query_sql"
 
 
 @router.post("/row-count", response_model=CountResponse)
@@ -129,7 +131,15 @@ def execute_query_arrow(
     service = QueryExecutionService(connector, conn_details)
     
     arrow_table, sql_query, extended_metadata = service.execute_arrow(query_desc)
-    
+
+    # Carry the SQL (for debugging) in the Arrow schema metadata rather than a
+    # response header: it travels in the body, so it has no size limit (the
+    # Node.js CRA dev-proxy caps total headers at 16 KB).
+    arrow_table = arrow_table.replace_schema_metadata({
+        **(arrow_table.schema.metadata or {}),
+        QUERY_SQL_METADATA_KEY: sql_query.encode('utf-8'),
+    })
+
     # Serialize Arrow table to IPC streaming format
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
@@ -143,15 +153,6 @@ def execute_query_arrow(
         "X-Arrow-Row-Count": str(arrow_table.num_rows),
         "X-Arrow-Column-Count": str(arrow_table.num_columns),
     }
-
-    # Include SQL in header only when it fits safely within typical proxy
-    # limits (Node.js CRA dev-proxy caps total headers at 16 KB).
-    MAX_SQL_HEADER_BYTES = 8192
-    sql_b64 = base64.b64encode(sql_query.encode('utf-8')).decode('ascii')
-    if len(sql_b64) <= MAX_SQL_HEADER_BYTES:
-        headers["X-Query-Sql-Base64"] = sql_b64
-    else:
-        logger.debug("SQL too large for header (%d bytes b64), omitting X-Query-Sql-Base64", len(sql_b64))
 
     return Response(
         content=arrow_bytes,

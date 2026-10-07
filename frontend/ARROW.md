@@ -66,8 +66,9 @@ The `/query-arrow` endpoint streams Arrow IPC format with metadata headers:
 - Headers:
   - `X-Arrow-Row-Count`: Number of rows
   - `X-Arrow-Column-Count`: Number of columns
-  - `X-Query-Sql-Base64`: Base64-encoded SQL query (for debugging)
-- Body: Arrow IPC stream bytes
+- Body: Arrow IPC stream bytes. The executed SQL (for debugging) is carried in
+  the schema metadata under the key `query_sql` — in the body rather than a
+  header, so it is not subject to header size limits.
 
 ## Frontend Implementation
 

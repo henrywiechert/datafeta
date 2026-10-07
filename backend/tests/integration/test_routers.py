@@ -169,30 +169,27 @@ class TestQueryArrowRouter:
     """Tests for the query-arrow endpoint logic."""
 
     def test_arrow_response_generation(self):
-        """Test Arrow response structure generation."""
-        import base64
-        
-        # Simulate Arrow table creation
+        """SQL survives the IPC stream via schema metadata, regardless of size."""
+        from backend.routers.query import QUERY_SQL_METADATA_KEY
+
         arrow_table = pa.table({
             'id': [1, 2, 3],
             'value': [100.0, 200.0, 300.0]
         })
-        sql = "SELECT id, value FROM test_table"
-        
-        # Simulate response headers
-        headers = {
-            'X-Arrow-Row-Count': str(arrow_table.num_rows),
-            'X-Arrow-Column-Count': str(arrow_table.num_columns),
-            'X-Query-Sql-Base64': base64.b64encode(sql.encode('utf-8')).decode('ascii')
-        }
-        
-        assert headers['X-Arrow-Row-Count'] == '3'
-        assert headers['X-Arrow-Column-Count'] == '2'
-        assert 'X-Query-Sql-Base64' in headers
-        
-        # Verify we can decode the SQL back
-        decoded_sql = base64.b64decode(headers['X-Query-Sql-Base64']).decode('utf-8')
-        assert decoded_sql == sql
+        # Far beyond any header limit, with non-ASCII content
+        sql = "SELECT id, value FROM test_table WHERE name = 'Größe'" + " OR 1=1" * 10000
+
+        arrow_table = arrow_table.replace_schema_metadata({
+            **(arrow_table.schema.metadata or {}),
+            QUERY_SQL_METADATA_KEY: sql.encode('utf-8'),
+        })
+        sink = pa.BufferOutputStream()
+        with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
+            writer.write_table(arrow_table)
+
+        decoded = pa.ipc.open_stream(sink.getvalue()).read_all()
+        assert decoded.num_rows == 3
+        assert decoded.schema.metadata[QUERY_SQL_METADATA_KEY].decode('utf-8') == sql
 
     def test_arrow_serialization(self):
         """Test Arrow IPC serialization."""
