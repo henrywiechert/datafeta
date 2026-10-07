@@ -39,6 +39,8 @@ jest.mock('./localSqlBuilder', () => ({
   buildAggregateSql: jest.fn(() => 'SELECT agg FROM table'),
   buildDuckDbDateTimePartSelectItem: jest.fn(),
   buildSelectSql: jest.fn(() => 'SELECT * FROM table'),
+  // Plain function, not jest.fn: CRA's resetMocks would wipe the implementation.
+  quoteIdent: (name: string) => `"${name}"`,
 }));
 
 describe('QueryExecutionOrchestrator', () => {
@@ -289,5 +291,79 @@ describe('QueryExecutionOrchestrator', () => {
 
     expect(result.decision?.strategy).toBe('pre_aggregated');
     expect(mockApiService.executeQueryArrowRaw).toHaveBeenCalledWith(viewQueryDesc, undefined);
+  });
+
+  describe('NULL guard (raw slices are fetched with keep_null_rows)', () => {
+    const rawColumnsDecision: QueryDecision = {
+      strategy: 'raw_columns',
+      requiresBackendQuery: true,
+      baseFilterHash: 'hash123',
+      reason: 'test',
+    };
+
+    test('local aggregate guards only the view continuous dimensions, not the measures', async () => {
+      const { buildAggregateSql } = jest.requireMock('./localSqlBuilder');
+      mockQueryDecisionEngine.decide.mockResolvedValue({ ...rawColumnsDecision });
+      mockApiService.executeQueryArrowRaw.mockResolvedValue({
+        arrowTable: { numRows: 4 },
+        columns: [],
+        rowCount: 4,
+      });
+      mockColumnCacheManager.getCacheTableName.mockReturnValue('cached_table');
+      mockFilterTierManager.buildRefinementWhereClause.mockReturnValue('"region" = \'EU\'');
+      mockDuckDBService.query.mockResolvedValue({ columns: [], rows: [] });
+
+      await orchestrator.execute({
+        ...mockInput,
+        viewQueryDesc: {
+          target_table: 'test_table',
+          dimensions: [
+            { field: 'category', flavour: 'discrete' },
+            { field: 'x', flavour: 'continuous' },
+          ],
+          measures: [
+            { field: 'a', aggregation: 'sum', alias: 'sum(a)' },
+            { field: 'b', aggregation: 'sum', alias: 'sum(b)' },
+          ],
+        } as any,
+        fetchQueryDesc: { target_table: 'test_table', force_raw_rows: true, keep_null_rows: true } as any,
+        requiresAggregation: true,
+      });
+
+      expect(buildAggregateSql).toHaveBeenCalledWith(
+        expect.objectContaining({ whereClause: '("region" = \'EU\') AND "x" IS NOT NULL' })
+      );
+    });
+
+    test('raw slice returned as-is drops NULLs in view continuous dimensions only', async () => {
+      mockQueryDecisionEngine.decide.mockResolvedValue({ ...rawColumnsDecision });
+      const data: Record<string, any[]> = {
+        x: [1, null, 3],
+        m: [null, 2, null], // carried along, not a view dimension: NULLs must survive
+      };
+      mockApiService.executeQueryArrowRaw.mockResolvedValue({
+        arrowTable: {
+          numRows: 3,
+          schema: { fields: [{ name: 'x', type: { typeId: 2 } }, { name: 'm', type: { typeId: 2 } }] },
+          getChild: jest.fn((name: string) => ({ get: (i: number) => data[name][i] })),
+        },
+        columns: [{ name: 'x', type: 'int' }, { name: 'm', type: 'int' }],
+        rowCount: 3,
+      });
+
+      const result = await orchestrator.execute({
+        ...mockInput,
+        viewQueryDesc: {
+          target_table: 'test_table',
+          dimensions: [{ field: 'x', flavour: 'continuous' }],
+          measures: [],
+        } as any,
+        fetchQueryDesc: { target_table: 'test_table', force_raw_rows: true, keep_null_rows: true } as any,
+        requiresAggregation: false,
+      });
+
+      expect(result.result.rows).toEqual([{ x: 1, m: null }, { x: 3, m: null }]);
+      expect(result.result.row_count).toBe(2);
+    });
   });
 });

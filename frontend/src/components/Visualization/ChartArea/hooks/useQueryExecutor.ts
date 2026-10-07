@@ -254,6 +254,9 @@ export const useQueryExecutor = ({
                   );
                   if (!hasMeasureFilters) {
                     rawSlice.force_raw_rows = true;
+                    // Keep rows with NULLs in carried measures; the orchestrator
+                    // re-applies the NULL guard for the view's own dimensions.
+                    rawSlice.keep_null_rows = true;
                     // Only copy point-chart budget to the raw slice (limits rows fetched+cached).
                     // Line-chart budget must NOT be applied here: we need the full raw data so
                     // the local aggregation is correct; the line budget is applied after aggregation.
