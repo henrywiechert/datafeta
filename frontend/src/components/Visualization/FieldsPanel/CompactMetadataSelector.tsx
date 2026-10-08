@@ -16,7 +16,8 @@ import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import SectionHeader from '../Properties/SectionHeader';
 import styles from './CompactMetadataSelector.module.css';
-import { DATA_FILE_ACCEPT } from '../../../utils/uploadFileTypes';
+import { dataFileAccept } from '../../../utils/uploadFileTypes';
+import { useFileFormats } from '../../../contexts/AppConfigContext';
 import {
   compactAutocompleteClassName,
   compactAutocompleteListboxProps,
@@ -162,7 +163,7 @@ interface CompactMetadataSelectorProps {
   loadedPartitions?: Set<string>;  // Partitions that have been loaded
   isLoadingPartition?: boolean;
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
-  // Add files to existing CSV/Parquet connection
+  // Add files to existing file connection (multi-part files go through the part picker)
   onAddFiles?: (files: File[]) => Promise<void>;
   // DB-row actions (ClickHouse)
   onDatabaseSwitch?: (database: string) => void;
@@ -203,6 +204,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   onDatabaseSwitch,
   isSwitchingDatabase,
 }) => {
+  const fileFormats = useFileFormats();
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
   // Upload + ingest of a large file can take a while; without this the
   // button looks like it did nothing.
@@ -483,7 +485,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               <input
                 ref={addFilesInputRef}
                 type="file"
-                accept={DATA_FILE_ACCEPT}
+                accept={dataFileAccept(fileFormats)}
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

@@ -106,7 +106,8 @@ backend/
 ├── connectors/
 │   ├── base.py                 # BaseConnector abstract interface
 │   ├── clickhouse_connector.py  # ClickHouse database connector
-│   └── file_connector.py        # CSV file connector (DuckDB)
+│   ├── file_connector.py        # Uploaded-file connector (DuckDB), format-agnostic
+│   └── file_handlers/           # One handler per file format + the format registry
 ├── models/
 │   ├── data_source.py          # ConnectionDetails, Database, Table, Column models
 │   └── query.py                 # QueryDescription, Measure, Dimension, Filter models
@@ -261,13 +262,33 @@ All connectors implement [`BaseConnector`](connectors/base.py):
 - Database-aware (schema-qualified tables)
 - Foreign key detection via [`detect_foreign_keys`](connectors/clickhouse_connector.py) heuristics
 
-### FileConnector (CSV via DuckDB)
+### FileConnector and file format handlers (DuckDB)
 
-[`FileConnector`](connectors/file_connector.py):
-- CSV upload processing with DuckDB
-- Configurable CSV parsing (delimiter, header, decimal/thousands separators, date formats)
-- In-memory DuckDB connections per query
-- Automatic schema detection via `DESCRIBE`
+[`FileConnector`](connectors/file_connector.py) queries uploaded files through
+DuckDB and knows nothing about specific formats:
+- Each uploaded file is opened by its format handler, which yields one or more
+  tables (a workbook: one per selected sheet). Every table is a DuckDB view over
+  the handler's reader.
+- Files a handler derives from an upload (JSON flattened to Parquet, workbook
+  sheets converted to Parquet) belong to the connector and are deleted with
+  their tables on disconnect; the session only tracks the uploads themselves.
+- In-memory DuckDB connections per query; schema detection via `DESCRIBE`.
+
+All format knowledge lives in [`connectors/file_handlers/`](connectors/file_handlers/):
+each handler declares a `FileFormat` (key, label, extensions, MIME types, the
+parsing option groups it honours, and a `part_label` if it has selectable parts)
+and implements `validate`, then either `build_reader_sql` (read the file
+directly) or `open` (convert / split it). `FILE_HANDLERS` in `__init__.py` is
+the registry: upload validation, the allowed extensions and MIME types, the
+connector display name and the `fileFormats` catalog in `/app-config` are all
+derived from it. The frontend builds its file pickers, labels, option panels
+and part picker from that catalog.
+
+**Adding a file format** = a handler module, one line in `FILE_HANDLERS`, and a
+sample in [`test_file_handler_contract.py`](tests/unit/connectors/test_file_handler_contract.py)
+(the suite fails until every registered format has one). Multi-part formats
+implement `list_parts` and honour `parts` in `open`; the staging endpoint,
+part picker and saved `file_parts` selection then work without further changes.
 
 ### Connector plugin architecture
 

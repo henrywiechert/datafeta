@@ -221,6 +221,10 @@ class ConnectionDetails(BaseModel):
     
     # Column-level casting configuration for handling special cases (e.g., quoted numbers)
     column_casts: Optional[Dict[str, Dict[str, str]]] = None  # Maps column_name to {cast_type, replacement_pattern}
+
+    # Multi-part files (e.g. workbook sheets): parts to load per original filename,
+    # saved with the connection so a restore loads the same parts. Missing entry = all selectable.
+    file_parts: Optional[Dict[str, List[str]]] = None
     
     # Optional fields for Kaggle connection
     kaggle_username: Optional[str] = None  # Kaggle username for API authentication

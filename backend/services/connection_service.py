@@ -1,10 +1,12 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Connection lifecycle service: handles connect/disconnect and file management."""
 
+import json
 import os
 import shutil
 import tempfile
 import logging
+import uuid
 from typing import Collection, Optional, Dict, Any, List, Tuple
 
 from fastapi import Request, UploadFile, status
@@ -13,7 +15,14 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.models.data_source import ConnectionDetails
 from backend.connectors.base import BaseConnector
-from backend.connectors.file_handlers import FILE_HANDLER_REGISTRY
+from backend.connectors.file_handlers import (
+    FILE_EXTENSIONS,
+    FILE_MIME_TYPES,
+    PartInfo,
+    build_parsing_options,
+    handler_for,
+    resolve_part_selection,
+)
 from backend.connectors.registry import get_connector_registry
 from backend.connectors.sqlite_connector import validate_sqlite_file
 from backend.exceptions import (
@@ -21,8 +30,9 @@ from backend.exceptions import (
     InvalidInputError,
     DataSourceConnectionError,
     FileProcessingError,
+    ResourceNotFoundError,
 )
-from backend.session_state import ConnectionStateManager
+from backend.session_state import ConnectionStateManager, StagedUpload
 from backend.utils.compression import (
     ALLOWED_COMPRESSED_MIME_TYPES,
     COMPRESSION_EXTENSIONS,
@@ -41,11 +51,13 @@ MAX_FILE_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB per file
 # Total size a single compressed upload may expand to (guards against zip bombs).
 MAX_DECOMPRESSED_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024  # 10 GB
 
-# Supported file extensions
-ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet', '.json', '.ndjson', '.jsonl'}
+# Data file extensions and MIME types come from the registered format handlers.
+ALLOWED_FILE_EXTENSIONS = FILE_EXTENSIONS
+ALLOWED_FILE_MIME_TYPES = FILE_MIME_TYPES
 
 # SQLite database files are handled separately from the per-format file
-# handlers: one file holds many tables, so it has no single reader expression.
+# handlers: they are a connector of their own (a whole schema), not a file
+# format of the file connector.
 ALLOWED_SQLITE_EXTENSIONS = {'.sqlite', '.sqlite3', '.db'}
 
 # Browsers report SQLite files inconsistently (often as a generic binary
@@ -59,31 +71,6 @@ ALLOWED_SQLITE_MIME_TYPES = {
     "application/db",
     "",
 }
-
-# MIME types for CSV files
-ALLOWED_CSV_MIME_TYPES = {
-    "text/csv",
-    "application/csv",
-    "application/vnd.ms-excel",
-    "text/plain",
-}
-
-# MIME types for Parquet files
-ALLOWED_PARQUET_MIME_TYPES = {
-    "application/octet-stream",
-    "application/x-parquet",
-    "application/vnd.apache.parquet",
-}
-
-# MIME types for JSON / NDJSON / JSONL files
-ALLOWED_JSON_MIME_TYPES = {
-    "application/json",
-    "application/x-ndjson",
-    "application/jsonl",
-}
-
-# Combined allowed MIME types
-ALLOWED_FILE_MIME_TYPES = ALLOWED_CSV_MIME_TYPES | ALLOWED_PARQUET_MIME_TYPES | ALLOWED_JSON_MIME_TYPES
 
 
 class ConnectionService:
@@ -218,16 +205,16 @@ class ConnectionService:
         Validate, save, and content-check a single uploaded data file.
 
         A compressed upload may expand to several files (zip archives), so this
-        returns ``(temp_path, original_filename)`` pairs - one table each.
-        Cleans up the temp files and re-raises on any validation or I/O error.
+        returns ``(temp_path, original_filename)`` pairs. Each file is checked
+        by its format handler. Cleans up the temp files and re-raises on any
+        validation or I/O error.
         """
         saved = await self._save_upload(
             uploaded_file, session_upload_dir, ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_MIME_TYPES
         )
         try:
             for temp_file_path, _ in saved:
-                handler = FILE_HANDLER_REGISTRY[self._get_file_extension(temp_file_path)]({})
-                await run_in_threadpool(handler.validate, temp_file_path)
+                await run_in_threadpool(handler_for(temp_file_path).validate, temp_file_path)
         except Exception:
             self._remove_paths([path for path, _ in saved])
             raise
@@ -235,6 +222,41 @@ class ConnectionService:
         for temp_file_path, name in saved:
             logger.info(f"Saved uploaded file: {name} -> {temp_file_path}")
         return saved
+
+    async def gather_files(
+        self,
+        uploaded_files: List[UploadFile],
+        session_id: str,
+        staged_files: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """
+        The data-file pipeline shared by connect, add-files and staging.
+
+        Saves, decompresses and validates the uploads and appends them to the
+        already-staged files. Returns FileConnector ``file_paths`` entries
+        (``file_path``, ``original_filename`` and, for staged multi-part
+        files, ``parts``) plus the temp paths the caller now owns. On error
+        every file is removed, staged ones included, and the error re-raised.
+        """
+        file_infos: List[Dict[str, Any]] = list(staged_files or [])
+        temp_paths: List[str] = [info["file_path"] for info in file_infos]
+        session_upload_dir = self._get_session_upload_dir(session_id)
+        try:
+            for uploaded_file in uploaded_files:
+                saved = await self._save_and_validate_uploaded_files(uploaded_file, session_upload_dir)
+                for temp_file_path, original_filename in saved:
+                    temp_paths.append(temp_file_path)
+                    file_infos.append({
+                        "file_path": temp_file_path,
+                        "original_filename": original_filename,
+                    })
+        except Exception:
+            self._remove_paths(temp_paths)
+            raise
+        finally:
+            for uploaded_file in uploaded_files:
+                await uploaded_file.close()
+        return file_infos, temp_paths
 
     async def _save_and_validate_sqlite_upload(
         self,
@@ -244,10 +266,10 @@ class ConnectionService:
         """
         Validate, save, and content-check an uploaded SQLite database file.
 
-        Kept separate from _save_and_validate_uploaded_files because that path
-        validates through FILE_HANDLER_REGISTRY, which maps one file to exactly
-        one table - a SQLite file contains a whole schema instead. A compressed
-        upload must therefore contain exactly one database file.
+        Kept separate from _save_and_validate_uploaded_files because SQLite is
+        a connector of its own rather than a format of the file connector: a
+        SQLite file is a whole schema. A compressed upload must therefore
+        contain exactly one database file.
 
         Returns the temp file path on success. Cleans up the temp file and
         re-raises on any validation or I/O error.
@@ -268,6 +290,132 @@ class ConnectionService:
 
         logger.info(f"Saved uploaded SQLite database: {uploaded_file.filename} -> {temp_file_path}")
         return temp_file_path
+
+    # ----- Staged uploads (part picker) -----
+    def _discard_staged_uploads(self) -> int:
+        """Delete this tab's unconsumed staged uploads; returns how many were removed."""
+        staged = self.state_manager.take_staged_uploads()
+        upload_root_dir = self._get_upload_root_dir()
+        paths = [s.path for s in staged if self._is_path_within_directory(s.path, upload_root_dir)]
+        self._remove_paths(paths)
+        return len(staged)
+
+    def _take_staged_files(self, staged_uploads_json: Optional[str]) -> List[Dict[str, Any]]:
+        """
+        Consume staged uploads referenced by a connect/add-files request.
+
+        ``staged_uploads_json`` is a JSON list of ``{"upload_id", "parts"}``;
+        ``parts`` (multi-part files only) may be omitted to load every
+        selectable part. Everything is validated before any entry is consumed,
+        so a rejected request leaves the staged files in place for a retry.
+        Returns FileConnector ``file_paths`` entries; the caller owns the files from here.
+        """
+        if not staged_uploads_json:
+            return []
+        try:
+            refs = json.loads(staged_uploads_json)
+        except json.JSONDecodeError as e:
+            raise InvalidInputError(
+                f"Invalid staged_uploads_json: {e}",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
+        if not isinstance(refs, list) or not all(
+            isinstance(ref, dict) and isinstance(ref.get("upload_id"), str) for ref in refs
+        ):
+            raise InvalidInputError(
+                "staged_uploads_json must be a list of {upload_id, parts} objects.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
+
+        staged_uploads = self.state_manager.staged_uploads
+        file_infos: List[Dict[str, Any]] = []
+        for ref in refs:
+            staged = staged_uploads.get(ref["upload_id"])
+            if staged is None:
+                raise ResourceNotFoundError("Staged upload", ref["upload_id"])
+            info: Dict[str, Any] = {
+                "file_path": staged.path,
+                "original_filename": staged.original_filename,
+            }
+            if staged.parts is not None:
+                info["parts"] = resolve_part_selection(
+                    [PartInfo(**part) for part in staged.parts],
+                    ref.get("parts"),
+                    staged.original_filename,
+                    staged.part_label or "part",
+                )
+            file_infos.append(info)
+
+        for ref in refs:
+            staged_uploads.pop(ref["upload_id"], None)
+        return file_infos
+
+    async def stage_files(
+        self,
+        uploaded_files: List[UploadFile],
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Save and validate data files without connecting, listing their parts.
+
+        The client shows multi-part files (e.g. workbook sheets) in a picker and
+        then connects (or adds files) by upload id, so each file is uploaded
+        only once. Zip archives expand to one staged entry per member. Earlier
+        unconsumed staged uploads of this tab are discarded first: only one
+        picker is open at a time.
+        """
+        if not uploaded_files:
+            raise InvalidInputError("At least one file is required.")
+
+        async with self.state_manager.lock:
+            self._discard_staged_uploads()
+            file_infos, temp_paths = await self.gather_files(uploaded_files, session_id)
+
+            entries: List[Dict[str, Any]] = []
+            staged_uploads: Dict[str, StagedUpload] = {}
+            try:
+                for info in file_infos:
+                    handler = handler_for(info["file_path"])
+                    parts = await run_in_threadpool(handler.list_parts, info["file_path"])
+                    part_dicts = [part.to_dict() for part in parts] if parts is not None else None
+                    upload_id = uuid.uuid4().hex
+                    staged_uploads[upload_id] = StagedUpload(
+                        path=info["file_path"],
+                        original_filename=info["original_filename"],
+                        parts=part_dicts,
+                        part_label=handler.FORMAT.part_label,
+                    )
+                    entries.append({
+                        "upload_id": upload_id,
+                        "filename": info["original_filename"],
+                        "format": handler.FORMAT.key,
+                        "part_label": handler.FORMAT.part_label,
+                        "parts": part_dicts,
+                    })
+            except Exception:
+                self._remove_paths(temp_paths)
+                raise
+
+            self.state_manager.staged_uploads.update(staged_uploads)
+            logger.info(f"Staged {len(entries)} upload(s): {[e['filename'] for e in entries]}")
+            return {"uploads": entries}
+
+    async def discard_staged(self) -> Dict[str, Any]:
+        """Delete staged uploads the user abandoned (e.g. a cancelled part picker)."""
+        async with self.state_manager.lock:
+            removed = self._discard_staged_uploads()
+        return {"message": f"Discarded {removed} staged upload(s)."}
+
+    @staticmethod
+    def _forget_tables(connector: Optional[BaseConnector], table_names: List[str]) -> None:
+        remove = getattr(connector, "remove_tables", None)
+        if remove and table_names:
+            remove(table_names)
+
+    @staticmethod
+    def _take_skipped_parts(connector: Optional[BaseConnector]) -> List[str]:
+        take = getattr(connector, "take_skipped_parts", None)
+        return take() if take else []
 
     @staticmethod
     def _get_connector(connection_details: ConnectionDetails) -> BaseConnector:
@@ -305,32 +453,38 @@ class ConnectionService:
         connection_details_json: str,
         uploaded_files: List[UploadFile],
         session_id: str,
+        staged_uploads_json: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Connect to file-based data sources (CSV, Parquet).
+        Connect to file-based data sources (registered file formats, SQLite).
         
-        Supports single or multiple file uploads. Each file becomes a separate table.
+        Supports single or multiple file uploads. Each file becomes a separate
+        table; a multi-part file (e.g. a workbook) one per selected part.
         
         Args:
             connection_details_json: JSON string with connection configuration
-            uploaded_files: List of uploaded files (CSV and/or Parquet)
+            uploaded_files: Uploaded data files
             session_id: Session identifier for file isolation
+            staged_uploads_json: Optional JSON list of {upload_id, parts} referencing
+                files saved earlier via stage_files (instead of, or besides, uploads)
             
         Returns:
-            Dict with success message and file paths
+            Dict with success message, file paths and skipped (empty) parts
         """
         async with self.state_manager.lock:
             await self._clear_previous_state(session_id)
+            staged_files = self._take_staged_files(staged_uploads_json)
 
-        temp_file_paths: List[str] = []
+        # Consumed staged files are owned here until the builder tracks them.
+        temp_file_paths: List[str] = [f["file_path"] for f in staged_files]
         connector: Optional[BaseConnector] = None
         try:
             try:
-                connection_details = ConnectionDetails.parse_raw(connection_details_json)
+                connection_details = ConnectionDetails.model_validate_json(connection_details_json)
             except ValidationError as e:
                 raise InvalidInputError(
                     f"Invalid connection details format: {e}",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 )
 
             registry = get_connector_registry()
@@ -342,14 +496,14 @@ class ConnectionService:
                 )
 
             connect_args: Dict[str, Any]
-            effective_connection_details = connection_details.copy(deep=True)
+            effective_connection_details = connection_details.model_copy(deep=True)
 
             try:
                 cfg = spec.config_model.model_validate(connection_details.model_dump())
             except Exception as e:
                 raise InvalidInputError(
                     f"Invalid connection details for type '{connection_details.type}': {e}",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 )
 
             if not spec.build_multipart_connect_args:
@@ -357,12 +511,10 @@ class ConnectionService:
                     f"Multipart connect is not implemented for type '{connection_details.type}'.",
                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 )
-            connect_args, temp_file_paths = await spec.build_multipart_connect_args(
-                self,
-                cfg,
-                uploaded_files,
-                session_id,
-            )
+            build_args: List[Any] = [self, cfg, uploaded_files, session_id]
+            if staged_files:
+                build_args.append(staged_files)
+            connect_args, temp_file_paths = await spec.build_multipart_connect_args(*build_args)
 
             connector = self._get_connector(effective_connection_details)
             await run_in_threadpool(connector.connect, connect_args)
@@ -376,20 +528,17 @@ class ConnectionService:
             return {
                 "message": f"Successfully connected to {connection_details.type} source with {len(temp_file_paths)} file(s).",
                 "file_paths": temp_file_paths,
+                "skipped_parts": self._take_skipped_parts(connector),
             }
 
         except (InvalidInputError, FileProcessingError, DataSourceConnectionError) as e:
             # Clean up all temp files on error
-            for path in temp_file_paths:
-                if path and os.path.exists(path):
-                    os.remove(path)
+            self._remove_paths(temp_file_paths)
             self.state_manager.clear_state()
             raise e
         except Exception:
             # Clean up all temp files on error
-            for path in temp_file_paths:
-                if path and os.path.exists(path):
-                    os.remove(path)
+            self._remove_paths(temp_file_paths)
             self.state_manager.clear_state()
             logger.exception("Unexpected error during connect (multipart)")
             raise AppException("An unexpected server error occurred during connection.")
@@ -415,7 +564,7 @@ class ConnectionService:
                 )
 
             connect_args: Dict[str, Any] = {}
-            effective_connection_details = connection_details.copy(deep=True)
+            effective_connection_details = connection_details.model_copy(deep=True)
 
             # Validate config via connector spec model
             try:
@@ -423,7 +572,7 @@ class ConnectionService:
             except Exception as e:
                 raise InvalidInputError(
                     f"Invalid connection details for type '{connection_details.type}': {e}",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 )
 
             if spec.build_connect_args:
@@ -490,7 +639,7 @@ class ConnectionService:
             except Exception as e:
                 raise InvalidInputError(
                     f"Invalid connection details for type '{connection_details.type}': {e}",
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 )
 
             if not spec.build_connect_args:
@@ -581,8 +730,7 @@ class ConnectionService:
                     raise
                 
                 # Validate parquet file
-                handler = FILE_HANDLER_REGISTRY['.parquet']({})
-                await run_in_threadpool(handler.validate, temp_file_path)
+                await run_in_threadpool(handler_for(temp_file_path).validate, temp_file_path)
                 
                 logger.info(f"Saved partition file: {uploaded_file.filename} -> {temp_file_path}")
 
@@ -628,26 +776,31 @@ class ConnectionService:
         self,
         uploaded_files: List[UploadFile],
         session_id: str,
+        staged_uploads_json: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Add more files to an existing CSV/Parquet connection.
+        Add more files to an existing file connection.
 
-        Each uploaded file becomes a new table in the active FileConnector.
-        The session's tracked temp paths are extended so disconnect cleans them up.
+        Each file becomes a new table in the active FileConnector (one per
+        selected part for multi-part files). Files go through the same pipeline
+        as connect, and are all validated before any table is added. The
+        session's tracked temp paths are extended so disconnect cleans them up.
 
         Args:
             uploaded_files: Files to append to the current connection
             session_id: Session identifier for file isolation
+            staged_uploads_json: Optional JSON list of {upload_id, parts} referencing
+                files saved earlier via stage_files
 
         Returns:
-            Dict with added_tables list
+            Dict with added_tables and skipped_parts lists
         """
         async with self.state_manager.lock:
             connector = self.state_manager.current_connector
             if not connector:
                 raise InvalidInputError("Not connected to any data source.")
 
-            if not uploaded_files:
+            if not uploaded_files and not staged_uploads_json:
                 raise InvalidInputError("At least one file is required.")
 
             details = self.state_manager.current_connection_details
@@ -664,61 +817,50 @@ class ConnectionService:
                 raise InvalidInputError(
                     f"Active connector for type '{details.type}' does not support file appends."
                 )
-            csv_config = {
-                'delimiter': details.csv_delimiter or ',',
-                'header': details.csv_has_header if details.csv_has_header is not None else True,
-                'decimal_separator': details.csv_decimal_separator or '.',
-                'thousands_separator': details.csv_thousands_separator or '',
-                'date_format': details.csv_date_format or '%Y-%m-%d',
-                'timestamp_format': details.csv_timestamp_format or '%Y-%m-%d %H:%M:%S',
-                'sample_size': (
-                    -1
-                    if details.csv_sample_full_dataset
-                    else (details.csv_sample_size or 1000)
-                ),
-            }
+            # Same options as the initial connect, so added files parse alike.
+            options = build_parsing_options(details.model_dump())
 
-            session_upload_dir = self._get_session_upload_dir(session_id)
-            temp_file_paths: List[str] = []
+            staged_files = self._take_staged_files(staged_uploads_json)
+            file_infos, temp_file_paths = await self.gather_files(
+                uploaded_files, session_id, staged_files
+            )
             added_tables: List[str] = []
-
             try:
-                for uploaded_file in uploaded_files:
-                    saved = await self._save_and_validate_uploaded_files(
-                        uploaded_file, session_upload_dir
+                for info in file_infos:
+                    table_names = await run_in_threadpool(
+                        connector.add_file,
+                        info["file_path"],
+                        info["original_filename"],
+                        options,
+                        info.get("parts"),
                     )
-                    temp_file_paths.extend(path for path, _ in saved)
-                    for temp_file_path, original_filename in saved:
-                        table_name = await run_in_threadpool(
-                            connector.add_file, temp_file_path, original_filename, csv_config
-                        )
-                        added_tables.append(table_name)
-                        logger.info(f"Added file to session: {original_filename} -> table '{table_name}'")
-
-                for uploaded_file in uploaded_files:
-                    await uploaded_file.close()
+                    added_tables.extend(table_names)
+                    logger.info(f"Added file to session: {info['original_filename']} -> tables {table_names}")
 
                 self.state_manager.append_temp_paths(temp_file_paths)
 
                 return {
-                    "message": f"Added {len(added_tables)} file(s) to the current connection.",
+                    "message": f"Added {len(added_tables)} table(s) to the current connection.",
                     "added_tables": added_tables,
+                    "skipped_parts": self._take_skipped_parts(connector),
                 }
 
             except (InvalidInputError, DataSourceConnectionError) as e:
-                for path in temp_file_paths:
-                    if path and os.path.exists(path):
-                        os.remove(path)
+                # Tables from earlier files in this batch would point at deleted
+                # files, so drop them (and their derived files) too.
+                self._forget_tables(connector, added_tables)
+                self._remove_paths(temp_file_paths)
                 raise e
             except Exception:
-                for path in temp_file_paths:
-                    if path and os.path.exists(path):
-                        os.remove(path)
+                self._forget_tables(connector, added_tables)
+                self._remove_paths(temp_file_paths)
                 logger.exception("Unexpected error during add_files")
                 raise AppException("An unexpected server error occurred while adding files.")
 
     async def disconnect(self, session_id: str) -> Dict[str, Any]:
-        files_to_delete = self.state_manager.current_temp_paths or []
+        files_to_delete = (self.state_manager.current_temp_paths or []) + [
+            staged.path for staged in self.state_manager.take_staged_uploads()
+        ]
         session_upload_dir = None
         try:
             upload_root_dir = self._get_upload_root_dir()

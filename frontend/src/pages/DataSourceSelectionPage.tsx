@@ -12,8 +12,10 @@ import React, { useEffect, useMemo, useRef, useState, ChangeEvent } from 'react'
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAppConfig } from '../contexts/AppConfigContext';
+import { useAppConfig, useFileFormats } from '../contexts/AppConfigContext';
 import { useConnectionForm } from '../hooks/useConnectionForm';
+import { usePartSelection } from '../hooks/usePartSelection';
+import { SelectPartsDialog } from '../components/SelectPartsDialog';
 import {
   CsvConnectionForm,
   SqliteConnectionForm,
@@ -53,12 +55,17 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   const form = useConnectionForm();
   const { syncFromConnectionDetails } = form;
+  const fileFormats = useFileFormats();
+  const { resolveFiles, partDialogProps } = usePartSelection();
+  // Uploading multi-part files for the part picker happens before connect() runs.
+  const [isStaging, setIsStaging] = useState(false);
+  const [stageError, setStageError] = useState<string | null>(null);
   const { setHivePartitionFiles } = useDataSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string; unavailable: boolean }>>(() => {
     const options: Array<{ value: ConnectionType; label: string }> = [
-      { value: 'csv', label: 'File (CSV, Parquet, JSON)' },
+      { value: 'csv', label: fileFormats.length > 0 ? `File (${fileFormats.map((f) => f.label).join(', ')})` : 'File' },
       { value: 'sqlite', label: 'SQLite Database File' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
@@ -71,7 +78,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
         ? option.value !== 'csv'
         : !isConnectorAllowed(option.value),
     }));
-  }, [appConfig.isDemoMode, isConnectorAllowed]);
+  }, [appConfig.isDemoMode, isConnectorAllowed, fileFormats]);
 
   const currentConnectorEnabled = (
     !isAppConfigLoading
@@ -121,13 +128,35 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
     }
 
     const details = form.buildConnectionDetails();
+    setStageError(null);
     try {
       // Pass array of files for file-based connections (SQLite uploads exactly one)
       const selectedFiles = details.type === 'sqlite'
         ? (form.sqliteState.selectedFile ? [form.sqliteState.selectedFile] : [])
         : form.csvState.selectedFiles;
       const files = selectedFiles.length > 0 ? selectedFiles : undefined;
-      await connect(details, files);
+
+      if (details.type === 'csv' && files) {
+        // Multi-part files (or zips that may hold them) are uploaded once for
+        // the part picker; connect then references the staged uploads.
+        setIsStaging(true);
+        let resolution;
+        try {
+          resolution = await resolveFiles(files);
+        } catch (err) {
+          setStageError(err instanceof Error ? err.message : 'Upload failed');
+          return;
+        } finally {
+          setIsStaging(false);
+        }
+        if (!resolution) return; // part picker cancelled
+        const withParts = Object.keys(resolution.fileParts).length > 0
+          ? { ...details, file_parts: resolution.fileParts }
+          : details;
+        await connect(withParts, resolution.files.length > 0 ? resolution.files : undefined, resolution.staged);
+      } else {
+        await connect(details, files);
+      }
       
       // For Hive Parquet connections, copy partition files to DataSourceContext for lazy loading
       if (details.type === 'hive_parquet' && form.hiveParquetState.partitionFiles.size > 0) {
@@ -362,7 +391,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <button
               className={styles.button}
               onClick={handleConnect}
-              disabled={isLoading || !currentConnectorEnabled}
+              disabled={isLoading || isStaging || !currentConnectorEnabled}
             >
               Connect
             </button>
@@ -379,7 +408,9 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
         {/* Status Messages */}
         <div className={styles.messageContainer}>
+          {isStaging && <div className={styles.loadingText}>Uploading...</div>}
           {isLoading && <div className={styles.loadingText}>Connecting...</div>}
+          {stageError && <div className={styles.errorMessage}>Error: {stageError}</div>}
           {error && <div className={styles.errorMessage}>Error: {error}</div>}
           {message && (
             <div className={styles.successMessage}>
@@ -389,6 +420,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
           )}
         </div>
       </div>
+      <SelectPartsDialog {...partDialogProps} />
     </div>
   );
 }

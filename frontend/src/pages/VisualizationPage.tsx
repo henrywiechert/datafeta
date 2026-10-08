@@ -37,6 +37,8 @@ import {
 import { T } from '../theme/tokens';
 import AppBrandHeader from '../components/AppBrandHeader';
 import SchemaCheckDialog from '../components/SchemaCheckDialog';
+import { SelectPartsDialog } from '../components/SelectPartsDialog';
+import { usePartSelection } from '../hooks/usePartSelection';
 import { schemaCheckBus } from '../services/schemaCheckBus';
 import { isSchemaCheckReady, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
 import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
@@ -223,11 +225,17 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
         return refreshMetadataRef.current();
     }, []);
 
-    // Add more files to the existing CSV/Parquet connection, then refresh table list.
+    // Add more files to the existing file connection, then refresh table list.
+    // Multi-part files (or zips that may hold them) go through the part picker.
+    const { mergeFileParts } = useConnection();
+    const { resolveFiles, partDialogProps } = usePartSelection();
     const handleAddFiles = React.useCallback(async (files: File[]) => {
-        await apiService.addFiles(files);
+        const resolution = await resolveFiles(files);
+        if (!resolution) return; // part picker cancelled
+        await apiService.addFiles(resolution.files, resolution.staged);
+        mergeFileParts(resolution.fileParts);
         await refreshMetadataRef.current();
-    }, []);
+    }, [resolveFiles, mergeFileParts]);
 
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
@@ -899,6 +907,8 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                 result={schemaCheckResult}
                 onClose={() => setSchemaCheckOpen(false)}
             />
+
+            <SelectPartsDialog {...partDialogProps} />
 
             {/* Loading Modal for long-running operations */}
             <LoadingModal

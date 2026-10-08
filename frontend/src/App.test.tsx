@@ -17,11 +17,13 @@ jest.mock('./contexts/AppConfigContext', () => ({
       debugUiEnabled: true,
       connectors: { restricted: false, allowed: [] },
       demoDatasets: { enabled: false, available: false },
+      fileFormats: [],
     },
     isLoading: false,
     error: null,
     isConnectorAllowed: () => true,
   }),
+  useFileFormats: () => [],
 }));
 
 test('renders Data Slicer navigation tabs', async () => {

@@ -10,12 +10,11 @@ import pyarrow.parquet as pq
 
 from backend.services.connection_service import (
     ALLOWED_FILE_EXTENSIONS,
-    ALLOWED_CSV_MIME_TYPES,
-    ALLOWED_PARQUET_MIME_TYPES,
     ALLOWED_FILE_MIME_TYPES,
     MAX_FILE_UPLOAD_BYTES,
     ConnectionService,
 )
+from backend.connectors.file_handlers import FILE_HANDLERS, CsvFileHandler
 from backend.connectors.file_handlers.parquet_handler import ParquetFileHandler
 
 
@@ -35,31 +34,33 @@ class TestFileExtensionConstants:
         """Test that Parquet extension is allowed."""
         assert '.parquet' in ALLOWED_FILE_EXTENSIONS
 
+    def test_allowed_extensions_include_workbooks(self):
+        """Test that every Excel/OpenDocument workbook extension is allowed."""
+        assert {'.xlsx', '.xlsm', '.xls', '.xlsb', '.ods'} <= ALLOWED_FILE_EXTENSIONS
+
     def test_allowed_extensions_count(self):
         """Test that only expected extensions are allowed."""
-        assert len(ALLOWED_FILE_EXTENSIONS) == 5
+        assert len(ALLOWED_FILE_EXTENSIONS) == 10
 
 
 class TestMimeTypeConstants:
-    """Tests for MIME type constants."""
+    """Allowed MIME types are those declared by the registered format handlers."""
 
     def test_csv_mime_types(self):
         """Test that common CSV MIME types are allowed."""
-        assert 'text/csv' in ALLOWED_CSV_MIME_TYPES
-        assert 'application/csv' in ALLOWED_CSV_MIME_TYPES
-        assert 'text/plain' in ALLOWED_CSV_MIME_TYPES
+        csv_mimes = CsvFileHandler.FORMAT.mime_types
+        assert {'text/csv', 'application/csv', 'text/plain'} <= csv_mimes
 
     def test_parquet_mime_types(self):
         """Test that Parquet MIME types are allowed."""
-        assert 'application/octet-stream' in ALLOWED_PARQUET_MIME_TYPES
-        assert 'application/x-parquet' in ALLOWED_PARQUET_MIME_TYPES
+        parquet_mimes = ParquetFileHandler.FORMAT.mime_types
+        assert {'application/octet-stream', 'application/x-parquet'} <= parquet_mimes
 
     def test_combined_mime_types(self):
-        """Test that combined MIME types include both CSV and Parquet."""
-        for mime in ALLOWED_CSV_MIME_TYPES:
-            assert mime in ALLOWED_FILE_MIME_TYPES
-        for mime in ALLOWED_PARQUET_MIME_TYPES:
-            assert mime in ALLOWED_FILE_MIME_TYPES
+        """Every handler's MIME types and extensions are accepted for uploads."""
+        for handler in FILE_HANDLERS:
+            assert handler.FORMAT.mime_types <= ALLOWED_FILE_MIME_TYPES
+            assert set(handler.FORMAT.extensions) <= ALLOWED_FILE_EXTENSIONS
 
 
 class TestFileSizeLimit:

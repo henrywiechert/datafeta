@@ -65,6 +65,9 @@ export type {
   PatternMatchedDatabaseTables,
   ClickHousePatternPreviewRequest,
   ClickHousePatternPreviewResponse,
+  StagedPart,
+  StagedUpload,
+  StagedSelection,
 } from './connection';
 
 // Field types

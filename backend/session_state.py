@@ -6,8 +6,9 @@ import logging
 import os
 import shutil
 import threading
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from backend.models.data_source import ConnectionDetails
 
@@ -18,6 +19,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class StagedUpload:
+    """An uploaded file kept on the server until a connect/add-files consumes it.
+
+    Staging lets the part picker list a multi-part file's parts (e.g. workbook
+    sheets) without the file being uploaded a second time for the actual connect.
+    """
+    path: str
+    original_filename: str
+    # Part picker entries (PartInfo dicts); None for single-table formats.
+    parts: Optional[List[Dict[str, Any]]] = None
+    part_label: Optional[str] = None  # singular noun for parts, e.g. "sheet"
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class ConnectionStateManager:
     """Hold the current connector state for a session or browser tab."""
 
@@ -26,6 +42,10 @@ class ConnectionStateManager:
         self.current_connection_details: Optional[ConnectionDetails] = None
         # Support multiple temp files (CSV and/or Parquet).
         self.current_temp_paths: List[str] = []
+        # Uploads awaiting a connect/add-files, keyed by upload id. Not part of
+        # the connection state: clear_state() keeps them because a connect
+        # clears the previous connection before consuming them.
+        self.staged_uploads: Dict[str, StagedUpload] = {}
         # Per-session async lock to serialize connect/disconnect.
         self._lock: Optional[asyncio.Lock] = None
         # Track when this session was created and last accessed.
@@ -67,6 +87,12 @@ class ConnectionStateManager:
     def touch(self):
         """Update the last accessed timestamp."""
         self.last_accessed_at = datetime.now(timezone.utc)
+
+    def take_staged_uploads(self) -> List[StagedUpload]:
+        """Forget all staged uploads and return them so the caller can delete the files."""
+        staged = list(self.staged_uploads.values())
+        self.staged_uploads = {}
+        return staged
 
 
 # This dictionary stores state for each session, identified by a composite
@@ -138,7 +164,8 @@ def cleanup_session(composite_key: str) -> bool:
                     exc,
                 )
 
-        for temp_path in manager.current_temp_paths:
+        staged_paths = [staged.path for staged in manager.take_staged_uploads()]
+        for temp_path in manager.current_temp_paths + staged_paths:
             if not temp_path:
                 continue
             try:

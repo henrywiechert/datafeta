@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { createContext, useState, useContext, ReactNode, useCallback, useMemo } from 'react';
-import { ConnectionDetails } from '../types'; // Assuming types are defined in ../types
+import { ConnectionDetails, StagedSelection } from '../types'; // Assuming types are defined in ../types
 import { apiService } from '../apiService';
 import { useDataSource } from './DataSourceContext';
 import { resetBus } from '../services/resetBus';
@@ -11,10 +11,11 @@ interface ConnectionState {
   error: string | null;
   message: string | null;
   connectionDetails: ConnectionDetails | null; // Store details of the active connection
-  connect: (details: ConnectionDetails, files?: File[]) => Promise<void>;
+  connect: (details: ConnectionDetails, files?: File[], staged?: StagedSelection[]) => Promise<void>;
   connectDemoDataset: (datasetId: string) => Promise<{ database: string; table: string; snapshotId?: string | null }>;
   disconnect: () => Promise<void>;
   updateConnectionDatabase: (database: string) => void;
+  mergeFileParts: (fileParts: Record<string, string[]>) => void;
 }
 
 const ConnectionContext = createContext<ConnectionState | undefined>(undefined);
@@ -31,17 +32,13 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
   const { resetMetadata, setSelectedDatabase, setSelectedTable } = useDataSource();
 
-  const connect = useCallback(async (details: ConnectionDetails, files?: File[]) => {
-    // If already connected, disconnect first to clean up resources
-    if (isConnected) {
-      try {
-        await apiService.disconnect();
-      } catch (err) {
-        console.warn('Failed to disconnect from previous connection:', err);
-        // Continue anyway - attempt new connection
-      }
-    }
-
+  const connect = useCallback(async (
+    details: ConnectionDetails,
+    files?: File[],
+    staged?: StagedSelection[],
+  ) => {
+    // No explicit disconnect first: every backend connect endpoint clears the
+    // previous connection itself (and a disconnect would delete staged uploads).
     setIsLoading(true);
     setError(null);
     setMessage(null);
@@ -59,13 +56,16 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
         response = await apiService.connectHive(details.hive_file_structure);
         setMessage(`${response.message} (Partition column: ${response.partition_column})`);
       } else {
-        response = await apiService.connect(details, files);
+        response = await apiService.connect(details, files, staged);
         // Build message - handle both single file_path (legacy) and file_paths (multi-file)
         let pathInfo = '';
         if (response.file_paths && response.file_paths.length > 0) {
           pathInfo = ` (${response.file_paths.length} file(s) uploaded)`;
         }
-        setMessage(`${response.message}${pathInfo}`);
+        const skipped = response.skipped_parts && response.skipped_parts.length > 0
+          ? ` Skipped empty: ${response.skipped_parts.join(', ')}.`
+          : '';
+        setMessage(`${response.message}${pathInfo}${skipped}`);
       }
       
       setConnectionDetails(details); // Store successful connection details
@@ -105,7 +105,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [resetMetadata, isConnected]);
+  }, [resetMetadata]);
 
   const connectDemoDataset = useCallback(async (datasetId: string) => {
     if (isConnected) {
@@ -181,6 +181,15 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     });
   }, []);
 
+  // Record parts (e.g. sheets) of files added after connecting so saved state restores them.
+  const mergeFileParts = useCallback((fileParts: Record<string, string[]>) => {
+    if (Object.keys(fileParts).length === 0) return;
+    setConnectionDetails((prev) => {
+      if (!prev || prev.type !== 'csv') return prev;
+      return { ...prev, file_parts: { ...prev.file_parts, ...fileParts } };
+    });
+  }, []);
+
   const value = useMemo(() => ({
     isConnected,
     isLoading,
@@ -191,7 +200,8 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     connectDemoDataset,
     disconnect,
     updateConnectionDatabase,
-  }), [isConnected, isLoading, error, message, connectionDetails, connect, connectDemoDataset, disconnect, updateConnectionDatabase]);
+    mergeFileParts,
+  }), [isConnected, isLoading, error, message, connectionDetails, connect, connectDemoDataset, disconnect, updateConnectionDatabase, mergeFileParts]);
 
   return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
 };

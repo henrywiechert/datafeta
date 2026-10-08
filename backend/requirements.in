@@ -6,6 +6,8 @@ python-multipart
 pypika==0.51.1
 duckdb>=1.5.6
 pyarrow>=24.0.0
+# Excel workbook (.xlsx/.xlsm/.xls/.xlsb/.ods) reading
+python-calamine>=0.8.2
 kaggle>=2.2.4
 huggingface_hub>=2.1.1
 # .zst upload decompression (stdlib compression.zstd from Python 3.14)

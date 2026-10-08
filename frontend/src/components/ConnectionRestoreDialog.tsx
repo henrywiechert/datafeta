@@ -17,7 +17,8 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { SavedConnectionMetadata } from '../types';
-import { DATA_FILE_ACCEPT, SQLITE_FILE_ACCEPT } from '../utils/uploadFileTypes';
+import { dataFileAccept, SQLITE_FILE_ACCEPT } from '../utils/uploadFileTypes';
+import { useFileFormats } from '../contexts/AppConfigContext';
 
 /**
  * Override values for ClickHouse connection parameters.
@@ -62,6 +63,7 @@ export default function ConnectionRestoreDialog({
   onSkip,
 }: ConnectionRestoreDialogProps) {
   const [password, setPassword] = useState('');
+  const fileFormats = useFileFormats();
   const [file, setFile] = useState<File | null>(null);
   const [kaggleUsername, setKaggleUsername] = useState('');
   const [kaggleApiKey, setKaggleApiKey] = useState('');
@@ -130,7 +132,7 @@ export default function ConnectionRestoreDialog({
     try {
       // For CSV, we need a file
       if (isCsv && !file) {
-        setError('Please select a CSV file');
+        setError('Please select a data file');
         setIsConnecting(false);
         return;
       }
@@ -383,6 +385,13 @@ export default function ConnectionRestoreDialog({
                   <strong>Fix Numeric Whitespace:</strong>{' '}
                   {connectionMetadata.csv_trim_numeric_whitespace ? 'Yes' : 'No'}
                 </Typography>
+                {connectionMetadata.file_parts && Object.entries(connectionMetadata.file_parts).map(
+                  ([filename, parts]) => (
+                    <Typography variant="body2" key={filename}>
+                      <strong>Loaded from {filename}:</strong> {parts.join(', ')}
+                    </Typography>
+                  )
+                )}
               </Box>
 
               <Button
@@ -391,10 +400,10 @@ export default function ConnectionRestoreDialog({
                 fullWidth
                 disabled={isConnecting}
               >
-                {file ? `Selected: ${file.name}` : 'Select Data File (CSV/Parquet/JSON)'}
+                {file ? `Selected: ${file.name}` : 'Select Data File'}
                 <input
                   type="file"
-                  accept={DATA_FILE_ACCEPT}
+                  accept={dataFileAccept(fileFormats)}
                   hidden
                   onChange={handleFileChange}
                 />

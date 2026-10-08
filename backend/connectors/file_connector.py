@@ -1,5 +1,12 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Connector for file-based data sources using DuckDB."""
+"""Connector for file-based data sources using DuckDB.
+
+Format-agnostic: each uploaded file is opened by its registered handler
+(backend.connectors.file_handlers), which yields one or more tables. A table
+is a DuckDB view over the handler's reader; files a handler derived from an
+upload (e.g. Parquet from JSON or workbook sheets) belong to the connector
+and are deleted with their tables.
+"""
 import logging
 import duckdb
 import os
@@ -12,10 +19,7 @@ import pyarrow as pa
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
-from .file_handlers import (
-    BaseFileHandler, FILE_HANDLER_REGISTRY, build_csv_handler_config,
-    JsonFileHandler, ParquetFileHandler,
-)
+from .file_handlers import BaseFileHandler, build_parsing_options, handler_for
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
@@ -25,197 +29,39 @@ logger = logging.getLogger(__name__)
 _duckdb_dialect = DuckDbDialect()
 
 
-# ---------------------------------------------------------------------------
-# JSON nested-type helpers
-# ---------------------------------------------------------------------------
-
-def _is_list_type(col_type: str) -> bool:
-    """True for DuckDB array/list types: T[], T[N], LIST(T)."""
-    s = col_type.strip()
-    return bool(re.match(r'.+\[\d*\]$', s)) or s.upper().startswith('LIST(')
-
-
-def _is_struct_type(col_type: str) -> bool:
-    """True when the outermost DuckDB type is STRUCT(...)."""
-    return col_type.strip().upper().startswith('STRUCT(')
-
-
-def _unwrap_list_element(col_type: str) -> str:
-    """Return the element type of a LIST column."""
-    s = col_type.strip()
-    m = re.match(r'^(.+)\[\d*\]$', s)
-    if m:
-        return m.group(1).strip()
-    if s.upper().startswith('LIST(') and s.endswith(')'):
-        return s[5:-1].strip()
-    return s
-
-
-def _parse_struct_field_names(type_str: str) -> List[str]:
-    """
-    Extract field names from a STRUCT type string.
-
-    Handles:
-    - Quoted identifiers with spaces/parens: "tickTime (ps per tick)" BIGINT
-    - Reserved-keyword quoting:             "action" VARCHAR
-    - Nested struct/array types:            items STRUCT(a INT, b INT)[]
-    """
-    s = type_str.strip()
-    if not s.upper().startswith('STRUCT(') or not s.endswith(')'):
-        return []
-    inner = s[7:-1]  # strip STRUCT( and trailing )
-    fields: List[str] = []
-    i = 0
-    n = len(inner)
-
-    while i < n:
-        # Skip leading whitespace between fields
-        while i < n and inner[i] in (' ', '\t'):
-            i += 1
-        if i >= n:
-            break
-
-        # --- Parse the field name ---
-        if inner[i] == '"':
-            # Quoted identifier: read until the matching closing "
-            # DuckDB escapes a literal " inside as ""
-            i += 1
-            name_chars: List[str] = []
-            while i < n:
-                if inner[i] == '"':
-                    if i + 1 < n and inner[i + 1] == '"':  # escaped ""
-                        name_chars.append('"')
-                        i += 2
-                    else:
-                        i += 1  # skip closing quote
-                        break
-                else:
-                    name_chars.append(inner[i])
-                    i += 1
-            fields.append(''.join(name_chars))
-        else:
-            # Unquoted identifier: read until whitespace or comma
-            j = i
-            while j < n and inner[j] not in (' ', '\t', ','):
-                j += 1
-            fields.append(inner[i:j])
-            i = j
-
-        # --- Skip the type token until the next top-level comma ---
-        depth = 0
-        in_quotes = False
-        while i < n:
-            ch = inner[i]
-            if in_quotes:
-                if ch == '"':
-                    if i + 1 < n and inner[i + 1] == '"':
-                        i += 2
-                        continue
-                    in_quotes = False
-            elif ch == '"':
-                in_quotes = True
-            elif ch in ('(', '['):
-                depth += 1
-            elif ch in (')', ']'):
-                depth -= 1
-            elif ch == ',' and depth == 0:
-                i += 1  # consume comma; outer loop will skip whitespace
-                break
-            i += 1
-
-    return fields
-
-
-def _safe_unnest_expr(col_name: str) -> str:
-    """List expression that substitutes a single NULL element for empty/NULL lists.
-
-    ``UNNEST([])`` produces zero rows, which would silently drop any input row whose
-    list columns are all empty. Substituting ``[NULL]`` (length 1) keeps the row with
-    NULL values instead. The ``[NULL]`` literal type-reconciles with both scalar-list
-    (e.g. VARCHAR[]) and struct-list (e.g. STRUCT(...)[]) columns.
-    """
-    return (
-        f'CASE WHEN "{col_name}" IS NULL OR len("{col_name}") = 0 '
-        f'THEN [NULL] ELSE "{col_name}" END'
-    )
-
-
-def _build_json_select_parts(describe: list) -> List[str]:
-    """
-    Build SELECT expressions for a JSON view, expanding nested types:
-      STRUCT(...)    → col__field per field (wide)
-      T[]            → col__index (1-based) + UNNEST(col) (long)
-      STRUCT(...)[]  → col__index + UNNEST(col).field per field (long + wide)
-      MAP / other    → pass-through
-    Multiple LIST columns are unnested in parallel (DuckDB aligns positionally,
-    NULL-pads shorter arrays). Empty/NULL lists are preserved as a single row with
-    NULL values (and a NULL __index) rather than being dropped.
-    """
-    parts: List[str] = []
-    for row in describe:
-        col_name: str = row[0]
-        col_type: str = row[1]
-
-        if _is_list_type(col_type):
-            elem_type = _unwrap_list_element(col_type)
-            safe = _safe_unnest_expr(col_name)
-            # generate_subscripts uses the original column so a genuinely empty
-            # list yields a NULL __index (the placeholder row), not index 1.
-            parts.append(
-                f'generate_subscripts("{col_name}", 1) AS "{col_name}__index"'
-            )
-            if _is_struct_type(elem_type):
-                # LIST of STRUCT → unnest + expand struct fields
-                for field in _parse_struct_field_names(elem_type):
-                    parts.append(
-                        f'UNNEST({safe})."{field}" AS "{col_name}__{field}"'
-                    )
-            else:
-                # LIST of scalar → unnest value, keep original column name
-                parts.append(f'UNNEST({safe}) AS "{col_name}"')
-
-        elif _is_struct_type(col_type):
-            # Plain STRUCT → expand fields (wide, no row multiplication)
-            for field in _parse_struct_field_names(col_type):
-                parts.append(f'"{col_name}"."{field}" AS "{col_name}__{field}"')
-
-        else:
-            # Scalar, MAP, or unrecognised → pass through unchanged
-            parts.append(f'"{col_name}"')
-
-    return parts
-
-
 @dataclass
 class FileInfo:
-    """Information about an uploaded file."""
+    """A queryable table backed by an uploaded or derived file."""
     file_path: str
     table_name: str
-    handler: BaseFileHandler
+    handler: BaseFileHandler  # reads file_path
+    generated: bool = False   # derived from an upload; deleted with the table
 
 
 class FileConnector(BaseConnector):
-    """Connector for querying files (CSV, Parquet) using DuckDB."""
+    """Connector for querying uploaded files of any registered format using DuckDB."""
 
     @property
     def sql_dialect(self) -> SqlDialect:
         return _duckdb_dialect
 
     def __init__(self):
-        # Support for multiple files - each becomes a table
+        # Every uploaded file becomes one table, or one per selected part (e.g. sheet)
         self._files: List[FileInfo] = []
+        # "file.xlsx: Part" labels of selected parts skipped for having no data.
+        self._skipped_parts: List[str] = []
 
-    def _sanitize_table_name(self, filename: str) -> str:
+    def _sanitize_table_name(self, filename: str, strip_extension: bool = True) -> str:
         """
         Sanitize a filename to create a valid SQL table name.
 
-        - Remove file extension
+        - Remove file extension (unless strip_extension is False)
         - Replace spaces and special characters with underscores
         - Remove consecutive underscores
         - Ensure it doesn't start with a number
         - Convert to lowercase for consistency
         """
-        name = os.path.splitext(filename)[0]
+        name = os.path.splitext(filename)[0] if strip_extension else filename
         name = name.lower()
         name = re.sub(r'[^\w]+', '_', name)
         name = re.sub(r'_+', '_', name)
@@ -235,24 +81,31 @@ class FileConnector(BaseConnector):
            - file_path: str
            - original_filename: str (optional)
         2. Multi-file format:
-           - file_paths: List[Dict] with keys: file_path, original_filename
+           - file_paths: List[Dict] with keys: file_path, original_filename and,
+             for multi-part files, an optional parts list
 
-        CSV configuration is applied globally to all CSV files.
+        Parsing options apply to every file. Multi-part files (e.g. workbooks)
+        load the parts given per file, else file_parts[original_filename]
+        (saved selections), else every selectable part.
         """
-        self._files = []
+        self.disconnect()
+        options = build_parsing_options(connection_details)
+        file_parts = connection_details.get("file_parts") or {}
 
-        csv_config = build_csv_handler_config(connection_details)
-
-        file_paths = connection_details.get("file_paths")
-        if file_paths:
+        file_paths = connection_details.get("file_paths") or [{
+            "file_path": connection_details.get("file_path"),
+            "original_filename": connection_details.get("original_filename"),
+        }]
+        try:
             for file_info in file_paths:
-                self._add_file(file_info.get("file_path"), file_info.get("original_filename"), csv_config)
-        else:
-            self._add_file(
-                connection_details.get("file_path"),
-                connection_details.get("original_filename"),
-                csv_config,
-            )
+                original_filename = file_info.get("original_filename")
+                parts = file_info.get("parts")
+                if parts is None and original_filename:
+                    parts = file_parts.get(original_filename)
+                self._add_file(file_info.get("file_path"), original_filename, options, parts)
+        except Exception:
+            self.disconnect()
+            raise
 
         if not self._files:
             raise DataSourceConnectionError("No valid files provided for connection")
@@ -265,84 +118,73 @@ class FileConnector(BaseConnector):
         self,
         file_path: Optional[str],
         original_filename: Optional[str],
-        csv_config: Dict[str, Any],
-    ) -> None:
-        """Add a file to the connector."""
+        options: Dict[str, Any],
+        parts: Optional[List[str]] = None,
+    ) -> List[str]:
+        """Open a file with its format handler and register its tables; returns their names."""
         if not file_path or not os.path.exists(file_path):
             raise DataSourceConnectionError(f"File not found or inaccessible at {file_path}")
 
-        _, file_ext = os.path.splitext(file_path)
-        file_ext = file_ext.lower()
+        handler = handler_for(file_path, options)
+        display_name = original_filename or os.path.basename(file_path)
+        opened = handler.open(file_path, parts, display_name)
 
-        if file_ext not in FILE_HANDLER_REGISTRY:
-            supported = ', '.join(FILE_HANDLER_REGISTRY.keys())
-            raise InvalidInputError(f"Unsupported file type: {file_ext}. Supported: {supported}")
-
-        handler = FILE_HANDLER_REGISTRY[file_ext](csv_config)
-
-        # JSON files are materialised as Parquet once on connect so every
-        # subsequent query hits the fast columnar format instead of re-parsing
-        # and re-UNNESTing the JSON file each time.
-        if isinstance(handler, JsonFileHandler):
-            file_path = self._convert_json_to_parquet(file_path, handler)
-            handler = ParquetFileHandler()
-
-        if original_filename:
-            table_name = self._sanitize_table_name(original_filename)
-        else:
-            table_name = os.path.splitext(os.path.basename(file_path))[0]
-
-        table_name = self._ensure_unique_table_name(table_name)
-
-        self._files.append(FileInfo(
-            file_path=file_path,
-            table_name=table_name,
-            handler=handler,
-        ))
-
-    def _convert_json_to_parquet(self, json_path: str, handler: JsonFileHandler) -> str:
-        """
-        Read a JSON file, apply UNNEST/struct flattening, and write the result
-        as a Parquet file in the same temp directory.
-
-        This materialises the data once so that all subsequent queries run
-        against the fast columnar Parquet format instead of re-parsing the
-        JSON on every access.
-        """
-        parquet_path = os.path.splitext(json_path)[0] + '__flat.parquet'
-        con = None
-        try:
-            con = duckdb.connect(database=':memory:', read_only=False)
-            reader_sql = handler.build_reader_sql(json_path)
-            con.execute(f"CREATE TEMPORARY VIEW __json_raw AS SELECT * FROM {reader_sql};")
-            describe = con.execute("DESCRIBE __json_raw;").fetchall()
-            if handler.config.get("flatten_nested", True):
-                select_parts = _build_json_select_parts(describe)
+        table_names: List[str] = []
+        for table in opened.tables:
+            if original_filename:
+                base = os.path.splitext(original_filename)[0]
+                raw_name = f"{base}_{table.part}" if table.part else base
+                table_name = self._sanitize_table_name(raw_name, strip_extension=False)
             else:
-                select_parts = [f'"{row[0]}"' for row in describe]
-            escaped = parquet_path.replace("'", "''")
-            con.execute(
-                f"COPY (SELECT {', '.join(select_parts)} FROM __json_raw) "
-                f"TO '{escaped}' (FORMAT PARQUET);"
-            )
-            logger.info(f"JSON → Parquet materialisation: {json_path} -> {parquet_path}")
-        except Exception:
-            if os.path.exists(parquet_path):
-                os.remove(parquet_path)
-            raise
-        finally:
-            if con:
-                con.close()
-        return parquet_path
+                table_name = os.path.splitext(os.path.basename(file_path))[0]
+                if table.part:
+                    table_name = f"{table_name}_{table.part}"
+            table_name = self._ensure_unique_table_name(table_name)
+            self._files.append(FileInfo(
+                file_path=table.path,
+                table_name=table_name,
+                handler=table.reader,
+                generated=table.generated,
+            ))
+            table_names.append(table_name)
 
-    def add_file(self, file_path: str, original_filename: str, csv_config: Dict[str, Any]) -> str:
+        self._skipped_parts.extend(f"{display_name}: {part}" for part in opened.skipped_parts)
+        return table_names
+
+    def add_file(
+        self,
+        file_path: str,
+        original_filename: str,
+        options: Dict[str, Any],
+        parts: Optional[List[str]] = None,
+    ) -> List[str]:
         """
         Add a single file to an already-connected connector.
 
-        Returns the table name assigned to the new file.
+        Returns the table names assigned to the new file (one per selected part).
         """
-        self._add_file(file_path, original_filename, csv_config)
-        return self._files[-1].table_name
+        return self._add_file(file_path, original_filename, options, parts)
+
+    def take_skipped_parts(self) -> List[str]:
+        """Return selected parts skipped as empty since the last call."""
+        skipped, self._skipped_parts = self._skipped_parts, []
+        return skipped
+
+    def remove_tables(self, table_names: List[str]) -> None:
+        """Drop tables (e.g. of a failed add-files batch), deleting their derived files."""
+        names = set(table_names)
+        self._release([f for f in self._files if f.table_name in names])
+        self._files = [f for f in self._files if f.table_name not in names]
+
+    @staticmethod
+    def _release(files: List[FileInfo]) -> None:
+        """Delete the derived files backing these tables (uploads belong to the session)."""
+        for file_info in files:
+            if file_info.generated and os.path.exists(file_info.file_path):
+                try:
+                    os.remove(file_info.file_path)
+                except OSError:
+                    logger.warning(f"Could not delete derived file {file_info.file_path}", exc_info=True)
 
     def _ensure_unique_table_name(self, table_name: str) -> str:
         """Ensure the table name is unique by appending a suffix if needed."""
@@ -363,8 +205,11 @@ class FileConnector(BaseConnector):
 
     def disconnect(self) -> None:
         table_names = [f.table_name for f in self._files]
-        logger.info(f"FileConnector disconnected signal received for files: {table_names}")
+        if table_names:
+            logger.info(f"FileConnector disconnected signal received for files: {table_names}")
+        self._release(self._files)
         self._files = []
+        self._skipped_parts = []
 
     def list_databases(self) -> List[Database]:
         return []
@@ -432,14 +277,10 @@ class FileConnector(BaseConnector):
             self._create_view(con, file_info)
 
     def _create_view(self, con: duckdb.DuckDBPyConnection, file_info: FileInfo) -> None:
-        """Create (or replace) the DuckDB view backing a single file.
+        """Create (or replace) the DuckDB view backing a single table.
 
-        DuckDB's CSV sniffer fails to detect a column as DOUBLE when values
-        have trailing whitespace (e.g. "123.5 "), falling back to VARCHAR,
-        even though leading whitespace and TRY_CAST both parse it fine. Once
-        the raw view is created, any VARCHAR column that fully round-trips
-        through TRIM + TRY_CAST(... AS DOUBLE) is re-cast so numeric CSV data
-        with stray whitespace still gets a numeric type.
+        The handler's reader feeds a raw view; the handler's view_select_list
+        hook then shapes the table view (e.g. CSV numeric whitespace repair).
         """
         safe_view_name = f'"{file_info.table_name}"'
         raw_view_name = f'"{file_info.table_name}__raw"'
@@ -449,45 +290,7 @@ class FileConnector(BaseConnector):
         con.execute(create_raw_view_sql)
 
         describe = con.execute(f"DESCRIBE {raw_view_name};").fetchall()
-
-        # JSON path: expand STRUCT columns (wide) and UNNEST LIST columns (long)
-        handler_config = getattr(file_info.handler, "config", {})
-        if file_info.handler.file_type == "json" and handler_config.get("flatten_nested", True):
-            select_parts = _build_json_select_parts(describe)
-            create_view_sql = (
-                f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS "
-                f"SELECT {', '.join(select_parts)} FROM {raw_view_name};"
-            )
-            logger.debug(f"Creating JSON view with SQL: {create_view_sql}")
-            con.execute(create_view_sql)
-            return
-
-        trim_numeric_whitespace = bool(handler_config.get("trim_numeric_whitespace", False))
-        varchar_cols = (
-            [row[0] for row in describe if row[1].upper() == "VARCHAR"]
-            if file_info.handler.file_type == "csv" and trim_numeric_whitespace
-            else []
-        )
-
-        numeric_cols = set()
-        if varchar_cols:
-            checks = ", ".join(
-                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL AND TRY_CAST(TRIM("{c}") AS DOUBLE) IS NULL) AS "{c}__bad", '
-                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL) AS "{c}__present"'
-                for c in varchar_cols
-            )
-            check_result = con.execute(f"SELECT {checks} FROM {raw_view_name};").fetchone()
-            column_names = [desc[0] for desc in con.description]
-            checks_by_col = dict(zip(column_names, check_result))
-            numeric_cols = {
-                c for c in varchar_cols
-                if checks_by_col[f"{c}__present"] > 0 and checks_by_col[f"{c}__bad"] == 0
-            }
-
-        select_parts = [
-            f'TRY_CAST(TRIM("{row[0]}") AS DOUBLE) AS "{row[0]}"' if row[0] in numeric_cols else f'"{row[0]}"'
-            for row in describe
-        ]
+        select_parts = file_info.handler.view_select_list(con, raw_view_name, describe)
         create_view_sql = (
             f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS "
             f"SELECT {', '.join(select_parts)} FROM {raw_view_name};"
