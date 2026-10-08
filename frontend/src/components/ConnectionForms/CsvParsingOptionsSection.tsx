@@ -1,7 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Shared advanced CSV parsing options (delimiter, date formats, sample size).
- * Used by file upload and Kaggle connection forms.
+ * Used by file upload and Kaggle connection forms. The date and timestamp
+ * formats also apply to other formats that declare the "date_formats" option
+ * group (e.g. workbooks, for dates stored as text), so they can be shown on
+ * their own.
  */
 
 import React from 'react';
@@ -12,13 +15,22 @@ interface CsvParsingOptionsSectionProps {
   state: CsvFormState;
   onUpdate: (updates: Partial<CsvFormState>) => void;
   disabled: boolean;
+  /** Show the CSV-only options (delimiter, separators, sampling); default true. */
+  showCsvOptions?: boolean;
+  /** Labels of selected non-CSV formats the date formats also apply to (e.g. ["Excel"]). */
+  dateFormatTargets?: string[];
 }
 
 export function CsvParsingOptionsSection({
   state,
   onUpdate,
   disabled,
+  showCsvOptions = true,
+  dateFormatTargets = [],
 }: CsvParsingOptionsSectionProps) {
+  const title = showCsvOptions || dateFormatTargets.length === 0
+    ? 'Advanced CSV Options'
+    : `Advanced ${dateFormatTargets.join(' / ')} Options`;
   return (
     <div className={styles.csvConfigSection}>
       <button
@@ -27,11 +39,13 @@ export function CsvParsingOptionsSection({
         onClick={() => onUpdate({ showAdvancedOptions: !state.showAdvancedOptions })}
         disabled={disabled}
       >
-        {state.showAdvancedOptions ? '▼' : '▶'} Advanced CSV Options
+        {state.showAdvancedOptions ? '▼' : '▶'} {title}
       </button>
 
       {state.showAdvancedOptions && (
         <div className={styles.advancedOptions}>
+          {showCsvOptions && (
+          <>
           <div className={styles.formRow}>
             <div className={styles.formField}>
               <label className={styles.label}>Delimiter</label>
@@ -89,6 +103,8 @@ export function CsvParsingOptionsSection({
               </select>
             </div>
           </div>
+          </>
+          )}
 
           <div className={styles.formRow}>
             <div className={styles.formField}>
@@ -120,9 +136,22 @@ export function CsvParsingOptionsSection({
                 <option value="%m/%d/%Y %H:%M:%S">MM/DD/YYYY HH:MM:SS</option>
                 <option value="%d/%m/%Y %H:%M:%S">DD/MM/YYYY HH:MM:SS</option>
                 <option value="%Y-%m-%d %H:%M">YYYY-MM-DD HH:MM</option>
+                <option value="%d.%m.%Y %H:%M">DD.MM.YYYY HH:MM</option>
+                <option value="%m/%d/%Y %H:%M">MM/DD/YYYY HH:MM</option>
+                <option value="%d/%m/%Y %H:%M">DD/MM/YYYY HH:MM</option>
               </select>
             </div>
           </div>
+          {dateFormatTargets.length > 0 && (
+            <div className={styles.helpText}>
+              {dateFormatTargets.join(' / ')}: these formats are used for dates stored as text
+              (e.g. 10/04/2026 22:00); a column becomes a date or timestamp only if every text
+              value matches.
+            </div>
+          )}
+
+          {showCsvOptions && (
+          <>
 
           <div className={styles.formRow}>
             <div className={styles.formField}>
@@ -172,6 +201,8 @@ export function CsvParsingOptionsSection({
               </div>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
     </div>

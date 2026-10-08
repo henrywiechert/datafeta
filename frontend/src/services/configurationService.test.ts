@@ -1,5 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { exportConfiguration } from './configurationService';
+import {
+  exportConfiguration,
+  reconstructConnectionDetails,
+  sanitizeConnectionDetails,
+} from './configurationService';
 import { Sheet } from '../types/sheet';
 import { VirtualColumnDefinition } from '../types/virtualColumn';
 
@@ -55,5 +59,20 @@ describe('exportConfiguration virtual columns', () => {
 
     expect(config.dataSource?.selectedTable).toBe('tbl');
     expect(config.dataSource?.virtualColumns).toEqual(virtualColumns);
+  });
+});
+
+describe('file_parts in saved connection metadata', () => {
+  it('round-trips the part (e.g. sheet) selection for file connections', () => {
+    const fileParts = { 'shop.xlsx': ['Orders', 'Customers'] };
+
+    const saved = sanitizeConnectionDetails({ type: 'csv', file_parts: fileParts });
+
+    expect(saved?.file_parts).toEqual(fileParts);
+    expect(reconstructConnectionDetails(saved!).file_parts).toEqual(fileParts);
+  });
+
+  it('omits an empty selection', () => {
+    expect(sanitizeConnectionDetails({ type: 'csv', file_parts: {} })).toEqual({ type: 'csv' });
   });
 });

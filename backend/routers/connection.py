@@ -67,10 +67,46 @@ def list_connectors() -> dict:
     return {"connectors": specs}
 
 
+@router.post("/stage-files")
+async def stage_files(
+    uploaded_files: List[UploadFile] = File(...),
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id),
+    request: Request = None,
+):
+    """
+    Upload data files without connecting, listing the parts of multi-part files.
+
+    Used by the part picker (e.g. workbook sheets): the client then calls
+    /connect or /add-files with staged_uploads_json referencing the returned
+    upload ids, so files are not uploaded twice. Staging again (or
+    disconnecting) discards unconsumed uploads.
+
+    Returns:
+        Dict with uploads: [{upload_id, filename, format, part_label, parts}]
+        where parts (multi-part formats only) is a list of {name, selectable, reason}
+    """
+    if not is_connector_allowed("csv"):
+        raise InvalidInputError("csv connections are disabled", status_code=status.HTTP_403_FORBIDDEN)
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.stage_files(uploaded_files, session_id)
+
+
+@router.post("/discard-staged")
+async def discard_staged_files(
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    request: Request = None,
+):
+    """Delete staged uploads that will not be connected (e.g. a cancelled part picker)."""
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.discard_staged()
+
+
 @router.post("/connect")
 async def connect_to_datasource(
     connection_details_json: str = Form(...),
     uploaded_files: List[UploadFile] = File(default=[]),
+    staged_uploads_json: Optional[str] = Form(None),
     state_manager: ConnectionStateManager = Depends(get_state_manager),
     session_id: str = Depends(get_session_id),
     request: Request = None
@@ -78,19 +114,19 @@ async def connect_to_datasource(
     """
     Connect to a specified data source.
     
-    For file-based sources (CSV/Parquet), upload one or more files.
-    Each file becomes a separate queryable table.
-    
-    Supported file types:
-    - CSV (.csv) - with configurable delimiter, header, date formats
-    - Parquet (.parquet) - schema is automatically detected from file
+    For file-based sources, upload one or more files, or reference files
+    saved earlier via /stage-files. Each file becomes a separate queryable
+    table; a multi-part file (e.g. a workbook) one per selected part - taken
+    from staged_uploads_json, else file_parts in the details, else all.
+    Supported formats are the registered file handlers (see /app-config fileFormats).
     
     Args:
         connection_details_json: JSON string with connection type and options
         uploaded_files: List of files to upload (for 'csv' and 'sqlite' connection types)
+        staged_uploads_json: Optional JSON list of {upload_id, parts} from /stage-files
         
     Returns:
-        Success message and list of file paths
+        Success message, list of file paths and skipped (empty) parts
     """
     # Gate on the requested connector type. A malformed body is left to the
     # service, which raises the detailed 422.
@@ -104,7 +140,9 @@ async def connect_to_datasource(
             status_code=status.HTTP_403_FORBIDDEN,
         )
     service = ConnectionService(state_manager=state_manager, request=request)
-    return await service.connect_multipart(connection_details_json, uploaded_files, session_id)
+    return await service.connect_multipart(
+        connection_details_json, uploaded_files, session_id, staged_uploads_json
+    )
 
 
 @router.post("/connect/json")
@@ -177,25 +215,28 @@ async def load_partition(
 
 @router.post("/add-files")
 async def add_files_to_connection(
-    uploaded_files: List[UploadFile] = File(...),
+    uploaded_files: List[UploadFile] = File(default=[]),
+    staged_uploads_json: Optional[str] = Form(None),
     state_manager: ConnectionStateManager = Depends(get_state_manager),
     session_id: str = Depends(get_session_id),
     request: Request = None,
 ):
     """
-    Add more CSV/Parquet files to an existing file-based connection.
+    Add more data files to an existing file-based connection.
 
-    Each uploaded file becomes a new queryable table in the active session.
-    The connection must already be established via POST /connect.
+    Each uploaded file becomes a new queryable table in the active session (a
+    multi-part file one per selected part). The connection must already be
+    established via POST /connect.
 
     Args:
-        uploaded_files: One or more CSV or Parquet files to add
+        uploaded_files: Data files to add
+        staged_uploads_json: Optional JSON list of {upload_id, parts} from /stage-files
 
     Returns:
-        Dict with added_tables list (sanitized table names)
+        Dict with added_tables list (sanitized table names) and skipped_parts
     """
     service = ConnectionService(state_manager=state_manager, request=request)
-    return await service.add_files(uploaded_files, session_id)
+    return await service.add_files(uploaded_files, session_id, staged_uploads_json)
 
 
 @router.post("/disconnect")

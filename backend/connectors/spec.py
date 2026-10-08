@@ -32,7 +32,9 @@ class ConnectorCapabilities:
 
 ConnectArgsBuilder = Callable[[BaseModel, Any, str], dict]
 ConnectorFactory = Callable[[], BaseConnector]
-MultipartConnectArgsBuilder = Callable[[Any, BaseModel, List[Any], str], Awaitable[Tuple[dict, List[str]]]]
+# (service, cfg, uploaded_files, session_id, staged_files=None) -> (connect_args, temp_paths).
+# staged_files are already-saved uploads as {file_path, original_filename, parts} dicts.
+MultipartConnectArgsBuilder = Callable[..., Awaitable[Tuple[dict, List[str]]]]
 
 
 @dataclass(frozen=True)

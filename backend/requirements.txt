@@ -113,6 +113,8 @@ pydantic-core==2.46.4
     # via pydantic
 pypika==0.51.1
     # via -r requirements.in
+python-calamine==0.8.2
+    # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
     #   kaggle

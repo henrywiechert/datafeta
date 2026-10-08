@@ -8,6 +8,7 @@ import pytest
 from backend.models.data_source import ConnectionDetails
 from backend.session_state import (
     ConnectionStateManager,
+    StagedUpload,
     _session_storage_lock,
     cleanup_session,
     session_storage,
@@ -22,6 +23,29 @@ def reset_session_storage():
     yield
     with _session_storage_lock:
         session_storage.clear()
+
+
+def test_clear_state_keeps_staged_uploads(tmp_path):
+    """A connect clears the previous connection before consuming staged uploads."""
+    manager = ConnectionStateManager()
+    manager.staged_uploads["u1"] = StagedUpload(path=str(tmp_path / "a.xlsx"), original_filename="a.xlsx")
+
+    manager.clear_state()
+
+    assert "u1" in manager.staged_uploads
+
+
+def test_cleanup_session_deletes_staged_uploads(tmp_path):
+    staged_path = tmp_path / "pending.xlsx"
+    staged_path.write_bytes(b"PK")
+    manager = ConnectionStateManager()
+    manager.staged_uploads["u1"] = StagedUpload(path=str(staged_path), original_filename="pending.xlsx")
+
+    with _session_storage_lock:
+        session_storage["session-1:tab-a"] = manager
+
+    assert cleanup_session("session-1:tab-a") is True
+    assert not staged_path.exists()
 
 
 def test_cleanup_session_returns_false_for_missing_key():

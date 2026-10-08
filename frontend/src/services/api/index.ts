@@ -36,6 +36,8 @@ export const apiService = {
   connectHive: connectionApi.connectHive,
   loadPartition: connectionApi.loadPartition,
   addFiles: connectionApi.addFiles,
+  stageFiles: connectionApi.stageFiles,
+  discardStaged: connectionApi.discardStaged,
 
   // Runtime app configuration
   getAppConfig: appConfigApi.getAppConfig,

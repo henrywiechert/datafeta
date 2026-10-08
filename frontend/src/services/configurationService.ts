@@ -79,6 +79,9 @@ export function sanitizeConnectionDetails(
     if (details.csv_sample_size) sanitized.csv_sample_size = details.csv_sample_size;
     if (details.csv_sample_full_dataset !== undefined) sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
     if (details.csv_trim_numeric_whitespace !== undefined) sanitized.csv_trim_numeric_whitespace = details.csv_trim_numeric_whitespace;
+    if (details.file_parts && Object.keys(details.file_parts).length > 0) {
+      sanitized.file_parts = details.file_parts;
+    }
   } else if (details.type === 'clickhouse') {
     // ClickHouse configuration (NO password)
     if (details.host) sanitized.host = details.host;
@@ -458,6 +461,7 @@ export function reconstructConnectionDetails(
     if (metadata.csv_sample_size) details.csv_sample_size = metadata.csv_sample_size;
     if (metadata.csv_sample_full_dataset !== undefined) details.csv_sample_full_dataset = metadata.csv_sample_full_dataset;
     if (metadata.csv_trim_numeric_whitespace !== undefined) details.csv_trim_numeric_whitespace = metadata.csv_trim_numeric_whitespace;
+    if (metadata.file_parts) details.file_parts = metadata.file_parts;
   } else if (metadata.type === 'clickhouse') {
     // ClickHouse configuration - use overrides if provided, otherwise fall back to metadata
     details.host = clickHouseOverrides?.host ?? metadata.host;

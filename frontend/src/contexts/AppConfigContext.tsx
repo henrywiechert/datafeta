@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { apiService } from '../apiService';
-import { AppConfig, defaultAppConfig } from '../services/api/appConfigApi';
+import { AppConfig, defaultAppConfig, FileFormatInfo } from '../services/api/appConfigApi';
 
 interface AppConfigContextValue {
   appConfig: AppConfig;
@@ -43,6 +43,17 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   }), [appConfig, error, isLoading]);
 
   return <AppConfigContext.Provider value={value}>{children}</AppConfigContext.Provider>;
+}
+
+const NO_FILE_FORMATS: FileFormatInfo[] = [];
+
+/**
+ * Registered upload formats. Outside an AppConfigProvider (isolated component
+ * tests) this is an empty list rather than an error.
+ */
+export function useFileFormats(): FileFormatInfo[] {
+  const context = useContext(AppConfigContext);
+  return context?.appConfig.fileFormats ?? NO_FILE_FORMATS;
 }
 
 export function useAppConfig(): AppConfigContextValue {

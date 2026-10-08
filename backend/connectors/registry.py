@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
 from backend.connectors.base import BaseConnector
 from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.file_connector import FileConnector
+from backend.connectors.file_handlers import FILE_HANDLERS
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.huggingface_connector import HuggingFaceConnector
 from backend.connectors.kaggle_connector import KaggleConnector
@@ -76,8 +77,9 @@ class HiveParquetConfig(BaseModel):
 
 
 class CsvConfig(CsvParsingConfig):
-    # CSV connections require multipart upload (files); JSON connect is not supported.
-    pass
+    # File connections require multipart upload (files); JSON connect is not supported.
+    # Parts (e.g. workbook sheets) to load per original filename; missing = all selectable.
+    file_parts: Optional[Dict[str, List[str]]] = None
 
 
 class SqliteConfig(BaseModel):
@@ -101,40 +103,25 @@ def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict
     }
 
 
-async def _build_csv_multipart_connect_args(service, cfg: BaseModel, uploaded_files, session_id: str):
-    if not uploaded_files:
+async def _build_csv_multipart_connect_args(
+    service, cfg: BaseModel, uploaded_files, session_id: str, staged_files=None
+):
+    staged_files = staged_files or []
+    if not uploaded_files and not staged_files:
         raise InvalidInputError("At least one file upload is required for type 'csv'")
 
-    session_upload_dir = service._get_session_upload_dir(session_id)
-    temp_file_paths: List[str] = []
-    file_infos: List[Dict[str, str]] = []
-
-    try:
-        for uploaded_file in uploaded_files:
-            saved = await service._save_and_validate_uploaded_files(uploaded_file, session_upload_dir)
-            for temp_file_path, original_filename in saved:
-                temp_file_paths.append(temp_file_path)
-                file_infos.append(
-                    {
-                        "file_path": temp_file_path,
-                        "original_filename": original_filename,
-                    }
-                )
-    except Exception:
-        # Files saved for earlier uploads are not tracked by the caller yet.
-        service._remove_paths(temp_file_paths)
-        raise
-    finally:
-        for uploaded_file in uploaded_files:
-            await uploaded_file.close()
-
+    file_infos, temp_file_paths = await service.gather_files(uploaded_files, session_id, staged_files)
     return {
         "file_paths": file_infos,
         **cfg.model_dump(exclude_none=True),
     }, temp_file_paths
 
 
-async def _build_sqlite_multipart_connect_args(service, cfg: BaseModel, uploaded_files, session_id: str):
+async def _build_sqlite_multipart_connect_args(
+    service, cfg: BaseModel, uploaded_files, session_id: str, staged_files=None
+):
+    if staged_files:
+        raise InvalidInputError("Staged uploads are only supported for file connections.")
     if not uploaded_files:
         raise InvalidInputError("A SQLite database file is required for type 'sqlite'")
     if len(uploaded_files) > 1:
@@ -208,7 +195,7 @@ def get_connector_registry() -> ConnectorRegistry:
     registry.register(
         ConnectorSpec(
             id="csv",
-            display_name="CSV / Parquet (DuckDB)",
+            display_name=f"Files: {' / '.join(h.FORMAT.label for h in FILE_HANDLERS)} (DuckDB)",
             dialect=duckdb_dialect,
             capabilities=ConnectorCapabilities(
                 supports_json_connect=False,

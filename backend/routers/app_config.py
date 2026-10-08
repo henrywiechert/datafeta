@@ -4,6 +4,7 @@
 from fastapi import APIRouter
 
 from backend.config import public_app_config
+from backend.connectors.file_handlers import file_format_catalog
 
 
 router = APIRouter()
@@ -11,5 +12,9 @@ router = APIRouter()
 
 @router.get("/app-config")
 def get_app_config() -> dict:
-    """Return public runtime capabilities for the frontend."""
-    return public_app_config()
+    """Return public runtime capabilities for the frontend.
+
+    ``fileFormats`` lists the registered upload formats, so file pickers,
+    labels and option panels follow the backend's handler registry.
+    """
+    return {**public_app_config(), "fileFormats": file_format_catalog()}

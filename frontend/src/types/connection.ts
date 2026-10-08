@@ -40,6 +40,31 @@ export interface ConnectionDetails {
   hf_splits?: string[];
   // Hive Parquet configuration options
   hive_file_structure?: string[];
+  // Multi-part files (e.g. workbook sheets): parts loaded per original filename
+  // (no entry = every selectable part). Saved so a restore loads the same parts.
+  file_parts?: Record<string, string[]>;
+}
+
+// A selectable part of a multi-part file (e.g. a workbook sheet), as listed by /stage-files
+export interface StagedPart {
+  name: string;
+  selectable: boolean;
+  reason: string | null; // why it cannot be loaded (hidden, chart sheet, ...)
+}
+
+// A file saved on the server by /stage-files, awaiting connect/add-files
+export interface StagedUpload {
+  upload_id: string;
+  filename: string;
+  format: string;             // FileFormatInfo.key
+  part_label: string | null;  // e.g. "sheet"; null for single-table formats
+  parts: StagedPart[] | null;
+}
+
+// Reference to a staged upload sent with connect/add-files
+export interface StagedSelection {
+  upload_id: string;
+  parts?: string[]; // multi-part files only; omitted = every selectable part
 }
 
 // Response types for list endpoints

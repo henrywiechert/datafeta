@@ -9,9 +9,12 @@ from pydantic import BaseModel
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import InvalidInputError
 from backend.routers.connection import (
+    add_files_to_connection,
     connect_to_datasource,
     debug_list_sessions,
+    discard_staged_files,
     list_connectors,
+    stage_files,
 )
 
 
@@ -172,6 +175,71 @@ class TestMultipartConnectAllowlist:
                 self._connect("not json")
 
         assert "Invalid connection details format" in str(exc_info.value)
+
+
+class TestStagedUploadEndpoints:
+    """Sheet-picker endpoints and the staged_uploads_json pass-through."""
+
+    def test_stage_files_delegates_to_service(self, monkeypatch):
+        monkeypatch.delenv("CONNECTOR_ALLOWLIST", raising=False)
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.stage_files = AsyncMock(return_value={"uploads": []})
+            files = [Mock()]
+            result = asyncio.run(stage_files(
+                uploaded_files=files, state_manager=Mock(), session_id="s1", request=Mock()
+            ))
+
+        assert result == {"uploads": []}
+        service_cls.return_value.stage_files.assert_awaited_once_with(files, "s1")
+
+    def test_stage_files_rejected_when_csv_disabled(self, monkeypatch):
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "sqlite")
+
+        with pytest.raises(InvalidInputError) as exc_info:
+            asyncio.run(stage_files(
+                uploaded_files=[Mock()], state_manager=Mock(), session_id="s1", request=Mock()
+            ))
+
+        assert exc_info.value.status_code == 403
+
+    def test_discard_staged_delegates_to_service(self):
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.discard_staged = AsyncMock(return_value={"message": "ok"})
+            result = asyncio.run(discard_staged_files(state_manager=Mock(), request=Mock()))
+
+        assert result == {"message": "ok"}
+
+    def test_connect_passes_staged_uploads(self, monkeypatch):
+        import json
+
+        monkeypatch.delenv("CONNECTOR_ALLOWLIST", raising=False)
+        staged = json.dumps([{"upload_id": "u1", "sheets": ["A"]}])
+        details = json.dumps({"type": "csv"})
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.connect_multipart = AsyncMock(return_value={"message": "ok"})
+            asyncio.run(connect_to_datasource(
+                connection_details_json=details,
+                uploaded_files=[],
+                staged_uploads_json=staged,
+                state_manager=Mock(),
+                session_id="s1",
+                request=Mock(),
+            ))
+
+        service_cls.return_value.connect_multipart.assert_awaited_once_with(details, [], "s1", staged)
+
+    def test_add_files_passes_staged_uploads(self):
+        with patch("backend.routers.connection.ConnectionService") as service_cls:
+            service_cls.return_value.add_files = AsyncMock(return_value={"added_tables": []})
+            asyncio.run(add_files_to_connection(
+                uploaded_files=[],
+                staged_uploads_json="[]",
+                state_manager=Mock(),
+                session_id="s1",
+                request=Mock(),
+            ))
+
+        service_cls.return_value.add_files.assert_awaited_once_with([], "s1", "[]")
 
 
 class TestDisconnectEndpointLogic:

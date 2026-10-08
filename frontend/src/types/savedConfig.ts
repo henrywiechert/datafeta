@@ -28,6 +28,8 @@ export interface SavedConnectionMetadata {
   csv_sample_size?: number;
   csv_sample_full_dataset?: boolean;
   csv_trim_numeric_whitespace?: boolean;
+  // Parts (e.g. workbook sheets) loaded per original filename
+  file_parts?: Record<string, string[]>;
   // ClickHouse-specific fields (NO password)
   host?: string;
   port?: number;

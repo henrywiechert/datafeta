@@ -483,15 +483,15 @@ class TestErrorHandling:
 
     def test_connect_unsupported_extension_raises(self, tmp_path):
         """Test that unsupported file extensions raise error."""
-        xlsx_path = tmp_path / "data.xlsx"
-        xlsx_path.write_text("fake xlsx content")
+        txt_path = tmp_path / "data.txt"
+        txt_path.write_text("plain text content")
 
         connector = FileConnector()
 
-        with pytest.raises(InvalidInputError):
+        with pytest.raises(InvalidInputError, match="Unsupported file type"):
             connector.connect({
-                "file_path": str(xlsx_path),
-                "original_filename": "data.xlsx",
+                "file_path": str(txt_path),
+                "original_filename": "data.txt",
             })
 
     def test_fetch_data_no_files_raises(self):
@@ -586,3 +586,161 @@ class TestJsonFlattenPreservesRows:
             'WHERE "id" = 1 ORDER BY "frames__index"'
         )
         assert [(r["frames__fn"], r["frames__ln"]) for r in rows] == [("a", 10), ("b", 20)]
+
+
+def _write_workbook(path, sheets, hidden=()):
+    """Write an .xlsx with {sheet_name: [rows]}; names in hidden are hidden sheets."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    for sheet_name, rows in sheets.items():
+        ws = wb.create_sheet(sheet_name)
+        for row in rows:
+            ws.append(row)
+        if sheet_name in hidden:
+            ws.sheet_state = "hidden"
+    wb.save(path)
+    return str(path)
+
+
+class TestFileConnectorWorkbooks:
+    """Workbooks become one Parquet-backed table per selected sheet."""
+
+    SHEETS = {
+        "Alpha": [["id", "name"], [1, "ada"], [2, "bob"]],
+        "Beta Sheet": [["code"], [10], ["X"]],
+    }
+
+    def _connect(self, tmp_path, sheets=None, details=None, filename="Sales Book.xlsx"):
+        path = _write_workbook(tmp_path / "upload1234.xlsx", sheets or self.SHEETS)
+        connector = FileConnector()
+        file_entry = {"file_path": path, "original_filename": filename}
+        connector.connect({"file_paths": [file_entry], **(details or {})})
+        return connector, path
+
+    def test_one_table_per_sheet(self, tmp_path):
+        connector, _ = self._connect(tmp_path)
+
+        assert [t.name for t in connector.list_tables()] == ["sales_book_alpha", "sales_book_beta_sheet"]
+        _, rows = connector.fetch_data('SELECT * FROM "sales_book_alpha" ORDER BY id')
+        assert rows == [{"id": 1, "name": "ada"}, {"id": 2, "name": "bob"}]
+        columns = connector.list_columns(None, "sales_book_beta_sheet")
+        assert [(c.name, c.data_type) for c in columns] == [("code", "VARCHAR")]
+
+    def test_csv_timestamp_format_parses_text_dates(self, tmp_path):
+        sheets = {"Data": [["start"], ["10/04/2026 22:00"], ["10/06/2026 20:45"]]}
+        connector, _ = self._connect(
+            tmp_path, sheets=sheets, details={"csv_timestamp_format": "%m/%d/%Y %H:%M"}
+        )
+
+        [column] = connector.list_columns(None, "sales_book")
+        assert (column.data_type, column.is_datetime) == ("TIMESTAMP", True)
+
+    def test_single_loadable_sheet_named_after_file(self, tmp_path):
+        path = _write_workbook(
+            tmp_path / "upload.xlsx",
+            {"Data": [["a"], [1]], "Lookup": [["b"], [2]]},
+            hidden={"Lookup"},
+        )
+        connector = FileConnector()
+        connector.connect({"file_paths": [{"file_path": path, "original_filename": "report.xlsx"}]})
+
+        assert [t.name for t in connector.list_tables()] == ["report"]
+
+    def test_saved_file_parts_applied_by_filename(self, tmp_path):
+        connector, _ = self._connect(tmp_path, details={"file_parts": {"Sales Book.xlsx": ["Beta Sheet"]}})
+        assert [t.name for t in connector.list_tables()] == ["sales_book_beta_sheet"]
+
+    def test_per_file_sheets_override_saved_selection(self, tmp_path):
+        path = _write_workbook(tmp_path / "upload.xlsx", self.SHEETS)
+        connector = FileConnector()
+        connector.connect({
+            "file_paths": [{"file_path": path, "original_filename": "b.xlsx", "parts": ["Alpha"]}],
+            "file_parts": {"b.xlsx": ["Beta Sheet"]},
+        })
+        assert [t.name for t in connector.list_tables()] == ["b_alpha"]
+
+    def test_missing_saved_sheet_raises_and_cleans_up(self, tmp_path):
+        with pytest.raises(InvalidInputError, match="'Gone'.*Available sheets: Alpha, Beta Sheet"):
+            self._connect(tmp_path, details={"file_parts": {"Sales Book.xlsx": ["Alpha", "Gone"]}})
+        assert not list(tmp_path.glob("*.parquet"))
+
+    def test_empty_sheet_skipped(self, tmp_path):
+        connector, _ = self._connect(tmp_path, sheets={"Data": [["a"], [1]], "Blank": []})
+
+        assert [t.name for t in connector.list_tables()] == ["sales_book_data"]
+        assert connector.take_skipped_parts() == ["Sales Book.xlsx: Blank"]
+
+    def test_workbook_without_visible_sheets_raises(self, tmp_path):
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        wb.active.append(["a"])
+        wb.active.sheet_state = "hidden"
+        wb.create_chartsheet("Chart")  # openpyxl refuses to hide the only visible sheet
+        path = str(tmp_path / "upload.xlsx")
+        wb.save(path)
+        connector = FileConnector()
+        with pytest.raises(InvalidInputError, match="no visible worksheets"):
+            connector.connect({"file_paths": [{"file_path": path, "original_filename": "h.xlsx"}]})
+
+    def test_all_selected_sheets_empty_raises(self, tmp_path):
+        with pytest.raises(InvalidInputError, match="contain no data"):
+            self._connect(tmp_path, sheets={"Blank": [], "Other": []})
+
+    def test_disconnect_deletes_derived_sheet_parquet(self, tmp_path):
+        connector, path = self._connect(tmp_path)
+        assert len(list(tmp_path.glob("*.parquet"))) == 2
+
+        connector.disconnect()
+
+        assert not list(tmp_path.glob("*.parquet"))
+        assert os.path.exists(path)  # the upload itself belongs to the session
+
+    def test_disconnect_deletes_flattened_json_parquet(self, tmp_path):
+        json_path = tmp_path / "events.json"
+        json_path.write_text('[{"id": 1}, {"id": 2}]')
+        connector = FileConnector()
+        connector.connect({"file_path": str(json_path), "original_filename": "events.json"})
+        assert [p.name for p in tmp_path.glob("*.parquet")] == ["events__flat.parquet"]
+
+        connector.disconnect()
+
+        assert not list(tmp_path.glob("*.parquet"))
+        assert json_path.exists()
+
+    def test_add_workbook_returns_all_table_names(self, tmp_path):
+        csv_path = tmp_path / "base.csv"
+        csv_path.write_text("id\n1\n")
+        connector = FileConnector()
+        connector.connect({"file_path": str(csv_path), "original_filename": "base.csv"})
+        path = _write_workbook(tmp_path / "upload.xlsx", self.SHEETS)
+
+        added = connector.add_file(path, "extra.xlsx", {}, ["Alpha", "Beta Sheet"])
+
+        assert added == ["extra_alpha", "extra_beta_sheet"]
+        assert [t.name for t in connector.list_tables()] == ["base", "extra_alpha", "extra_beta_sheet"]
+
+    def test_failed_add_leaves_no_tables_or_files(self, tmp_path):
+        csv_path = tmp_path / "base.csv"
+        csv_path.write_text("id\n1\n")
+        connector = FileConnector()
+        connector.connect({"file_path": str(csv_path), "original_filename": "base.csv"})
+        path = _write_workbook(tmp_path / "upload.xlsx", self.SHEETS)
+
+        with pytest.raises(InvalidInputError):
+            connector.add_file(path, "extra.xlsx", {}, ["Alpha", "Missing"])
+
+        assert [t.name for t in connector.list_tables()] == ["base"]
+        assert not list(tmp_path.glob("*.parquet"))
+
+    def test_remove_tables_deletes_their_derived_files(self, tmp_path):
+        connector, _ = self._connect(tmp_path)
+        connector.remove_tables(["sales_book_alpha"])
+        assert [t.name for t in connector.list_tables()] == ["sales_book_beta_sheet"]
+        assert len(list(tmp_path.glob("*.parquet"))) == 1
+
+    def test_sheet_name_with_dot_keeps_full_name(self, tmp_path):
+        connector, _ = self._connect(tmp_path, sheets={"v1.2": [["a"], [1]], "Other": [["b"], [2]]})
+        assert [t.name for t in connector.list_tables()] == ["sales_book_v1_2", "sales_book_other"]

@@ -1,6 +1,19 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { fetchWithErrorHandling, API_BASE_PREFIX } from './apiClient';
 
+/** Parsing option groups a file format honours (see backend file_handlers/base.py). */
+export type FileFormatOption = 'csv' | 'date_formats';
+
+/** An uploadable file format as registered in the backend's handler registry. */
+export interface FileFormatInfo {
+  key: string;
+  label: string;
+  extensions: string[];
+  options: FileFormatOption[];
+  /** Singular noun for selectable parts (e.g. "sheet"); null = one table per file. */
+  partLabel: string | null;
+}
+
 export interface AppConfig {
   appMode: string;
   isDemoMode: boolean;
@@ -18,6 +31,8 @@ export interface AppConfig {
     enabled: boolean;
     available: boolean;
   };
+  /** Supported upload formats; empty until the config has loaded. */
+  fileFormats: FileFormatInfo[];
 }
 
 export const defaultAppConfig: AppConfig = {
@@ -37,6 +52,7 @@ export const defaultAppConfig: AppConfig = {
     enabled: false,
     available: false,
   },
+  fileFormats: [],
 };
 
 export const appConfigApi = {

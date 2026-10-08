@@ -7,26 +7,28 @@
  * - Disconnect from current connection
  */
 
-import { ConnectionDetails } from '../../types';
+import { ConnectionDetails, StagedSelection, StagedUpload } from '../../types';
 import { fetchWithErrorHandling, API_BASE_URL, createAbortController } from './apiClient';
 
 export const connectionApi = {
   /**
    * Connect to a data source
    * 
-   * For file-based sources (CSV/Parquet), supports uploading multiple files.
-   * Each file becomes a separate queryable table. A SQLite upload is a single
-   * file whose tables are read from the database schema.
+   * For file-based sources, supports uploading multiple files. Each file
+   * becomes a separate queryable table (a multi-part file one per selected part).
+   * A SQLite upload is a single file whose tables are read from the database schema.
    * 
    * @param details - Connection configuration
    * @param files - Array of files to upload (for 'csv' and 'sqlite' connection types)
+   * @param staged - Files already uploaded via stageFiles, with their selected parts
    * @param signal - Optional AbortSignal for request cancellation
    */
   async connect(
     details: ConnectionDetails, 
     files?: File[], 
+    staged?: StagedSelection[],
     signal?: AbortSignal
-  ): Promise<{ message: string, file_paths?: string[] }> {
+  ): Promise<{ message: string, file_paths?: string[], skipped_parts?: string[] }> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
 
@@ -34,13 +36,17 @@ export const connectionApi = {
       const formData = new FormData();
       formData.append('connection_details_json', JSON.stringify(details));
       
-      if (files && files.length > 0) {
-        // Append each file with the same field name - FastAPI handles this as a list
-        files.forEach((file) => {
-          formData.append('uploaded_files', file, file.name);
-        });
-      } else {
+      const hasFiles = Boolean(files && files.length > 0);
+      const hasStaged = Boolean(staged && staged.length > 0);
+      if (!hasFiles && !hasStaged) {
         throw new Error(`At least one file must be provided for connection type ${details.type}.`);
+      }
+      // Append each file with the same field name - FastAPI handles this as a list
+      files?.forEach((file) => {
+        formData.append('uploaded_files', file, file.name);
+      });
+      if (hasStaged) {
+        formData.append('staged_uploads_json', JSON.stringify(staged));
       }
       
       const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect`, {
@@ -117,19 +123,19 @@ export const connectionApi = {
    * @returns Object with columns list for the partition
    */
   /**
-   * Add more CSV/Parquet files to an existing file-based connection.
+   * Upload data files without connecting, listing the parts of multi-part files.
    *
-   * Each file becomes a new queryable table in the active session.
-   * The connection must already be established.
+   * Feeds the "Select Parts" step (e.g. workbook sheets): connect/addFiles then reference the
+   * returned upload ids, so the files are not uploaded twice. Staging again
+   * discards earlier staged uploads that were not used.
    *
-   * @param files - Files to append to the current connection
+   * @param files - Files to stage (zip archives expand to one entry per member)
    * @param signal - Optional AbortSignal for request cancellation
-   * @returns Object with list of added table names
    */
-  async addFiles(
+  async stageFiles(
     files: File[],
     signal?: AbortSignal,
-  ): Promise<{ message: string; added_tables: string[] }> {
+  ): Promise<{ uploads: StagedUpload[] }> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
 
@@ -137,6 +143,55 @@ export const connectionApi = {
     files.forEach((file) => {
       formData.append('uploaded_files', file, file.name);
     });
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/stage-files`, {
+      method: 'POST',
+      body: formData,
+    }, requestSignal);
+
+    return response.json();
+  },
+
+  /**
+   * Delete staged uploads that will not be used (e.g. the part picker was cancelled).
+   */
+  async discardStaged(signal?: AbortSignal): Promise<{ message: string }> {
+    const abortController = signal ? null : createAbortController();
+    const requestSignal = signal || abortController?.signal;
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/discard-staged`, {
+      method: 'POST',
+    }, requestSignal);
+
+    return response.json();
+  },
+
+  /**
+   * Add more data files to an existing file-based connection.
+   *
+   * Each file becomes a new queryable table in the active session (a
+   * multi-part file one per selected part). The connection must already be established.
+   *
+   * @param files - Files to append to the current connection
+   * @param staged - Files already uploaded via stageFiles, with their selected parts
+   * @param signal - Optional AbortSignal for request cancellation
+   * @returns Object with list of added table names and skipped (empty) parts
+   */
+  async addFiles(
+    files: File[],
+    staged?: StagedSelection[],
+    signal?: AbortSignal,
+  ): Promise<{ message: string; added_tables: string[]; skipped_parts?: string[] }> {
+    const abortController = signal ? null : createAbortController();
+    const requestSignal = signal || abortController?.signal;
+
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('uploaded_files', file, file.name);
+    });
+    if (staged && staged.length > 0) {
+      formData.append('staged_uploads_json', JSON.stringify(staged));
+    }
 
     const response = await fetchWithErrorHandling(`${API_BASE_URL}/add-files`, {
       method: 'POST',

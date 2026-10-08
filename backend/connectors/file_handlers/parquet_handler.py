@@ -4,13 +4,27 @@ import os
 
 from backend.exceptions import FileProcessingError, InvalidInputError
 
-from .base import BaseFileHandler
+from .base import BaseFileHandler, FileFormat
 
 
 class ParquetFileHandler(BaseFileHandler):
-    """Handles Parquet file reading via DuckDB and Parquet-specific validation."""
+    """Handles Parquet file reading via DuckDB and Parquet-specific validation.
+
+    Also the reader for every format that converts its input to Parquet
+    (JSON flattening, workbook sheets).
+    """
 
     FILE_EXTENSION = ".parquet"
+    FORMAT = FileFormat(
+        key="parquet",
+        label="Parquet",
+        extensions=(".parquet",),
+        mime_types=frozenset({
+            "application/octet-stream",
+            "application/x-parquet",
+            "application/vnd.apache.parquet",
+        }),
+    )
 
     def build_reader_sql(self, file_path: str) -> str:
         """Build DuckDB read_parquet SQL function call."""

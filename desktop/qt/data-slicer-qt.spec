@@ -24,7 +24,7 @@ binaries = []
 hiddenimports = []
 
 # Backend packaging mirrors desktop/sidecar/datafeta-backend.spec.
-for pkg in ("duckdb", "pyarrow", "uvicorn", "anyio", "clickhouse_connect", "pydantic", "starlette"):
+for pkg in ("duckdb", "pyarrow", "python_calamine", "uvicorn", "anyio", "clickhouse_connect", "pydantic", "starlette"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     datas += pkg_datas
     binaries += pkg_binaries
