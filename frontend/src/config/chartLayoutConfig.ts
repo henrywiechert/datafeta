@@ -143,6 +143,8 @@ export const MAX_FACET_HEIGHT_PX = 400;
 export const GANTT_UNIT_PX = 10;
 export const MIN_GANTT_WIDTH_PX = 200;
 export const MAX_GANTT_WIDTH_PX = 10000;
+// Minimum rendered bar length along the timeline, so short events stay visible when zoomed out
+export const MIN_GANTT_BAR_PX = 2;
 
 // Chart-specific default sizes for manualSize (1-50 range)
 // These values represent "reasonable" defaults for each chart type.

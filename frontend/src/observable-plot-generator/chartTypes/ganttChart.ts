@@ -7,7 +7,8 @@ import {
   DEFAULT_CHART_COLOR, 
   GANTT_UNIT_PX,
   MIN_GANTT_WIDTH_PX,
-  MAX_GANTT_WIDTH_PX
+  MAX_GANTT_WIDTH_PX,
+  MIN_GANTT_BAR_PX
 } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
@@ -209,6 +210,38 @@ function createClampedStartAccessor(
     }
     // Clamp start value to zoom range
     return Math.max(start, zoomRange.min);
+  };
+}
+
+/**
+ * Render transform that stretches bars shorter than MIN_GANTT_BAR_PX along the
+ * timeline axis (centered on the original interval). Without it, short or
+ * zero-duration events shrink below a pixel and vanish when zoomed out.
+ */
+function createMinBarLengthRender(axis: 'x' | 'y'): Plot.RenderFunction {
+  const key1 = `${axis}1`;
+  const key2 = `${axis}2`;
+  return (index, scales, values, dimensions, context, next) => {
+    const v1 = values[key1];
+    const v2 = values[key2];
+    if (!next || !v1 || !v2) {
+      return next ? next(index, scales, values, dimensions, context) : null;
+    }
+    const p1 = Float64Array.from(v1 as ArrayLike<number>);
+    const p2 = Float64Array.from(v2 as ArrayLike<number>);
+    const half = MIN_GANTT_BAR_PX / 2;
+    for (const i of index) {
+      const a = p1[i];
+      const b = p2[i];
+      // NaN (invalid rows) fails this comparison and is left untouched
+      if (Math.abs(b - a) < MIN_GANTT_BAR_PX) {
+        const mid = (a + b) / 2;
+        const dir = b >= a ? 1 : -1;
+        p1[i] = mid - dir * half;
+        p2[i] = mid + dir * half;
+      }
+    }
+    return next(index, scales, { ...values, [key1]: p1, [key2]: p2 } as any, dimensions, context);
   };
 }
 
@@ -507,6 +540,7 @@ export function ganttChart(
       x2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
       y: categoryColumn || (() => ' '),
       fill: fillValue,
+      render: createMinBarLengthRender('x'),
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
@@ -538,6 +572,7 @@ export function ganttChart(
       y2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
       x: categoryColumn || (() => ' '),
       fill: fillValue,
+      render: createMinBarLengthRender('y'),
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
