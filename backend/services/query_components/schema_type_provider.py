@@ -49,6 +49,38 @@ class SchemaTypeProvider:
                 self._cache[key] = None
         return self._cache[key]
 
+    def get_merged_types(
+        self,
+        database: Optional[str],
+        table_name: Optional[str],
+        query_desc: Optional[Any] = None,
+    ) -> Optional[Dict[str, str]]:
+        """Return a type map covering ``table_name`` plus any JOINed tables.
+
+        A JOINed query (``query_desc.virtual_table``) resolves fields from tables
+        other than ``table_name``, so their types must be merged in too -- otherwise
+        a joined column's type resolves to None and e.g. datetime parsing is skipped.
+        Keys are included both bare (e.g. "start_ts") and table-qualified (e.g.
+        "statistics.start_ts", matching the dotted field names JOIN queries use).
+        """
+        base = self.get_types(database, table_name) or {}
+        merged = dict(base)
+        if table_name:
+            merged.update({f"{table_name}.{col}": dtype for col, dtype in base.items()})
+
+        vt = getattr(query_desc, "virtual_table", None) if query_desc is not None else None
+        if vt is not None and getattr(vt, "mode", None) == "join":
+            tables = [vt.primary_table] + [jt.table_name for jt in (vt.joined_tables or [])]
+            for t in tables:
+                if t == table_name:
+                    continue
+                types = self.get_types(database, t)
+                if types:
+                    merged.update(types)
+                    merged.update({f"{t}.{col}": dtype for col, dtype in types.items()})
+
+        return merged or None
+
     def source_type(
         self,
         field: str,
@@ -59,3 +91,14 @@ class SchemaTypeProvider:
         return DateTimeService.resolve_source_type(
             field, self.get_types(database, table)
         )
+
+    def source_type_for_query(
+        self,
+        field: str,
+        query_desc: Any,
+    ) -> Optional[str]:
+        """Resolve a field's physical type for a full query, merging JOINed tables."""
+        types = self.get_merged_types(
+            query_desc.target_database, query_desc.target_table, query_desc
+        )
+        return DateTimeService.resolve_source_type(field, types)
