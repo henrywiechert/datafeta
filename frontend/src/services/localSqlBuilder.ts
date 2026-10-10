@@ -376,6 +376,12 @@ export function applyPointBudgetSql(
     // Floor at one row per stratum -- see the backend applier: a proportional
     // target of 0 drops the whole category out of the chart.
     const floorPerStratum = Math.max(minPerStratum, 1);
+    // A field with very high cardinality (e.g. 50k discrete colors) would
+    // otherwise guarantee floorPerStratum rows for EACH category, blowing the
+    // result past maxRows by orders of magnitude. Shrink the floor as
+    // cardinality grows so the total stays bounded by maxRows, but never
+    // below 1 so no category is fully dropped.
+    const floorExpr = `greatest(least(${floorPerStratum}, cast(${maxRows} / greatest(n_strata, 1) as integer)), 1)`;
     return `
 WITH base AS (
   ${baseSql}
@@ -389,7 +395,10 @@ ranked AS (
   FROM base
 )
 SELECT * FROM ranked
-WHERE rn <= greatest(${floorPerStratum}, cast(${maxRows} * cat_cnt / total_cnt as integer))
+CROSS JOIN (
+  SELECT count(DISTINCT ${strat}) AS n_strata FROM base
+) AS strata
+WHERE rn <= greatest(${floorExpr}, cast(${maxRows} * cat_cnt / total_cnt as integer))
     `.trim();
   }
 
