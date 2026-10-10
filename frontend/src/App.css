@@ -23,11 +23,17 @@
 /*
  * NOTE ON THE GLOBAL ELEMENT SELECTORS BELOW
  *
- * The bare `label` / `input` / `select` / `button` / `table` rules are the only
- * thing styling the data source page and its seven connector forms, which use
- * no MUI at all. They are deliberately left global here: scoping or retiring
- * them is a separate change, because doing it at the same time as a colour
- * change would make any regression impossible to bisect. See THEMING.md.
+ * The bare `label` / `input` / `select` / `button` / `table` rules style the
+ * data source page and its seven connector forms, which use no MUI at all.
+ * They are deliberately left global here: scoping or retiring them is a
+ * separate change, because doing it at the same time as a colour change would
+ * make any regression impossible to bisect. See THEMING.md.
+ *
+ * `input`/`select` carry a `:not([class*="Mui"])` guard so they don't also
+ * match the raw `<input>` MUI renders inside its own `OutlinedInput` — without
+ * it, a MUI `TextField` elsewhere in the app (e.g. `ConnectionRestoreDialog`)
+ * gets this border on the inner input on top of MUI's own notched fieldset
+ * border, showing up as a double frame.
  */
 
 /* Add some basic structure and spacing */
@@ -45,10 +51,10 @@ label {
   min-width: 80px;
 }
 
-input[type="text"],
-input[type="number"],
-input[type="password"],
-select {
+input[type="text"]:not([class*="Mui"]),
+input[type="number"]:not([class*="Mui"]),
+input[type="password"]:not([class*="Mui"]),
+select:not([class*="Mui"]) {
   margin-right: 10px;
   margin-bottom: 10px;
   padding: 8px;

@@ -265,13 +265,14 @@ export default function ConnectionRestoreDialog({
 
           {isClickHouse && (
             <>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
                 ClickHouse Connection
               </Typography>
 
-              <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
                 <TextField
                   autoFocus
+                  size="small"
                   margin="dense"
                   label="Host"
                   type="text"
@@ -279,21 +280,23 @@ export default function ConnectionRestoreDialog({
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
                   disabled={isConnecting}
-                  sx={{ flex: 2 }}
+                  sx={{ flex: 2, my: 0 }}
                 />
                 <TextField
+                  size="small"
                   margin="dense"
                   label="Port"
                   type="number"
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   disabled={isConnecting}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, my: 0 }}
                 />
               </Box>
 
-              <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
                 <TextField
+                  size="small"
                   margin="dense"
                   label="User"
                   type="text"
@@ -301,8 +304,10 @@ export default function ConnectionRestoreDialog({
                   value={user}
                   onChange={(e) => setUser(e.target.value)}
                   disabled={isConnecting}
+                  sx={{ my: 0 }}
                 />
                 <TextField
+                  size="small"
                   margin="dense"
                   label="Database"
                   type="text"
@@ -310,10 +315,12 @@ export default function ConnectionRestoreDialog({
                   value={database}
                   onChange={(e) => setDatabase(e.target.value)}
                   disabled={isConnecting}
+                  sx={{ my: 0 }}
                 />
               </Box>
 
               <TextField
+                size="small"
                 margin="dense"
                 label="Password"
                 type="password"
@@ -327,12 +334,14 @@ export default function ConnectionRestoreDialog({
                   }
                 }}
                 disabled={isConnecting}
+                sx={{ my: 0 }}
               />
 
               <FormControlLabel
-                sx={{ mt: 1, alignItems: 'flex-start' }}
+                sx={{ mt: 0.5, alignItems: 'flex-start' }}
                 control={
                   <Checkbox
+                    size="small"
                     checked={swapSameSchema}
                     onChange={(e) => setSwapSameSchema(e.target.checked)}
                     disabled={isConnecting || swapLockedByUrl}
