@@ -298,6 +298,8 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
       [HEATMAP_SCALE_COL]: normalizeHeatmapCellScale(scaledSize, HEATMAP_MANUAL_SIZE_MAX),
     };
   });
+  // Paint largest-first so smaller same-cell rects stay on top instead of being occluded.
+  sizedHeatmapData.sort((a, b) => b[HEATMAP_SCALE_COL] - a[HEATMAP_SCALE_COL]);
 
   const primaryMark = useScaledRectMark
     ? Plot.rect(sizedHeatmapData, {
