@@ -102,13 +102,18 @@ class QueryService:
         connector: Optional[Any],
         table_name: str,
         target_database: Optional[str],
+        query_desc: Optional[QueryDescription] = None,
     ) -> Optional[Dict[str, str]]:
         """Fetch a column name -> physical type map for any engine.
 
-        Used to detect string columns that the user overrode to DateTime, so the
-        datetime builders can parse them before applying datetime functions.
+        Used to detect string/numeric columns that the user overrode to DateTime, so
+        the datetime builders can parse them before applying datetime functions. Merges
+        in JOINed table types (via ``query_desc.virtual_table``) so a joined column's
+        type doesn't resolve to None -- see ``SchemaTypeProvider.get_merged_types``.
         """
-        return SchemaTypeProvider(connector).get_types(target_database, table_name)
+        return SchemaTypeProvider(connector).get_merged_types(
+            target_database, table_name, query_desc
+        )
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """Get a field reference, applying CAST if configured. Delegates to cast_field_applier."""
@@ -453,7 +458,7 @@ class QueryService:
             t,
             vc_builder,
             column_types=(
-                self._get_column_types(connector, table_name, query_desc.target_database)
+                self._get_column_types(connector, table_name, query_desc.target_database, query_desc)
                 if self._query_needs_source_types(query_desc)
                 else None
             ),
@@ -523,7 +528,7 @@ class QueryService:
                 vc_builder.register_virtual_column(vc)
 
         column_types = (
-            self._get_column_types(connector, table_name, query_desc.target_database)
+            self._get_column_types(connector, table_name, query_desc.target_database, query_desc)
             if self._query_needs_source_types(query_desc)
             else None
         )
@@ -796,7 +801,7 @@ class QueryService:
         # Physical column types are needed only when a datetime part is requested, so
         # string columns overridden to DateTime can be parsed before datetime functions.
         column_types = (
-            self._get_column_types(connector, table_name, query_desc.target_database)
+            self._get_column_types(connector, table_name, query_desc.target_database, query_desc)
             if self._query_needs_source_types(query_desc)
             else None
         )

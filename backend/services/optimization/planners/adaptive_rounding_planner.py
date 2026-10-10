@@ -46,9 +46,7 @@ class AdaptiveRoundingPlanner:
 
     def _source_type_for(self, field: str, query_desc: QueryDescription) -> Optional[str]:
         """Resolve a field's physical type so string columns can be parsed to datetime."""
-        return self._type_provider.source_type(
-            field, query_desc.target_database, query_desc.target_table
-        )
+        return self._type_provider.source_type_for_query(field, query_desc)
 
     def _get_virtual_column_names(self, query_desc: QueryDescription) -> Set[str]:
         """

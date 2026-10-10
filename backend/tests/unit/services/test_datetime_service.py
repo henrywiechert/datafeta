@@ -218,6 +218,17 @@ class TestDateTimeStringSourceParsing:
         assert 'CAST("datetime" AS TIMESTAMP)' in sql
         assert "date_trunc" in sql
 
+    def test_duckdb_numeric_epoch_source_is_converted_before_timeline(self):
+        t = Table("statistics")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.start_ts, "month", "timeline", "sqlite", source_type="DOUBLE"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert 'to_timestamp("start_ts")' in sql
+        assert "timezone('UTC'" in sql
+        assert "date_trunc('month'" in sql
+
     def test_duckdb_string_source_uses_flexible_timestamp_parse(self):
         """A text column overridden to DateTime is parsed with TRY_CAST first
         (ISO8601) and a try_strptime fallback for non-standard layouts such as

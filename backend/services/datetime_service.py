@@ -50,6 +50,11 @@ class DateTimeService:
         '%Y-%m-%d %H-%M-%S',
     )
 
+    # SQLite timestamp columns are commonly stored as REAL epoch seconds. A user
+    # DateTime override must convert those numeric values before applying DuckDB
+    # timezone/date_trunc functions.
+    _NUMERIC_TYPE_TOKENS = ('INT', 'DOUBLE', 'FLOAT', 'REAL', 'DECIMAL', 'NUMERIC')
+
     @staticmethod
     def resolve_source_type(
         field_name: str,
@@ -79,6 +84,14 @@ class DateTimeService:
         return any(token in upper for token in DateTimeService._STRING_TYPE_TOKENS)
 
     @staticmethod
+    def _is_numeric_source_type(source_type: Optional[str]) -> bool:
+        """Return True when the column's physical type stores epoch seconds."""
+        if not source_type:
+            return False
+        upper = source_type.upper()
+        return any(token in upper for token in DateTimeService._NUMERIC_TYPE_TOKENS)
+
+    @staticmethod
     def _parse_string_to_datetime(field_term: Any, normalized_db_type: str) -> Any:
         """
         Parse a text column into a real datetime so datetime functions can be applied.
@@ -97,6 +110,13 @@ class DateTimeService:
         return DuckDBFlexibleTimestamp(
             field_term, list(DateTimeService._DUCKDB_FALLBACK_FORMATS)
         )
+
+    @staticmethod
+    def _parse_epoch_to_datetime(field_term: Any, normalized_db_type: str) -> Any:
+        """Convert a numeric epoch-seconds source to a real datetime."""
+        if normalized_db_type == 'clickhouse':
+            return Function('toDateTime64', field_term, 3, 'UTC')
+        return Function('to_timestamp', field_term)
 
     @staticmethod
     def _to_utc_clickhouse(field_term: Any) -> Any:
@@ -228,10 +248,12 @@ class DateTimeService:
             normalized = 'duckdb'
 
         # Parse text columns to datetime before applying datetime functions. This
-        # makes UI "treat as DateTime" overrides on string columns work instead of
-        # raising an illegal-argument error from the database.
+        # makes UI "treat as DateTime" overrides on text or epoch-number columns
+        # work instead of raising an illegal-argument error from the database.
         if cls._is_string_source_type(source_type):
             field_term = cls._parse_string_to_datetime(field_term, normalized)
+        elif cls._is_numeric_source_type(source_type):
+            field_term = cls._parse_epoch_to_datetime(field_term, normalized)
 
         # "Full DateTime": a datetime field with a mode but no specific part is the
         # parsed timestamp itself (no extraction/truncation). Returning it here also
