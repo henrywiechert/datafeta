@@ -230,7 +230,8 @@ class TestStratifiedFloorsAtOneRow:
             _tick_strip_sql(), _stratified_desc(max_rows=5000), dialect=DuckDbDialect()
         )
 
-        assert "greatest(1, cast(5000 * cat_cnt / total_cnt as integer))" in sql
+        assert "greatest(least(1, cast(5000 / greatest(strata.n_strata, 1) as integer)), 1)" in sql
+        assert "cast(5000 * cat_cnt / total_cnt as integer)" in sql
 
     def test_clickhouse_target_never_floors_at_zero(self):
         from backend.dialects import ClickHouseDialect
@@ -241,7 +242,8 @@ class TestStratifiedFloorsAtOneRow:
             dialect=ClickHouseDialect(),
         )
 
-        assert "greatest(1, intDiv(5000 * cat_cnt, total_cnt))" in sql
+        assert "greatest(least(1, intDiv(5000, greatest(strata.n_strata, 1))), 1)" in sql
+        assert "intDiv(5000 * cat_cnt, total_cnt)" in sql
 
     def test_explicit_min_per_stratum_still_wins(self):
         sql = apply_result_budget(
@@ -250,7 +252,43 @@ class TestStratifiedFloorsAtOneRow:
             dialect=DuckDbDialect(),
         )
 
-        assert "greatest(200, cast(5000 * cat_cnt / total_cnt as integer))" in sql
+        assert "greatest(least(200, cast(5000 / greatest(strata.n_strata, 1) as integer)), 1)" in sql
+
+
+class TestStratifiedHighCardinalityCap:
+    """
+    A huge-cardinality stratify field (e.g. 50k discrete colors) must not
+    guarantee min_per_stratum rows for EACH category -- that blows the
+    result past max_rows by orders of magnitude (regression for the
+    heatmap color+size-on-same-discrete-field case).
+    """
+
+    def test_floor_shrinks_with_cardinality_to_stay_within_budget(self):
+        duckdb = pytest.importorskip("duckdb")
+        con = duckdb.connect()
+        # 3000 categories x 100 rows each = 300k rows. With the old unbounded
+        # floor (min_per_stratum=50 per category) this would return ~150k rows
+        # for a max_rows=3000 budget -- a 50x blowup.
+        con.execute(
+            """
+            CREATE TABLE t AS
+            SELECT 'cat_' || (i // 100) AS cat, i AS v FROM range(300000) tbl(i)
+            """
+        )
+
+        sql = apply_result_budget(
+            _tick_strip_sql(),
+            _stratified_desc(max_rows=3000, min_per_stratum=50),
+            dialect=DuckDbDialect(),
+        )
+        rows = con.execute(sql).fetchall()
+
+        # Bounded close to max_rows, nowhere near 3000 categories * 50 = 150,000.
+        assert len(rows) <= 3000 * 2
+        columns = [d[0] for d in con.description]
+        cats = {r[columns.index("cat")] for r in rows}
+        # Every category still has at least one representative row.
+        assert len(cats) == 3000
 
     def test_every_category_survives_a_dominant_one(self):
         """One category with 200k rows beside three with 3 rows: all 4 remain."""

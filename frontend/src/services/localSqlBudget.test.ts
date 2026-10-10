@@ -58,7 +58,8 @@ describe('stratified budget SQL', () => {
       maxRows: 5000, strategy: 'stratified', stratifyField: 'cat', minPerStratum: 0,
     });
 
-    expect(sql).toContain('greatest(1, cast(5000 * cat_cnt / total_cnt as integer))');
+    expect(sql).toContain('greatest(least(1, cast(5000 / greatest(n_strata, 1) as integer)), 1)');
+    expect(sql).toContain('cast(5000 * cat_cnt / total_cnt as integer)');
   });
 
   it('keeps an explicit min-per-stratum when it is higher', () => {
@@ -66,6 +67,6 @@ describe('stratified budget SQL', () => {
       maxRows: 5000, strategy: 'stratified', stratifyField: 'cat', minPerStratum: 200,
     });
 
-    expect(sql).toContain('greatest(200, cast(5000 * cat_cnt / total_cnt as integer))');
+    expect(sql).toContain('greatest(least(200, cast(5000 / greatest(n_strata, 1) as integer)), 1)');
   });
 });

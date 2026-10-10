@@ -172,22 +172,35 @@ def _apply_stratified_sampling(
 
     # Integer truncation: ClickHouse uses intDiv, others use cast
     if dialect.name == "clickhouse":
-        target_expr = f"greatest({floor_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
+        proportional_expr = f"intDiv({max_rows} * cat_cnt, total_cnt)"
+        floor_cap_expr = f"intDiv({max_rows}, greatest(strata.n_strata, 1))"
     else:
-        target_expr = f"greatest({floor_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
+        proportional_expr = f"cast({max_rows} * cat_cnt / total_cnt as integer)"
+        floor_cap_expr = f"cast({max_rows} / greatest(strata.n_strata, 1) as integer)"
+
+    # A field with very high cardinality (e.g. 50k discrete colors) would
+    # otherwise guarantee `floor_per` rows for EACH stratum, blowing the
+    # result past max_rows by orders of magnitude (50k * 200 = 10M rows).
+    # Shrink the floor as cardinality grows so the total stays bounded by
+    # max_rows, but never below 1 so no category is fully dropped.
+    floor_expr = f"greatest(least({floor_per}, {floor_cap_expr}), 1)"
 
     return f"""
+WITH base AS (
+  {base_sql}
+)
 SELECT * FROM (
   SELECT
     base.*,
     row_number() OVER (PARTITION BY {qf} ORDER BY {rand_func}) AS rn,
     count(*) OVER (PARTITION BY {qf}) AS cat_cnt,
     count(*) OVER () AS total_cnt
-  FROM (
-    {base_sql}
-  ) AS base
+  FROM base
 ) AS sampled
-WHERE rn <= {target_expr}
+CROSS JOIN (
+  SELECT count(DISTINCT {qf}) AS n_strata FROM base
+) AS strata
+WHERE rn <= greatest({floor_expr}, {proportional_expr})
 """.strip()
 
 
