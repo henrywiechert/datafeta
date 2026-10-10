@@ -157,7 +157,9 @@ export function useMetadataOperations({
 
     const fetchColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
+        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) {
+            return;
+        }
         
         const tableKey = dataSource.selectedTable;
         dataSourceSetters.setIsLoadingMetadata(true);
@@ -252,7 +254,9 @@ export function useMetadataOperations({
     // Fetch merged columns when joined tables change
     const fetchMergedColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
+        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) {
+            return;
+        }
         
         // If no joined or union tables, fetch regular columns
         if (dataSource.joinedTables.length === 0 && dataSource.unionTables.length === 0) {
@@ -428,10 +432,11 @@ export function useMetadataOperations({
             dataSourceSetters.setDatabases([]);
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
-            // Only clear selectedTable if it's not already set (snapshot restore case)
-            if (!dataSource.selectedTable) {
-                dataSourceSetters.setSelectedTable('');
-            }
+            // Do NOT clear selectedTable here: when it's already empty this is a
+            // no-op anyway, and when a concurrent snapshot restore just set it,
+            // this effect's closure can still read the pre-restore '' (new
+            // VisualizationProvider mount racing the restore's deferred set),
+            // clobbering the restored table back to empty.
             // Note: selectedDatabase is now managed via DataSourceContext setters
             // The UI component that allows database selection will call setSelectedDatabase
             // Fetch new databases
@@ -448,10 +453,7 @@ export function useMetadataOperations({
             // Clear old metadata first
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
-            // Only clear selectedTable if it's not already set (snapshot restore case)
-            if (!dataSource.selectedTable) {
-                dataSourceSetters.setSelectedTable('');
-            }
+            // See the clickhouse branch above for why selectedTable is not cleared here.
             // Fetch new tables
             if (!dataSource.isLoadingMetadata) {
                 dataSourceSetters.setMetadataError(null);
