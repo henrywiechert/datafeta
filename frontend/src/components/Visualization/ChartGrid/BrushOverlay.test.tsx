@@ -19,11 +19,11 @@ const PlotLikeChild: React.FC<{ onPlotPointerDown: () => void }> = ({ onPlotPoin
   return <div ref={ref} data-testid="plot" style={{ width: 400, height: 200 }} />;
 };
 
-function setup() {
+function setup(options?: { measureEnabled?: boolean; onDragStart?: () => void }) {
   const onBrushEnd = jest.fn();
   const onPlotPointerDown = jest.fn();
   const utils = render(
-    <BrushOverlay onBrushEnd={onBrushEnd}>
+    <BrushOverlay onBrushEnd={onBrushEnd} measureEnabled={options?.measureEnabled} onDragStart={options?.onDragStart}>
       <PlotLikeChild onPlotPointerDown={onPlotPointerDown} />
     </BrushOverlay>,
   );
@@ -52,13 +52,33 @@ describe('BrushOverlay', () => {
     expect(onPlotPointerDown).not.toHaveBeenCalled();
   });
 
-  test('Alt/Option+drag reports a measure gesture instead of zoom', () => {
-    const { plot, onBrushEnd, onPlotPointerDown } = setup();
+  test('Alt/Option+drag reports a measure gesture when measureEnabled', () => {
+    const { plot, onBrushEnd, onPlotPointerDown } = setup({ measureEnabled: true });
 
     drag(plot, 100, 200, { altKey: true });
 
     expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200, gesture: 'measure' });
     expect(onPlotPointerDown).not.toHaveBeenCalled();
+  });
+
+  test('Alt/Option+drag is ignored when measureEnabled is not set (default)', () => {
+    const { plot, onBrushEnd, onPlotPointerDown } = setup();
+
+    drag(plot, 100, 200, { altKey: true });
+
+    expect(onBrushEnd).not.toHaveBeenCalled();
+    expect(onPlotPointerDown).toHaveBeenCalledTimes(1);
+  });
+
+  test('onDragStart fires when a new drag begins, for either gesture', () => {
+    const onDragStart = jest.fn();
+    const { plot } = setup({ measureEnabled: true, onDragStart });
+
+    drag(plot, 100, 200, { ctrlKey: true });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+
+    drag(plot, 100, 200, { altKey: true });
+    expect(onDragStart).toHaveBeenCalledTimes(2);
   });
 
   test('leaves plain clicks and drags to the chart', () => {

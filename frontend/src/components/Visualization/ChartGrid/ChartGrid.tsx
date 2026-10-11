@@ -258,6 +258,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           isTransitioning={isTransitioning}
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
+          isGanttChart={isGanttChart}
           onCellContextMenu={handleCellContextMenu}
           onCellZoom={isTablet ? handleCellZoom : undefined}
           autoExpandPinnedComparison={autoExpandPinnedComparison}

@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, GanttZoomRange, LabelConfig } from '../types';
+import { GANTT_EDGE_DOT_START_CLASS, GANTT_EDGE_DOT_END_CLASS } from './ganttEdgeDotClasses';
 import { 
   BAR_STEP_PX, 
   DEFAULT_CHART_COLOR, 
@@ -298,8 +299,7 @@ function createHoverDotConfig(
 }
 
 /** Classes tagging the invisible start/end snap-target dots added by {@link createEdgeDotConfigs}. */
-export const GANTT_EDGE_DOT_START_CLASS = 'gantt-edge-dot--start';
-export const GANTT_EDGE_DOT_END_CLASS = 'gantt-edge-dot--end';
+export { GANTT_EDGE_DOT_START_CLASS, GANTT_EDGE_DOT_END_CLASS } from './ganttEdgeDotClasses';
 
 /**
  * Create invisible dot marks anchored at each bar's start (x1/y1) and end

@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { Field } from '../../../types';
@@ -9,6 +9,8 @@ import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
+import { computeGanttMeasurement, GanttMeasurementResult } from './utils/ganttMeasure';
+import { T } from '../../../theme/tokens';
 import {
   EmptyGridCellModel,
   GridCellModel,
@@ -21,7 +23,6 @@ import {
   TableGridCellModel,
 } from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
-import { T } from '../../../theme/tokens';
 import { useDoubleTap } from './hooks/useDoubleTap';
 
 export interface PlotBrushEvent {
@@ -40,6 +41,8 @@ interface PlotAreaProps {
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  /** Enables Alt/Option+drag span measurement (Gantt charts only). */
+  isGanttChart?: boolean;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   /** Touch double tap on a cell (tablet Zoom facet) */
   onCellZoom?: (plotId: string) => void;
@@ -103,6 +106,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
+  isGanttChart,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -147,6 +151,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   onPlotRenderComplete={onPlotRenderComplete}
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
+                  isGanttChart={isGanttChart}
                   onCellContextMenu={onCellContextMenu}
                   onCellZoom={onCellZoom}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
@@ -195,6 +200,7 @@ interface PlotCellProps {
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  isGanttChart?: boolean;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
@@ -208,6 +214,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
+  isGanttChart,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -216,6 +223,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
   const facetBg = cell.content.facetBackground;
   const xField = cell.metadata?.xField;
   const yField = cell.metadata?.yField;
+  const [measurement, setMeasurement] = useState<GanttMeasurementResult | null>(null);
 
   // ObservablePlot only skips work when `options` is reference-identical, and a rebuild
   // means re-running Plot.plot() and replacing the SVG. Deriving a fresh object on every
@@ -227,9 +235,20 @@ const PlotCell: React.FC<PlotCellProps> = ({
 
   const handleCellBrushEnd = (brush: BrushResult) => {
     const el = plotElementsRef.current[cell.id];
-    if (!el || !onBrushEnd) return;
-    onBrushEnd({ brush, plotElement: el, xField, yField });
+    if (!el) return;
+
+    if (brush.gesture === 'measure') {
+      setMeasurement(isGanttChart ? computeGanttMeasurement(el, brush, xField, yField) : null);
+      return;
+    }
+
+    onBrushEnd?.({ brush, plotElement: el, xField, yField });
   };
+
+  // A new drag (either gesture) replaces whatever measurement was showing —
+  // clearing only on brush-end would leave the old overlay visible alongside
+  // the new in-progress drag.
+  const handleDragStart = useCallback(() => setMeasurement(null), []);
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -254,7 +273,12 @@ const PlotCell: React.FC<PlotCellProps> = ({
           />
         </Tooltip>
       )}
-      <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
+      <BrushOverlay
+        disabled={brushDisabled}
+        onBrushEnd={handleCellBrushEnd}
+        measureEnabled={isGanttChart}
+        onDragStart={handleDragStart}
+      >
         <div className={styles.observablePlotContainer}>
           <ObservablePlot
             key={cell.id}
@@ -266,8 +290,56 @@ const PlotCell: React.FC<PlotCellProps> = ({
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
         </div>
+        {measurement && <GanttMeasurementOverlay measurement={measurement} />}
       </BrushOverlay>
     </div>
+  );
+};
+
+/**
+ * Snapped span-measurement result rendered after an Alt/Option+drag completes.
+ * Reuses the same filled-band look as BrushOverlay's live drag preview so the
+ * "committed" measurement reads as a continuation of the gesture, plus a
+ * floating label with the computed distance.
+ */
+const GanttMeasurementOverlay: React.FC<{ measurement: GanttMeasurementResult }> = ({ measurement }) => {
+  const { axis, snappedStartPx, snappedEndPx, label } = measurement;
+  const isX = axis === 'x';
+  const bandStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: isX ? snappedStartPx : 0,
+    top: isX ? 0 : snappedStartPx,
+    width: isX ? snappedEndPx - snappedStartPx : '100%',
+    height: isX ? '100%' : snappedEndPx - snappedStartPx,
+    backgroundColor: T.chartBrushFill,
+    borderLeft: isX ? `1px solid ${T.chartBrushEdge}` : undefined,
+    borderRight: isX ? `1px solid ${T.chartBrushEdge}` : undefined,
+    borderTop: isX ? undefined : `1px solid ${T.chartBrushEdge}`,
+    borderBottom: isX ? undefined : `1px solid ${T.chartBrushEdge}`,
+    pointerEvents: 'none',
+    zIndex: 3,
+  };
+  const labelStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: isX ? (snappedStartPx + snappedEndPx) / 2 : 8,
+    top: isX ? 4 : (snappedStartPx + snappedEndPx) / 2,
+    transform: isX ? 'translateX(-50%)' : 'translateY(-50%)',
+    background: T.chartBrushEdge,
+    color: T.chartCellBg,
+    fontSize: 11,
+    fontWeight: 600,
+    padding: '2px 6px',
+    borderRadius: 3,
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
+    zIndex: 4,
+  };
+
+  return (
+    <>
+      <div style={bandStyle} />
+      <div style={labelStyle}>{label}</div>
+    </>
   );
 };
 
