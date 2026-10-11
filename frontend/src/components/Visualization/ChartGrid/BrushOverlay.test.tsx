@@ -47,7 +47,10 @@ describe('BrushOverlay', () => {
 
     drag(plot, 100, 200, { ctrlKey: true });
 
-    expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200, gesture: 'zoom' });
+    expect(onBrushEnd).toHaveBeenCalledWith({
+      axis: 'x', startPx: 100, endPx: 200, gesture: 'zoom',
+      originAxisPx: 100, currentAxisPx: 200, originCrossAxisPx: 50, currentCrossAxisPx: 52,
+    });
     // The brush claims the gesture, so the crosshair does not toggle sticky.
     expect(onPlotPointerDown).not.toHaveBeenCalled();
   });
@@ -57,7 +60,10 @@ describe('BrushOverlay', () => {
 
     drag(plot, 100, 200, { altKey: true });
 
-    expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200, gesture: 'measure' });
+    expect(onBrushEnd).toHaveBeenCalledWith({
+      axis: 'x', startPx: 100, endPx: 200, gesture: 'measure',
+      originAxisPx: 100, currentAxisPx: 200, originCrossAxisPx: 50, currentCrossAxisPx: 52,
+    });
     expect(onPlotPointerDown).not.toHaveBeenCalled();
   });
 

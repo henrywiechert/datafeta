@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { Field } from '../../../types';
@@ -9,7 +9,8 @@ import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
-import { computeGanttMeasurement, GanttMeasurementResult } from './utils/ganttMeasure';
+import { GanttMeasurementResult } from './utils/ganttMeasure';
+import { useGanttMeasurement } from './hooks/useGanttMeasurement';
 import { T } from '../../../theme/tokens';
 import {
   EmptyGridCellModel,
@@ -48,6 +49,15 @@ interface PlotAreaProps {
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+  /**
+   * Current scroll offsets of the synced scroll layers. The plot grid itself
+   * is never natively scrolled vertically -- it's translated by `-vertical`
+   * to stay in sync with the vertical scroll layer (see useScrollSync) -- so
+   * any overlay that must stay pinned within the visible viewport (e.g. the
+   * Gantt measurement label) needs these to cancel that translate out.
+   */
+  horizontalScrollOffset?: number;
+  verticalScrollOffset?: number;
 }
 
 /**
@@ -111,6 +121,8 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   onCellZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
+  horizontalScrollOffset = 0,
+  verticalScrollOffset = 0,
 }) => {
   // Store rendered plot elements per cell so the brush can access scales
   const plotElementsRef = useRef<Record<string, SVGSVGElement | HTMLElement>>({});
@@ -156,6 +168,8 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   onCellZoom={onCellZoom}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
                   onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
+                  horizontalScrollOffset={horizontalScrollOffset}
+                  verticalScrollOffset={verticalScrollOffset}
                 />
               );
             case 'pie':
@@ -205,6 +219,8 @@ interface PlotCellProps {
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+  horizontalScrollOffset?: number;
+  verticalScrollOffset?: number;
 }
 
 const PlotCell: React.FC<PlotCellProps> = ({
@@ -219,11 +235,22 @@ const PlotCell: React.FC<PlotCellProps> = ({
   onCellZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
+  horizontalScrollOffset = 0,
+  verticalScrollOffset = 0,
 }) => {
   const facetBg = cell.content.facetBackground;
   const xField = cell.metadata?.xField;
   const yField = cell.metadata?.yField;
-  const [measurement, setMeasurement] = useState<GanttMeasurementResult | null>(null);
+
+  const getPlotElement = useCallback(() => plotElementsRef.current[cell.id], [plotElementsRef, cell.id]);
+  const {
+    measurement,
+    onBrushMove: handleMeasureBrushMove,
+    onBrushEnd: handleMeasureBrushEnd,
+    onDragStart: handleDragStart,
+    onCellClick,
+    onGripPointerDown,
+  } = useGanttMeasurement({ isGanttChart, getPlotElement, xField, yField });
 
   // ObservablePlot only skips work when `options` is reference-identical, and a rebuild
   // means re-running Plot.plot() and replacing the SVG. Deriving a fresh object on every
@@ -233,22 +260,18 @@ const PlotCell: React.FC<PlotCellProps> = ({
     [cell.content.options],
   );
 
-  const handleCellBrushEnd = (brush: BrushResult) => {
-    const el = plotElementsRef.current[cell.id];
-    if (!el) return;
-
-    if (brush.gesture === 'measure') {
-      setMeasurement(isGanttChart ? computeGanttMeasurement(el, brush, xField, yField) : null);
-      return;
-    }
-
-    onBrushEnd?.({ brush, plotElement: el, xField, yField });
+  const handleCellBrushMove = (brush: BrushResult) => {
+    handleMeasureBrushMove(brush);
   };
 
-  // A new drag (either gesture) replaces whatever measurement was showing —
-  // clearing only on brush-end would leave the old overlay visible alongside
-  // the new in-progress drag.
-  const handleDragStart = useCallback(() => setMeasurement(null), []);
+  const handleCellBrushEnd = (brush: BrushResult) => {
+    handleMeasureBrushEnd(brush);
+    if (brush.gesture === 'measure') return;
+
+    const el = plotElementsRef.current[cell.id];
+    if (!el) return;
+    onBrushEnd?.({ brush, plotElement: el, xField, yField });
+  };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -257,7 +280,13 @@ const PlotCell: React.FC<PlotCellProps> = ({
   const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
 
   return (
-    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu} {...doubleTap}>
+    <div
+      className={styles.plotWrapper}
+      style={buildBaseCellStyle(cell)}
+      onContextMenu={handleContextMenu}
+      onClick={isGanttChart ? onCellClick : undefined}
+      {...doubleTap}
+    >
       {facetBg?.isMixed && (
         <Tooltip title="Mixed values in background field" placement="top" arrow>
           <DoNotDisturbAltIcon
@@ -276,6 +305,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
       <BrushOverlay
         disabled={brushDisabled}
         onBrushEnd={handleCellBrushEnd}
+        onBrushMove={handleCellBrushMove}
         measureEnabled={isGanttChart}
         onDragStart={handleDragStart}
       >
@@ -290,55 +320,137 @@ const PlotCell: React.FC<PlotCellProps> = ({
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
         </div>
-        {measurement && <GanttMeasurementOverlay measurement={measurement} />}
+        {measurement && (
+          <GanttMeasurementOverlay
+            measurement={measurement}
+            onGripPointerDown={onGripPointerDown}
+            horizontalScrollOffset={horizontalScrollOffset}
+            verticalScrollOffset={verticalScrollOffset}
+          />
+        )}
       </BrushOverlay>
     </div>
   );
 };
 
+const GRIP_HIT_WIDTH_PX = 10;
+const GRIP_LINE_WIDTH_PX = 1;
+/** Distance of the dimension-arrow/label row from the band's near edge. */
+const ARROW_OFFSET_PX = 16;
+const ARROW_SIZE_PX = 4;
+const ARROW_SHAFT_THICKNESS_PX = 1;
+
 /**
- * Snapped span-measurement result rendered after an Alt/Option+drag completes.
- * Reuses the same filled-band look as BrushOverlay's live drag preview so the
- * "committed" measurement reads as a continuation of the gesture, plus a
- * floating label with the computed distance.
+ * Snapped span-measurement result: live during an Alt/Option+drag, and
+ * persisted afterward with two draggable grips (Perfetto/Chrome-tracing
+ * style) to re-anchor either end onto a different bar boundary. A dimension
+ * arrow (shaft + outward-pointing arrowheads, coloured per each end's own
+ * snapped state) spans the two grips with the distance label sitting on top
+ * of it as a rounded pill, breaking the line the way CAD/Figma redlines do.
  */
-const GanttMeasurementOverlay: React.FC<{ measurement: GanttMeasurementResult }> = ({ measurement }) => {
-  const { axis, snappedStartPx, snappedEndPx, label } = measurement;
+const GanttMeasurementOverlay: React.FC<{
+  measurement: GanttMeasurementResult;
+  onGripPointerDown: (end: 'start' | 'end') => (e: React.PointerEvent) => void;
+  /** Cancels out the plot grid's scroll translate so the label/arrow stay within the visible viewport. */
+  horizontalScrollOffset: number;
+  verticalScrollOffset: number;
+}> = ({ measurement, onGripPointerDown, horizontalScrollOffset, verticalScrollOffset }) => {
+  const { axis, leftPx, rightPx, leftSnapped, rightSnapped, label } = measurement;
   const isX = axis === 'x';
+  // The band/grips must stay anchored to the measured data position (correct
+  // as-is), but the arrow+label sit at a fixed offset from the chart's near
+  // edge rather than at a data position -- on a tall/wide Gantt chart that
+  // edge scrolls out of view while the band itself is still visible. Add the
+  // current scroll offset back in so they track the visible viewport edge
+  // instead of the full (possibly off-screen) content edge.
+  const arrowCrossAxisOffsetPx = ARROW_OFFSET_PX + (isX ? verticalScrollOffset : horizontalScrollOffset);
+  const leftColor = leftSnapped ? T.statusSuccess : T.chartGlyphMuted;
+  const rightColor = rightSnapped ? T.statusSuccess : T.chartGlyphMuted;
+  const midPx = (leftPx + rightPx) / 2;
+
   const bandStyle: React.CSSProperties = {
     position: 'absolute',
-    left: isX ? snappedStartPx : 0,
-    top: isX ? 0 : snappedStartPx,
-    width: isX ? snappedEndPx - snappedStartPx : '100%',
-    height: isX ? '100%' : snappedEndPx - snappedStartPx,
+    left: isX ? leftPx : 0,
+    top: isX ? 0 : leftPx,
+    width: isX ? rightPx - leftPx : '100%',
+    height: isX ? '100%' : rightPx - leftPx,
     backgroundColor: T.chartBrushFill,
-    borderLeft: isX ? `1px solid ${T.chartBrushEdge}` : undefined,
-    borderRight: isX ? `1px solid ${T.chartBrushEdge}` : undefined,
-    borderTop: isX ? undefined : `1px solid ${T.chartBrushEdge}`,
-    borderBottom: isX ? undefined : `1px solid ${T.chartBrushEdge}`,
     pointerEvents: 'none',
     zIndex: 3,
   };
+
+  // The arrow's own local box: spans left→right (or top→bottom), a fixed
+  // offset from the band's near edge. Shaft + arrowheads are positioned
+  // relative to THIS box so each half can carry its own endpoint's colour.
+  const arrowTrackStyle: React.CSSProperties = isX
+    ? { position: 'absolute', left: leftPx, top: arrowCrossAxisOffsetPx, width: rightPx - leftPx, height: 0, pointerEvents: 'none', zIndex: 4 }
+    : { position: 'absolute', top: leftPx, left: arrowCrossAxisOffsetPx, height: rightPx - leftPx, width: 0, pointerEvents: 'none', zIndex: 4 };
+  const shaftStyle: React.CSSProperties = isX
+    ? { position: 'absolute', left: 0, right: 0, top: -ARROW_SHAFT_THICKNESS_PX / 2, height: ARROW_SHAFT_THICKNESS_PX, background: `linear-gradient(to right, ${leftColor}, ${rightColor})` }
+    : { position: 'absolute', top: 0, bottom: 0, left: -ARROW_SHAFT_THICKNESS_PX / 2, width: ARROW_SHAFT_THICKNESS_PX, background: `linear-gradient(to bottom, ${leftColor}, ${rightColor})` };
+  // CSS border-triangle trick: the colored side is the triangle's flat base,
+  // the two transparent sides taper it to a point opposite that base.
+  const nearArrowheadStyle: React.CSSProperties = isX
+    ? { position: 'absolute', left: 0, top: 0, width: 0, height: 0, transform: 'translate(0, -50%)', borderTop: `${ARROW_SIZE_PX}px solid transparent`, borderBottom: `${ARROW_SIZE_PX}px solid transparent`, borderRight: `${ARROW_SIZE_PX + 1}px solid ${leftColor}` }
+    : { position: 'absolute', top: 0, left: 0, width: 0, height: 0, transform: 'translate(-50%, 0)', borderLeft: `${ARROW_SIZE_PX}px solid transparent`, borderRight: `${ARROW_SIZE_PX}px solid transparent`, borderBottom: `${ARROW_SIZE_PX + 1}px solid ${leftColor}` };
+  const farArrowheadStyle: React.CSSProperties = isX
+    ? { position: 'absolute', right: 0, top: 0, width: 0, height: 0, transform: 'translate(0, -50%)', borderTop: `${ARROW_SIZE_PX}px solid transparent`, borderBottom: `${ARROW_SIZE_PX}px solid transparent`, borderLeft: `${ARROW_SIZE_PX + 1}px solid ${rightColor}` }
+    : { position: 'absolute', bottom: 0, left: 0, width: 0, height: 0, transform: 'translate(-50%, 0)', borderLeft: `${ARROW_SIZE_PX}px solid transparent`, borderRight: `${ARROW_SIZE_PX}px solid transparent`, borderTop: `${ARROW_SIZE_PX + 1}px solid ${rightColor}` };
+
   const labelStyle: React.CSSProperties = {
     position: 'absolute',
-    left: isX ? (snappedStartPx + snappedEndPx) / 2 : 8,
-    top: isX ? 4 : (snappedStartPx + snappedEndPx) / 2,
-    transform: isX ? 'translateX(-50%)' : 'translateY(-50%)',
-    background: T.chartBrushEdge,
-    color: T.chartCellBg,
+    left: isX ? midPx : arrowCrossAxisOffsetPx,
+    top: isX ? arrowCrossAxisOffsetPx : midPx,
+    transform: 'translate(-50%, -50%)',
+    background: T.inverseSurface,
+    color: T.inverseText,
+    border: `1px solid ${T.inverseBorder}`,
+    boxShadow: `0 1px 4px ${T.shadowStrong}`,
     fontSize: 11,
     fontWeight: 600,
-    padding: '2px 6px',
-    borderRadius: 3,
+    padding: '3px 8px',
+    borderRadius: 999,
     whiteSpace: 'nowrap',
     pointerEvents: 'none',
-    zIndex: 4,
+    zIndex: 5,
   };
+
+  const gripHitStyle = (px: number): React.CSSProperties => ({
+    position: 'absolute',
+    left: isX ? px - GRIP_HIT_WIDTH_PX / 2 : 0,
+    top: isX ? 0 : px - GRIP_HIT_WIDTH_PX / 2,
+    width: isX ? GRIP_HIT_WIDTH_PX : '100%',
+    height: isX ? '100%' : GRIP_HIT_WIDTH_PX,
+    cursor: isX ? 'ew-resize' : 'ns-resize',
+    pointerEvents: 'auto',
+    zIndex: 6,
+  });
+  const gripLineStyle = (snapped: boolean, color: string): React.CSSProperties => ({
+    position: 'absolute',
+    left: isX ? (GRIP_HIT_WIDTH_PX - GRIP_LINE_WIDTH_PX) / 2 : 0,
+    top: isX ? 0 : (GRIP_HIT_WIDTH_PX - GRIP_LINE_WIDTH_PX) / 2,
+    width: isX ? GRIP_LINE_WIDTH_PX : '100%',
+    height: isX ? '100%' : GRIP_LINE_WIDTH_PX,
+    backgroundColor: color,
+    opacity: snapped ? 1 : 0.6,
+    pointerEvents: 'none',
+  });
 
   return (
     <>
       <div style={bandStyle} />
+      <div style={arrowTrackStyle}>
+        <div style={shaftStyle} />
+        <div style={nearArrowheadStyle} />
+        <div style={farArrowheadStyle} />
+      </div>
       <div style={labelStyle}>{label}</div>
+      <div style={gripHitStyle(leftPx)} onPointerDown={onGripPointerDown('start')} onClick={(e) => e.stopPropagation()}>
+        <div style={gripLineStyle(leftSnapped, leftColor)} />
+      </div>
+      <div style={gripHitStyle(rightPx)} onPointerDown={onGripPointerDown('end')} onClick={(e) => e.stopPropagation()}>
+        <div style={gripLineStyle(rightSnapped, rightColor)} />
+      </div>
     </>
   );
 };
