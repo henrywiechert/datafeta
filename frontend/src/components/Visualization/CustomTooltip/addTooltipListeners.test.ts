@@ -62,4 +62,52 @@ describe('addTooltipListeners', () => {
 
     cleanup();
   });
+
+  it('skips decoration (overlay-no-tooltip) circles when resolving a transparent hover-dot colour', () => {
+    const plot = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+
+    // A decoration circle (e.g. a Gantt snap-target dot) at the same position,
+    // tagged on its wrapping group the way Observable Plot applies `className`.
+    const decorationGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    decorationGroup.setAttribute('class', 'overlay-no-tooltip');
+    const decorationCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    decorationCircle.setAttribute('cx', '10');
+    decorationCircle.setAttribute('cy', '20');
+    decorationCircle.setAttribute('fill', 'red');
+    decorationGroup.appendChild(decorationCircle);
+    plot.appendChild(decorationGroup);
+
+    // The genuine visible mark at the same position (e.g. a tick-strip line's circle).
+    const genuineCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    genuineCircle.setAttribute('cx', '10');
+    genuineCircle.setAttribute('cy', '20');
+    genuineCircle.setAttribute('fill', 'blue');
+    plot.appendChild(genuineCircle);
+
+    // The transparent hover-dot itself (the element the user actually hovers).
+    const hoverDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    hoverDot.setAttribute('cx', '10');
+    hoverDot.setAttribute('cy', '20');
+    hoverDot.setAttribute('fill', 'transparent');
+    hoverDot.setAttribute('stroke', 'transparent');
+    plot.appendChild(hoverDot);
+
+    document.body.appendChild(plot);
+
+    const showTooltip = jest.fn();
+    // marks = [genuineCircle, hoverDot] after decoration exclusion — one data entry per mark.
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ value: 1 }, { value: 1 }],
+      getFields: (data) => [{ label: 'Value', value: String(data.value) }],
+    };
+
+    const cleanup = addTooltipListeners(plot, config, showTooltip, jest.fn(), jest.fn());
+
+    fireEvent.mouseEnter(hoverDot, { clientX: 10, clientY: 20 });
+
+    expect(showTooltip).toHaveBeenCalledWith(10, 20, expect.any(Array), 'blue', undefined);
+
+    cleanup();
+  });
 });

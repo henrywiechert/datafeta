@@ -147,9 +147,14 @@
 
 /* Highlight hovered chart marks */
 .chart-mark--highlighted {
-  /* Subtle highlight without changing visual size */
-  filter: brightness(1.1);
-  transition: filter 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out;
+  /* NOTE: deliberately no `filter` here. A filter forces the browser to
+     promote this element into its own compositing layer; inside an SVG with
+     thousands of sibling marks (sharing one flat paint order, unlike HTML
+     stacking contexts) that forces costly layer re-splitting around it on
+     every hover ("Layerize" dominating the frame — seconds, not ms — in
+     perf traces on large Gantt charts). The stroke frame below is enough
+     of a highlight on its own. */
+  transition: stroke 0.15s ease-out, stroke-width 0.15s ease-out;
   cursor: pointer;
   /* Dark frame around the hovered element */
   stroke: var(--df-chart-mark-highlight-stroke);
@@ -158,7 +163,6 @@
 
 /* Stronger highlight for tick strip lines (they're thin so need more emphasis) */
 line.chart-mark--highlighted {
-  filter: brightness(0.7);
   stroke: var(--df-chart-mark-highlight-stroke-thin);
   stroke-width: 3px;
 }
