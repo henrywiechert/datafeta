@@ -5,10 +5,14 @@ import { devLog } from '../../../utils/devLog';
 
 const LOCK_THRESHOLD_PX = 5;
 
+/** 'zoom' creates/updates a filter (existing behavior); 'measure' is reserved for span measurement. */
+export type BrushGesture = 'zoom' | 'measure';
+
 export interface BrushResult {
   axis: 'x' | 'y';
   startPx: number;
   endPx: number;
+  gesture: BrushGesture;
 }
 
 interface BrushOverlayProps {
@@ -20,6 +24,7 @@ interface BrushOverlayProps {
 interface BrushState {
   active: boolean;
   locked: 'x' | 'y' | null;
+  gesture: BrushGesture | null;
   originX: number;
   originY: number;
   currentX: number;
@@ -29,16 +34,24 @@ interface BrushState {
 const initialBrushState: BrushState = {
   active: false,
   locked: null,
+  gesture: null,
   originX: 0,
   originY: 0,
   currentX: 0,
   currentY: 0,
 };
 
-/** Ctrl on Windows/Linux, Meta (Cmd) on Mac */
-function isModifierHeld(e: PointerEvent | React.PointerEvent): boolean {
+/**
+ * Resolve which drag gesture a pointerdown represents: Ctrl (Win/Linux) or Cmd
+ * (Mac) for zoom-brush (existing behavior), Alt/Option for span measurement.
+ * Returns null when neither modifier is held (no drag should start).
+ */
+function resolveGestureKind(e: PointerEvent | React.PointerEvent): BrushGesture | null {
   const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
-  return isMac ? e.metaKey : e.ctrlKey;
+  const zoomModifierHeld = isMac ? e.metaKey : e.ctrlKey;
+  if (zoomModifierHeld) return 'zoom';
+  if (e.altKey) return 'measure';
+  return null;
 }
 
 /**
@@ -86,19 +99,20 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
 
     const handleUp = (e: PointerEvent) => {
       const b = brushRef.current;
-      devLog('[BrushOverlay] pointerup', { active: b.active, locked: b.locked });
+      devLog('[BrushOverlay] pointerup', { active: b.active, locked: b.locked, gesture: b.gesture });
 
-      if (b.locked) {
+      if (b.locked && b.gesture) {
         const coords = getLocalCoords(e);
         const cur = coords ?? { x: b.currentX, y: b.currentY };
         const start = b.locked === 'x' ? b.originX : b.originY;
         const end = b.locked === 'x' ? cur.x : cur.y;
-        devLog('[BrushOverlay] brush end', { axis: b.locked, start, end, dist: Math.abs(end - start) });
+        devLog('[BrushOverlay] brush end', { axis: b.locked, gesture: b.gesture, start, end, dist: Math.abs(end - start) });
         if (Math.abs(end - start) >= LOCK_THRESHOLD_PX) {
           onBrushEndRef.current({
             axis: b.locked,
             startPx: Math.min(start, end),
             endPx: Math.max(start, end),
+            gesture: b.gesture,
           });
         }
       }
@@ -116,7 +130,9 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
   }, [brush.active, getLocalCoords]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (disabled || e.button !== 0 || !isModifierHeld(e)) return;
+    if (disabled || e.button !== 0) return;
+    const gesture = resolveGestureKind(e);
+    if (!gesture) return;
 
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -134,6 +150,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
     const next: BrushState = {
       active: true,
       locked: null,
+      gesture,
       originX: x,
       originY: y,
       currentX: x,

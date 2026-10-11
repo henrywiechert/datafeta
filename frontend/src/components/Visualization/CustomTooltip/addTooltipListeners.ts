@@ -14,6 +14,7 @@ import React from 'react';
 
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 import { T } from '../../../theme/tokens';
+import { isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -35,13 +36,57 @@ function isVisibleColor(val: string | null): boolean {
 }
 
 /**
+ * Build a one-time index of "visible colour at this (cx,cy)" for every
+ * non-decoration circle in the plot. Computed once per render instead of
+ * once per mouseenter: `resolveColorFromElement`'s fallback previously
+ * re-scanned every circle in the SVG on EVERY hover (O(circle count) per
+ * event), which scales directly with mark count — any chart type that adds
+ * more invisible circles (e.g. Gantt's snap-target dots) made every hover
+ * proportionally slower. First visible circle at a given position wins,
+ * matching the original scan's break-on-first-match behaviour.
+ */
+function buildCircleColorIndex(root: Element): Map<string, string> {
+  const index = new Map<string, string>();
+  const circles = root.querySelectorAll('circle');
+  for (let i = 0; i < circles.length; i++) {
+    const circle = circles[i];
+    if (isDecorationElement(circle, root)) continue;
+    const cx = circle.getAttribute('cx');
+    const cy = circle.getAttribute('cy');
+    if (cx == null || cy == null) continue;
+    const key = `${cx},${cy}`;
+    if (index.has(key)) continue;
+
+    const fill = circle.getAttribute('fill');
+    const stroke = circle.getAttribute('stroke');
+    if (isVisibleColor(fill)) {
+      index.set(key, fill!);
+      continue;
+    }
+    if (isVisibleColor(stroke)) {
+      index.set(key, stroke!);
+      continue;
+    }
+    const cs = getComputedStyle(circle);
+    const csFill = cs.getPropertyValue('fill');
+    const csStroke = cs.getPropertyValue('stroke');
+    if (isVisibleColor(csFill)) {
+      index.set(key, csFill);
+    } else if (isVisibleColor(csStroke)) {
+      index.set(key, csStroke);
+    }
+  }
+  return index;
+}
+
+/**
  * Resolve the rendered colour of an SVG mark element.
  *
  * Reads fill/stroke from both DOM attributes and computed styles.
- * For transparent hover-dots (tick strips) it searches sibling circles at
- * the same position to find the visually rendered colour.
+ * For transparent hover-dots (tick strips) it looks up the precomputed
+ * `circleColorByPosition` index for a visible circle at the same position.
  */
-function resolveColorFromElement(el: Element): string | undefined {
+function resolveColorFromElement(el: Element, circleColorByPosition: Map<string, string>): string | undefined {
   const cs = getComputedStyle(el);
   const resolveColor = (val: string | null): string | undefined => {
     if (!val) return undefined;
@@ -60,48 +105,12 @@ function resolveColorFromElement(el: Element): string | undefined {
   
   if (color) return color;
   
-  // If this element is transparent (like hover dots), look for a visible sibling at the same position
+  // If this element is transparent (like hover dots), look up a visible sibling at the same position
   if (el.tagName.toLowerCase() === 'circle') {
     const cx = el.getAttribute('cx');
     const cy = el.getAttribute('cy');
-    
-    // Look for another circle at the same position with visible color
-    if (cx && cy) {
-      const parent = el.parentElement;
-      if (parent) {
-        // Search in parent's parent (the SVG or a higher group) for circles at same position
-        const svgRoot = el.closest('svg');
-        if (svgRoot) {
-          const allCircles = Array.from(svgRoot.querySelectorAll('circle'));
-          for (const sibling of allCircles) {
-            if (sibling === el) continue;
-            if (sibling.getAttribute('cx') === cx && sibling.getAttribute('cy') === cy) {
-              const sibFill = sibling.getAttribute('fill');
-              const sibStroke = sibling.getAttribute('stroke');
-              if (isVisibleColor(sibFill)) {
-                color = sibFill!;
-                break;
-              }
-              if (isVisibleColor(sibStroke)) {
-                color = sibStroke!;
-                break;
-              }
-              // Also try computed style
-              const sibCs = getComputedStyle(sibling);
-              const sibCsFill = sibCs.getPropertyValue('fill');
-              const sibCsStroke = sibCs.getPropertyValue('stroke');
-              if (isVisibleColor(sibCsFill)) {
-                color = sibCsFill;
-                break;
-              }
-              if (isVisibleColor(sibCsStroke)) {
-                color = sibCsStroke;
-                break;
-              }
-            }
-          }
-        }
-      }
+    if (cx != null && cy != null) {
+      color = circleColorByPosition.get(`${cx},${cy}`);
     }
   }
   
@@ -289,38 +298,11 @@ export function addTooltipListeners(
   let pendingX = 0;
   let pendingY = 0;
 
-  // Find all interactive marks (circles, rects, paths with fill, lines)
-  // Observable Plot typically uses these elements for data visualization
-  // 
-  // IMPORTANT: We must exclude grid lines and axis tick marks which don't represent data.
-  // Observable Plot uses aria-label attributes on group elements:
-  // - Grid lines are inside groups with aria-label containing "grid" (e.g., "x-grid", "y-grid")
-  // - Axis tick marks are inside groups with aria-label containing "axis" (e.g., "y-axis tick")
-  const allElements = plot.querySelectorAll(
-    'circle, rect, path[fill]:not([fill="none"]), path[stroke]:not([stroke="none"]):not([stroke="transparent"]), line'
-  );
-  
-  // Filter out elements that are part of grid, axis decorations, or overlay marks
-  const marks = Array.from(allElements).filter(el => {
-    // Walk up the DOM tree to check parent group aria-labels and classes
-    let parent = el.parentElement;
-    while (parent && parent !== plot) {
-      // Exclude overlay marks (linear regression, moving average) — they have no data
-      if (parent.classList.contains('overlay-no-tooltip')) {
-        return false;
-      }
-      const ariaLabel = parent.getAttribute('aria-label');
-      if (ariaLabel) {
-        const labelLower = ariaLabel.toLowerCase();
-        // Exclude grid lines and axis tick marks
-        if (labelLower.includes('grid') || labelLower.includes('axis')) {
-          return false;
-        }
-      }
-      parent = parent.parentElement;
-    }
-    return true;
-  });
+  // Find all interactive marks (circles, rects, paths with fill, lines),
+  // excluding grid lines, axis ticks, and overlay-only marks (linear
+  // regression, moving average — they have no data).
+  const marks = queryDataMarkElements(plot);
+  const circleColorByPosition = buildCircleColorIndex(plot);
   const cleanupFunctions: Array<() => void> = [];
   
   // Track which element is actually highlighted (may differ from hovered element)
@@ -348,21 +330,8 @@ export function addTooltipListeners(
      * Shared between mouseenter and click handlers to avoid duplication.
      */
     const showMarkTooltip = (mouseEvent: MouseEvent) => {
-      // Try multiple ways to get data:
-      // 1. From __data__ property (D3 style)
-      // 2. From our data array if provided
-      let data = element.__data__;
-      
-      if (!data && config.data && config.data.length > 0) {
-        if (index < config.data.length) {
-          data = config.data[index];
-        }
-      }
-      
-      if (typeof data === 'number' && config.data && data < config.data.length) {
-        data = config.data[data];
-      }
-      
+      const data = getMarkDatum(element, index, config.data);
+
       if (!data) {
         console.warn('[CustomTooltip] No data found for mark:', { index, element, available: config.data?.length });
         return;
@@ -376,7 +345,7 @@ export function addTooltipListeners(
         // and is always correct. Do this BEFORE adding highlight class.
         let colorHex: string | undefined = undefined;
         if (mark instanceof Element) {
-          colorHex = resolveColorFromElement(mark);
+          colorHex = resolveColorFromElement(mark, circleColorByPosition);
         }
 
         clearAnyHighlight();

@@ -297,6 +297,56 @@ function createHoverDotConfig(
   return config;
 }
 
+/** Classes tagging the invisible start/end snap-target dots added by {@link createEdgeDotConfigs}. */
+export const GANTT_EDGE_DOT_START_CLASS = 'gantt-edge-dot--start';
+export const GANTT_EDGE_DOT_END_CLASS = 'gantt-edge-dot--end';
+
+/**
+ * Create invisible dot marks anchored at each bar's start (x1/y1) and end
+ * (x2/y2), carrying the same datum as the bar. These are snap targets for
+ * future pointer-driven features (e.g. span measurement) rather than
+ * tooltip targets: `overlay-no-tooltip` keeps them out of the existing
+ * hover-tooltip mark selection (see queryDataMarkElements), which already
+ * has a dedicated midpoint dot via createHoverDotConfig.
+ *
+ * `pointerEvents: 'none'` is essential, not cosmetic: like the midpoint hover
+ * dot, these use `fill: 'transparent'` (painted-but-invisible) rather than
+ * `fill: 'none'`, which SVG's default `pointer-events: visiblePainted` would
+ * otherwise still hit-test on every mousemove across the whole chart. Future
+ * snap logic reads their cx/cy/datum directly from the DOM, not via events.
+ */
+function createEdgeDotConfigs(
+  orientation: 'x' | 'y',
+  startColumn: string,
+  durationColumn: string | undefined,
+  categoryColumn: string | undefined,
+  zoomRange: GanttZoomRange | null
+): { start: any; end: any } {
+  const base: any = {
+    r: 4,
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+    pointerEvents: 'none',
+  };
+
+
+  const startAccessor = createClampedStartAccessor(startColumn, zoomRange);
+  const endAccessor = createClampedEndAccessor(startColumn, durationColumn, zoomRange);
+  const categoryAccessor = categoryColumn || (() => ' ');
+
+  if (orientation === 'x') {
+    return {
+      start: { ...base, x: startAccessor, y: categoryAccessor, className: `${GANTT_EDGE_DOT_START_CLASS} overlay-no-tooltip` },
+      end: { ...base, x: endAccessor, y: categoryAccessor, className: `${GANTT_EDGE_DOT_END_CLASS} overlay-no-tooltip` },
+    };
+  }
+  return {
+    start: { ...base, y: startAccessor, x: categoryAccessor, className: `${GANTT_EDGE_DOT_START_CLASS} overlay-no-tooltip` },
+    end: { ...base, y: endAccessor, x: categoryAccessor, className: `${GANTT_EDGE_DOT_END_CLASS} overlay-no-tooltip` },
+  };
+}
+
 // ---------- Main Function ---------------------------------------------------------
 
 export interface GanttChartResult {
@@ -460,6 +510,7 @@ export function ganttChart(
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
+    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, ganttZoomRange);
 
     opts = {
       x: { 
@@ -476,6 +527,8 @@ export function ganttChart(
       marks: [
         Plot.barX(data, barConfig),
         Plot.dot(data, hoverDotConfig),
+        Plot.dot(data, edgeDotConfigs.start),
+        Plot.dot(data, edgeDotConfigs.end),
       ],
     };
   } else {
@@ -488,6 +541,7 @@ export function ganttChart(
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
+    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, ganttZoomRange);
 
     opts = {
       y: { 
@@ -504,6 +558,8 @@ export function ganttChart(
       marks: [
         Plot.barY(data, barConfig),
         Plot.dot(data, hoverDotConfig),
+        Plot.dot(data, edgeDotConfigs.start),
+        Plot.dot(data, edgeDotConfigs.end),
       ],
     };
   }

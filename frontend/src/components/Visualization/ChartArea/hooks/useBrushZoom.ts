@@ -99,6 +99,9 @@ export function useBrushZoom({
   const handleBrushEnd = useCallback(
     (event: PlotBrushEvent) => {
       const { brush, plotElement, xField, yField } = event;
+      // Only the zoom gesture (Ctrl/Cmd+drag) creates filters here; measure
+      // gesture (Alt/Option+drag) is handled elsewhere.
+      if (brush.gesture !== 'zoom') return;
       console.debug('[BrushZoom] handleBrushEnd', { axis: brush.axis, startPx: brush.startPx, endPx: brush.endPx, hasPlotEl: !!plotElement, xField: xField?.columnName, yField: yField?.columnName });
       const field = brush.axis === 'x' ? xField : yField;
       if (!field) { console.debug('[BrushZoom] no field for axis', brush.axis); return; }

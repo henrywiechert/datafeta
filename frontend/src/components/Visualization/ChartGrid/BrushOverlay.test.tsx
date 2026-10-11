@@ -30,7 +30,7 @@ function setup() {
   return { ...utils, onBrushEnd, onPlotPointerDown, plot: utils.getByTestId('plot') };
 }
 
-function drag(plot: HTMLElement, from: number, to: number, modifiers: { ctrlKey?: boolean }) {
+function drag(plot: HTMLElement, from: number, to: number, modifiers: { ctrlKey?: boolean; altKey?: boolean }) {
   fireEvent.pointerDown(plot, { button: 0, clientX: from, clientY: 50, ...modifiers });
   fireEvent.pointerMove(document, { clientX: to, clientY: 52 });
   fireEvent.pointerUp(document, { clientX: to, clientY: 52 });
@@ -47,8 +47,17 @@ describe('BrushOverlay', () => {
 
     drag(plot, 100, 200, { ctrlKey: true });
 
-    expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200 });
+    expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200, gesture: 'zoom' });
     // The brush claims the gesture, so the crosshair does not toggle sticky.
+    expect(onPlotPointerDown).not.toHaveBeenCalled();
+  });
+
+  test('Alt/Option+drag reports a measure gesture instead of zoom', () => {
+    const { plot, onBrushEnd, onPlotPointerDown } = setup();
+
+    drag(plot, 100, 200, { altKey: true });
+
+    expect(onBrushEnd).toHaveBeenCalledWith({ axis: 'x', startPx: 100, endPx: 200, gesture: 'measure' });
     expect(onPlotPointerDown).not.toHaveBeenCalled();
   });
 
