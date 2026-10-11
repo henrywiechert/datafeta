@@ -86,9 +86,12 @@ function getCategoryLimit(
   totalFacets: number,
   effectiveGlobalChartType: UserChartType | null,
 ): number {
-  return markFamily === 'bar' && effectiveGlobalChartType === 'bar' && totalFacets === 1
-    ? PLAIN_BAR_CATEGORY_LIMIT
-    : CATEGORY_LIMIT;
+  // Gantt lanes are the same "one mark per category" shape as a plain bar
+  // chart, so they deserve the same bumped cap rather than the generic
+  // grouped-bar CATEGORY_LIMIT.
+  const isPlainSingleFacetBar =
+    (effectiveGlobalChartType === 'bar' || effectiveGlobalChartType === 'gantt') && totalFacets === 1;
+  return markFamily === 'bar' && isPlainSingleFacetBar ? PLAIN_BAR_CATEGORY_LIMIT : CATEGORY_LIMIT;
 }
 
 export function validateRenderCost(
@@ -102,7 +105,15 @@ export function validateRenderCost(
   const categoryCount = countCategories(context, markFamily);
   const totalFacets = facetValidation.rowFacetCount * facetValidation.colFacetCount;
   const categoryLimit = getCategoryLimit(markFamily, totalFacets, effectiveGlobalChartType);
-  const estimatedMarks = totalFacets * Math.max(seriesCount, 1) * Math.max(categoryCount, 1);
+
+  // Gantt draws one mark per fetched row, not one per lane -- many spans
+  // commonly share a lane, so the category (lane) count understates true
+  // render cost. Use the real row count instead (gantt is never sampled,
+  // see prepareBudgetedQuery, so this reflects the true result size).
+  const isGantt = effectiveGlobalChartType === 'gantt';
+  const estimatedMarks = isGantt
+    ? totalFacets * context.queryResult.rows.length
+    : totalFacets * Math.max(seriesCount, 1) * Math.max(categoryCount, 1);
 
   let exceedsLimit: RenderCostExceededLimit = facetValidation.exceedsLimit;
   if (!exceedsLimit) {

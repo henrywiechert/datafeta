@@ -384,6 +384,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onCellZoom={onCellZoom}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
+            horizontalScrollOffset={scrollOffsets.horizontal}
+            verticalScrollOffset={scrollOffsets.vertical}
           />
 
           {(!hideExternalAxes || gridHasPieAxisLabels(grid, 'x')) && (

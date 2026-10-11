@@ -10,14 +10,26 @@ export type BrushGesture = 'zoom' | 'measure';
 
 export interface BrushResult {
   axis: 'x' | 'y';
+  /** min(origin, current) along the locked axis — use for a simple range (e.g. zoom). */
   startPx: number;
+  /** max(origin, current) along the locked axis. */
   endPx: number;
   gesture: BrushGesture;
+  /** Literal (not min/max'd) position along the locked axis where the drag began. */
+  originAxisPx: number;
+  /** Literal (not min/max'd) position along the locked axis right now. */
+  currentAxisPx: number;
+  /** Position along the OTHER axis at drag origin — lets consumers know which "row" the drag started in. */
+  originCrossAxisPx: number;
+  /** Position along the OTHER axis right now — the row currently under the pointer. */
+  currentCrossAxisPx: number;
 }
 
 interface BrushOverlayProps {
   disabled?: boolean;
   onBrushEnd: (result: BrushResult) => void;
+  /** Fired continuously while a locked drag is in progress (not just at the end), so callers can live-preview the result (e.g. snapped measurement). */
+  onBrushMove?: (result: BrushResult) => void;
   /** Allow Alt/Option+drag to resolve as the 'measure' gesture (default false: ignored, same as no modifier). */
   measureEnabled?: boolean;
   /** Fired when a new drag begins (any gesture), before it's known to complete — lets callers clear stale state from a previous gesture. */
@@ -67,12 +79,14 @@ function resolveGestureKind(e: PointerEvent | React.PointerEvent, measureEnabled
  * regardless of which child element the pointer is over, and claims the
  * pointerdown in the capture phase so chart content cannot swallow it.
  */
-const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measureEnabled = false, onDragStart, children }) => {
+const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBrushMove, measureEnabled = false, onDragStart, children }) => {
   const [brush, setBrush] = useState<BrushState>(initialBrushState);
   const brushRef = useRef<BrushState>(initialBrushState);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const onBrushEndRef = useRef(onBrushEnd);
   onBrushEndRef.current = onBrushEnd;
+  const onBrushMoveRef = useRef(onBrushMove);
+  onBrushMoveRef.current = onBrushMove;
   const onDragStartRef = useRef(onDragStart);
   onDragStartRef.current = onDragStart;
 
@@ -102,6 +116,23 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measu
       const next: BrushState = { ...brushRef.current, locked, currentX: coords.x, currentY: coords.y };
       brushRef.current = next;
       setBrush(next);
+
+      if (locked && next.gesture) {
+        const originAxisPx = locked === 'x' ? next.originX : next.originY;
+        const currentAxisPx = locked === 'x' ? coords.x : coords.y;
+        const originCrossAxisPx = locked === 'x' ? next.originY : next.originX;
+        const currentCrossAxisPx = locked === 'x' ? coords.y : coords.x;
+        onBrushMoveRef.current?.({
+          axis: locked,
+          startPx: Math.min(originAxisPx, currentAxisPx),
+          endPx: Math.max(originAxisPx, currentAxisPx),
+          gesture: next.gesture,
+          originAxisPx,
+          currentAxisPx,
+          originCrossAxisPx,
+          currentCrossAxisPx,
+        });
+      }
     };
 
     const handleUp = (e: PointerEvent) => {
@@ -115,11 +146,17 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measu
         const end = b.locked === 'x' ? cur.x : cur.y;
         devLog('[BrushOverlay] brush end', { axis: b.locked, gesture: b.gesture, start, end, dist: Math.abs(end - start) });
         if (Math.abs(end - start) >= LOCK_THRESHOLD_PX) {
+          const originCrossAxisPx = b.locked === 'x' ? b.originY : b.originX;
+          const currentCrossAxisPx = b.locked === 'x' ? cur.y : cur.x;
           onBrushEndRef.current({
             axis: b.locked,
             startPx: Math.min(start, end),
             endPx: Math.max(start, end),
             gesture: b.gesture,
+            originAxisPx: start,
+            currentAxisPx: end,
+            originCrossAxisPx,
+            currentCrossAxisPx,
           });
         }
       }
@@ -169,9 +206,12 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measu
     setBrush(next);
   }, [disabled, measureEnabled]);
 
-  // Build the visual highlight band (pointer-events: none so it doesn't block tooltips)
+  // Build the visual highlight band (pointer-events: none so it doesn't block tooltips).
+  // 'measure' has no band of its own here: the snapped measurement overlay
+  // (driven by onBrushMove/onBrushEnd) is the only visual for that gesture,
+  // so dragging shows the real snapped result instead of the raw drag extent.
   let bandStyle: React.CSSProperties | undefined;
-  if (brush.active && brush.locked) {
+  if (brush.active && brush.locked && brush.gesture === 'zoom') {
     const minX = Math.min(brush.originX, brush.currentX);
     const maxX = Math.max(brush.originX, brush.currentX);
     const minY = Math.min(brush.originY, brush.currentY);
@@ -219,7 +259,14 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measu
       }}
       onPointerDownCapture={handlePointerDown}
     >
-      {children}
+      {/* Marks still get native hover/mouseenter while a button is held down
+          and moving — this blocks those events from reaching them during an
+          active drag so tooltips don't pop up and compete with the brush/
+          measurement visuals. Document-level drag tracking (handleMove/handleUp
+          above) is unaffected since it doesn't depend on hit-testing this subtree. */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', pointerEvents: brush.active ? 'none' : undefined }}>
+        {children}
+      </div>
       {bandStyle && <div style={bandStyle} />}
     </div>
   );

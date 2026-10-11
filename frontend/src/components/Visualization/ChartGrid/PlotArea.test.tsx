@@ -3,7 +3,7 @@ import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import PlotArea from './PlotArea';
 import { GridCellModel, GridResultModel } from '../../../observable-plot-generator/gridModel';
-import { computeGanttMeasurement } from './utils/ganttMeasure';
+import { GanttMeasurementResult } from './utils/ganttMeasure';
 
 const mockReceivedOptions: any[] = [];
 
@@ -35,9 +35,19 @@ jest.mock('./BrushOverlay', () => ({
   },
 }));
 
-jest.mock('./utils/ganttMeasure', () => ({
+/** Lets tests control what the mocked useGanttMeasurement hook returns. */
+let mockMeasurement: GanttMeasurementResult | null = null;
+const mockGanttHandlers = {
+  onBrushMove: jest.fn(),
+  onBrushEnd: jest.fn(),
+  onDragStart: jest.fn(),
+  onCellClick: jest.fn(),
+  onGripPointerDown: jest.fn(() => jest.fn()),
+};
+
+jest.mock('./hooks/useGanttMeasurement', () => ({
   __esModule: true,
-  computeGanttMeasurement: jest.fn(),
+  useGanttMeasurement: () => ({ measurement: mockMeasurement, ...mockGanttHandlers }),
 }));
 
 function buildGrid(cells: GridCellModel[]): GridResultModel {
@@ -256,7 +266,8 @@ describe('PlotArea Gantt measurement', () => {
 
   beforeEach(() => {
     brushOverlayProps.length = 0;
-    (computeGanttMeasurement as jest.Mock).mockReset();
+    mockMeasurement = null;
+    Object.values(mockGanttHandlers).forEach((fn) => fn.mockClear());
   });
   afterEach(() => cleanup());
 
@@ -271,35 +282,75 @@ describe('PlotArea Gantt measurement', () => {
     expect(brushOverlayProps[0].measureEnabled).toBe(false);
   });
 
-  it('renders the snapped measurement band + label after a measure-gesture brush end', () => {
-    (computeGanttMeasurement as jest.Mock).mockReturnValue({
-      axis: 'x',
-      snappedStartPx: 10,
-      snappedEndPx: 90,
-      label: '3 days',
-    });
+  it('wires BrushOverlay onBrushMove/onBrushEnd/onDragStart to the hook', () => {
+    render(area(plotCellGrid, false, true));
+    const { onBrushMove, onBrushEnd, onDragStart } = brushOverlayProps[0];
 
-    const { getByText } = render(area(plotCellGrid, false, true));
-    const { onBrushEnd } = brushOverlayProps[0];
-    act(() => onBrushEnd({ axis: 'x', startPx: 12, endPx: 88, gesture: 'measure' }));
+    const brush = { axis: 'x' as const, startPx: 12, endPx: 88, gesture: 'measure' as const };
+    onBrushMove(brush);
+    expect(mockGanttHandlers.onBrushMove).toHaveBeenCalledWith(brush);
 
-    expect(getByText('3 days')).toBeInTheDocument();
+    onBrushEnd(brush);
+    expect(mockGanttHandlers.onBrushEnd).toHaveBeenCalledWith(brush);
+
+    onDragStart();
+    expect(mockGanttHandlers.onDragStart).toHaveBeenCalled();
   });
 
-  it('clears the measurement overlay when a new drag starts', () => {
-    (computeGanttMeasurement as jest.Mock).mockReturnValue({
-      axis: 'x',
-      snappedStartPx: 10,
-      snappedEndPx: 90,
-      label: '3 days',
-    });
+  it('still forwards the zoom gesture to onBrushEnd (unaffected by measurement wiring)', () => {
+    const onBrushEnd = jest.fn();
+    render(
+      <PlotArea
+        grid={plotCellGrid}
+        plotsTranslateRef={React.createRef<HTMLDivElement>()}
+        plotTemplateColumns="100px"
+        plotRowsSpec="100px"
+        totalContentWidthPx={100}
+        isGanttChart
+        onBrushEnd={onBrushEnd}
+      />,
+    );
+    const { onBrushEnd: cellOnBrushEnd } = brushOverlayProps[0];
+    const brush = { axis: 'x' as const, startPx: 12, endPx: 88, gesture: 'zoom' as const };
+    cellOnBrushEnd(brush);
 
-    const { getByText, queryByText } = render(area(plotCellGrid, false, true));
-    const { onBrushEnd, onDragStart } = brushOverlayProps[0];
-    act(() => onBrushEnd({ axis: 'x', startPx: 12, endPx: 88, gesture: 'measure' }));
+    expect(mockGanttHandlers.onBrushEnd).toHaveBeenCalledWith(brush);
+    expect(onBrushEnd).toHaveBeenCalledWith(expect.objectContaining({ brush }));
+  });
+
+  it('renders the band, label, and grips when the hook reports a measurement', () => {
+    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days' };
+
+    const { getByText, container } = render(area(plotCellGrid, false, true));
+
     expect(getByText('3 days')).toBeInTheDocument();
+    // Band + 2 grips = 3 absolutely-positioned overlay divs beyond the plot container.
+    expect(container.querySelectorAll('[style*="cursor: ew-resize"]').length).toBe(2);
+  });
 
-    act(() => onDragStart());
-    expect(queryByText('3 days')).not.toBeInTheDocument();
+  it('renders nothing when the hook reports no measurement', () => {
+    mockMeasurement = null;
+    const { container } = render(area(plotCellGrid, false, true));
+    expect(container.querySelectorAll('[style*="cursor: ew-resize"]').length).toBe(0);
+  });
+
+  it('wires cell click to onCellClick only when isGanttChart', () => {
+    const { container, rerender } = render(area(plotCellGrid, false, true));
+    const wrapper = container.querySelector('[class*="plotWrapper"]') as HTMLElement;
+    act(() => wrapper.click());
+    expect(mockGanttHandlers.onCellClick).toHaveBeenCalledTimes(1);
+
+    mockGanttHandlers.onCellClick.mockClear();
+    rerender(area(plotCellGrid, false, false));
+    act(() => wrapper.click());
+    expect(mockGanttHandlers.onCellClick).not.toHaveBeenCalled();
+  });
+
+  it('wires grip pointerdown to onGripPointerDown with the correct end', () => {
+    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days' };
+    render(area(plotCellGrid, false, true));
+
+    expect(mockGanttHandlers.onGripPointerDown).toHaveBeenCalledWith('start');
+    expect(mockGanttHandlers.onGripPointerDown).toHaveBeenCalledWith('end');
   });
 });

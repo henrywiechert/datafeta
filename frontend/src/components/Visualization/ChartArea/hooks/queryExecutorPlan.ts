@@ -20,7 +20,14 @@ export function prepareBudgetedQuery(args: {
 }) {
   const { queryDesc, colorField, distributionVariant, globalChartType, optimizationSettings, lineColorMode } = args;
   const classification = classifyChartType(queryDesc, colorField, distributionVariant, lineColorMode);
-  const effectiveClassification = globalChartType === 'pie'
+  // Pie: not a point/line chart, sampling makes no sense.
+  // Gantt: each row is a rendered span, not a disposable sample of a
+  // distribution -- row-count sampling (random or stratified by lane) drops
+  // spans irrespective of their position in time, which makes dense periods
+  // look misleadingly sparse. Fetch the true result and let the render-cost
+  // warning (validateRenderCost, row-count based for gantt) gate huge results
+  // instead of silently truncating them.
+  const effectiveClassification = globalChartType === 'pie' || globalChartType === 'gantt'
     ? { ...classification, isLineChart: false, isPointChart: false }
     : classification;
   const pointBudget = computePointBudget(effectiveClassification, queryDesc, colorField, optimizationSettings);
