@@ -18,6 +18,10 @@ export interface BrushResult {
 interface BrushOverlayProps {
   disabled?: boolean;
   onBrushEnd: (result: BrushResult) => void;
+  /** Allow Alt/Option+drag to resolve as the 'measure' gesture (default false: ignored, same as no modifier). */
+  measureEnabled?: boolean;
+  /** Fired when a new drag begins (any gesture), before it's known to complete — lets callers clear stale state from a previous gesture. */
+  onDragStart?: () => void;
   children: React.ReactNode;
 }
 
@@ -43,14 +47,15 @@ const initialBrushState: BrushState = {
 
 /**
  * Resolve which drag gesture a pointerdown represents: Ctrl (Win/Linux) or Cmd
- * (Mac) for zoom-brush (existing behavior), Alt/Option for span measurement.
- * Returns null when neither modifier is held (no drag should start).
+ * (Mac) for zoom-brush (existing behavior), Alt/Option for span measurement
+ * (only when `measureEnabled`). Returns null when neither applies (no drag
+ * should start).
  */
-function resolveGestureKind(e: PointerEvent | React.PointerEvent): BrushGesture | null {
+function resolveGestureKind(e: PointerEvent | React.PointerEvent, measureEnabled: boolean): BrushGesture | null {
   const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
   const zoomModifierHeld = isMac ? e.metaKey : e.ctrlKey;
   if (zoomModifierHeld) return 'zoom';
-  if (e.altKey) return 'measure';
+  if (measureEnabled && e.altKey) return 'measure';
   return null;
 }
 
@@ -62,12 +67,14 @@ function resolveGestureKind(e: PointerEvent | React.PointerEvent): BrushGesture 
  * regardless of which child element the pointer is over, and claims the
  * pointerdown in the capture phase so chart content cannot swallow it.
  */
-const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, children }) => {
+const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, measureEnabled = false, onDragStart, children }) => {
   const [brush, setBrush] = useState<BrushState>(initialBrushState);
   const brushRef = useRef<BrushState>(initialBrushState);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const onBrushEndRef = useRef(onBrushEnd);
   onBrushEndRef.current = onBrushEnd;
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
 
   const getLocalCoords = useCallback((e: PointerEvent) => {
     const rect = wrapperRef.current?.getBoundingClientRect();
@@ -131,7 +138,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (disabled || e.button !== 0) return;
-    const gesture = resolveGestureKind(e);
+    const gesture = resolveGestureKind(e, measureEnabled);
     if (!gesture) return;
 
     const rect = wrapperRef.current?.getBoundingClientRect();
@@ -147,6 +154,8 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
     // and kept from reaching the plot.
     e.stopPropagation();
 
+    onDragStartRef.current?.();
+
     const next: BrushState = {
       active: true,
       locked: null,
@@ -158,7 +167,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, child
     };
     brushRef.current = next;
     setBrush(next);
-  }, [disabled]);
+  }, [disabled, measureEnabled]);
 
   // Build the visual highlight band (pointer-events: none so it doesn't block tooltips)
   let bandStyle: React.CSSProperties | undefined;

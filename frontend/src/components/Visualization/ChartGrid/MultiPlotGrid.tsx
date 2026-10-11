@@ -62,6 +62,8 @@ interface MultiPlotGridProps {
   isTransitioning?: boolean;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  /** Enables Alt/Option+drag span measurement in PlotArea (Gantt charts only). */
+  isGanttChart?: boolean;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
@@ -117,6 +119,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   isTransitioning = false,
   brushDisabled,
   onBrushEnd,
+  isGanttChart,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -376,6 +379,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onPlotRenderComplete={onPlotRenderComplete}
             brushDisabled={brushDisabled}
             onBrushEnd={onBrushEnd}
+            isGanttChart={isGanttChart}
             onCellContextMenu={onCellContextMenu}
             onCellZoom={onCellZoom}
             autoExpandPinnedComparison={autoExpandPinnedComparison}

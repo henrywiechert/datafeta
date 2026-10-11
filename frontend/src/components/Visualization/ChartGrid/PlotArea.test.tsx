@@ -1,15 +1,18 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import PlotArea from './PlotArea';
 import { GridCellModel, GridResultModel } from '../../../observable-plot-generator/gridModel';
+import { computeGanttMeasurement } from './utils/ganttMeasure';
 
 const mockReceivedOptions: any[] = [];
 
 jest.mock('../ObservablePlot', () => ({
   __esModule: true,
-  default: ({ plotId, options }: { plotId?: string; options?: any }) => {
+  default: ({ plotId, options, onPlotReady }: { plotId?: string; options?: any; onPlotReady?: (el: any) => void }) => {
     mockReceivedOptions.push(options);
+    // Give PlotArea a (fake) plot element so handleCellBrushEnd doesn't bail early.
+    onPlotReady?.({});
     return <div data-testid={`observable-plot-${plotId ?? 'unknown'}`} />;
   },
 }));
@@ -21,9 +24,20 @@ jest.mock('./renderers/PieSvgRenderer', () => ({
   ),
 }));
 
+/** Captures the props BrushOverlay receives so tests can trigger onBrushEnd/onDragStart directly. */
+const brushOverlayProps: any[] = [];
+
 jest.mock('./BrushOverlay', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  default: (props: { children: React.ReactNode }) => {
+    brushOverlayProps.push(props);
+    return <>{props.children}</>;
+  },
+}));
+
+jest.mock('./utils/ganttMeasure', () => ({
+  __esModule: true,
+  computeGanttMeasurement: jest.fn(),
 }));
 
 function buildGrid(cells: GridCellModel[]): GridResultModel {
@@ -39,7 +53,7 @@ function buildGrid(cells: GridCellModel[]): GridResultModel {
   };
 }
 
-function area(grid: GridResultModel, brushDisabled?: boolean) {
+function area(grid: GridResultModel, brushDisabled?: boolean, isGanttChart?: boolean) {
   return (
     <PlotArea
       grid={grid}
@@ -48,6 +62,7 @@ function area(grid: GridResultModel, brushDisabled?: boolean) {
       plotRowsSpec="100px"
       totalContentWidthPx={100}
       brushDisabled={brushDisabled}
+      isGanttChart={isGanttChart}
     />
   );
 }
@@ -227,5 +242,64 @@ describe('PlotArea cell dispatch', () => {
     // Empty cell wraps in a single div with the emptyCell class hash
     const emptyCells = container.querySelectorAll('div[class*="emptyCell"]');
     expect(emptyCells.length).toBe(1);
+  });
+});
+
+describe('PlotArea Gantt measurement', () => {
+  const plotCellGrid = buildGrid([
+    {
+      id: 'plot-1',
+      position: { row: 0, col: 0 },
+      content: { kind: 'plot', options: {} },
+    },
+  ]);
+
+  beforeEach(() => {
+    brushOverlayProps.length = 0;
+    (computeGanttMeasurement as jest.Mock).mockReset();
+  });
+  afterEach(() => cleanup());
+
+  it('passes measureEnabled to BrushOverlay only when isGanttChart', () => {
+    render(area(plotCellGrid, false, true));
+    expect(brushOverlayProps[0].measureEnabled).toBe(true);
+
+    brushOverlayProps.length = 0;
+    cleanup();
+
+    render(area(plotCellGrid, false, false));
+    expect(brushOverlayProps[0].measureEnabled).toBe(false);
+  });
+
+  it('renders the snapped measurement band + label after a measure-gesture brush end', () => {
+    (computeGanttMeasurement as jest.Mock).mockReturnValue({
+      axis: 'x',
+      snappedStartPx: 10,
+      snappedEndPx: 90,
+      label: '3 days',
+    });
+
+    const { getByText } = render(area(plotCellGrid, false, true));
+    const { onBrushEnd } = brushOverlayProps[0];
+    act(() => onBrushEnd({ axis: 'x', startPx: 12, endPx: 88, gesture: 'measure' }));
+
+    expect(getByText('3 days')).toBeInTheDocument();
+  });
+
+  it('clears the measurement overlay when a new drag starts', () => {
+    (computeGanttMeasurement as jest.Mock).mockReturnValue({
+      axis: 'x',
+      snappedStartPx: 10,
+      snappedEndPx: 90,
+      label: '3 days',
+    });
+
+    const { getByText, queryByText } = render(area(plotCellGrid, false, true));
+    const { onBrushEnd, onDragStart } = brushOverlayProps[0];
+    act(() => onBrushEnd({ axis: 'x', startPx: 12, endPx: 88, gesture: 'measure' }));
+    expect(getByText('3 days')).toBeInTheDocument();
+
+    act(() => onDragStart());
+    expect(queryByText('3 days')).not.toBeInTheDocument();
   });
 });
