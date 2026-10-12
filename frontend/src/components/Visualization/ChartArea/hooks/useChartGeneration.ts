@@ -1,7 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { ChartGenerationContext } from '../../../../observable-plot-generator/types';
+import type { ViewportController } from '../../ChartGrid/viewport/viewportController';
+import { sameChartViewport } from '../../../../observable-plot-generator/viewport/chartViewport';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
 import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, LineVariant, DensityParams } from '../../../../types';
@@ -9,15 +11,19 @@ import { computeOverrideTargets } from '../../../../observable-plot-generator/ut
 import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
-import { validateRenderCost, RenderCostValidation } from '../../../../observable-plot-generator/faceting/renderCostValidation';
+import { validateRenderCost, isWithinAcceptedRenderCost, RenderCostValidation } from '../../../../observable-plot-generator/faceting/renderCostValidation';
 import { isTablePresentation } from '../../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 import { ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
 import { LOADING_CONFIG } from '../../../../config/loadingConfig';
 
-/** Debounce delay for zoom-triggered regeneration (ms) */
-const ZOOM_REGEN_DEBOUNCE_MS = 150;
+/**
+ * Debounce for viewport-triggered regeneration (ms). Gestures are already
+ * coalesced by the ViewportController (committed once a gesture pauses) and
+ * previewed live, so this only merges commits landing in the same frame.
+ */
+const ZOOM_REGEN_DEBOUNCE_MS = 16;
 
 /**
  * Resolves once the current DOM has been painted (start of the frame after
@@ -52,7 +58,8 @@ interface UseChartGenerationProps {
   tablePageSize?: number;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
-  ganttZoomRange?: GanttZoomRange | null;
+  /** Pan/zoom state; commits re-render the chart on a light path (no loading UI). */
+  viewportController?: ViewportController;
   overlays?: OverlayConfig[];
   densityParams?: DensityParams;
   viewSpec?: ViewSpec | null;
@@ -95,7 +102,7 @@ export const useChartGeneration = ({
   tablePageSize,
   measureValuesSourceFields = [],
   independentDomains,
-  ganttZoomRange,
+  viewportController,
   overlays,
   densityParams,
   viewSpec,
@@ -129,15 +136,17 @@ export const useChartGeneration = ({
     context: ChartGenerationContext;
     overrideTargets: any;
     startTime: number;
+    validation: RenderCostValidation;
   } | null>(null);
 
-  // Use ref for ganttZoomRange to avoid triggering full spec regeneration on every zoom change
-  // This is a performance optimization: zoom changes are frequent during keyboard navigation
-  const ganttZoomRangeRef = useRef(ganttZoomRange);
-  const zoomRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Track the last zoom range that was used in spec generation
-  const lastGeneratedZoomRef = useRef<GanttZoomRange | null | undefined>(undefined);
+  // Heaviest render cost the user accepted via "proceed"; later generations up
+  // to that cost (pan/zoom, zoom filters, zoom out) render without asking again.
+  const acceptedRenderCostRef = useRef<RenderCostValidation | null>(null);
+
+  // Context of the grid currently on screen; pan/zoom commits regenerate from
+  // it with only the viewport swapped (see regenerateForViewport).
+  const displayedContextRef = useRef<ChartGenerationContext | null>(null);
+  const viewportRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Core chart generation logic, extracted to be called both initially and after user proceeds.
@@ -174,6 +183,7 @@ export const useChartGeneration = ({
       await waitForPaint();
     }
 
+    displayedContextRef.current = context;
     setGrid(generatedGrid);
     setChartInfo({ chartType: 'observable-plot' });
     setRenderingError(null);
@@ -192,6 +202,7 @@ export const useChartGeneration = ({
     }
 
     setFacetLimitWarning(null);
+    acceptedRenderCostRef.current = pending.validation;
     
     try {
       if (process.env.NODE_ENV === 'development') {
@@ -272,7 +283,6 @@ export const useChartGeneration = ({
         ) ?? null;
 
       // Build the chart generation context
-      // NOTE: Use ref for ganttZoomRange to avoid frequent regeneration during zoom
       const context: ChartGenerationContext = {
         xFields: plannedX,
         yFields: plannedY,
@@ -307,7 +317,7 @@ export const useChartGeneration = ({
         tablePageSize,
         measureValuesSourceFields,
         independentDomains,
-        ganttZoomRange: ganttZoomRangeRef.current,
+        chartViewport: viewportController?.getCommitted(),
         fieldAliasLookup,
         // Facet background encoding
         facetBackgroundField: facetBackgroundField || undefined,
@@ -326,9 +336,6 @@ export const useChartGeneration = ({
         manualLineStyle,
       };
       
-      // Track which zoom range we generated with
-      lastGeneratedZoomRef.current = ganttZoomRangeRef.current;
-
       // Validate render cost before producing the grid. Heatmap and table
       // presentation handle large grids natively (pagination / cell sizing),
       // so they skip the facet/cell warning dialog.
@@ -343,9 +350,9 @@ export const useChartGeneration = ({
           effectiveGlobalChartType,
         );
         
-        if (!validation.isValid) {
+        if (!validation.isValid && !isWithinAcceptedRenderCost(validation, acceptedRenderCostRef.current)) {
           // Store context for potential proceed
-          pendingGenerationRef.current = { context, overrideTargets, startTime };
+          pendingGenerationRef.current = { context, overrideTargets, startTime, validation };
           setFacetLimitWarning(validation);
           
           if (process.env.NODE_ENV === 'development') {
@@ -402,6 +409,7 @@ export const useChartGeneration = ({
     measureValuesSourceFields,
     independentDomains,
     doGenerateChart,
+    viewportController,
     fieldAliasLookup,
     overlays,
     densityParams,
@@ -442,54 +450,46 @@ export const useChartGeneration = ({
     generateChartSpec();
   }, [generateChartSpec]);
 
-  // Separate effect for zoom changes: debounce to avoid regenerating on every key press
-  // This effect only runs when ganttZoomRange changes, and debounces the regeneration
+  /**
+   * Pan/zoom commit: regenerate what is on screen with the new viewport only.
+   * Data and configuration are unchanged, so this skips the render-cost check
+   * (already passed or accepted for this context) and the loading operation:
+   * startOperation/completeOperation and the rendering modal would re-render
+   * every VisualizationContext consumer and, for large results, open a dialog
+   * on each zoom step.
+   */
+  const regenerateForViewport = useCallback(() => {
+    const base = displayedContextRef.current;
+    if (!base || !viewportController || pendingGenerationRef.current) return;
+    const committed = viewportController.getCommitted();
+    if (sameChartViewport(base.chartViewport ?? {}, committed)) return;
+    const context = { ...base, chartViewport: committed };
+    try {
+      const next = generatePlot(context);
+      next.viewportRefresh = true;
+      displayedContextRef.current = context;
+      setGrid(next);
+    } catch (error) {
+      console.error('Viewport regeneration failed:', error);
+    }
+  }, [viewportController]);
+
   useEffect(() => {
-    // Update the ref immediately so new generations use latest value
-    ganttZoomRangeRef.current = ganttZoomRange;
-    
-    // Check if zoom has actually changed from what was last generated
-    const lastZoom = lastGeneratedZoomRef.current;
-    const currentZoom = ganttZoomRange;
-    
-    // Determine if zoom changed
-    let zoomChanged = false;
-    if (currentZoom !== lastZoom) {
-      if (currentZoom === null || currentZoom === undefined) {
-        // Zoom was reset to null
-        zoomChanged = lastZoom !== null && lastZoom !== undefined;
-      } else if (lastZoom === null || lastZoom === undefined) {
-        // Zoom was set from null
-        zoomChanged = true;
-      } else {
-        // Both are defined, compare values
-        zoomChanged = currentZoom.min !== lastZoom.min || currentZoom.max !== lastZoom.max;
-      }
-    }
-    
-    if (!zoomChanged) {
-      return;
-    }
-    
-    // Clear any pending zoom regeneration
-    if (zoomRegenTimerRef.current) {
-      clearTimeout(zoomRegenTimerRef.current);
-    }
-    
-    // Debounce the regeneration
-    zoomRegenTimerRef.current = setTimeout(() => {
-      if (process.env.NODE_ENV === 'development') {
-        devLog('[useChartGeneration] Debounced zoom regeneration triggered');
-      }
-      generateChartSpec();
-    }, ZOOM_REGEN_DEBOUNCE_MS);
-    
+    if (!viewportController) return;
+    const unsubscribe = viewportController.subscribeCommitted(() => {
+      if (viewportRegenTimerRef.current) clearTimeout(viewportRegenTimerRef.current);
+      viewportRegenTimerRef.current = setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          devLog('[useChartGeneration] Viewport regeneration triggered');
+        }
+        regenerateForViewport();
+      }, ZOOM_REGEN_DEBOUNCE_MS);
+    });
     return () => {
-      if (zoomRegenTimerRef.current) {
-        clearTimeout(zoomRegenTimerRef.current);
-      }
+      unsubscribe();
+      if (viewportRegenTimerRef.current) clearTimeout(viewportRegenTimerRef.current);
     };
-  }, [ganttZoomRange, generateChartSpec]);
+  }, [viewportController, regenerateForViewport]);
 
   return {
     grid,

@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { Field } from '../../../types';
@@ -9,7 +9,7 @@ import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
-import { GanttMeasurementResult } from './utils/ganttMeasure';
+import { GanttMeasurementResult, projectMeasurement } from './utils/ganttMeasure';
 import { useGanttMeasurement } from './hooks/useGanttMeasurement';
 import { T } from '../../../theme/tokens';
 import {
@@ -25,6 +25,10 @@ import {
 } from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 import { useDoubleTap } from './hooks/useDoubleTap';
+import { NO_PAN_ATTRIBUTE, useViewportGestures } from './viewport/useViewportGestures';
+import { liveAxisProjection, useLiveViewportVersion, useViewportPreview } from './viewport/useViewportPreview';
+import { getViewportAxes } from '../../../observable-plot-generator/viewport/chartViewport';
+import type { ViewportGridConfig } from './viewport/viewportController';
 
 export interface PlotBrushEvent {
   brush: BrushResult;
@@ -44,6 +48,8 @@ interface PlotAreaProps {
   onBrushEnd?: (event: PlotBrushEvent) => void;
   /** Enables Alt/Option+drag span measurement (Gantt charts only). */
   isGanttChart?: boolean;
+  /** Pan/zoom (Alt+wheel, drag, double-click reset) on pannable axes. */
+  viewport?: ViewportGridConfig;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   /** Touch double tap on a cell (tablet Zoom facet) */
   onCellZoom?: (plotId: string) => void;
@@ -117,6 +123,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   brushDisabled,
   onBrushEnd,
   isGanttChart,
+  viewport,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -132,6 +139,20 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   }, []);
 
   const cells = grid.cells;
+
+  // Facet peers of a cell along a measured axis: cells sharing that axis'
+  // scale (same grid column for x, same row for y). Gantt measurements may
+  // span into them.
+  const getPeerPlotElements = useCallback((cellId: string, axis: 'x' | 'y'): Element[] => {
+    const self = cells.find((c) => c.id === cellId);
+    if (!self) return [];
+    return cells
+      .filter((c) => c.id !== cellId && c.content.kind === 'plot')
+      .filter((c) => (axis === 'x' ? c.position.col === self.position.col : c.position.row === self.position.row))
+      .map((c) => plotElementsRef.current[c.id])
+      .filter((el): el is SVGSVGElement | HTMLElement => !!el);
+  }, [cells]);
+
   // Mirrors legacy `spec.facetLabels ? 2 : 1` placement: when any facet headers
   // are present, the plot area sits in row 2 below the header row.
   const gridRow = hasFacetHeaders(grid) || hasColumnHeaders(grid) ? 2 : 1;
@@ -159,11 +180,14 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   key={key}
                   cell={cell as PlotGridCellModel}
                   plotElementsRef={plotElementsRef}
+                  getPeerPlotElements={getPeerPlotElements}
                   onPlotReady={handlePlotReady}
                   onPlotRenderComplete={onPlotRenderComplete}
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
                   isGanttChart={isGanttChart}
+                  viewport={viewport}
+                  viewportRefresh={!!grid.viewportRefresh}
                   onCellContextMenu={onCellContextMenu}
                   onCellZoom={onCellZoom}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
@@ -210,11 +234,15 @@ const PlotArea: React.FC<PlotAreaProps> = ({
 interface PlotCellProps {
   cell: PlotGridCellModel;
   plotElementsRef: React.MutableRefObject<Record<string, SVGSVGElement | HTMLElement>>;
+  getPeerPlotElements: (cellId: string, axis: 'x' | 'y') => Element[];
   onPlotReady: (plotId: string, element: SVGSVGElement | HTMLElement) => void;
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   isGanttChart?: boolean;
+  viewport?: ViewportGridConfig;
+  /** The grid only re-applied a pan/zoom viewport (same data and cells). */
+  viewportRefresh?: boolean;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
@@ -226,11 +254,14 @@ interface PlotCellProps {
 const PlotCell: React.FC<PlotCellProps> = ({
   cell,
   plotElementsRef,
+  getPeerPlotElements,
   onPlotReady,
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
   isGanttChart,
+  viewport,
+  viewportRefresh = false,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -238,11 +269,32 @@ const PlotCell: React.FC<PlotCellProps> = ({
   horizontalScrollOffset = 0,
   verticalScrollOffset = 0,
 }) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const facetBg = cell.content.facetBackground;
   const xField = cell.metadata?.xField;
   const yField = cell.metadata?.yField;
 
   const getPlotElement = useCallback(() => plotElementsRef.current[cell.id], [plotElementsRef, cell.id]);
+  const getMeasurePeers = useCallback(
+    (axis: 'x' | 'y') => getPeerPlotElements(cell.id, axis),
+    [getPeerPlotElements, cell.id],
+  );
+  // Gantt spans are measured along the timeline only; the other axis is the
+  // category band (lanes), across which a distance means nothing.
+  const ganttTimelineAxis: 'x' | 'y' | undefined = isGanttChart
+    ? ((cell.content.options as any)?.x?.type === 'band' ? 'y' : 'x')
+    : undefined;
+  const controller = viewport?.controller;
+  const cellOptions = cell.content.options;
+  const getMeasureProjection = useCallback(
+    () => (ganttTimelineAxis ? liveAxisProjection(cellOptions, ganttTimelineAxis, controller, getPlotElement()) : null),
+    [ganttTimelineAxis, cellOptions, controller, getPlotElement],
+  );
+  const projectMeasureValue = useCallback(
+    (value: number) => getMeasureProjection()?.project(value) ?? null,
+    [getMeasureProjection],
+  );
+
   const {
     measurement,
     onBrushMove: handleMeasureBrushMove,
@@ -250,7 +302,45 @@ const PlotCell: React.FC<PlotCellProps> = ({
     onDragStart: handleDragStart,
     onCellClick,
     onGripPointerDown,
-  } = useGanttMeasurement({ isGanttChart, getPlotElement, xField, yField });
+  } = useGanttMeasurement({
+    isGanttChart,
+    getPlotElement,
+    xField,
+    yField,
+    getPeerPlotElements: getMeasurePeers,
+    projectValue: projectMeasureValue,
+  });
+
+  // A measurement is kept in data values, so it follows pan/zoom: re-project
+  // it against the live viewport on every render, and re-render with the
+  // gesture preview while one is shown.
+  useLiveViewportVersion(measurement ? controller : undefined);
+  const measureProjection = measurement ? getMeasureProjection() : null;
+  const displayedMeasurement = measurement && measureProjection
+    ? projectMeasurement(measurement, measureProjection.project, measureProjection.rangeStart, measureProjection.rangeEnd)
+    : measurement;
+
+  useViewportGestures({
+    wrapperRef,
+    options: cell.content.options,
+    getPlotElement,
+    controller: viewport?.controller,
+    independentDomains: viewport?.independentDomains,
+  });
+  const refreshViewportPreview = useViewportPreview({
+    wrapperRef,
+    options: cell.content.options,
+    getPlotElement,
+    controller: viewport?.controller,
+  });
+
+  // New data or configuration invalidates a measurement; a pan/zoom refresh
+  // of the same chart does not (it is re-projected above).
+  const viewportRefreshRef = useRef(viewportRefresh);
+  viewportRefreshRef.current = viewportRefresh;
+  useEffect(() => {
+    if (!viewportRefreshRef.current) handleDragStart();
+  }, [cell.content.options, handleDragStart]);
 
   // ObservablePlot only skips work when `options` is reference-identical, and a rebuild
   // means re-running Plot.plot() and replacing the SVG. Deriving a fresh object on every
@@ -279,10 +369,23 @@ const PlotCell: React.FC<PlotCellProps> = ({
   };
   const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
 
+  // Plot SVGs render with `overflow: visible` (see ObservablePlot), and with a
+  // pan/zoom viewport marks extend past the visible domain (cull margin, bars
+  // and line segments crossing the edge) -- clip them at the cell along the
+  // pannable axes, or they draw into neighbouring facets. `clip` (unlike
+  // `hidden`) leaves the other axis visible for cross-facet measurements.
+  const viewportAxes = getViewportAxes(cell.content.options);
+  const cellStyle: React.CSSProperties = {
+    ...buildBaseCellStyle(cell),
+    ...(viewportAxes?.x ? { overflowX: 'clip' } : {}),
+    ...(viewportAxes?.y ? { overflowY: 'clip' } : {}),
+  };
+
   return (
     <div
+      ref={wrapperRef}
       className={styles.plotWrapper}
-      style={buildBaseCellStyle(cell)}
+      style={cellStyle}
       onContextMenu={handleContextMenu}
       onClick={isGanttChart ? onCellClick : undefined}
       {...doubleTap}
@@ -307,6 +410,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
         onBrushEnd={handleCellBrushEnd}
         onBrushMove={handleCellBrushMove}
         measureEnabled={isGanttChart}
+        measureAxis={ganttTimelineAxis}
         onDragStart={handleDragStart}
       >
         <div className={styles.observablePlotContainer}>
@@ -315,14 +419,18 @@ const PlotCell: React.FC<PlotCellProps> = ({
             options={opts}
             plotId={cell.id}
             onRenderComplete={onPlotRenderComplete}
-            onPlotReady={(el) => onPlotReady(cell.id, el)}
+            onPlotReady={(el) => {
+              onPlotReady(cell.id, el);
+              refreshViewportPreview();
+            }}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
         </div>
-        {measurement && (
+        {displayedMeasurement && (
           <GanttMeasurementOverlay
-            measurement={measurement}
+            cellRef={wrapperRef}
+            measurement={displayedMeasurement}
             onGripPointerDown={onGripPointerDown}
             horizontalScrollOffset={horizontalScrollOffset}
             verticalScrollOffset={verticalScrollOffset}
@@ -348,32 +456,64 @@ const ARROW_SHAFT_THICKNESS_PX = 1;
  * snapped state) spans the two grips with the distance label sitting on top
  * of it as a rounded pill, breaking the line the way CAD/Figma redlines do.
  */
+/**
+ * How far the cell's near edge (top for 'x' measurements, left for 'y') is
+ * scrolled out of view, and the cell's size along that axis. Clipping comes
+ * from every scrolling/clipping ancestor (vertical: the plot area; horizontal:
+ * the horizontal scroll layer).
+ */
+export function measureCellVisibility(cell: HTMLElement, isX: boolean): { hiddenPx: number; sizePx: number } {
+  const rect = cell.getBoundingClientRect();
+  let clipStart = -Infinity;
+  for (let el = cell.parentElement; el && el !== document.body; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    const overflow = isX ? style.overflowY : style.overflowX;
+    if (overflow === 'visible') continue;
+    const clip = el.getBoundingClientRect();
+    clipStart = Math.max(clipStart, isX ? clip.top : clip.left);
+  }
+  const cellStart = isX ? rect.top : rect.left;
+  return {
+    hiddenPx: Number.isFinite(clipStart) ? Math.max(0, clipStart - cellStart) : 0,
+    sizePx: isX ? rect.height : rect.width,
+  };
+}
+
 const GanttMeasurementOverlay: React.FC<{
+  cellRef: React.RefObject<HTMLElement>;
   measurement: GanttMeasurementResult;
   onGripPointerDown: (end: 'start' | 'end') => (e: React.PointerEvent) => void;
-  /** Cancels out the plot grid's scroll translate so the label/arrow stay within the visible viewport. */
+  /** Scroll offsets of the grid; they only trigger re-measuring the cell's visible part. */
   horizontalScrollOffset: number;
   verticalScrollOffset: number;
-}> = ({ measurement, onGripPointerDown, horizontalScrollOffset, verticalScrollOffset }) => {
-  const { axis, leftPx, rightPx, leftSnapped, rightSnapped, label } = measurement;
+}> = ({ cellRef, measurement, onGripPointerDown, horizontalScrollOffset, verticalScrollOffset }) => {
+  const { axis, leftPx, rightPx, leftSnapped, rightSnapped, label, crossSpan, leftClamped, rightClamped } = measurement;
   const isX = axis === 'x';
-  // The band/grips must stay anchored to the measured data position (correct
-  // as-is), but the arrow+label sit at a fixed offset from the chart's near
-  // edge rather than at a data position -- on a tall/wide Gantt chart that
-  // edge scrolls out of view while the band itself is still visible. Add the
-  // current scroll offset back in so they track the visible viewport edge
-  // instead of the full (possibly off-screen) content edge.
-  const arrowCrossAxisOffsetPx = ARROW_OFFSET_PX + (isX ? verticalScrollOffset : horizontalScrollOffset);
+  // Band and grips cover this cell, or every facet cell the measurement spans.
+  const crossStart: number | string = crossSpan ? crossSpan.start : 0;
+  const crossSize: number | string = crossSpan ? crossSpan.end - crossSpan.start : '100%';
+  // The band/grips stay anchored to the measured data position. The arrow and
+  // label sit a fixed offset from the cell's near edge; when that edge is
+  // scrolled out of view they follow the visible part of THIS cell, but never
+  // leave it (in a faceted grid that would draw them over another facet).
+  const [arrowCrossAxisOffsetPx, setArrowCrossAxisOffsetPx] = useState(ARROW_OFFSET_PX);
+  useLayoutEffect(() => {
+    const cell = cellRef.current;
+    if (!cell) return;
+    const { hiddenPx, sizePx } = measureCellVisibility(cell, isX);
+    const max = Math.max(ARROW_OFFSET_PX, sizePx - ARROW_OFFSET_PX);
+    setArrowCrossAxisOffsetPx(Math.min(max, hiddenPx + ARROW_OFFSET_PX));
+  }, [cellRef, isX, horizontalScrollOffset, verticalScrollOffset]);
   const leftColor = leftSnapped ? T.statusSuccess : T.chartGlyphMuted;
   const rightColor = rightSnapped ? T.statusSuccess : T.chartGlyphMuted;
   const midPx = (leftPx + rightPx) / 2;
 
   const bandStyle: React.CSSProperties = {
     position: 'absolute',
-    left: isX ? leftPx : 0,
-    top: isX ? 0 : leftPx,
-    width: isX ? rightPx - leftPx : '100%',
-    height: isX ? '100%' : rightPx - leftPx,
+    left: isX ? leftPx : crossStart,
+    top: isX ? crossStart : leftPx,
+    width: isX ? rightPx - leftPx : crossSize,
+    height: isX ? crossSize : rightPx - leftPx,
     backgroundColor: T.chartBrushFill,
     pointerEvents: 'none',
     zIndex: 3,
@@ -417,10 +557,10 @@ const GanttMeasurementOverlay: React.FC<{
 
   const gripHitStyle = (px: number): React.CSSProperties => ({
     position: 'absolute',
-    left: isX ? px - GRIP_HIT_WIDTH_PX / 2 : 0,
-    top: isX ? 0 : px - GRIP_HIT_WIDTH_PX / 2,
-    width: isX ? GRIP_HIT_WIDTH_PX : '100%',
-    height: isX ? '100%' : GRIP_HIT_WIDTH_PX,
+    left: isX ? px - GRIP_HIT_WIDTH_PX / 2 : crossStart,
+    top: isX ? crossStart : px - GRIP_HIT_WIDTH_PX / 2,
+    width: isX ? GRIP_HIT_WIDTH_PX : crossSize,
+    height: isX ? crossSize : GRIP_HIT_WIDTH_PX,
     cursor: isX ? 'ew-resize' : 'ns-resize',
     pointerEvents: 'auto',
     zIndex: 6,
@@ -441,16 +581,21 @@ const GanttMeasurementOverlay: React.FC<{
       <div style={bandStyle} />
       <div style={arrowTrackStyle}>
         <div style={shaftStyle} />
-        <div style={nearArrowheadStyle} />
-        <div style={farArrowheadStyle} />
+        {!leftClamped && <div style={nearArrowheadStyle} />}
+        {!rightClamped && <div style={farArrowheadStyle} />}
       </div>
       <div style={labelStyle}>{label}</div>
-      <div style={gripHitStyle(leftPx)} onPointerDown={onGripPointerDown('start')} onClick={(e) => e.stopPropagation()}>
-        <div style={gripLineStyle(leftSnapped, leftColor)} />
-      </div>
-      <div style={gripHitStyle(rightPx)} onPointerDown={onGripPointerDown('end')} onClick={(e) => e.stopPropagation()}>
-        <div style={gripLineStyle(rightSnapped, rightColor)} />
-      </div>
+      {/* An end panned/zoomed out of view has no grip: it is clamped to the edge, not there. */}
+      {!leftClamped && (
+        <div style={gripHitStyle(leftPx)} {...{ [NO_PAN_ATTRIBUTE]: true }} onPointerDown={onGripPointerDown('start')} onClick={(e) => e.stopPropagation()}>
+          <div style={gripLineStyle(leftSnapped, leftColor)} />
+        </div>
+      )}
+      {!rightClamped && (
+        <div style={gripHitStyle(rightPx)} {...{ [NO_PAN_ATTRIBUTE]: true }} onPointerDown={onGripPointerDown('end')} onClick={(e) => e.stopPropagation()}>
+          <div style={gripLineStyle(rightSnapped, rightColor)} />
+        </div>
+      )}
     </>
   );
 };

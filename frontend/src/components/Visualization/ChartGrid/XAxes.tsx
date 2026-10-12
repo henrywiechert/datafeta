@@ -9,6 +9,8 @@ import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
+import type { ViewportController } from './viewport/viewportController';
+import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
 
 // Approximate horizontal room per numeric tick label; keeps narrow/faceted
 // columns from crowding ticks together.
@@ -31,6 +33,8 @@ interface XAxesProps {
    * measure-field label header without numeric/categorical tick axes.
    */
   renderScales?: boolean;
+  /** Live pan/zoom viewport: ticks follow a gesture before the chart regenerates. */
+  viewportController?: ViewportController;
 }
 
 function buildXAxisOptions(
@@ -92,7 +96,9 @@ const XAxes: React.FC<XAxesProps> = ({
   xAxisLabelStyle,
   onXAxisLabelStyleChange,
   renderScales = true,
+  viewportController,
 }) => {
+  useLiveViewportVersion(viewportController, AXIS_LIVE_UPDATE_INTERVAL_MS);
   const [xLabelPopoverAnchor, setXLabelPopoverAnchor] = useState<HTMLElement | null>(null);
 
   const handleXLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -118,7 +124,7 @@ const XAxes: React.FC<XAxesProps> = ({
           {Array.from({ length: columns }).map((_, c) => {
             const sample = getPlotGridCellAtCol(grid, c);
             const xLabel = (sample?.content.options as any)?.x?.label;
-            const xDomain = (sample?.content.options as any)?.x?.domain;
+            const xDomain = liveAxisDomain(sample?.content.options, 'x', viewportController);
             const xType = (sample?.content.options as any)?.x?.type;
             const xPadding = (sample?.content.options as any)?.x?.padding;
             const xTicks = (sample?.content.options as any)?.x?.ticks;
@@ -207,6 +213,7 @@ export default React.memo(XAxes, (prevProps, nextProps) => {
     prevProps.dynamicXAxisPx === nextProps.dynamicXAxisPx &&
     prevProps.xLabelRowPx === nextProps.xLabelRowPx &&
     prevProps.renderScales === nextProps.renderScales &&
+    prevProps.viewportController === nextProps.viewportController &&
     prevProps.grid.cells === nextProps.grid.cells &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout &&

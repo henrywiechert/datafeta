@@ -16,6 +16,7 @@ import {
 } from '../../../config/chartLayoutConfig';
 import { LayoutCalculations } from './hooks/useChartGridLayout';
 import { ScrollSyncState } from './hooks/useScrollSync';
+import type { ViewportGridConfig } from './viewport/viewportController';
 import { Dimensions } from './hooks/useContainerDimensions';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
 import PlotArea, { PlotBrushEvent } from './PlotArea';
@@ -64,6 +65,8 @@ interface MultiPlotGridProps {
   onBrushEnd?: (event: PlotBrushEvent) => void;
   /** Enables Alt/Option+drag span measurement in PlotArea (Gantt charts only). */
   isGanttChart?: boolean;
+  /** Pan/zoom configuration for plot cells. */
+  viewport?: ViewportGridConfig;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   onCellZoom?: (plotId: string) => void;
   autoExpandPinnedComparison?: boolean;
@@ -120,6 +123,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   brushDisabled,
   onBrushEnd,
   isGanttChart,
+  viewport,
   onCellContextMenu,
   onCellZoom,
   autoExpandPinnedComparison,
@@ -162,7 +166,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const yBandNameHeightPx = dimTopHeaderHeightPx > 0 ? dimTopHeaderHeightPx : topHeaderHeight;
   const showMeasureBandNames = yMeasureBandWidthsPx.length > 0 || xMeasureBandHeightsPx.length > 0;
 
-  const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
+  const { scrollOffsets, onWheelCapture } = scrollSync;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
 
   const hideExternalAxes = usesOnlyAxislessRenderers(grid);
@@ -380,6 +384,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             brushDisabled={brushDisabled}
             onBrushEnd={onBrushEnd}
             isGanttChart={isGanttChart}
+            viewport={viewport}
             onCellContextMenu={onCellContextMenu}
             onCellZoom={onCellZoom}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
@@ -399,6 +404,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               xAxisLabelStyle={axisLabelStyles.xAxis}
               onXAxisLabelStyleChange={handleXLabelStyleChange}
               renderScales={!hideExternalAxes}
+              viewportController={viewport?.controller}
             />
           )}
         </div>
@@ -599,6 +605,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               dynamicYAxisPx={dynamicYAxisPx}
               rowHeights={actualRowHeights}
               hasRowFacets={hasRowFacets}
+              viewportController={viewport?.controller}
             />
           )}
             </div>
@@ -812,12 +819,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         />
       </div>
 
-      {/* Keyboard navigation hint for Gantt charts */}
-      <div
-        className={`${styles.keyboardNavHint} ${isKeyboardNavActive ? styles.visible : ''}`}
-      >
-        <kbd>W</kbd>/<kbd>S</kbd> Zoom &nbsp; <kbd>A</kbd>/<kbd>D</kbd> Pan &nbsp; <kbd>R</kbd> Reset
-      </div>
 
       {/* Y-axis label style popover */}
       <AxisLabelStylePopover

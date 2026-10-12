@@ -166,8 +166,6 @@ export interface VisualizationState {
   // Measure group (per-sheet, Tableau-like single group); member Field.id is the
   // stable key for per-member Field Overrides.
   measureGroup: MeasureGroup;
-  // Gantt chart zoom range (null = full data range)
-  ganttZoomRange: { min: number; max: number } | null;
   // Axis label styling
   axisLabelStyles: AxisLabelStyles;
   // Category tick label styling
@@ -214,8 +212,9 @@ export interface TableChartParams {
  * chart type's parameters does not require a new flat field on
  * VisualizationState.
  *
- * Note: `ganttZoomRange` is intentionally NOT here — it is transient view state
- * (not persisted to sheets, not undoable), unlike these persisted style params.
+ * Note: the pan/zoom viewport is intentionally NOT here (nor anywhere in this
+ * state) — it is transient view state owned by the chart area's
+ * ViewportController, unlike these persisted style params.
  */
 export interface ChartTypeParams {
   density: DensityParams;
@@ -351,8 +350,6 @@ export type VisualizationAction =
   | { type: 'CLEAR_MEASURE_GROUP' }
   // Cache restore action (used when switching sheets with cached data)
   | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult }
-  // Gantt chart zoom actions
-  | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null }
   // Axis label styling actions
   | { type: 'SET_X_AXIS_LABEL_STYLE'; payload: Partial<XAxisLabelStyle> }
   | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> }

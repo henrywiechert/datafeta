@@ -1,4 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { cullRange } from '../../viewport/chartViewport';
+import type { ViewportRange } from '../../viewport/chartViewport';
 import type { LineBudget, LineOrientation, PreparedLineData, XKind } from './types';
 
 const LINE_POINT_BUDGET = 1_000;
@@ -232,6 +234,35 @@ export function lastRowPerSeries(groups: Map<string, any[]>): any[] {
   return out;
 }
 
+/**
+ * Keep the rows of a sorted line inside `window`, plus each series' nearest row
+ * on either side of it so lines still run off the plot edges.
+ */
+function cullSortedToWindow(
+  rowsSorted: any[],
+  independentColumn: string,
+  xKind: XKind,
+  seriesColumns: readonly string[],
+  window: ViewportRange
+): { inside: any[]; edges: any[] } {
+  const inside: any[] = [];
+  const before = new Map<string, any>();
+  const after = new Map<string, any>();
+  for (const row of rowsSorted) {
+    const x = toXNumber(row?.[independentColumn], xKind);
+    if (x == null) continue;
+    if (x < window.min) {
+      before.set(seriesKeyOf(row, seriesColumns), row);
+    } else if (x > window.max) {
+      const key = seriesKeyOf(row, seriesColumns);
+      if (!after.has(key)) after.set(key, row);
+    } else {
+      inside.push(row);
+    }
+  }
+  return { inside, edges: [...Array.from(before.values()), ...Array.from(after.values())] };
+}
+
 export function prepareLineData(params: {
   data: any[];
   independentColumn: string;
@@ -239,8 +270,10 @@ export function prepareLineData(params: {
   /** Columns that split the data into separate lines; empty for a single line. */
   seriesColumns: readonly string[];
   orientation: LineOrientation;
+  /** Pan/zoom window on the independent axis; rows far outside it are dropped before binning. */
+  viewport?: ViewportRange;
 }): PreparedLineData {
-  const { data, independentColumn, dependentColumn, seriesColumns, orientation } = params;
+  const { data, independentColumn, dependentColumn, seriesColumns, orientation, viewport } = params;
 
   // Filter to finite numeric values for the dependent axis
   const clean = Array.isArray(data)
@@ -255,12 +288,22 @@ export function prepareLineData(params: {
   const budget = computeLineBudget(splitsSeries);
   const axisKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[independentColumn]));
 
+  // With a viewport, bin only the rows in its cull window so zooming in
+  // reveals detail; the edge rows are added back unbinned afterwards.
+  let windowSorted = cleanSorted;
+  let edgeRows: any[] = [];
+  if (viewport && (axisKind === 'time' || axisKind === 'number')) {
+    const culled = cullSortedToWindow(cleanSorted, independentColumn, axisKind, seriesColumns, cullRange(viewport));
+    windowSorted = culled.inside;
+    edgeRows = culled.edges;
+  }
+
   const maxBins = budget.maxPoints;
-  let budgetedSorted = cleanSorted;
-  if (cleanSorted.length > maxBins) {
+  let budgetedSorted = windowSorted;
+  if (windowSorted.length > maxBins) {
     if (splitsSeries) {
       // Group by series, bin-aggregate each group separately
-      const groups = groupRowsBySeries(cleanSorted, seriesColumns);
+      const groups = groupRowsBySeries(windowSorted, seriesColumns);
       const reduced: any[] = [];
       for (const [, arr] of Array.from(groups.entries())) {
         const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
@@ -268,10 +311,13 @@ export function prepareLineData(params: {
       }
       budgetedSorted = reduced.slice().sort(compareByColumn(independentColumn));
     } else {
-      budgetedSorted = binAggregateLine(cleanSorted, independentColumn, dependentColumn, { maxBins, xKind: axisKind });
+      budgetedSorted = binAggregateLine(windowSorted, independentColumn, dependentColumn, { maxBins, xKind: axisKind });
     }
     const chartLabel = orientation === 'horizontal' ? 'Line' : 'Vertical line';
-    console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
+    console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${windowSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
+  }
+  if (edgeRows.length > 0) {
+    budgetedSorted = [...budgetedSorted, ...edgeRows].sort(compareByColumn(independentColumn));
   }
 
   // Series grouping is derived once from the (globally sorted) budgeted rows, so

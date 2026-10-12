@@ -319,7 +319,7 @@ describe('PlotArea Gantt measurement', () => {
   });
 
   it('renders the band, label, and grips when the hook reports a measurement', () => {
-    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days' };
+    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days', leftValue: 10, rightValue: 90 };
 
     const { getByText, container } = render(area(plotCellGrid, false, true));
 
@@ -347,10 +347,32 @@ describe('PlotArea Gantt measurement', () => {
   });
 
   it('wires grip pointerdown to onGripPointerDown with the correct end', () => {
-    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days' };
+    mockMeasurement = { axis: 'x', leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false, label: '3 days', leftValue: 10, rightValue: 90 };
     render(area(plotCellGrid, false, true));
 
     expect(mockGanttHandlers.onGripPointerDown).toHaveBeenCalledWith('start');
     expect(mockGanttHandlers.onGripPointerDown).toHaveBeenCalledWith('end');
+  });
+});
+
+describe('PlotArea pan/zoom clipping', () => {
+  afterEach(() => cleanup());
+
+  const cellStyle = (options: any) => {
+    const grid = buildGrid([{ id: 'p', position: { row: 0, col: 0 }, content: { kind: 'plot', options } }]);
+    const { container } = render(area(grid));
+    return (container.querySelector('[class*="plotWrapper"]') as HTMLElement).style;
+  };
+
+  it('clips a cell along its pannable axes only', () => {
+    const style = cellStyle({ x: { domainKey: 't' }, __viewport: { x: { column: 't', extent: [0, 1] } } });
+    expect(style.overflowX).toBe('clip');
+    expect(style.overflowY).toBe('');
+  });
+
+  it('leaves cells without pannable axes unclipped', () => {
+    const style = cellStyle({});
+    expect(style.overflowX).toBe('');
+    expect(style.overflowY).toBe('');
   });
 });

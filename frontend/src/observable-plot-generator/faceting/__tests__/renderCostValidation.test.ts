@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field } from '../../../types';
 import { ChartGenerationContext } from '../../types';
-import { validateRenderCost } from '../renderCostValidation';
+import { validateRenderCost, isWithinAcceptedRenderCost, RenderCostValidation } from '../renderCostValidation';
 
 function discreteDimension(columnName: string): Field {
   return {
@@ -188,5 +188,35 @@ describe('validateRenderCost', () => {
     expect(result.rowFacetCount).toBe(501);
     expect(result.isValid).toBe(false);
     expect(result.exceedsLimit).toBe('row');
+  });
+});
+
+describe('isWithinAcceptedRenderCost', () => {
+  const cost = (overrides: Partial<RenderCostValidation> = {}): RenderCostValidation => ({
+    isValid: false,
+    exceedsLimit: 'marks',
+    rowFacetCount: 2,
+    colFacetCount: 1,
+    seriesCount: 1,
+    categoryCount: 10,
+    categoryLimit: 300,
+    estimatedMarks: 80_000,
+    markFamily: 'bar',
+    ...overrides,
+  } as RenderCostValidation);
+
+  test('nothing accepted yet: ask', () => {
+    expect(isWithinAcceptedRenderCost(cost(), null)).toBe(false);
+  });
+
+  test('same or lighter cost than accepted: do not ask again', () => {
+    expect(isWithinAcceptedRenderCost(cost(), cost())).toBe(true);
+    expect(isWithinAcceptedRenderCost(cost({ estimatedMarks: 60_000 }), cost())).toBe(true);
+  });
+
+  test('heavier in any dimension: ask again', () => {
+    expect(isWithinAcceptedRenderCost(cost({ estimatedMarks: 90_000 }), cost())).toBe(false);
+    expect(isWithinAcceptedRenderCost(cost({ rowFacetCount: 3 }), cost())).toBe(false);
+    expect(isWithinAcceptedRenderCost(cost({ seriesCount: 2 }), cost())).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, GanttZoomRange, LabelConfig } from '../types';
+import { ChartGenerationContext, LabelConfig } from '../types';
+import { ViewportRange, cullRange, declareViewportAxis } from '../viewport/chartViewport';
 import { GANTT_EDGE_DOT_START_CLASS, GANTT_EDGE_DOT_END_CLASS } from './ganttEdgeDotClasses';
 import { 
   BAR_STEP_PX, 
@@ -144,14 +145,14 @@ function computeGanttDomain(
 }
 
 /**
- * Filter data to only include rows that overlap with the zoom range.
+ * Filter data to only include rows that overlap with the given range.
  * A row overlaps if its interval [start, end] intersects [zoomMin, zoomMax].
  */
 function filterDataForZoomRange(
   data: any[],
   startColumn: string,
   durationColumn: string | undefined,
-  zoomRange: GanttZoomRange
+  zoomRange: ViewportRange
 ): any[] {
   const { min: zoomMin, max: zoomMax } = zoomRange;
   
@@ -171,13 +172,13 @@ function filterDataForZoomRange(
 }
 
 /**
- * Create a clamped x2/y2 accessor that clamps bar endpoints to zoom range.
- * This prevents bars from extending beyond the visible zoom area.
+ * Create a clamped x2/y2 accessor that clamps bar endpoints to the cull window.
+ * Keeps SVG coordinates bounded when a long bar is viewed at deep zoom.
  */
 function createClampedEndAccessor(
   startColumn: string,
   durationColumn: string | undefined,
-  zoomRange: GanttZoomRange | null
+  zoomRange: ViewportRange | null
 ): (d: any) => number {
   return (d: any) => {
     const start = d[startColumn];
@@ -193,11 +194,11 @@ function createClampedEndAccessor(
 }
 
 /**
- * Create a clamped x1/y1 accessor that clamps bar start to zoom range.
+ * Create a clamped x1/y1 accessor that clamps bar start to the cull window.
  */
 function createClampedStartAccessor(
   startColumn: string,
-  zoomRange: GanttZoomRange | null
+  zoomRange: ViewportRange | null
 ): ((d: any) => number) | string {
   if (!zoomRange) {
     return startColumn;
@@ -243,25 +244,6 @@ function createMinBarLengthRender(axis: 'x' | 'y'): Plot.RenderFunction {
     }
     return next(index, scales, { ...values, [key1]: p1, [key2]: p2 } as any, dimensions, context);
   };
-}
-
-/**
- * Compute intrinsic size for Gantt chart when zoom is active.
- * Uses the zoom range instead of data range.
- */
-function computeGanttIntrinsicSizeFromZoom(
-  zoomRange: GanttZoomRange
-): number {
-  const dataRange = zoomRange.max - zoomRange.min;
-  
-  if (dataRange <= 0) {
-    return MIN_GANTT_WIDTH_PX;
-  }
-  
-  const intrinsicSize = dataRange * GANTT_UNIT_PX;
-  
-  // Don't apply MAX_GANTT_WIDTH_PX when zoomed - allow the chart to grow
-  return Math.max(MIN_GANTT_WIDTH_PX, intrinsicSize);
 }
 
 /**
@@ -356,7 +338,7 @@ function createEdgeDotConfigs(
   startColumn: string,
   durationColumn: string | undefined,
   categoryColumn: string | undefined,
-  zoomRange: GanttZoomRange | null
+  zoomRange: ViewportRange | null
 ): { start: any; end: any } {
   const base: any = {
     r: 4,
@@ -381,6 +363,17 @@ function createEdgeDotConfigs(
     start: { ...base, y: startAccessor, x: categoryAccessor, className: `${GANTT_EDGE_DOT_START_CLASS} overlay-no-tooltip` },
     end: { ...base, y: endAccessor, x: categoryAccessor, className: `${GANTT_EDGE_DOT_END_CLASS} overlay-no-tooltip` },
   };
+}
+
+/** The timeline axis is pannable/zoomable; its natural domain bounds the viewport. */
+function declareGanttViewport(
+  opts: Plot.PlotOptions,
+  orientation: 'x' | 'y',
+  startColumn: string,
+  axisDomain: [number, number] | undefined
+): void {
+  if (!axisDomain) return;
+  declareViewportAxis(opts, orientation, { column: startColumn, extent: axisDomain, temporal: false });
 }
 
 // ---------- Main Function ---------------------------------------------------------
@@ -421,19 +414,19 @@ export function ganttChart(
   zoomLevel: number = 1.0,
   labelCfg?: LabelConfig
 ): GanttChartResult {
-  const { queryResult, manualSize, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
+  const { queryResult, manualSize, tooltipFields, chartViewport } = context;
   const color = resolveContextColorChannel(context);
   const colorField = color.field ?? undefined;
   const manualColor = color.manual || undefined;
   const rawData = queryResult.rows;
   
-  // Normalize undefined to null for cleaner type handling
-  const ganttZoomRange: GanttZoomRange | null = zoomRangeRaw ?? null;
-  
-  // If zoom is active, filter data to only rows overlapping the zoom range
-  // and use zoom range as the domain. Otherwise use full data.
-  const data = ganttZoomRange 
-    ? filterDataForZoomRange(rawData, startColumn, durationColumn, ganttZoomRange)
+  // When a viewport is active on the timeline, keep only rows overlapping the
+  // cull window (viewport plus one span each side) and clamp bars to it. The
+  // viewport itself becomes the axis domain in applyChartViewport.
+  const viewportRange = chartViewport?.[startColumn];
+  const cullWindow: ViewportRange | null = viewportRange ? cullRange(viewportRange) : null;
+  const data = cullWindow
+    ? filterDataForZoomRange(rawData, startColumn, durationColumn, cullWindow)
     : rawData;
   
   // Color configuration (use rawData for color domain computation to maintain consistency)
@@ -480,17 +473,11 @@ export function ganttChart(
     : [' '];
   const categoryCount = categories.length;
 
-  // Compute domain for the continuous axis (start + duration)
-  // If zoom is active, use zoom range as domain; otherwise compute from data
+  // Natural domain of the continuous axis (start + duration) over the full
+  // data; it is also the viewport's zoom-out limit.
   const sharedStartDomain = sharedDomains?.[startColumn] as [number, number] | undefined;
-  const axisDomain: [number, number] | undefined = ganttZoomRange
-    ? [ganttZoomRange.min, ganttZoomRange.max]
-    : computeGanttDomain(data, startColumn, durationColumn, sharedStartDomain);
-  
-  // Compute intrinsic size based on zoom range or data range
-  const intrinsicSize = ganttZoomRange
-    ? computeGanttIntrinsicSizeFromZoom(ganttZoomRange)
-    : computeGanttIntrinsicSize(axisDomain, zoomLevel);
+  const axisDomain = computeGanttDomain(rawData, startColumn, durationColumn, sharedStartDomain);
+  const intrinsicSize = computeGanttIntrinsicSize(axisDomain, zoomLevel);
 
   // Labels
   const startLabel = labels?.start || startColumn;
@@ -513,6 +500,7 @@ export function ganttChart(
       ? {
           x: { 
             label: startLabel, 
+            domainKey: startColumn,
             grid: true,
             ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
           } as any,
@@ -522,13 +510,14 @@ export function ganttChart(
       : {
           y: { 
             label: startLabel, 
+            domainKey: startColumn,
             grid: true,
             ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
           } as any,
           x: { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: bandPadding as any },
           marks: [],
         };
-    // Use computed intrinsicSize (accounts for zoom range) instead of MIN_GANTT_WIDTH_PX
+    declareGanttViewport(emptyOpts, orientation, startColumn, axisDomain);
     return { options: emptyOpts, intrinsicSize };
   }
 
@@ -539,19 +528,20 @@ export function ganttChart(
   if (orientation === 'x') {
     // Horizontal Gantt: bars extend along X axis
     const barConfig: any = {
-      x1: createClampedStartAccessor(startColumn, ganttZoomRange),
-      x2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
+      x1: createClampedStartAccessor(startColumn, cullWindow),
+      x2: createClampedEndAccessor(startColumn, durationColumn, cullWindow),
       y: categoryColumn || (() => ' '),
       fill: fillValue,
       render: createMinBarLengthRender('x'),
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
-    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, ganttZoomRange);
+    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, cullWindow);
 
     opts = {
       x: { 
         label: startLabel, 
+        domainKey: startColumn,
         grid: true,
         ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
       } as any,
@@ -571,19 +561,20 @@ export function ganttChart(
   } else {
     // Vertical Gantt: bars extend along Y axis
     const barConfig: any = {
-      y1: createClampedStartAccessor(startColumn, ganttZoomRange),
-      y2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
+      y1: createClampedStartAccessor(startColumn, cullWindow),
+      y2: createClampedEndAccessor(startColumn, durationColumn, cullWindow),
       x: categoryColumn || (() => ' '),
       fill: fillValue,
       render: createMinBarLengthRender('y'),
     };
 
     const hoverDotConfig = createHoverDotConfig(orientation, startColumn, durationColumn, categoryColumn);
-    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, ganttZoomRange);
+    const edgeDotConfigs = createEdgeDotConfigs(orientation, startColumn, durationColumn, categoryColumn, cullWindow);
 
     opts = {
       y: { 
         label: startLabel, 
+        domainKey: startColumn,
         grid: true,
         ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
       } as any,
@@ -601,6 +592,8 @@ export function ganttChart(
       ],
     };
   }
+
+  declareGanttViewport(opts, orientation, startColumn, axisDomain);
 
   // Apply color scale
   applyColorScale(opts, colorScale);

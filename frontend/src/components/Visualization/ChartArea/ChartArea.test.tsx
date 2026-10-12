@@ -18,7 +18,7 @@ import {
   useTableRowsQuery,
 } from './hooks';
 import { useAdditionalFields } from './hooks/useAdditionalFields';
-import { useGanttZoom } from './hooks/useGanttZoom';
+import { useViewportController } from './hooks/useViewportController';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
 import { useChartActions } from './hooks/useChartActions';
@@ -84,8 +84,8 @@ jest.mock('./hooks/useAdditionalFields', () => ({
   useAdditionalFields: jest.fn(),
 }));
 
-jest.mock('./hooks/useGanttZoom', () => ({
-  useGanttZoom: jest.fn(),
+jest.mock('./hooks/useViewportController', () => ({
+  useViewportController: jest.fn(),
 }));
 
 jest.mock('./hooks/useFilterActions', () => ({
@@ -187,7 +187,7 @@ const mockUseDebugView = useDebugView as jest.MockedFunction<typeof useDebugView
 const mockUseFullscreen = useFullscreen as jest.MockedFunction<typeof useFullscreen>;
 const mockUseTableRowsQuery = useTableRowsQuery as jest.MockedFunction<typeof useTableRowsQuery>;
 const mockUseAdditionalFields = useAdditionalFields as jest.MockedFunction<typeof useAdditionalFields>;
-const mockUseGanttZoom = useGanttZoom as jest.MockedFunction<typeof useGanttZoom>;
+const mockUseViewportController = useViewportController as jest.MockedFunction<typeof useViewportController>;
 const mockUseFilterActions = useFilterActions as jest.MockedFunction<typeof useFilterActions>;
 const mockUseTableRowsFilterActions = useTableRowsFilterActions as jest.MockedFunction<typeof useTableRowsFilterActions>;
 const mockUseChartActions = useChartActions as jest.MockedFunction<typeof useChartActions>;
@@ -298,7 +298,7 @@ describe('ChartArea', () => {
     } as any);
     mockUseFilterActions.mockReturnValue({ handleLegendFilterAction: jest.fn(), handleShapeLegendFilterAction: jest.fn(), gridWithTooltipAction: { id: 'grid' } } as any);
     mockUseTableRowsFilterActions.mockReturnValue({ handleTableCellFilterAction: jest.fn() } as any);
-    mockUseGanttZoom.mockReturnValue({ ganttFullDataRange: null, handleGanttZoomRangeChange: jest.fn() } as any);
+    mockUseViewportController.mockReturnValue({ controller: {} as any, hasViewport: false });
     mockUseChartActions.mockReturnValue({
       handleResetWorkspace: jest.fn(),
       handleSwapAxis: jest.fn(),

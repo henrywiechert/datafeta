@@ -17,6 +17,8 @@ import {
   resolveManualShapeOption,
 } from '../utils/shapeUtils';
 import { formatDateAxisTick } from '../utils/dateFormatUtils';
+import { cullRange, declareViewportAxis, domainExtent, toViewportNumber } from '../viewport/chartViewport';
+import type { ChartViewport, ViewportRange } from '../viewport/chartViewport';
 
 type ScatterResultBudget = {
   maxPoints: number;
@@ -35,6 +37,52 @@ function computeScatterBudget(clean: any[], colorField?: Field): ScatterResultBu
   return { maxPoints, stratifyBy, minPerStratum };
 }
 
+/**
+ * Seeded PRNG (mulberry32). Sampling must be stable across regenerations:
+ * pan/zoom regenerates the chart repeatedly, and a fresh random sample each
+ * time would make points flicker.
+ */
+function seededRandom(seed: number = 0x9e3779b9): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Fisher–Yates shuffle in place, driven by `random`. */
+function shuffleInPlace<T>(arr: T[], random: () => number): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function uniformSampleRows(rows: any[], maxPoints: number): any[] {
+  if (rows.length <= maxPoints) return rows;
+  return shuffleInPlace(rows.slice(), seededRandom()).slice(0, maxPoints);
+}
+
+/** Keep rows whose x/y fall inside the cull windows of the active viewports. */
+function cullToViewport(
+  rows: any[],
+  xColumn: string,
+  yColumn: string,
+  xWindow: ViewportRange | undefined,
+  yWindow: ViewportRange | undefined
+): any[] {
+  const inside = (value: unknown, window: ViewportRange | undefined) => {
+    if (!window) return true;
+    const v = toViewportNumber(value);
+    return v != null && v >= window.min && v <= window.max;
+  };
+  return rows.filter((d) => inside(d?.[xColumn], xWindow) && inside(d?.[yColumn], yWindow));
+}
+
 function stratifiedSampleRows(rows: any[], stratifyBy: string, maxPoints: number, minPerStratum: number): any[] {
   if (rows.length <= maxPoints) return rows;
   const groups = new Map<any, any[]>();
@@ -48,15 +96,8 @@ function stratifiedSampleRows(rows: any[], stratifyBy: string, maxPoints: number
   const total = rows.length;
   const entries = Array.from(groups.entries());
   const picks: any[] = [];
-
-  // Shuffle helper (Fisher–Yates)
-  const shuffle = (arr: any[]) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  };
+  const random = seededRandom();
+  const shuffle = (arr: any[]) => shuffleInPlace(arr, random);
 
   // First pass: proportional target with floor, but respect minPerStratum
   const targets = entries.map(([k, arr]) => {
@@ -116,7 +157,13 @@ export function scatterChart(
   data: any[],
   xColumn: string,
   yColumn: string,
-  options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date] | any[]; y?: [number, number] | [Date, Date] | any[] } },
+  options?: {
+    x?: string;
+    y?: string;
+    domain?: { x?: [number, number] | [Date, Date] | any[]; y?: [number, number] | [Date, Date] | any[] };
+    /** Pan/zoom window; entries for the x/y columns apply to continuous axes. */
+    viewport?: ChartViewport | null;
+  },
   color?: ColorChannel,
   sizeField?: Field,
   sizeRange?: [number, number],
@@ -167,7 +214,7 @@ export function scatterChart(
 
   if (clean.length === 0) {
     // Render empty axes (no points) so the cell shape matches others
-    return {
+    const emptyOptions: Plot.PlotOptions = {
       x: {
         label: options?.x || xColumn,
         domainKey: xColumn,
@@ -185,14 +232,34 @@ export function scatterChart(
       } as any,
       marks: [],
     };
+    if (!xIsDiscrete) declareViewportAxis(emptyOptions, 'x', { column: xColumn });
+    if (!yIsDiscrete) declareViewportAxis(emptyOptions, 'y', { column: yColumn });
+    return emptyOptions;
   }
+
+  // Pan/zoom: drop points far outside the viewport before sampling, so
+  // zooming in shows more of the fetched points. Scatter culls in 2D, where a
+  // full-span margin keeps up to 9x the visible area in the DOM; half a span
+  // (4x) still covers a typical pan preview.
+  const SCATTER_CULL_MARGIN = 0.5;
+  const xViewport = xIsDiscrete ? undefined : options?.viewport?.[xColumn];
+  const yViewport = yIsDiscrete ? undefined : options?.viewport?.[yColumn];
+  const visible = xViewport || yViewport
+    ? cullToViewport(
+        clean,
+        xColumn,
+        yColumn,
+        xViewport && cullRange(xViewport, SCATTER_CULL_MARGIN),
+        yViewport && cullRange(yViewport, SCATTER_CULL_MARGIN)
+      )
+    : clean;
 
   // Result budget / safeguard: avoid rendering pathological numbers of points.
   // Prefer stratified sampling when discrete color is present.
-  const budget = computeScatterBudget(clean, colorField);
+  const budget = computeScatterBudget(visible, colorField);
   let budgeted = budget.stratifyBy
-    ? stratifiedSampleRows(clean, budget.stratifyBy, budget.maxPoints, budget.minPerStratum)
-    : (clean.length > budget.maxPoints ? clean.sort(() => Math.random() - 0.5).slice(0, budget.maxPoints) : clean);
+    ? stratifiedSampleRows(visible, budget.stratifyBy, budget.maxPoints, budget.minPerStratum)
+    : uniformSampleRows(visible, budget.maxPoints);
 
   // Sort data by color field to ensure consistent z-ordering of overlapping dots.
   // This ensures the same category is always rendered on top, regardless of query result order.
@@ -382,10 +449,16 @@ export function scatterChart(
     marks: [Plot.dot(budgeted, dotConfig)],
   };
 
+  // Continuous axes are pannable; the full-data domain bounds the viewport.
+  const xExtent = xIsDiscrete ? null : domainExtent(xDomain);
+  const yExtent = yIsDiscrete ? null : domainExtent(yDomain);
+  if (xExtent) declareViewportAxis(plotOptions, 'x', { column: xColumn, extent: xExtent, temporal: xIsDate });
+  if (yExtent) declareViewportAxis(plotOptions, 'y', { column: yColumn, extent: yExtent, temporal: yIsDate });
+
   // Label integration
   if (labelCfg) {
     const labelConfig: LabelRenderConfig = {
-      data: clean,
+      data: visible,
       xColumn,
       yColumn,
       labelFields: labelCfg.labelFields,

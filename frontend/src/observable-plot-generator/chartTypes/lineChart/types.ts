@@ -3,6 +3,7 @@ import { ColorChannel, Field, LineColorMode, LineSeriesLabelMode, LineVariant } 
 import { LabelConfig } from '../../types';
 import type { ColorScaleInfo } from '../../utils/colorSchemeUtils';
 import type { LineStyleEncoding } from '../../utils/lineStyleUtils';
+import type { ChartViewport } from '../../viewport/chartViewport';
 
 export type LineOrientation = 'horizontal' | 'vertical';
 
@@ -52,6 +53,8 @@ export interface LineBuildParams {
   seriesLabels?: LineSeriesLabelMode;
   /** Dash pattern per line, from a discrete field or one fixed style. */
   lineStyle?: LineStyleEncoding;
+  /** Pan/zoom window; only the entry for the independent column applies. */
+  chartViewport?: ChartViewport | null;
 }
 
 export type LineBudget = {

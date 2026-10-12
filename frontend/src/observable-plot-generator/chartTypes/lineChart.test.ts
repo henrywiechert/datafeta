@@ -815,3 +815,60 @@ describe('buildLineOptions – line style', () => {
     expect(tooltip.getFields(rows[0]).map((f: any) => f.value)).toContain('Online');
   });
 });
+
+describe('buildLineOptions – pan/zoom viewport', () => {
+  const linear = (n: number, series?: string) =>
+    Array.from({ length: n }, (_, i) => ({ x: i, 'AVG(y)': i, ...(series ? { series } : {}) }));
+  const lineData = (opts: any) => ((opts.marks || []) as any[]).find((m) => m.type === 'line').data as any[];
+  const build = (data: any[], overrides: Partial<LineBuildParams> = {}): any =>
+    buildLineOptions({
+      data,
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      ...overrides,
+    } as LineBuildParams);
+
+  test('declares the independent axis with the full-data extent', () => {
+    const opts = build(linear(5000), { chartViewport: { x: { min: 1000, max: 1100 } } });
+    expect(opts.__viewport.x).toEqual({ column: 'x', extent: [0, 4999], temporal: false });
+    expect(opts.__viewport.y).toBeUndefined();
+  });
+
+  test('keeps the cull window unbinned plus one neighbour on each side', () => {
+    const opts = build(linear(5000), { chartViewport: { x: { min: 1000, max: 1100 } } });
+    const xs = lineData(opts).map((r) => r.x);
+    // Without a viewport 5000 rows bin down to ~1000; the window [900, 1200] has 301.
+    expect(xs[0]).toBe(899);
+    expect(xs[xs.length - 1]).toBe(1201);
+    expect(xs).toHaveLength(301 + 2);
+  });
+
+  test('fits the dependent axis to the visible rows', () => {
+    const opts = build(linear(5000), { chartViewport: { x: { min: 1000, max: 1100 } } });
+    const [lo, hi] = opts.y.domain as [number, number];
+    expect(lo).toBeGreaterThan(990);
+    expect(hi).toBeLessThan(1110);
+  });
+
+  test('keeps neighbours per series', () => {
+    const data = [
+      ...linear(100, 'A'),
+      { x: -50, 'AVG(y)': 0, series: 'B' },
+      { x: 500, 'AVG(y)': 0, series: 'B' },
+    ];
+    const seriesField = { id: 'series', columnName: 'series', type: 'dimension', flavour: 'discrete' } as any;
+    const opts = build(data, { color: color(seriesField), chartViewport: { x: { min: 40, max: 50 } } });
+    const bRows = lineData(opts).filter((r) => r.series === 'B').map((r) => r.x);
+    expect(bRows.sort((a, b) => a - b)).toEqual([-50, 500]);
+  });
+
+  test('draws end labels inside while zoomed', () => {
+    const seriesField = { id: 'series', columnName: 'series', type: 'dimension', flavour: 'discrete' } as any;
+    const data = [...linear(10, 'A'), ...linear(10, 'B')];
+    const zoomed = build(data, { color: color(seriesField), seriesLabels: 'end', chartViewport: { x: { min: 2, max: 5 } } });
+    const text = (zoomed.marks as any[]).find((m) => m.type === 'text');
+    expect(text.opts.textAnchor).not.toBe('start');
+  });
+});

@@ -2,6 +2,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { T } from '../../../theme/tokens';
 import { devLog } from '../../../utils/devLog';
+import { setMeasuringActive } from './utils/ganttMeasure';
 
 const LOCK_THRESHOLD_PX = 5;
 
@@ -32,6 +33,12 @@ interface BrushOverlayProps {
   onBrushMove?: (result: BrushResult) => void;
   /** Allow Alt/Option+drag to resolve as the 'measure' gesture (default false: ignored, same as no modifier). */
   measureEnabled?: boolean;
+  /**
+   * Axis a 'measure' drag always locks to, whatever direction it starts in
+   * (the Gantt timeline axis; measuring across categories means nothing).
+   * Unset: measure locks like zoom, to the dominant drag direction.
+   */
+  measureAxis?: 'x' | 'y';
   /** Fired when a new drag begins (any gesture), before it's known to complete — lets callers clear stale state from a previous gesture. */
   onDragStart?: () => void;
   children: React.ReactNode;
@@ -79,7 +86,7 @@ function resolveGestureKind(e: PointerEvent | React.PointerEvent, measureEnabled
  * regardless of which child element the pointer is over, and claims the
  * pointerdown in the capture phase so chart content cannot swallow it.
  */
-const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBrushMove, measureEnabled = false, onDragStart, children }) => {
+const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBrushMove, measureEnabled = false, measureAxis, onDragStart, children }) => {
   const [brush, setBrush] = useState<BrushState>(initialBrushState);
   const brushRef = useRef<BrushState>(initialBrushState);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -89,6 +96,8 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBru
   onBrushMoveRef.current = onBrushMove;
   const onDragStartRef = useRef(onDragStart);
   onDragStartRef.current = onDragStart;
+  const measureAxisRef = useRef(measureAxis);
+  measureAxisRef.current = measureAxis;
 
   const getLocalCoords = useCallback((e: PointerEvent) => {
     const rect = wrapperRef.current?.getBoundingClientRect();
@@ -109,7 +118,9 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBru
         const dx = Math.abs(coords.x - brushRef.current.originX);
         const dy = Math.abs(coords.y - brushRef.current.originY);
         if (dx >= LOCK_THRESHOLD_PX || dy >= LOCK_THRESHOLD_PX) {
-          locked = dx >= dy ? 'x' : 'y';
+          locked = brushRef.current.gesture === 'measure' && measureAxisRef.current
+            ? measureAxisRef.current
+            : (dx >= dy ? 'x' : 'y');
         }
       }
 
@@ -161,6 +172,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBru
         }
       }
 
+      if (b.gesture === 'measure') setMeasuringActive(false);
       brushRef.current = initialBrushState;
       setBrush(initialBrushState);
     };
@@ -170,6 +182,8 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBru
     return () => {
       document.removeEventListener('pointermove', handleMove);
       document.removeEventListener('pointerup', handleUp);
+      // Unmounted mid-drag: don't leave hover suppressed page-wide.
+      if (brushRef.current.gesture === 'measure') setMeasuringActive(false);
     };
   }, [brush.active, getLocalCoords]);
 
@@ -192,6 +206,7 @@ const BrushOverlay: React.FC<BrushOverlayProps> = ({ disabled, onBrushEnd, onBru
     e.stopPropagation();
 
     onDragStartRef.current?.();
+    if (gesture === 'measure') setMeasuringActive(true);
 
     const next: BrushState = {
       active: true,

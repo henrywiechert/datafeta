@@ -217,7 +217,7 @@ export function buildCartesianPlotsConfig(
     distributionVariant: context.distributionVariant,
     measureValuesSourceFields: context.measureValuesSourceFields,
     bandThicknessScale: context.bandThicknessScale,
-    ganttZoomRange: context.ganttZoomRange,
+    chartViewport: context.chartViewport,
     overlays: context.overlays,
     xTickFormat: buildCategoryTickFormatter('x', undefined, context.xAxisTickHeightPx),
     yTickFormat: buildCategoryTickFormatter('y', undefined, context.yAxisTickWidthPx),

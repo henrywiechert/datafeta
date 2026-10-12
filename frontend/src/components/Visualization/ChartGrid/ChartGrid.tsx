@@ -11,6 +11,9 @@ import { useStabilization } from './hooks/useStabilization';
 import { useRowHeightCalculation } from './hooks/useRowHeightCalculation';
 import { useContainerDimensions } from './hooks/useContainerDimensions';
 import { useScrollSync } from './hooks/useScrollSync';
+import type { ViewportGridConfig } from './viewport/viewportController';
+import { useViewportKeyboard } from './viewport/useViewportKeyboard';
+import { getViewportAxes } from '../../../observable-plot-generator/viewport/chartViewport';
 import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
 import { PlotBrushEvent } from './PlotArea';
@@ -19,23 +22,14 @@ import { UserChartType } from '../../../types';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 import { useTabletUi } from '../../../hooks/useTabletUi';
 
-/** Gantt zoom range representing the visible data range on the timeline axis */
-export interface GanttZoomRange {
-  min: number;
-  max: number;
-}
-
 /** Gantt-specific configuration, grouped to keep the ChartGrid prop surface flat. */
 export interface ChartGridGanttProps {
-  /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
+  /** Whether the current chart is a Gantt chart (enables Alt+drag span measurement) */
   isGanttChart?: boolean;
-  /** Current Gantt zoom range (null = full data range) */
-  zoomRange?: GanttZoomRange | null;
-  /** Callback when zoom range changes via WASD keys */
-  onZoomRangeChange?: (range: GanttZoomRange | null) => void;
-  /** Full data range for Gantt chart (needed for zoom calculations) */
-  fullDataRange?: GanttZoomRange | null;
 }
+
+/** Pan/zoom configuration (Alt+wheel, drag, WASD on pannable axes). */
+export type ChartGridViewportProps = ViewportGridConfig;
 
 /** Brush (range-select) configuration, grouped to keep the prop surface flat. */
 export interface ChartGridBrushProps {
@@ -62,6 +56,8 @@ interface ChartGridProps {
   globalChartType: UserChartType | null;
   /** Gantt-specific configuration (omit for non-Gantt charts). */
   gantt?: ChartGridGanttProps;
+  /** Pan/zoom configuration. */
+  viewport?: ChartGridViewportProps;
   /** Brush selection configuration. */
   brush?: ChartGridBrushProps;
   /** Axis / facet / category label styling. */
@@ -94,15 +90,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   onHeatmapSizeToolbarChange,
   globalChartType,
   gantt,
+  viewport,
   brush,
   labelStyles,
 }) => {
-  const {
-    isGanttChart = false,
-    zoomRange: ganttZoomRange = null,
-    onZoomRangeChange: onGanttZoomRangeChange,
-    fullDataRange: ganttFullDataRange = null,
-  } = gantt ?? {};
+  const { isGanttChart = false } = gantt ?? {};
   const { disabled: brushDisabled, onBrushEnd } = brush ?? {};
   const { axisLabelStyles, facetLabelStyles, categoryTickStyles } = labelStyles;
 
@@ -119,7 +111,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   // When the grid changes (e.g., filter changes faceting from 30 rows to 3 rows),
   // React will keep showing the old grid while preparing the new one.
   // This eliminates the "animation" effect of partially-ready grids.
-  const grid = useDeferredValue(gridProp);
+  // Pan/zoom refreshes keep cells and layout, so they skip the (dimmed)
+  // transition and replace the live CSS preview right away.
+  const deferredGrid = useDeferredValue(gridProp);
+  const grid = gridProp?.viewportRefresh ? gridProp : deferredGrid;
 
   // Track if we're in a transition (showing stale content)
   const isTransitioning = gridProp !== grid;
@@ -144,12 +139,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     vScrollRef,
     plotsTranslateRef,
     containerRef,
-    usesGridLayout,
-    isGanttChart,
-    ganttZoomRange,
-    onGanttZoomRangeChange,
-    ganttFullDataRange
+    usesGridLayout
   );
+  const hasViewportAxes = !!grid?.cells.some(
+    (cell) => cell.content.kind === 'plot' && getViewportAxes(cell.content.options) !== undefined
+  );
+  useViewportKeyboard(containerRef, viewport?.controller, hasViewportAxes);
   const layoutCalcs = useChartGridLayout(
     grid,
     userCellWidth,
@@ -259,6 +254,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
           isGanttChart={isGanttChart}
+          viewport={viewport}
           onCellContextMenu={handleCellContextMenu}
           onCellZoom={isTablet ? handleCellZoom : undefined}
           autoExpandPinnedComparison={autoExpandPinnedComparison}
@@ -308,9 +304,9 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange &&
     prevProps.globalChartType === nextProps.globalChartType &&
     prevProps.gantt?.isGanttChart === nextProps.gantt?.isGanttChart &&
-    prevProps.gantt?.zoomRange === nextProps.gantt?.zoomRange &&
-    prevProps.gantt?.fullDataRange === nextProps.gantt?.fullDataRange &&
-    prevProps.gantt?.onZoomRangeChange === nextProps.gantt?.onZoomRangeChange &&
+    prevProps.viewport?.controller === nextProps.viewport?.controller &&
+    prevProps.viewport?.independentDomains?.x === nextProps.viewport?.independentDomains?.x &&
+    prevProps.viewport?.independentDomains?.y === nextProps.viewport?.independentDomains?.y &&
     prevProps.brush?.disabled === nextProps.brush?.disabled &&
     prevProps.brush?.onBrushEnd === nextProps.brush?.onBrushEnd &&
     prevProps.labelStyles.axisLabelStyles === nextProps.labelStyles.axisLabelStyles &&

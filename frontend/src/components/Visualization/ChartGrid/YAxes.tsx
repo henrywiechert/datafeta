@@ -6,6 +6,8 @@ import { GridResultModel, getPlotGridCellAtRow } from '../../../observable-plot-
 import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
+import type { ViewportController } from './viewport/viewportController';
+import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
 
 interface YAxesProps {
   grid: GridResultModel;
@@ -13,6 +15,8 @@ interface YAxesProps {
   dynamicYAxisPx: number;
   rowHeights: number[]; // actual track heights in px per row
   hasRowFacets: boolean;
+  /** Live pan/zoom viewport: ticks follow a gesture before the chart regenerates. */
+  viewportController?: ViewportController;
 }
 
 /**
@@ -55,7 +59,8 @@ function buildYAxisOptions(
   } as any;
 }
 
-const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets }) => {
+const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets, viewportController }) => {
+  useLiveViewportVersion(viewportController, AXIS_LIVE_UPDATE_INTERVAL_MS);
   const tickLineWidth = Math.max(3, Math.floor((dynamicYAxisPx - 8) / TEXT_PX_PER_CHAR));
 
   return (
@@ -63,7 +68,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
       {/* Left external y-axes gutter */}
       {Array.from({ length: rows }).map((_, r) => {
         const sample = getPlotGridCellAtRow(grid, r);
-        const yDomain = (sample?.content.options as any)?.y?.domain;
+        const yDomain = liveAxisDomain(sample?.content.options, 'y', viewportController);
         const yType = (sample?.content.options as any)?.y?.type;
         const yPadding = (sample?.content.options as any)?.y?.padding;
         const yTicks = (sample?.content.options as any)?.y?.ticks;
@@ -97,7 +102,8 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
   if (
     prevProps.rows !== nextProps.rows ||
     prevProps.dynamicYAxisPx !== nextProps.dynamicYAxisPx ||
-    prevProps.hasRowFacets !== nextProps.hasRowFacets
+    prevProps.hasRowFacets !== nextProps.hasRowFacets ||
+    prevProps.viewportController !== nextProps.viewportController
   ) {
     return false;
   }

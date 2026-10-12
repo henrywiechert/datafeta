@@ -7,6 +7,7 @@ import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
 import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/configBuilder';
+import { applyChartViewport } from './viewport/chartViewport';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { getChartTypeDescriptor, GRID_PLOT_CHART_TYPE_ORDER } from './chartTypeRegistry';
@@ -318,7 +319,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       distributionVariant: context.distributionVariant,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
-      ganttZoomRange: context.ganttZoomRange,
+      chartViewport: context.chartViewport,
       overlays: context.overlays,
     });
 
@@ -497,6 +498,10 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
       // Delegate to core chart generation logic
       result = generatePlotCore(effectiveContext, overrides);
     }
+
+    // Pan/zoom: charts declare their pannable axes; the viewport becomes the
+    // domain of those axes once the whole grid (incl. line harmonization) exists.
+    applyChartViewport(result.plots, effectiveContext.chartViewport);
 
     // Inject the color category field name into each plot's options so
     // ObservablePlot can stamp per-element `data-cat` attributes after

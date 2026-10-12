@@ -104,6 +104,21 @@
     position: relative; /* For positioning facet background indicators */
 }
 
+/* Gantt measurement being drawn or re-anchored (anywhere): no mark hover or
+   tooltips in any cell, since the drag may cross into other facets. */
+:global(html[data-chart-measuring]) .observablePlotContainer {
+    pointer-events: none;
+}
+
+/* Drag-to-pan in progress: keep marks from hovering/tooltipping under the pointer. */
+.plotWrapper[data-panning] {
+    cursor: grabbing;
+}
+
+.plotWrapper[data-panning] .observablePlotContainer {
+    pointer-events: none;
+}
+
 /* Remove per-plot title for gapless layout */
 
 .plotWrapper .observablePlotContainer {
@@ -197,38 +212,6 @@
 }
 
 /* Keyboard navigation hint for Gantt charts */
-.keyboardNavHint {
-    position: absolute;
-    bottom: 36px; /* Above the scrollbar */
-    right: 20px;
-    background: var(--df-overlay-scrim);
-    color: var(--df-inverse-text);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    z-index: 100;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s ease-out;
-    white-space: nowrap;
-}
-
-.keyboardNavHint.visible {
-    opacity: 1;
-}
-
-.keyboardNavHint kbd {
-    display: inline-block;
-    background: var(--df-inverse-fill-strong);
-    border: 1px solid var(--df-inverse-border-strong);
-    border-radius: 3px;
-    padding: 1px 4px;
-    margin: 0 2px;
-    font-family: monospace;
-    font-size: 10px;
-}
-
 /* ============================================================
    Generic grid cell kinds (table-refactor)
    These styles back the combined table cell (symbols + text) and
