@@ -7,6 +7,13 @@ import { formatDateTimeDisplay } from '../../datetime/datetimeDisplayFormat';
 import { resolveDateTime } from '../../datetime/datetimeSemantics';
 
 /**
+ * Class name for a transparent hover-dot mark whose circles stand in for the
+ * rect bound to the same row. The tooltip listener highlights that rect (and
+ * takes its colour) instead of the invisible circle.
+ */
+export const RECT_HOVER_PROXY_CLASS = 'rect-hover-proxy';
+
+/**
  * Build a tooltip-specific label for a field.
  * For measures with an aggregation, appends the aggregation: "myVar(sum)".
  * For dimensions or fields without aggregation, returns the plain display name.

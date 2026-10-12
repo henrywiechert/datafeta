@@ -15,6 +15,7 @@ import React from 'react';
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 import { T } from '../../../theme/tokens';
 import { isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
+import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -210,6 +211,28 @@ function findCorrespondingLine(circle: Element): Element | null {
   return bestMatch;
 }
 
+/**
+ * For circles of a RECT_HOVER_PROXY_CLASS mark (Gantt hover dots), find the
+ * rect bound to the same row. Plot binds every element to its row index, so
+ * matching __data__ identifies the bar regardless of its size or position.
+ */
+function findProxiedRect(circle: Element): Element | null {
+  if (circle.tagName.toLowerCase() !== 'circle' || !circle.closest(`.${RECT_HOVER_PROXY_CLASS}`)) {
+    return null;
+  }
+  const datum = (circle as any).__data__;
+  const svgRoot = circle.closest('svg');
+  if (datum == null || !svgRoot) return null;
+
+  const rects = Array.from(svgRoot.querySelectorAll('rect'));
+  for (const rect of rects) {
+    if ((rect as any).__data__ === datum && !isInsideGridAxisOrFrame(rect, svgRoot)) {
+      return rect;
+    }
+  }
+  return null;
+}
+
 function resolveGuideLineYRange(svgRoot: SVGSVGElement): { y1: number; y2: number } {
   const gridLines = Array.from(svgRoot.querySelectorAll('[aria-label="x-grid"] line'));
   let minY = Number.POSITIVE_INFINITY;
@@ -340,22 +363,25 @@ export function addTooltipListeners(
       try {
         const fields = config.getFields(data);
         const pinnedComparison = config.getPinnedComparison?.(data);
-        
+
+        // A hover-proxy dot stands in for its bar: colour and highlight come from the bar.
+        const proxiedRect = findProxiedRect(mark);
+
         // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
         // and is always correct. Do this BEFORE adding highlight class.
         let colorHex: string | undefined = undefined;
         if (mark instanceof Element) {
-          colorHex = resolveColorFromElement(mark, circleColorByPosition);
+          colorHex = resolveColorFromElement(proxiedRect ?? mark, circleColorByPosition);
         }
 
         clearAnyHighlight();
-        
+
         showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
-        
+
         // Determine which element to highlight
         // If this is a transparent circle (hover dot for tick strips), highlight the line instead
-        let elementToHighlight: Element = mark;
-        if (mark.tagName.toLowerCase() === 'circle') {
+        let elementToHighlight: Element = proxiedRect ?? mark;
+        if (!proxiedRect && mark.tagName.toLowerCase() === 'circle') {
           const fill = mark.getAttribute('fill');
           const stroke = mark.getAttribute('stroke');
           const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&

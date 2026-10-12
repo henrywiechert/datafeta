@@ -14,7 +14,7 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
-import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { createTooltipFieldsGetter, RECT_HOVER_PROXY_CLASS } from '../utils/tooltipUtils';
 import { 
   prepareLabelData, 
   createLabelMark, 
@@ -290,7 +290,9 @@ export function computeGanttIntrinsicSize(
 }
 
 /**
- * Create hover dot configuration for better tooltip detection
+ * Create hover dot configuration for better tooltip detection.
+ * The dot only enlarges the hover target of short bars; the tooltip listener
+ * highlights the bar itself (RECT_HOVER_PROXY_CLASS).
  */
 function createHoverDotConfig(
   orientation: 'x' | 'y',
@@ -303,6 +305,7 @@ function createHoverDotConfig(
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
+    className: RECT_HOVER_PROXY_CLASS,
   };
   
   // Position dots at the center of each bar
