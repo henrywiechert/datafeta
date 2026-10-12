@@ -50,7 +50,8 @@ export function queryDataMarkElements(root: Element): Element[] {
 export function getMarkDatum(element: Element, index: number, data?: any[]): any {
   let datum = (element as any).__data__;
 
-  if (!datum && data && data.length > 0 && index < data.length) {
+  // Plot binds the row index as __data__, so 0 is a valid value — only fall back when absent.
+  if (datum == null && data && data.length > 0 && index < data.length) {
     datum = data[index];
   }
 

@@ -3,6 +3,7 @@ import { fireEvent } from '@testing-library/react';
 
 import { addTooltipListeners } from './addTooltipListeners';
 import { CustomTooltipConfig } from '../../../types';
+import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
 
 function buildPlot(markCount: number): { plot: SVGSVGElement; marks: SVGRectElement[] } {
   const plot = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -107,6 +108,69 @@ describe('addTooltipListeners', () => {
     fireEvent.mouseEnter(hoverDot, { clientX: 10, clientY: 20 });
 
     expect(showTooltip).toHaveBeenCalledWith(10, 20, expect.any(Array), 'blue', undefined);
+
+    cleanup();
+  });
+
+  it('resolves row index 0 bound as __data__ even when the element is not the first mark', () => {
+    // An unbound element (e.g. a background rect) precedes the dots, so element
+    // position and row index differ. Plot binds each dot to its row index.
+    const { plot } = buildPlot(1);
+    const circles = [0, 1, 2].map((rowIndex) => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      plot.appendChild(circle);
+      (circle as any).__data__ = rowIndex;
+      return circle;
+    });
+
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ name: 'first' }, { name: 'second' }, { name: 'third' }],
+      getFields: (data) => [{ label: 'Name', value: data.name }],
+    };
+    const showTooltip = jest.fn();
+    const cleanup = addTooltipListeners(plot, config, showTooltip, jest.fn(), jest.fn());
+
+    fireEvent.mouseEnter(circles[0], { clientX: 1, clientY: 1 });
+    expect(showTooltip).toHaveBeenLastCalledWith(1, 1, [{ label: 'Name', value: 'first' }], undefined, undefined);
+
+    fireEvent.mouseEnter(circles[2], { clientX: 2, clientY: 2 });
+    expect(showTooltip).toHaveBeenLastCalledWith(2, 2, [{ label: 'Name', value: 'third' }], undefined, undefined);
+
+    cleanup();
+  });
+
+  it('highlights the bar bound to the same row when hovering a rect hover-proxy dot', () => {
+    const { plot, marks: rects } = buildPlot(2);
+    rects.forEach((rect, rowIndex) => {
+      (rect as any).__data__ = rowIndex;
+      rect.setAttribute('fill', rowIndex === 0 ? 'red' : 'blue');
+    });
+    const proxyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    proxyGroup.setAttribute('class', RECT_HOVER_PROXY_CLASS);
+    plot.appendChild(proxyGroup);
+    const circles = [0, 1].map((rowIndex) => {
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('fill', 'transparent');
+      circle.setAttribute('stroke', 'transparent');
+      proxyGroup.appendChild(circle);
+      (circle as any).__data__ = rowIndex;
+      return circle;
+    });
+
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ name: 'first' }, { name: 'second' }],
+      getFields: (data) => [{ label: 'Name', value: data.name }],
+    };
+    const showTooltip = jest.fn();
+    const cleanup = addTooltipListeners(plot, config, showTooltip, jest.fn(), jest.fn());
+
+    fireEvent.mouseEnter(circles[1], { clientX: 1, clientY: 1 });
+
+    expect(rects[1].classList.contains('chart-mark--highlighted')).toBe(true);
+    expect(circles[1].classList.contains('chart-mark--highlighted')).toBe(false);
+    expect(showTooltip).toHaveBeenLastCalledWith(1, 1, [{ label: 'Name', value: 'second' }], 'blue', undefined);
 
     cleanup();
   });
