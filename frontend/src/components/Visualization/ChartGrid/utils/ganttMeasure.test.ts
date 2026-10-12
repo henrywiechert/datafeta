@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { buildEdgePositions, snapWithinRow, getRowLockThresholdPx, computeMeasurementFromPoints } from './ganttMeasure';
+import { buildEdgePositions, buildFacetEdgePositions, crossSpanForRows, snapWithinRow, getRowLockThresholdPx, computeMeasurementFromPoints, projectMeasurement } from './ganttMeasure';
 import { GANTT_EDGE_DOT_START_CLASS, GANTT_EDGE_DOT_END_CLASS } from '../../../../observable-plot-generator/chartTypes/ganttEdgeDotClasses';
 import { Field } from '../../../../types';
 
@@ -135,3 +135,59 @@ describe('computeMeasurementFromPoints', () => {
   });
 });
 
+
+describe('measurements across facets', () => {
+  const at = (svg: SVGSVGElement, top: number, left = 0) => {
+    svg.getBoundingClientRect = () => ({ top, left, width: 300, height: 100, right: left + 300, bottom: top + 100, x: left, y: top, toJSON: () => ({}) } as DOMRect);
+    return svg;
+  };
+
+  it('indexes peer cells shifted into the measuring cell coordinates', () => {
+    const origin = at(buildSvgWithEdgeDots([{ cls: GANTT_EDGE_DOT_START_CLASS, cx: 10, cy: 50 }]), 200);
+    const below = at(buildSvgWithEdgeDots([{ cls: GANTT_EDGE_DOT_END_CLASS, cx: 80, cy: 30 }]), 300);
+    const { positions, cells } = buildFacetEdgePositions(origin, [below], 'x');
+
+    expect(positions).toEqual([
+      { measurePx: 10, rowPx: 50 },
+      { measurePx: 80, rowPx: 130 },
+    ]);
+    expect(cells).toEqual([{ start: 0, end: 100 }, { start: 100, end: 200 }]);
+    // A pointer over the lower facet's lane snaps to its bar edge.
+    expect(snapWithinRow(positions, 75, 128, 20)).toEqual({ px: 80, snapped: true });
+  });
+
+  it('crossSpanForRows unions the cells the measurement touches', () => {
+    const cells = [{ start: 0, end: 100 }, { start: 100, end: 200 }, { start: -100, end: 0 }];
+    expect(crossSpanForRows(cells, [50, 60])).toBeUndefined();
+    expect(crossSpanForRows(cells, [50, 150])).toEqual({ start: 0, end: 200 });
+    expect(crossSpanForRows(cells, [-50, 150])).toEqual({ start: -100, end: 200 });
+  });
+});
+
+describe('projectMeasurement', () => {
+  const m = {
+    axis: 'x' as const, leftPx: 10, rightPx: 90, leftSnapped: true, rightSnapped: false,
+    label: '80', leftValue: 10, rightValue: 90,
+  };
+
+  it('re-derives pixels from values after a zoom', () => {
+    // 2x zoom around value 50 on a 0..100 px axis: v -> (v - 25) * 2
+    const out = projectMeasurement(m, (v) => (v - 25) * 2, 0, 100)!;
+    expect(out.leftPx).toBe(0);
+    expect(out.rightPx).toBe(100);
+    expect(out.leftClamped).toBe(true);
+    expect(out.rightClamped).toBe(true);
+    expect(out.label).toBe('80');
+  });
+
+  it('keeps visible ends unclamped and drops spans entirely out of view', () => {
+    const shifted = projectMeasurement(m, (v) => v + 5, 0, 200)!;
+    expect(shifted).toMatchObject({ leftPx: 15, rightPx: 95, leftClamped: false, rightClamped: false });
+    expect(projectMeasurement(m, (v) => v + 500, 0, 200)).toBeNull();
+  });
+
+  it('works on an inverted (vertical) pixel range and keeps end order', () => {
+    const out = projectMeasurement({ ...m, axis: 'y' }, (v) => 100 - v, 100, 0)!;
+    expect(out).toMatchObject({ leftPx: 10, rightPx: 90, leftSnapped: false, rightSnapped: true });
+  });
+});

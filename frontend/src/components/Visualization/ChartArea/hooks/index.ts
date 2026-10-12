@@ -11,7 +11,7 @@ export * from './useDataProcessing';
 export * from './useDebugView';
 export * from './useFullscreen';
 export * from './useAdditionalFields';
-export * from './useGanttZoom';
+export * from './useViewportController';
 export * from './useFilterActions';
 export * from './useChartActions';
 export * from './useRenderingTracking';

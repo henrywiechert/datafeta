@@ -21,6 +21,7 @@ import {
 } from '../../../../utils/filterActions';
 import { formatISODateTime } from '../../../../datetime/datetimeFormatUtils';
 import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
+import { getResultColumnName } from '../../../../utils/fieldUtils';
 
 /**
  * Format epoch ms to a filter-friendly ISO string using UTC components.
@@ -69,6 +70,8 @@ interface UseBrushZoomParams {
   appliedFilterConfigurations: Record<string, FilterConfig>;
   filterMetadata: Record<string, FilterMetadata>;
   independentDomains?: { x?: boolean; y?: boolean };
+  /** Drop the pan/zoom viewport of the given columns. */
+  onClearViewport?: (columns: string[]) => void;
 }
 
 /**
@@ -80,6 +83,7 @@ export function useBrushZoom({
   appliedFilterConfigurations,
   filterMetadata,
   independentDomains,
+  onClearViewport,
 }: UseBrushZoomParams) {
   const brushDisabled = !!(independentDomains?.x || independentDomains?.y);
   const recordUndoPoint = useRecordUndoPoint();
@@ -113,6 +117,10 @@ export function useBrushZoom({
       if (!scale || !scale.domain || !scale.range) { console.debug('[BrushZoom] scale missing domain/range'); return; }
 
       recordUndoPoint();
+
+      // The brush re-queries this column's range; a pan/zoom viewport on it
+      // would now point into the old data.
+      onClearViewport?.([field.columnName, getResultColumnName(field)]);
 
       if (isBandScale(scale)) {
         const selectedValues = invertBand(brush.startPx, brush.endPx, scale);
@@ -196,7 +204,7 @@ export function useBrushZoom({
         }
       }
     },
-    [dispatch, filterFields, findExistingZoomFilter, recordUndoPoint],
+    [dispatch, filterFields, findExistingZoomFilter, recordUndoPoint, onClearViewport],
   );
 
   const handleZoomOut = useCallback(() => {

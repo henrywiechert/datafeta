@@ -7,12 +7,9 @@ import type { LineStyleEncoding } from './utils/lineStyleUtils';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import type { ViewSpec } from '../viewPlanner/types';
 import * as Plot from '@observablehq/plot';
+import type { ChartViewport } from './viewport/chartViewport';
 
-/** Gantt zoom range representing the visible data range on the timeline axis */
-export interface GanttZoomRange {
-  min: number;
-  max: number;
-}
+export type { ChartViewport, ViewportRange } from './viewport/chartViewport';
 
 export interface CategoryAxisDescriptor {
   axis: 'x' | 'y';
@@ -77,7 +74,7 @@ export interface CartesianPlotsConfig {
   distributionVariant?: DistributionVariant;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
-  ganttZoomRange?: GanttZoomRange | null;
+  chartViewport?: ChartViewport | null;
   /** Statistical overlay configurations */
   overlays?: OverlayConfig[];
   xTickFormat?: (d: any) => string;
@@ -181,10 +178,10 @@ export interface ChartGenerationContext {
    */
   facetFields?: Field[];
   /**
-   * Gantt chart zoom range (null = full data range).
-   * When set, the Gantt chart will display only this portion of the timeline axis.
+   * Pan/zoom view window per continuous axis column (see viewport/chartViewport).
+   * Charts that declare a viewport axis cull to it; applyChartViewport sets the domain.
    */
-  ganttZoomRange?: GanttZoomRange | null;
+  chartViewport?: ChartViewport | null;
   /**
    * Field display alias lookup map (columnName → displayAlias).
    * Used to show user-defined aliases in chart labels, legends, and tooltips.

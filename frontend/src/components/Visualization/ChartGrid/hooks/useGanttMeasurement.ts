@@ -9,13 +9,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Field } from '../../../../types';
 import { BrushResult } from '../BrushOverlay';
 import {
-  buildEdgePositions,
+  buildFacetEdgePositions,
   computeMeasurementFromPoints,
+  crossSpanForRows,
   getRowLockThresholdPx,
+  setMeasuringActive,
   snapWithinRow,
+  CrossSpan,
   EdgePosition,
   GanttMeasureAxis,
   GanttMeasurementResult,
+  MeasureProjector,
   SnapPoint,
 } from '../utils/ganttMeasure';
 
@@ -24,11 +28,24 @@ interface UseGanttMeasurementArgs {
   getPlotElement: () => SVGSVGElement | HTMLElement | undefined;
   xField: Field | undefined;
   yField: Field | undefined;
+  /**
+   * Plot elements of the other facet cells sharing the measured axis (same
+   * grid column for 'x', same row for 'y'); a measurement may span into them.
+   */
+  getPeerPlotElements?: (axis: GanttMeasureAxis) => Element[];
+  /**
+   * Current value → pixel mapping of the measured axis (follows pan/zoom).
+   * The stored pixels of a measurement are only valid for the domain they were
+   * measured against; re-anchoring starts from the projected position.
+   */
+  projectValue?: MeasureProjector;
 }
 
 interface EdgeIndex {
   axis: GanttMeasureAxis;
   positions: EdgePosition[];
+  /** Cross-axis extent of each indexed cell; [0] is the measuring cell. */
+  cells: CrossSpan[];
   rowLockThresholdPx: number;
 }
 
@@ -36,6 +53,8 @@ interface HandleDragSession {
   axis: GanttMeasureAxis;
   draggedEnd: 'start' | 'end';
   fixed: SnapPoint;
+  /** Cross span of the measurement before re-anchoring, kept while dragging. */
+  crossSpan?: CrossSpan;
   index: EdgeIndex;
 }
 
@@ -53,8 +72,15 @@ export interface UseGanttMeasurementResult {
   onGripPointerDown: (end: 'start' | 'end') => (e: React.PointerEvent) => void;
 }
 
-function buildIndex(el: SVGSVGElement | HTMLElement, axis: GanttMeasureAxis): EdgeIndex {
-  return { axis, positions: buildEdgePositions(el, axis), rowLockThresholdPx: getRowLockThresholdPx(el, axis) };
+function buildIndex(el: SVGSVGElement | HTMLElement, axis: GanttMeasureAxis, peers: Element[]): EdgeIndex {
+  const { positions, cells } = buildFacetEdgePositions(el, peers, axis);
+  return { axis, positions, cells, rowLockThresholdPx: getRowLockThresholdPx(el, axis) };
+}
+
+function unionSpans(a: CrossSpan | undefined, b: CrossSpan | undefined): CrossSpan | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return { start: Math.min(a.start, b.start), end: Math.max(a.end, b.end) };
 }
 
 export function useGanttMeasurement({
@@ -62,6 +88,8 @@ export function useGanttMeasurement({
   getPlotElement,
   xField,
   yField,
+  getPeerPlotElements,
+  projectValue,
 }: UseGanttMeasurementArgs): UseGanttMeasurementResult {
   const [measurement, setMeasurement] = useState<GanttMeasurementResult | null>(null);
   const measurementRef = useRef(measurement);
@@ -83,14 +111,18 @@ export function useGanttMeasurement({
     if (!el) return;
 
     if (!creationIndexRef.current || creationIndexRef.current.axis !== brush.axis) {
-      creationIndexRef.current = buildIndex(el, brush.axis);
+      creationIndexRef.current = buildIndex(el, brush.axis, getPeerPlotElements?.(brush.axis) ?? []);
     }
-    const { positions, rowLockThresholdPx } = creationIndexRef.current;
+    const { positions, cells, rowLockThresholdPx } = creationIndexRef.current;
 
     const a = snapWithinRow(positions, brush.originAxisPx, brush.originCrossAxisPx, rowLockThresholdPx);
     const b = snapWithinRow(positions, brush.currentAxisPx, brush.currentCrossAxisPx, rowLockThresholdPx);
-    setMeasurement(computeMeasurementFromPoints(el, brush.axis, a, b, field(brush.axis)));
-  }, [isGanttChart, getPlotElement, field]);
+    const result = computeMeasurementFromPoints(el, brush.axis, a, b, field(brush.axis));
+    setMeasurement(result && {
+      ...result,
+      crossSpan: crossSpanForRows(cells, [brush.originCrossAxisPx, brush.currentCrossAxisPx]),
+    });
+  }, [isGanttChart, getPlotElement, getPeerPlotElements, field]);
 
   const onBrushMove = useCallback((brush: BrushResult) => updateFromBrush(brush), [updateFromBrush]);
 
@@ -133,15 +165,19 @@ export function useGanttMeasurement({
 
     const axis = current.axis;
     const fixed: SnapPoint = end === 'start'
-      ? { px: current.rightPx, snapped: current.rightSnapped }
-      : { px: current.leftPx, snapped: current.leftSnapped };
-    dragSessionRef.current = { axis, draggedEnd: end, fixed, index: buildIndex(el, axis) };
+      ? { px: projectValue?.(current.rightValue) ?? current.rightPx, snapped: current.rightSnapped }
+      : { px: projectValue?.(current.leftValue) ?? current.leftPx, snapped: current.leftSnapped };
+    dragSessionRef.current = {
+      axis,
+      draggedEnd: end,
+      fixed,
+      crossSpan: current.crossSpan,
+      index: buildIndex(el, axis, getPeerPlotElements?.(axis) ?? []),
+    };
 
-    // Suppress mark hover/tooltip while re-anchoring a handle — not covered by
-    // BrushOverlay's own drag-active suppression, since this drag is driven
-    // entirely here rather than through BrushOverlay's gesture state.
-    const previousPointerEvents = el.style.pointerEvents;
-    el.style.pointerEvents = 'none';
+    // Suppress mark hover/tooltips (in all cells) while re-anchoring a
+    // handle — this drag is driven here, not through BrushOverlay.
+    setMeasuringActive(true);
 
     const toLocalPx = (ev: PointerEvent): { measurePx: number; rowPx: number } | null => {
       const rect = el.getBoundingClientRect();
@@ -156,20 +192,24 @@ export function useGanttMeasurement({
       const local = toLocalPx(ev);
       if (!local) return;
       const dragged = snapWithinRow(session.index.positions, local.measurePx, local.rowPx, session.index.rowLockThresholdPx);
-      setMeasurement(computeMeasurementFromPoints(el, session.axis, dragged, session.fixed, field(session.axis)));
+      const result = computeMeasurementFromPoints(el, session.axis, dragged, session.fixed, field(session.axis));
+      setMeasurement(result && {
+        ...result,
+        crossSpan: unionSpans(session.crossSpan, crossSpanForRows(session.index.cells, [local.rowPx])),
+      });
     };
 
     const handleUp = () => {
       dragSessionRef.current = null;
       suppressNextClickRef.current = true;
-      el.style.pointerEvents = previousPointerEvents;
+      setMeasuringActive(false);
       document.removeEventListener('pointermove', handleMove);
       document.removeEventListener('pointerup', handleUp);
     };
 
     document.addEventListener('pointermove', handleMove);
     document.addEventListener('pointerup', handleUp);
-  }, [getPlotElement, field]);
+  }, [getPlotElement, getPeerPlotElements, projectValue, field]);
 
   return { measurement, onBrushMove, onBrushEnd, onDragStart, onCellClick, onGripPointerDown };
 }

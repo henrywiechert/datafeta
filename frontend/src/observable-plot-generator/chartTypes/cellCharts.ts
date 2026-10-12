@@ -145,6 +145,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     x: getFieldDisplayName(xf),
     y: getFieldDisplayName(yf),
     ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {}),
+    viewport: ctx.chartViewport,
   };
   const hasDiscreteColor = (ctx.color.field ?? undefined)?.flavour === 'discrete';
 
@@ -215,6 +216,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       seriesLabels: ctx.lineSeriesLabels,
       colorScaleInfo: ctx.colorScaleInfo,
       lineStyle: ctx.lineStyle,
+      chartViewport: ctx.chartViewport,
     });
   }
   
@@ -246,13 +248,14 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       seriesLabels: ctx.lineSeriesLabels,
       colorScaleInfo: ctx.colorScaleInfo,
       lineStyle: ctx.lineStyle,
+      chartViewport: ctx.chartViewport,
     });
   }
   
   // Fallback: both measures or both dimensions → scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf), viewport: ctx.chartViewport },
     ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
@@ -270,7 +273,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     // Neither is a measure: fallback to scatter
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
-      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf), viewport: ctx.chartViewport },
       ctx.color,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
@@ -300,7 +303,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     // Neither is a measure: fallback to scatter
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
-      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf), viewport: ctx.chartViewport },
       ctx.color,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
@@ -375,7 +378,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   // Both discrete - fallback to scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf), viewport: ctx.chartViewport },
     ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
@@ -442,7 +445,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   // Both discrete - fallback to scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf), viewport: ctx.chartViewport },
     ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
@@ -554,7 +557,7 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       manualSize: ctx.manualSize,
       bandThicknessScale: ctx.bandThicknessScale,
       tooltipFields: ctx.tooltipFields,
-      ganttZoomRange: ctx.ganttZoomRange,
+      chartViewport: ctx.chartViewport,
     },
     'x',
     startColumn,
@@ -602,7 +605,7 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       manualSize: ctx.manualSize,
       bandThicknessScale: ctx.bandThicknessScale,
       tooltipFields: ctx.tooltipFields,
-      ganttZoomRange: ctx.ganttZoomRange,
+      chartViewport: ctx.chartViewport,
     },
     'y',
     startColumn,

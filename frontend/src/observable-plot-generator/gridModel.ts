@@ -197,6 +197,13 @@ export interface EmptyGridCellModel extends GridCellModel {
 export interface GridResultModel {
   cells: GridCellModel[];
   layout: GridLayoutModel;
+  /**
+   * Set when this grid only re-applies a pan/zoom viewport to the grid on
+   * screen (same data, cells and layout). ChartGrid then shows it directly
+   * instead of through the dimmed stale-content transition used for
+   * structural changes.
+   */
+  viewportRefresh?: boolean;
   headers?: GridHeaders;
   /**
    * Axis-measure value bands for the `table-refactor` chart. Rendered between

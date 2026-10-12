@@ -6,7 +6,7 @@
 
 import * as Plot from '@observablehq/plot';
 import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineSeriesLabelMode, LineVariant } from '../../types';
-import { LabelConfig, GanttZoomRange } from '../types';
+import { LabelConfig, ChartViewport } from '../types';
 import { BarLayoutMarkStyle, ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import type { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import type { LineStyleEncoding } from '../utils/lineStyleUtils';
@@ -36,8 +36,8 @@ export interface ChartContext {
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */
   facetFields?: Field[];
-  /** Gantt chart zoom range - when active, filters and clamps bars to this range */
-  ganttZoomRange?: GanttZoomRange | null;
+  /** Pan/zoom view window per axis column; charts cull their rows to it */
+  chartViewport?: ChartViewport | null;
   /** Shape encoding field (scatter only, discrete only) */
   shapeField?: Field;
   /** Manual single-shape fallback when no shape field is assigned */

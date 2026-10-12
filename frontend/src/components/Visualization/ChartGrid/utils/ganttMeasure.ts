@@ -26,6 +26,19 @@ import { formatFieldDistance } from './distanceFormat';
 // own. Select the circles *inside* that group instead.
 const EDGE_DOT_SELECTOR = `.${GANTT_EDGE_DOT_START_CLASS} circle, .${GANTT_EDGE_DOT_END_CLASS} circle`;
 
+const MEASURING_ATTRIBUTE = 'data-chart-measuring';
+
+/**
+ * While a measurement is drawn or re-anchored, mark hover (tooltips,
+ * highlights) is suppressed in EVERY chart cell — the pointer may cross into
+ * other facets (see ChartGrid.module.css `html[data-chart-measuring]`).
+ */
+export function setMeasuringActive(active: boolean): void {
+  const root = document.documentElement;
+  if (active) root.setAttribute(MEASURING_ATTRIBUTE, '');
+  else root.removeAttribute(MEASURING_ATTRIBUTE);
+}
+
 /** Within-row distance (px) a point must be from an edge dot to snap to it. */
 const SNAP_DISTANCE_PX = 14;
 /** Fallback row-lock threshold when the category scale's step isn't available. */
@@ -52,6 +65,61 @@ export interface GanttMeasurementResult {
   leftSnapped: boolean;
   rightSnapped: boolean;
   label: string;
+  /**
+   * Data values of the two ends along the measured axis. The pixels above are
+   * only valid for the domain they were computed against; these let the
+   * measurement follow pan/zoom (see projectMeasurement).
+   */
+  leftValue: number;
+  rightValue: number;
+  /**
+   * Cross-axis extent of the band, relative to the measuring cell, when the
+   * measurement spans into other facet cells; absent = just this cell.
+   */
+  crossSpan?: CrossSpan;
+  /** Set by projectMeasurement when an end lies outside the visible axis range (pixel clamped to the edge). */
+  leftClamped?: boolean;
+  rightClamped?: boolean;
+}
+
+/** Maps a data value on the measured axis to a pixel position, or null when unknown. */
+export type MeasureProjector = (value: number) => number | null;
+
+/**
+ * Re-derive the pixel positions of a measurement from its values, clamped to
+ * the plot's pixel range `[rangeStart, rangeEnd]`. Returns null when the whole
+ * span is out of view.
+ */
+export function projectMeasurement(
+  m: GanttMeasurementResult,
+  project: MeasureProjector,
+  rangeStart: number,
+  rangeEnd: number,
+): GanttMeasurementResult | null {
+  const a = project(m.leftValue);
+  const b = project(m.rightValue);
+  if (a == null || b == null) return m;
+  const lo = Math.min(rangeStart, rangeEnd);
+  const hi = Math.max(rangeStart, rangeEnd);
+  const [leftPx, rightPx, leftSnapped, rightSnapped] = a <= b
+    ? [a, b, m.leftSnapped, m.rightSnapped]
+    : [b, a, m.rightSnapped, m.leftSnapped];
+  if (rightPx < lo || leftPx > hi) return null;
+  return {
+    ...m,
+    leftPx: Math.max(lo, leftPx),
+    rightPx: Math.min(hi, rightPx),
+    leftSnapped,
+    rightSnapped,
+    leftClamped: leftPx < lo,
+    rightClamped: rightPx > hi,
+  };
+}
+
+/** A range along the cross (row/category) axis, in px relative to the measuring cell. */
+export interface CrossSpan {
+  start: number;
+  end: number;
 }
 
 /**
@@ -77,6 +145,52 @@ export function buildEdgePositions(root: Element, axis: GanttMeasureAxis): EdgeP
   }
 
   return result;
+}
+
+/**
+ * Edge positions of the measuring cell plus its facet peers (cells sharing the
+ * measured axis' scale: same grid column for 'x', same grid row for 'y'),
+ * shifted into the measuring cell's coordinates so a measurement can snap to
+ * bars in other facets. Also returns each cell's cross-axis extent, for
+ * stretching the band over the cells a measurement spans.
+ */
+export function buildFacetEdgePositions(
+  origin: Element,
+  peers: Element[],
+  axis: GanttMeasureAxis,
+): { positions: EdgePosition[]; cells: CrossSpan[] } {
+  const o = origin.getBoundingClientRect();
+  const positions: EdgePosition[] = [];
+  const cells: CrossSpan[] = [];
+  for (const el of [origin, ...peers.filter((p) => p !== origin)]) {
+    const r = el.getBoundingClientRect();
+    const dMeasure = axis === 'x' ? r.left - o.left : r.top - o.top;
+    const dRow = axis === 'x' ? r.top - o.top : r.left - o.left;
+    for (const p of buildEdgePositions(el, axis)) {
+      positions.push({ measurePx: p.measurePx + dMeasure, rowPx: p.rowPx + dRow });
+    }
+    cells.push({ start: dRow, end: dRow + (axis === 'x' ? r.height : r.width) });
+  }
+  return { positions, cells };
+}
+
+/**
+ * Union of the cells containing any of `rows` (cross-axis px relative to the
+ * measuring cell, which is `cells[0]`). Undefined when that is just the
+ * measuring cell itself.
+ */
+export function crossSpanForRows(cells: CrossSpan[], rows: number[]): CrossSpan | undefined {
+  const own = cells[0];
+  if (!own) return undefined;
+  let start = own.start;
+  let end = own.end;
+  for (const row of rows) {
+    const cell = cells.find((c) => row >= c.start && row <= c.end);
+    if (!cell) continue;
+    start = Math.min(start, cell.start);
+    end = Math.max(end, cell.end);
+  }
+  return start === own.start && end === own.end ? undefined : { start, end };
 }
 
 /**
@@ -163,7 +277,7 @@ export function computeMeasurementFromPoints(
   const va = invertQuantitative(a.px, scale);
   const vb = invertQuantitative(b.px, scale);
 
-  const [left, right] = a.px <= b.px ? [a, b] : [b, a];
+  const [left, right, leftValue, rightValue] = a.px <= b.px ? [a, b, va, vb] : [b, a, vb, va];
 
   return {
     axis,
@@ -172,6 +286,8 @@ export function computeMeasurementFromPoints(
     leftSnapped: left.snapped,
     rightSnapped: right.snapped,
     label: formatFieldDistance(field, Math.abs(vb - va)),
+    leftValue,
+    rightValue,
   };
 }
 

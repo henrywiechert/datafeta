@@ -91,8 +91,6 @@ export const initialState: VisualizationState = {
   measureValuesSourceFields: [],
   // Measure group (per-sheet scope)
   measureGroup: createMeasureGroup(),
-  // Gantt chart zoom range (null = full data range)
-  ganttZoomRange: null,
   // Axis label styling defaults
   axisLabelStyles: {
     xAxis: {

@@ -36,6 +36,24 @@ export interface RenderCostValidation extends Omit<FacetValidationResult, 'excee
   markFamily: RenderCostMarkFamily;
 }
 
+/**
+ * Whether a render cost is no heavier than one the user already accepted in
+ * the warning dialog. Pan/zoom and zoom filters re-run validation with the
+ * same or a smaller cost; those should not ask again.
+ */
+export function isWithinAcceptedRenderCost(
+  validation: RenderCostValidation,
+  accepted: RenderCostValidation | null | undefined,
+): boolean {
+  if (!accepted) return false;
+  return (
+    validation.estimatedMarks <= accepted.estimatedMarks &&
+    validation.seriesCount <= accepted.seriesCount &&
+    validation.categoryCount <= accepted.categoryCount &&
+    validation.rowFacetCount * validation.colFacetCount <= accepted.rowFacetCount * accepted.colFacetCount
+  );
+}
+
 function deriveMarkFamily(
   context: ChartGenerationContext,
   effectiveGlobalChartType: UserChartType | null,

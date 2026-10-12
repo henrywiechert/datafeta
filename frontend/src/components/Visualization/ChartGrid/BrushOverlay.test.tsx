@@ -19,11 +19,16 @@ const PlotLikeChild: React.FC<{ onPlotPointerDown: () => void }> = ({ onPlotPoin
   return <div ref={ref} data-testid="plot" style={{ width: 400, height: 200 }} />;
 };
 
-function setup(options?: { measureEnabled?: boolean; onDragStart?: () => void }) {
+function setup(options?: { measureEnabled?: boolean; measureAxis?: 'x' | 'y'; onDragStart?: () => void }) {
   const onBrushEnd = jest.fn();
   const onPlotPointerDown = jest.fn();
   const utils = render(
-    <BrushOverlay onBrushEnd={onBrushEnd} measureEnabled={options?.measureEnabled} onDragStart={options?.onDragStart}>
+    <BrushOverlay
+      onBrushEnd={onBrushEnd}
+      measureEnabled={options?.measureEnabled}
+      measureAxis={options?.measureAxis}
+      onDragStart={options?.onDragStart}
+    >
       <PlotLikeChild onPlotPointerDown={onPlotPointerDown} />
     </BrushOverlay>,
   );
@@ -94,5 +99,39 @@ describe('BrushOverlay', () => {
 
     expect(onBrushEnd).not.toHaveBeenCalled();
     expect(onPlotPointerDown).toHaveBeenCalledTimes(1);
+  });
+
+  test('a measure drag locks to measureAxis whatever direction it starts in', () => {
+    const { plot, onBrushEnd } = setup({ measureEnabled: true, measureAxis: 'x' });
+
+    // Mostly vertical drag: would lock to 'y' without measureAxis.
+    fireEvent.pointerDown(plot, { button: 0, clientX: 100, clientY: 50, altKey: true });
+    fireEvent.pointerMove(document, { clientX: 110, clientY: 150 });
+    fireEvent.pointerUp(document, { clientX: 110, clientY: 150 });
+
+    expect(onBrushEnd).toHaveBeenCalledWith(expect.objectContaining({ axis: 'x', gesture: 'measure', startPx: 100, endPx: 110 }));
+  });
+
+  test('measureAxis does not constrain the zoom brush', () => {
+    const { plot, onBrushEnd } = setup({ measureEnabled: true, measureAxis: 'x' });
+    fireEvent.pointerDown(plot, { button: 0, clientX: 100, clientY: 50, ctrlKey: true });
+    fireEvent.pointerMove(document, { clientX: 110, clientY: 150 });
+    fireEvent.pointerUp(document, { clientX: 110, clientY: 150 });
+    expect(onBrushEnd).toHaveBeenCalledWith(expect.objectContaining({ axis: 'y', gesture: 'zoom' }));
+  });
+
+  test('suppresses chart hover page-wide only while a measure drag is active', () => {
+    const { plot } = setup({ measureEnabled: true, measureAxis: 'x' });
+    const flag = () => document.documentElement.hasAttribute('data-chart-measuring');
+
+    fireEvent.pointerDown(plot, { button: 0, clientX: 100, clientY: 50, altKey: true });
+    expect(flag()).toBe(true);
+    fireEvent.pointerMove(document, { clientX: 200, clientY: 52 });
+    fireEvent.pointerUp(document, { clientX: 200, clientY: 52 });
+    expect(flag()).toBe(false);
+
+    fireEvent.pointerDown(plot, { button: 0, clientX: 100, clientY: 50, ctrlKey: true });
+    expect(flag()).toBe(false);
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 50 });
   });
 });

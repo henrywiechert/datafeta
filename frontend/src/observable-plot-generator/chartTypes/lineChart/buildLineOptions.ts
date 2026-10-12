@@ -10,7 +10,7 @@ import {
   resolveContextColorChannel,
 } from '../../utils/colorSchemeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../../utils/labelUtils';
-import { prepareLineData, seriesKeyOf } from './dataPrep';
+import { prepareLineData, seriesKeyOf, toXNumber } from './dataPrep';
 import { attachLineDomainMetadata, attachLineDomainReceiver, buildLineAxes, padIndependentDomain, recomputeDependentDomain } from './domains';
 import { applyLineColorEncoding, applyLineSizeEncoding, attachLineColorScale, buildStyledLineMarks } from './encodings';
 import {
@@ -22,7 +22,36 @@ import {
 } from './marks';
 import { LINE_ORIENTATION } from './orientation';
 import { attachLineTooltipMetadata } from './tooltips';
-import type { LineBuildParams, SeriesPart } from './types';
+import { declareViewportAxis, domainExtent } from '../../viewport/chartViewport';
+import type { ViewportRange } from '../../viewport/chartViewport';
+import type { LineBuildParams, SeriesPart, XKind } from './types';
+
+/** Rows whose independent value falls inside the viewport (for fitting the dependent axis). */
+function rowsInViewport(rows: any[], column: string, axisKind: XKind, viewport: ViewportRange): any[] {
+  return rows.filter((row) => {
+    const x = toXNumber(row?.[column], axisKind);
+    return x != null && x >= viewport.min && x <= viewport.max;
+  });
+}
+
+/**
+ * Natural extent of the independent axis over all rows (including the series
+ * end-label gutter and the caller's shared domain): the viewport's zoom-out limit.
+ */
+function independentExtent(
+  rows: any[],
+  column: string,
+  axisKind: XKind,
+  labelTexts: string[],
+  fontSize: number | undefined,
+  sharedDomain: unknown
+): [number, number] | null {
+  const padded = domainExtent(padIndependentDomain(rows, column, axisKind, labelTexts, fontSize));
+  const shared = domainExtent(sharedDomain);
+  if (!padded) return shared;
+  if (!shared) return padded;
+  return [Math.min(padded[0], shared[0]), Math.max(padded[1], shared[1])];
+}
 
 function attachSeriesHighlightData(plotOptions: Plot.PlotOptions, budgetedSorted: any[]): void {
   // Series highlight stamping should resolve category values for line paths too.
@@ -57,6 +86,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     seriesLabels = 'off',
     colorScaleInfo,
     lineStyle,
+    chartViewport,
   } = params;
   const color = resolveContextColorChannel(params as any);
   const colorField = color.field ?? undefined;
@@ -77,12 +107,14 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     ...(lineStyleColumn ? [{ column: lineStyleColumn, field: lineStyleField }] : []),
   ];
   const seriesColumns = seriesParts.map((part) => part.column);
+  const viewportRange = chartViewport?.[independentColumn];
   const { clean, budgetedSorted, dotData, axisKind, seriesGroups } = prepareLineData({
     data,
     independentColumn,
     dependentColumn,
     seriesColumns,
     orientation,
+    viewport: viewportRange,
   });
 
   if (clean.length === 0) {
@@ -95,6 +127,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     };
     attachLineDomainReceiver({ plotOptions: emptyOptions, axis: O.dependentAxis, column: dependentColumn });
     attachLineDomainReceiver({ plotOptions: emptyOptions, axis: O.independentAxis, column: independentColumn });
+    declareViewportAxis(emptyOptions, O.independentAxis, { column: independentColumn });
     return emptyOptions;
   }
 
@@ -103,8 +136,14 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   // bar-chart stacking logic that inflates the range far beyond any individual
   // value - wrong for line charts. For faceted grids the coordinator will
   // harmonize per-cell domains into a shared scale afterwards.
+  // With a viewport, fit the dependent axis to what is visible.
   const plotData = budgetedSorted.length > 0 ? budgetedSorted : clean;
-  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn, variant === 'area');
+  const visibleData = viewportRange ? rowsInViewport(plotData, independentColumn, axisKind, viewportRange) : plotData;
+  const recomputedDependent = recomputeDependentDomain(
+    visibleData.length > 0 ? visibleData : plotData,
+    dependentColumn,
+    variant === 'area'
+  );
   let effectiveDomain = domain;
   if (recomputedDependent) {
     effectiveDomain = {
@@ -122,7 +161,9 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     colorColumnName,
     seriesColumns,
   });
-  const paddedIndependent = seriesLabels === 'end' && seriesGroups
+  // While zoomed the viewport replaces the independent domain, leaving no
+  // gutter to pad, so 'end' labels fall back to being drawn inside.
+  const paddedIndependent = seriesLabels === 'end' && seriesGroups && !viewportRange
     ? padIndependentDomain(plotData, independentColumn, axisKind, labelTexts, labelCfg?.fontSize)
     : undefined;
   if (paddedIndependent) {
@@ -309,6 +350,24 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   });
 
   attachSeriesHighlightData(plotOptions, budgetedSorted);
-  
+
+  const extent = (axisKind === 'time' || axisKind === 'number')
+    ? independentExtent(
+        clean,
+        independentColumn,
+        axisKind,
+        seriesLabels === 'end' && seriesGroups ? labelTexts : [],
+        labelCfg?.fontSize,
+        domain?.[O.independentAxis]
+      )
+    : null;
+  if (extent) {
+    declareViewportAxis(plotOptions, O.independentAxis, {
+      column: independentColumn,
+      extent,
+      temporal: axisKind === 'time',
+    });
+  }
+
   return plotOptions;
 }

@@ -17,7 +17,7 @@ import {
 } from './hooks';
 import { useAdditionalFields } from './hooks/useAdditionalFields';
 import { useTablePageSize } from '../../../hooks/useTablePageSize';
-import { useGanttZoom } from './hooks/useGanttZoom';
+import { useViewportController } from './hooks/useViewportController';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
 import { useBrushZoom } from './hooks/useBrushZoom';
@@ -54,6 +54,7 @@ import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
 import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
 import type {
   ChartGridGanttProps,
+  ChartGridViewportProps,
   ChartGridBrushProps,
   ChartGridLabelStyles,
 } from '../ChartGrid/ChartGrid';
@@ -100,7 +101,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     measureGroup,
     independentDomains,
     optimizationSettings,
-    ganttZoomRange,
     showTableRows,
     tableColumnFields,
     overlays,
@@ -220,6 +220,11 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     });
   }, []);
 
+  const { controller: viewportController, hasViewport } = useViewportController({
+    xAxisFields,
+    yAxisFields,
+  });
+
   const { grid, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
     useChartGeneration({
       xAxisFields,
@@ -242,7 +247,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
-      ganttZoomRange,
+      viewportController,
       overlays,
       densityParams: chartTypeParams?.density,
       viewSpec,
@@ -304,21 +309,32 @@ const ChartArea: React.FC<ChartAreaProps> = ({
 
   const { handleTableCellFilterAction } = useTableRowsFilterActions();
 
-  const { ganttFullDataRange, handleGanttZoomRangeChange } = useGanttZoom({
-    isGanttChart,
-    queryResult,
-    xAxisFields,
-    sizeField: channels.size.field,
+  const {
+    brushDisabled,
+    handleBrushEnd,
+    handleZoomOut: handleFilterZoomOut,
+    handleZoomReset: handleFilterZoomReset,
+    hasActiveZoomFilters: hasActiveFilterZoom,
+  } = useBrushZoom({
     dispatch,
-  });
-
-  const { brushDisabled, handleBrushEnd, handleZoomOut, handleZoomReset, hasActiveZoomFilters } = useBrushZoom({
-    dispatch,
+    onClearViewport: viewportController.clear,
     filterFields: state.filterFields,
     appliedFilterConfigurations,
     filterMetadata: state.filterMetadata,
     independentDomains,
   });
+
+  // Zoom out / reset cover both zoom mechanisms: the pan/zoom viewport is
+  // dropped first, then brush zoom filters are widened or removed.
+  const hasActiveZoomFilters = hasActiveFilterZoom || hasViewport;
+  const handleZoomOut = useCallback(() => {
+    viewportController.clear();
+    handleFilterZoomOut();
+  }, [viewportController, handleFilterZoomOut]);
+  const handleZoomReset = useCallback(() => {
+    viewportController.clear();
+    handleFilterZoomReset();
+  }, [viewportController, handleFilterZoomReset]);
 
   const { handlePlotRenderComplete } = useRenderingTracking({
     grid,
@@ -543,14 +559,10 @@ const ChartArea: React.FC<ChartAreaProps> = ({
 
   // Grouped prop bags forwarded to ChartRenderer (and on to ChartGrid). Memoized
   // so ChartRenderer's React.memo isn't defeated by fresh object identities.
-  const ganttProps = useMemo<ChartGridGanttProps>(
-    () => ({
-      isGanttChart,
-      zoomRange: ganttZoomRange,
-      onZoomRangeChange: handleGanttZoomRangeChange,
-      fullDataRange: ganttFullDataRange,
-    }),
-    [isGanttChart, ganttZoomRange, handleGanttZoomRangeChange, ganttFullDataRange],
+  const ganttProps = useMemo<ChartGridGanttProps>(() => ({ isGanttChart }), [isGanttChart]);
+  const viewportProps = useMemo<ChartGridViewportProps>(
+    () => ({ controller: viewportController, independentDomains }),
+    [viewportController, independentDomains],
   );
   const brushProps = useMemo<ChartGridBrushProps>(
     () => ({ disabled: brushDisabled, onBrushEnd: handleBrushEnd }),
@@ -587,6 +599,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
             yAxisFields={yAxisFields}
             onPlotRenderComplete={handlePlotRenderComplete}
             gantt={ganttProps}
+            viewport={viewportProps}
             brush={brushProps}
             showTableRows={showTableRows}
             tableRowsData={showTableRows ? tableRowsData : undefined}

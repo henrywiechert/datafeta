@@ -46,7 +46,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     distributionVariant = 'tick-strip',
     measureValuesSourceFields,
     bandThicknessScale,
-    ganttZoomRange,
+    chartViewport,
     overlays: overlayConfigs,
   } = config;
 
@@ -262,7 +262,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           tooltipFields,
           facetFields,
           sharedCategoricalDomains: sharedDomains.categorical,
-          ganttZoomRange,
+          chartViewport,
           shapeField,
           manualShape,
           lineStyle,
