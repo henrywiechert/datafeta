@@ -33,7 +33,7 @@ clickhouse-connect==1.9.0
     # via -r requirements.in
 duckdb==1.5.6
     # via -r requirements.in
-fastapi==0.142.2
+fastapi==0.143.0
     # via -r requirements.in
 fastjsonschema==2.21.2
     # via nbformat
