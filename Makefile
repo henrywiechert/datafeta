@@ -2,7 +2,7 @@ ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BACKEND_DIR := $(ROOT_DIR)/backend
 FRONTEND_DIR := $(ROOT_DIR)/frontend
 
-.PHONY: test lint setup-dev
+.PHONY: test lint setup-dev doc-snippets
 
 PYTHON := $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
 
@@ -16,6 +16,11 @@ setup-dev:
 
 lint:
 	cd "$(FRONTEND_DIR)" && npm run lint
+
+# Record user-manual video snippets into docs/assets/snippets (see frontend/scripts/doc-snippets/README.md).
+# Pass names to record a subset: make doc-snippets SNIPPETS="first-bar-chart filter-values"
+doc-snippets:
+	cd "$(FRONTEND_DIR)" && npm run build && npx playwright install chromium && npm run doc-snippets -- $(SNIPPETS)
 
 test:
 	@backend_status=0; frontend_status=0; \

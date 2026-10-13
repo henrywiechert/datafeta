@@ -43,13 +43,19 @@ Drag any **Dimension** (shown in blue) from the Fields panel and drop it on the 
 
 Drag a **Measure** (shown in green/orange) and drop it on the **Y axis** drop zone. DataSlicer automatically runs the query and displays a bar chart.
 
+<video src="../../assets/snippets/first-bar-chart.webm" poster="../../assets/snippets/first-bar-chart.png" controls loop muted playsinline width="100%"></video>
+
 ### 3. Add colour
 
 Drag a Dimension onto the **Color** drop zone. The bars are now split and colored by that dimension.
 
+<video src="../../assets/snippets/color-by-dimension.webm" poster="../../assets/snippets/color-by-dimension.png" controls loop muted playsinline width="100%"></video>
+
 ### 4. Filter the data
 
 Drag any field from the Fields panel onto the **Filters** drop zone at the top of the middle panel. A filter card appears — check or uncheck values (for text fields) or set a range (for numeric/date fields). Click **Apply** to refresh the chart.
+
+<video src="../../assets/snippets/filter-values.webm" poster="../../assets/snippets/filter-values.png" controls loop muted playsinline width="100%"></video>
 
 ### 5. Save
 
