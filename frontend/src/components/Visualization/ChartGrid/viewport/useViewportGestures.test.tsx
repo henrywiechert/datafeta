@@ -80,20 +80,14 @@ describe('useViewportGestures', () => {
   test.each([
     ['plain wheel (scrolling)', {}],
     ['ctrl+mouse wheel (browser zoom)', { ctrlKey: true }],
+    // Browsers scale deltas by the page zoom, so a notch at 110% is fractional
+    ['ctrl+wheel with fractional delta (page zoom / trackpad pinch)', { ctrlKey: true, deltaY: -90.909 }],
   ])('%s is left to the browser', (_label, mods) => {
     const { controller, plot } = setup();
     const wheel = new WheelEvent('wheel', { deltaY: -100, clientX: 50, bubbles: true, cancelable: true, ...mods });
     act(() => { plot.dispatchEvent(wheel); });
     expect(wheel.defaultPrevented).toBe(false);
     expect(controller.get('t')).toBeUndefined();
-  });
-
-  test('a trackpad pinch (ctrl+wheel with fractional delta) zooms', () => {
-    const { controller, plot } = setup();
-    const wheel = new WheelEvent('wheel', { deltaY: -3.5, ctrlKey: true, clientX: 50, bubbles: true, cancelable: true });
-    act(() => { plot.dispatchEvent(wheel); });
-    expect(wheel.defaultPrevented).toBe(true);
-    expect(controller.get('t')!.max - controller.get('t')!.min).toBeLessThan(100);
   });
 
   test('a drag pans after the threshold and swallows the closing click', () => {

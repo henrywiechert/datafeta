@@ -129,7 +129,7 @@ export function useScrollSync(
 
   // Wheel routing handler for regular scrolling
   const onWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>, leftFixedWidthPx: number) => {
-    // Alt+wheel / pinch belongs to the cell's pan/zoom handler, which listens
+    // Alt+wheel belongs to the cell's pan/zoom handler, which listens
     // below this root-delegated capture handler; let it through.
     if (isViewportZoomWheel(e.nativeEvent)) return;
 

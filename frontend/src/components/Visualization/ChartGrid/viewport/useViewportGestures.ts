@@ -1,8 +1,8 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Mouse pan/zoom on one plot cell:
- * - Alt/Option + wheel (and trackpad pinch) zooms around the pointer; a
- *   horizontal wheel delta with the modifier pans x. Ctrl+wheel is left to the
+ * - Alt/Option + wheel zooms around the pointer; a horizontal wheel delta
+ *   with the modifier pans x. Ctrl+wheel and trackpad pinch are left to the
  *   browser's page zoom, so the gesture never means two things depending on
  *   what has focus or sits under the pointer (e.g. a loading dialog).
  * - Plain left-button drag pans (after a small threshold, so clicks still
@@ -29,14 +29,14 @@ const WHEEL_ZOOM_SPEED = 0.002;
 export const NO_PAN_ATTRIBUTE = 'data-viewport-no-pan';
 
 /**
- * Pan/zoom wheel gesture: Alt/Option + wheel, or a trackpad pinch. Browsers
- * report a pinch as ctrl+wheel with fractional deltas; a Ctrl+mouse-wheel
- * notch has whole-pixel deltas and stays browser zoom.
+ * Pan/zoom wheel gesture: Alt/Option + wheel only. Any Ctrl+wheel, including
+ * a trackpad pinch (which browsers report as ctrl+wheel), stays browser page
+ * zoom: a pinch can't be told apart from a Ctrl+mouse-wheel notch reliably,
+ * since browsers scale wheel deltas by the page zoom and so make notches
+ * fractional too.
  */
 export function isViewportZoomWheel(e: WheelEvent): boolean {
-  if (e.altKey) return true;
-  const pinch = e.ctrlKey && e.deltaMode === 0 && (!Number.isInteger(e.deltaY) || !Number.isInteger(e.deltaX));
-  return pinch;
+  return e.altKey;
 }
 
 /** Pointerdown events re-dispatched after a click-without-drag; the pan handler must ignore them. */
