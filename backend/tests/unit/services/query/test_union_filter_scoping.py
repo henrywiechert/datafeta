@@ -186,6 +186,50 @@ def test_not_in_filter_without_null_keeps_tables_without_the_field(connector):
     assert _branch(sql, "tabB") is not None
 
 
+def test_table_with_only_shared_fields_is_skipped(connector):
+    """The reported bug: a shared discrete color field kept tabB in the UNION,
+    contributing rows with every other field NULL-filled."""
+    sql = _translate(
+        connector,
+        dimensions=[
+            Dimension(field="a_metric", flavour="continuous"),
+            Dimension(field="cellId", flavour="discrete"),
+        ],
+    )
+
+    assert _branch(sql, "tabA") is not None
+    assert _branch(sql, "tabB") is None
+
+
+def test_discrete_only_query_skips_table_with_only_shared_fields(connector):
+    """No continuous field at all: a filtered discrete field of tabA plus a shared
+    color must not add tabB's rows as a NULL category the filter never offered."""
+    sql = _translate(
+        connector,
+        dimensions=[
+            Dimension(field="a_metric", flavour="discrete"),
+            Dimension(field="cellId", flavour="discrete"),
+        ],
+        filters=[Filter(field="a_metric", operator="in", value=[10.0])],
+    )
+
+    assert _branch(sql, "tabA") is not None
+    assert _branch(sql, "tabB") is None
+
+
+def test_only_shared_fields_keep_every_table(connector):
+    sql = _translate(
+        connector,
+        dimensions=[
+            Dimension(field="cellId", flavour="discrete"),
+            Dimension(field="utc", flavour="continuous"),
+        ],
+    )
+
+    assert _branch(sql, "tabA") is not None
+    assert _branch(sql, "tabB") is not None
+
+
 def test_filter_on_virtual_column_computable_in_one_table_only(connector):
     """A virtual column is filterable wherever its source fields exist."""
     sql = _translate(
@@ -292,6 +336,19 @@ def test_execution_filter_on_shared_field_filters_both_series(connector, con):
     rows = {(row[1], row[2]) for row in con.execute(sql).fetchall()}
 
     assert rows == {(10.0, None), (None, 100.0)}
+
+
+def test_execution_shared_discrete_field_adds_no_null_rows(connector, con):
+    sql = _translate(
+        connector,
+        dimensions=[
+            Dimension(field="a_metric", flavour="continuous"),
+            Dimension(field="cellId", flavour="discrete"),
+        ],
+    )
+    rows = {tuple(row[:2]) for row in con.execute(sql).fetchall()}
+
+    assert rows == {(10.0, 1), (20.0, 2)}
 
 
 def test_execution_measure_filter_keeps_the_unfiltered_tables_measure(connector, con):

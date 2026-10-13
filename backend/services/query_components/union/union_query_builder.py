@@ -172,6 +172,46 @@ class UnionQueryBuilder:
         
         return dimension_fields, measure_fields
 
+    def _split_fields_for_table(
+        self,
+        all_dimension_fields: List[Tuple[str, Dimension]],
+        all_measure_fields: List[Tuple[str, Measure]],
+        table_columns: Dict[str, str],
+        vc_source_map: Dict[str, Any],
+    ) -> Tuple[List[Dimension], List[str], List[Measure], List[Tuple[str, Measure]]]:
+        """Split the requested fields into those a table has and those it lacks.
+
+        Returns (existing_dimensions, missing_dimension_keys, existing_measures,
+        missing_measure_keys).  For virtual columns, the source fields must exist.
+        """
+        existing_dimensions = []
+        missing_dimension_keys = []
+        for field_key, dim in all_dimension_fields:
+            if dim.field in vc_source_map:
+                if can_compute_virtual_column(dim.field, vc_source_map, table_columns):
+                    existing_dimensions.append(dim)
+                else:
+                    missing_dimension_keys.append(field_key)
+            elif not table_columns or dim.field in table_columns:
+                existing_dimensions.append(dim)
+            else:
+                missing_dimension_keys.append(field_key)
+
+        existing_measures = []
+        missing_measure_keys = []
+        for field_key, measure in all_measure_fields:
+            # COUNT(*) is valid for any table; it does not require a column named "*".
+            is_star_count = measure.aggregation == "count" and measure.field == "*"
+            is_virtual = measure.field in vc_source_map
+            if is_virtual and can_compute_virtual_column(measure.field, vc_source_map, table_columns):
+                existing_measures.append(measure)
+            elif not table_columns or measure.field in table_columns or is_star_count:
+                existing_measures.append(measure)
+            else:
+                missing_measure_keys.append((field_key, measure))
+
+        return existing_dimensions, missing_dimension_keys, existing_measures, missing_measure_keys
+
     def _build_outer_query(
         self,
         union_sql: str,
@@ -606,6 +646,23 @@ class UnionQueryBuilder:
         # Build ordered field lists
         all_dimension_fields, all_measure_fields = self._build_field_lists(query_desc)
 
+        fields_by_table = {
+            ref: self._split_fields_for_table(
+                all_dimension_fields, all_measure_fields, table_columns_map.get(ref, {}), vc_source_map
+            )
+            for ref in table_refs
+        }
+        # Requested fields some tables have and others lack (fields no table has
+        # do not count).
+        missing_key_sets = [
+            set(missing_dims) | {key for key, _m in missing_measures}
+            for _dims, missing_dims, _measures, missing_measures in fields_by_table.values()
+        ]
+        table_specific_keys = (
+            set().union(*missing_key_sets) - set.intersection(*missing_key_sets)
+            if missing_key_sets else set()
+        )
+
         union_queries: List[str] = []
         for database, table_name in table_refs:
             table_columns = table_columns_map.get((database, table_name), {})
@@ -639,42 +696,10 @@ class UnionQueryBuilder:
             # rebuild_select_with_nulls alignment below.
             strip_window_calcs(single_table_desc)
             
-            # Filter to only dimensions that exist in this table
-            # For virtual columns, check if source fields exist (not the virtual column name itself)
-            existing_dimensions = []
-            missing_dimension_keys = []
-            for field_key, dim in all_dimension_fields:
-                # Check if this is a virtual column
-                is_virtual = dim.field in vc_source_map
-                
-                if is_virtual:
-                    # For virtual columns, check if source fields exist in table
-                    if can_compute_virtual_column(dim.field, vc_source_map, table_columns):
-                        existing_dimensions.append(dim)
-                        self._logger.debug(f"Virtual column '{dim.field}' can be computed for table {table_name}")
-                    else:
-                        missing_dimension_keys.append(field_key)
-                        self._logger.debug(f"Virtual column '{dim.field}' cannot be computed for table {table_name} - missing source fields")
-                elif not table_columns or dim.field in table_columns:
-                    # Physical column: exists if in table_columns
-                    existing_dimensions.append(dim)
-                else:
-                    missing_dimension_keys.append(field_key)
-            
-            # Filter to only measures that exist in this table
-            existing_measures = []
-            missing_measure_keys = []
-            for field_key, measure in all_measure_fields:
-                # COUNT(*) is valid for any table; it does not require a column named "*".
-                is_star_count = measure.aggregation == "count" and measure.field == "*"
-                is_virtual = measure.field in vc_source_map
-                if is_virtual and can_compute_virtual_column(measure.field, vc_source_map, table_columns):
-                    existing_measures.append(measure)
-                elif not table_columns or measure.field in table_columns or is_star_count:
-                    existing_measures.append(measure)
-                else:
-                    missing_measure_keys.append((field_key, measure))
-            
+            existing_dimensions, missing_dimension_keys, existing_measures, missing_measure_keys = (
+                fields_by_table[(database, table_name)]
+            )
+
             single_table_desc.dimensions = existing_dimensions
             single_table_desc.measures = existing_measures
             # Filter out source tracking filters (handled in outer query)
@@ -690,6 +715,18 @@ class UnionQueryBuilder:
             if not self._scope_filters_for_branch(
                 single_table_desc, database, table_name, table_columns, vc_source_map
             ):
+                continue
+
+            # A branch missing only some table-specific fields still contributes
+            # (a Y field from each table keeps both series).  Missing all of them,
+            # its rows carry values only in fields every table shares -- e.g. a
+            # discrete color -- and show up as NULL categories of the others.
+            missing_keys = set(missing_dimension_keys) | {key for key, _m in missing_measure_keys}
+            if table_specific_keys and table_specific_keys <= missing_keys:
+                self._logger.info(
+                    "Skipping table %s.%s - has none of the table-specific fields %s",
+                    database, table_name, sorted(table_specific_keys),
+                )
                 continue
 
             # Skip tables that have no measures when measures are requested
