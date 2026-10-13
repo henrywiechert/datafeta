@@ -8,6 +8,7 @@ import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
 import type { ViewportController } from './viewport/viewportController';
 import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
+import AxisViewportBar from './viewport/AxisViewportBar';
 
 interface YAxesProps {
   grid: GridResultModel;
@@ -90,6 +91,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
             }}
           >
             <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, effectiveYTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(effectiveYTickFormat !== undefined ? { tickFormat: effectiveYTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
+            <AxisViewportBar options={sample?.content.options} axis="y" controller={viewportController} />
           </div>
         );
       })}
