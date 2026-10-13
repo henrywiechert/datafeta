@@ -11,6 +11,7 @@ import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
 import type { ViewportController } from './viewport/viewportController';
 import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
+import AxisViewportBar from './viewport/AxisViewportBar';
 
 // Approximate horizontal room per numeric tick label; keeps narrow/faceted
 // columns from crowding ticks together.
@@ -151,11 +152,13 @@ const XAxes: React.FC<XAxesProps> = ({
                 key={`x-axis-${c}`}
                 style={{
                   gridColumn: c + 1,
+                  position: 'relative',
                   borderRight: c < columns - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
                   borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                 }}
               >
                 <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, effectiveXTickFormat, xTickSpacing), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickSpacing !== undefined ? { tickSpacing: xTickSpacing } : {}), ...(effectiveXTickFormat !== undefined ? { tickFormat: effectiveXTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
+                <AxisViewportBar options={sample?.content.options} axis="x" controller={viewportController} />
               </div>
             );
           })}
