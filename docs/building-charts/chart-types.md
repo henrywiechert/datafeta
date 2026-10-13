@@ -19,8 +19,12 @@ DataSlicer automatically selects the most appropriate chart type based on the fi
 **Best for:** trends over time or ordered categories.
 
 - Typically a Date/DateTime Dimension on X and a Measure on Y.
+- A date field starts out **discrete** (one bar per distinct value). Right-click it on the shelf
+  and choose **Continuous** to put it on a timeline; the bars become a line.
 - Multiple lines appear when a Color Dimension is added.
 - Works well for comparing multiple measures using [Measure Groups](measure-groups.md).
+
+<video src="../../assets/snippets/line-chart.webm" poster="../../assets/snippets/line-chart.png" controls loop muted playsinline width="100%"></video>
 
 ---
 
@@ -29,8 +33,18 @@ DataSlicer automatically selects the most appropriate chart type based on the fi
 **Best for:** correlation between two numeric measures.
 
 - Place a Measure on X and a different Measure on Y.
+- To plot **every row** instead of aggregated values, turn both numeric fields into Dimensions
+  (right-click the field → **Dimension**). Numeric dimensions are continuous, so with one on each
+  axis each row becomes a point.
 - Add a Dimension to **Color** to distinguish groups.
 - Add a Measure to **Size** to create a bubble chart.
+
+<video src="../../assets/snippets/scatter-plot.webm" poster="../../assets/snippets/scatter-plot.png" controls loop muted playsinline width="100%"></video>
+
+A Measure on **Size** (in **Field Overrides**) scales each point by its value. Here `Errors`
+stays small almost everywhere, so the few points from an error burst stand out as large bubbles:
+
+<video src="../../assets/snippets/size-by-measure.webm" poster="../../assets/snippets/size-by-measure.png" controls loop muted playsinline width="100%"></video>
 
 ---
 

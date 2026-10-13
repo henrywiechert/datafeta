@@ -50,6 +50,7 @@
     "eject": "react-scripts eject",
     "check:cycles": "npx --yes madge@7 --circular --extensions ts,tsx src",
     "generate:tokens": "node scripts/generate-tokens.js",
+    "doc-snippets": "node scripts/doc-snippets/record.js",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
   },
   "eslintConfig": {

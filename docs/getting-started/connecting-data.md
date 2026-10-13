@@ -25,6 +25,8 @@ Upload one or more files directly from your computer. Supported formats:
 4. Click **Connect**. If a workbook has more than one sheet, choose the sheets to load in the
    **Select Sheets** dialog.
 
+<video src="../../assets/snippets/connect-file.webm" poster="../../assets/snippets/connect-file.png" controls loop muted playsinline width="100%"></video>
+
 Each file becomes its own queryable table (a workbook: one table per selected sheet). To add more files after connecting, use **Add Files** in the Fields panel.
 
 ### JSON / NDJSON / JSONL

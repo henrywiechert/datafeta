@@ -6,11 +6,31 @@ Faceting splits your chart into a grid of smaller charts, one per value of a dim
 
 ## Creating a facet grid
 
-Drag one or two Dimensions onto the **Facet** drop zones:
+Faceting comes from the axis shelves. A discrete field placed in front of the chart's own fields
+on an axis splits the chart:
 
-- **Column facet** — one sub-chart per column (values appear as column headers)
-- **Row facet** — one sub-chart per row
-- Use both together to create a full facet **grid** (MxN layout)
+- **Column facets**: a discrete Dimension at the start of the **X** shelf gives one sub-chart per
+  value, side by side, with the values as column headers.
+- **Row facets**: a discrete Dimension at the start of the **Y** shelf gives one sub-chart per
+  value, stacked.
+- Use both together to create a full facet **grid** (M×N layout).
+
+Discrete fields always come before continuous ones on a shelf, so on a scatter plot (continuous
+fields on both axes) you can drop the facet field anywhere on the shelf. On a bar chart, the order
+of the discrete fields decides the nesting. Drop the facet field at the *start* of the shelf so
+that it becomes the outer level.
+
+<video src="../../assets/snippets/faceted-bar-chart.webm" poster="../../assets/snippets/faceted-bar-chart.png" controls loop muted playsinline width="100%"></video>
+
+The same works for scatter plots. Here `Datacenter` on X splits the scatter plot of every row
+into one panel per datacenter:
+
+<video src="../../assets/snippets/scatter-faceted.webm" poster="../../assets/snippets/scatter-faceted.png" controls loop muted playsinline width="100%"></video>
+
+Colouring by another discrete Dimension adds a third grouping. Each server role forms its own
+cluster in both panels:
+
+<video src="../../assets/snippets/scatter-faceted-colored.webm" poster="../../assets/snippets/scatter-faceted-colored.png" controls loop muted playsinline width="100%"></video>
 
 DataSlicer renders all charts with shared axis scales so values are directly comparable across panels.
 
