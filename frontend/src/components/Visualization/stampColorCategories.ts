@@ -22,19 +22,38 @@ const MARK_SELECTOR = [
   'line',
 ].join(', ');
 
-function isInsideGridOrAxis(el: Element, root: Element): boolean {
-  let parent = el.parentElement;
-  while (parent && parent !== root) {
-    const ariaLabel = parent.getAttribute('aria-label');
-    if (ariaLabel) {
-      const lower = ariaLabel.toLowerCase();
-      if (lower.includes('grid') || lower.includes('axis') || lower.includes('frame')) {
-        return true;
-      }
-    }
-    parent = parent.parentElement;
-  }
-  return false;
+/**
+ * `test` applied to an element and its ancestors (stopping before `stopAt`),
+ * memoised per element. Every element of a Plot mark shares one <g>, so a
+ * plain walk per element repeated the same ancestor chain for each of a dense
+ * scatter's ~80k dots on every redraw.
+ */
+function memoSelfOrAncestor(
+  test: (el: Element) => boolean,
+  stopAt: Element | null,
+): (el: Element | null) => boolean {
+  const memo = new Map<Element, boolean>();
+  const check = (el: Element | null): boolean => {
+    if (!el || el === stopAt) return false;
+    const known = memo.get(el);
+    if (known !== undefined) return known;
+    const result = test(el) || check(el.parentElement);
+    memo.set(el, result);
+    return result;
+  };
+  return check;
+}
+
+function isGridOrAxisGroup(el: Element): boolean {
+  const ariaLabel = el.getAttribute('aria-label');
+  if (!ariaLabel) return false;
+  const lower = ariaLabel.toLowerCase();
+  return lower.includes('grid') || lower.includes('axis') || lower.includes('frame');
+}
+
+/** Same match as the `[class*="density-grp-"]` selector. */
+function hasDensityClass(el: Element): boolean {
+  return (el.getAttribute('class') ?? '').includes(DENSITY_CAT_CLASS_PREFIX);
 }
 
 export function encodeCatValue(v: any): string {
@@ -95,16 +114,22 @@ export function stampColorCategories(
     options.__seriesHighlightData || options.__customTooltip?.data;
   if (!fieldName) return;
 
+  // Inside a grid/axis/frame group: an ancestor below the plot matches.
+  const gridOrAxisAbove = memoSelfOrAncestor(isGridOrAxisGroup, plot);
+  const isInsideGridOrAxis = (el: Element) => gridOrAxisAbove(el.parentElement);
+  // Element or any ancestor, like closest().
+  const inDensityGroup = memoSelfOrAncestor(hasDensityClass, null);
+
   const allElements = plot.querySelectorAll(MARK_SELECTOR);
 
   for (let i = 0; i < allElements.length; i++) {
     const el = allElements[i];
-    if (isInsideGridOrAxis(el, plot)) continue;
+    if (isInsideGridOrAxis(el)) continue;
 
     // Skip elements that belong to a per-group density overlay — they carry
     // GeoJSON contour __data__ (not row indices) and are handled by the
     // second pass below.
-    if (el.closest(`[class*="${DENSITY_CAT_CLASS_PREFIX}"]`)) continue;
+    if (inDensityGroup(el)) continue;
 
     const datum = resolveDatum(el, data);
     if (!datum) continue;
@@ -130,7 +155,7 @@ export function stampColorCategories(
   const densityEls = plot.querySelectorAll<SVGElement>(`[class*="${DENSITY_CAT_CLASS_PREFIX}"]`);
   for (let i = 0; i < densityEls.length; i++) {
     const el = densityEls[i];
-    if (isInsideGridOrAxis(el, plot)) continue;
+    if (isInsideGridOrAxis(el)) continue;
     const classes = el.getAttribute('class') ?? '';
     const grpClass = classes.split(/\s+/).find(c => c.startsWith(DENSITY_CAT_CLASS_PREFIX));
     if (!grpClass) continue;
