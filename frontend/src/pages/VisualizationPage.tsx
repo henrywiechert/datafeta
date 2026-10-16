@@ -263,6 +263,17 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     // than calling `expand()`, so a panel that was already collapsed at mount
     // (restored from the sheet) still has somewhere to go. `collapse()` snaps to
     // the panel's collapsedSize, which is the rail width.
+    //
+    // The collapsed flag is set here, not left to `onResize`. The library
+    // reports sizes from a ResizeObserver, so `onResize` runs only after the
+    // browser has already laid out and painted the new widths. Its state update
+    // then renders in a later task. Waiting for it meant two full rendering
+    // passes over the chart grid, and the first painted the old content: the
+    // rail stretched across an opened panel, or the whole Fields tree squeezed
+    // into the rail. The imperative calls update the layout synchronously, so
+    // `isCollapsed()` already has the answer, and setting the flag here lets the
+    // content swap commit with the resize. `onResize` still persists the layout
+    // and covers drag-collapses; repeating the same value there is a no-op.
     const toggleLeftPanel = useCallback(() => {
         const panel = leftPanelRef.current;
         if (!panel) return;
@@ -273,6 +284,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                 panel.collapse();
             }
         });
+        setLeftPanelCollapsed(panel.isCollapsed());
     }, []);
 
     const toggleMiddlePanel = useCallback(() => {
@@ -285,6 +297,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
                 panel.collapse();
             }
         });
+        setMiddlePanelCollapsed(panel.isCollapsed());
     }, []);
 
     // Use our custom drag-and-drop hook with virtual columns included
