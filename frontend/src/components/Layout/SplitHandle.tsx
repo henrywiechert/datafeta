@@ -213,6 +213,10 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
         position: 'relative',
         flex: `0 0 ${SPLIT_HANDLE_THICKNESS_PX}px`,
         cursor: isVertical ? 'col-resize' : 'row-resize',
+        // A finger drag here is a resize, never a browser pan (which would
+        // cancel the gesture). Only on the handle: see index.css for why the
+        // panel library's own touch-action is switched off.
+        touchAction: 'none',
         backgroundColor: 'transparent',
         display: 'flex',
         alignItems: 'center',

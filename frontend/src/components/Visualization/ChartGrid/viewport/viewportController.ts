@@ -27,8 +27,13 @@ export const VIEWPORT_COMMIT_IDLE_MS = 250;
 export interface ViewportController {
   /** Live range for a column (pending or committed); undefined = natural domain. */
   get(column: string): ViewportRange | undefined;
-  /** Update live ranges (null clears a column) and schedule a commit. */
-  set(patch: ViewportPatch): void;
+  /**
+   * Update live ranges (null clears a column) and schedule a commit. With
+   * `holdCommit` the commit waits for flush() instead of the idle timer: a
+   * held drag that pauses must not redraw the chart under the pointer and
+   * then again on release.
+   */
+  set(patch: ViewportPatch, options?: { holdCommit?: boolean }): void;
   /** Clear columns (or everything) and commit immediately. */
   clear(columns?: string[]): void;
   /** Commit any pending change now (e.g. at the end of a drag). */
@@ -104,12 +109,12 @@ export function createViewportController(idleMs: number = VIEWPORT_COMMIT_IDLE_M
 
   return {
     get: (column) => live[column],
-    set(patch) {
+    set(patch, options) {
       live = applyPatch(live, patch);
       pending = true;
       notify();
       if (timer) clearTimeout(timer);
-      timer = setTimeout(commit, idleMs);
+      timer = options?.holdCommit ? null : setTimeout(commit, idleMs);
     },
     clear(columns) {
       const patch: ViewportPatch = {};

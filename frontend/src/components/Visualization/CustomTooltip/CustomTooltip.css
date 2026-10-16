@@ -153,8 +153,10 @@
      stacking contexts) that forces costly layer re-splitting around it on
      every hover ("Layerize" dominating the frame — seconds, not ms — in
      perf traces on large Gantt charts). The stroke frame below is enough
-     of a highlight on its own. */
-  transition: stroke 0.15s ease-out, stroke-width 0.15s ease-out;
+     of a highlight on its own.
+     Likewise no `transition`: stroke animations run on the main thread, so a
+     fade repaints — and re-layerizes the whole page, ~100ms on a large faceted
+     grid — every frame for its duration instead of once. */
   cursor: pointer;
   /* Dark frame around the hovered element */
   stroke: var(--df-chart-mark-highlight-stroke);

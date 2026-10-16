@@ -2,8 +2,8 @@
 /**
  * Live pan/zoom preview. A gesture updates the ViewportController on every
  * event, but the chart only regenerates once the gesture pauses. In between:
- * - each plot cell CSS-transforms its existing SVG from the domain it was
- *   rendered with to the live viewport (marks stretch briefly; cells cull
+ * - each plot cell CSS-transforms its existing SVG (via its layer div, see
+ *   previewLayer) from the domain it was rendered with to the live viewport (marks stretch briefly; cells cull
  *   with a margin so a pan reveals real marks, and clip along pannable axes,
  *   see PlotCell), and
  * - the axis gutters re-render their cheap axis-only plots with the live
@@ -19,6 +19,7 @@ import {
 } from '../../../../observable-plot-generator/viewport/chartViewport';
 import type { ViewportController } from './viewportController';
 import { axisFrame } from './useViewportGestures';
+import { previewLayerOf } from './previewLayer';
 
 /** Live domain for an axis of a plot's options, as Plot expects it (Dates on time axes). */
 export function liveAxisDomain(
@@ -245,7 +246,7 @@ export function useViewportPreview({
     const identity =
       Math.abs(t.x.scale - 1) < 1e-6 && Math.abs(t.y.scale - 1) < 1e-6 &&
       Math.abs(t.x.translate) < 0.5 && Math.abs(t.y.translate) < 0.5;
-    const style = (svg as SVGSVGElement).style;
+    const style = previewLayerOf(svg as SVGSVGElement).style;
     if (identity) {
       if (!style.transform) return null;
       return () => {
@@ -258,6 +259,7 @@ export function useViewportPreview({
     return () => {
       // Own compositor layer while previewing: transform updates then skip
       // repainting every mark (thousands of circles per facet in a scatter).
+      // This only holds for an HTML layer; see previewLayer.
       style.willChange = 'transform';
       style.transformOrigin = '0 0';
       style.transform = transform;

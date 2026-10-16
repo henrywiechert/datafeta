@@ -61,4 +61,20 @@ describe('createViewportController', () => {
     c.set({ t: { min: 1, max: 2 } });
     expect(listener).toHaveBeenCalledTimes(2);
   });
+
+  test('a held set commits on flush, not after idle', () => {
+    const controller = createViewportController(100);
+    const onCommit = jest.fn();
+    controller.subscribeCommitted(onCommit);
+
+    controller.set({ x: { min: 0, max: 10 } }, { holdCommit: true });
+    jest.advanceTimersByTime(1000);
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(controller.get('x')).toEqual({ min: 0, max: 10 });
+
+    controller.flush();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(controller.getCommitted()).toEqual({ x: { min: 0, max: 10 } });
+    controller.dispose();
+  });
 });

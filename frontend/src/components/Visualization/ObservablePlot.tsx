@@ -10,6 +10,7 @@ import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { deOverlapSeriesLabels } from './deOverlapSeriesLabels';
 import { stampColorCategories } from './stampColorCategories';
+import { PREVIEW_LAYER_ATTR } from './ChartGrid/viewport/previewLayer';
 
 interface ObservablePlotProps {
   options: Plot.PlotOptions & {
@@ -31,6 +32,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   onAutoExpandPinnedComparisonChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Holds the plot; the live pan/zoom preview transforms it, not the svg.
+  const layerRef = useRef<HTMLDivElement>(null);
   // Shared singleton ResizeObserver across all chart cells (one observer, N targets).
   const dimensions = useElementSize(containerRef);
   // Shared across all chart cells: one set of fullscreenchange listeners total.
@@ -39,7 +42,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !layerRef.current) return;
     
     // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
     const observedWidth = dimensions.width;
@@ -83,7 +86,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         
         // Use replaceChildren for better performance than innerHTML
         // This is a single synchronous operation that's faster for the browser to process
-        containerRef.current.replaceChildren(plot);
+        layerRef.current.replaceChildren(plot);
 
         onPlotReady?.(plot);
 
@@ -140,7 +143,9 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
 
   return (
     <>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+        <div ref={layerRef} {...{ [PREVIEW_LAYER_ATTR]: '' }} style={{ width: '100%', height: '100%' }} />
+      </div>
       {/* Render tooltip using portal - to fullscreen element if in fullscreen, otherwise to body */}
       {portalTarget && ReactDOM.createPortal(
         <CustomTooltip

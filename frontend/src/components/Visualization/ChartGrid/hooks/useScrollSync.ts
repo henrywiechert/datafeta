@@ -72,8 +72,9 @@ export function useScrollSync(
   }, [usesGridLayout, hScrollRef]);
 
   // Touch counterpart of onWheelCapture. The horizontal layer (touch-action:
-  // pan-x) scrolls natively left/right but cannot scroll vertically, so a
-  // vertical finger drag on it is forwarded to the vertical scroller.
+  // pan-x in tablet mode, see MultiPlotGrid) scrolls natively left/right but
+  // cannot scroll vertically, so a vertical finger drag on it is forwarded to
+  // the vertical scroller.
   useEffect(() => {
     const surface = hScrollRef.current;
     if (!surface) return;

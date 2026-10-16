@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { axisPreviewTransform, liveAxisDomain, registerPreviewCell, schedulePreviewRefresh } from './useViewportPreview';
 import { axisFrame } from './useViewportGestures';
+import { PREVIEW_LAYER_ATTR, previewLayerOf } from './previewLayer';
 import { createViewportController } from './viewportController';
 import { applyChartViewport, declareViewportAxis } from '../../../../observable-plot-generator/viewport/chartViewport';
 
@@ -131,5 +132,38 @@ describe('axisFrame', () => {
     const frame = axisFrame(svg, 'x')!;
     expect(frame.scale).toBe(1);
     expect(frame.toSvg(150, 0)).toBe(50);
+  });
+});
+
+describe('preview layer', () => {
+  const svgEl = () => document.createElementNS('http://www.w3.org/2000/svg', 'svg') as SVGSVGElement;
+
+  test('transforms the marked layer around a plot svg, else the svg itself', () => {
+    const layer = document.createElement('div');
+    layer.setAttribute(PREVIEW_LAYER_ATTR, '');
+    const plotSvg = svgEl();
+    layer.appendChild(plotSvg);
+    expect(previewLayerOf(plotSvg)).toBe(layer);
+
+    // A plot <figure> (legend + svg): only the svg may move.
+    const figure = document.createElement('figure');
+    const figureSvg = svgEl();
+    figure.appendChild(figureSvg);
+    expect(previewLayerOf(figureSvg)).toBe(figureSvg);
+  });
+
+  test('axisFrame reads geometry from the host, not the transformed layer', () => {
+    const host = document.createElement('div');
+    const layer = document.createElement('div');
+    layer.setAttribute(PREVIEW_LAYER_ATTR, '');
+    const svg = svgEl();
+    svg.setAttribute('width', '200');
+    host.appendChild(layer);
+    layer.appendChild(svg);
+    host.getBoundingClientRect = () => ({ left: 100, top: 0, width: 200, height: 100 } as DOMRect);
+    layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 100 } as DOMRect);
+    (svg as any).scale = () => ({ range: [0, 200] });
+
+    expect(axisFrame(svg, 'x')!.toSvg(150, 0)).toBe(50);
   });
 });
