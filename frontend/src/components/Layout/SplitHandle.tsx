@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip, useTheme } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -17,6 +17,7 @@ import {
   SPLIT_LINE_THICKNESS_PX,
   SPLIT_PREVIEW_Z_INDEX,
 } from './layoutTokens';
+import type { SplitPreviewStyle } from './splitDragPreview';
 import {
   SplitBounds,
   SplitOrientation,
@@ -100,15 +101,26 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
   const showCollapseButton = !!collapseLabel && !!onToggle && !isTablet;
   // Tablet: keep the visual 4px gap, expand the invisible hit area around it.
   const hitPadPx = isTablet ? 12 : 0;
+  // The drag preview is drawn on a canvas, which needs resolved values rather
+  // than palette keys. Same accent as the hovered line; the readout matches an
+  // MUI tooltip.
+  const theme = useTheme();
+  const previewStyle = useMemo<SplitPreviewStyle>(() => ({
+    lineColor: SPLIT_LINE_ACTIVE_COLOR.split('.')
+      .reduce<any>((node, key) => node?.[key], theme.palette) ?? theme.palette.primary.main,
+    labelBackground: theme.palette.grey[700],
+    labelColor: theme.palette.common.white,
+    font: `${theme.typography.fontWeightMedium} 12px ${theme.typography.fontFamily}`,
+  }), [theme]);
   const {
     isDragging,
-    dragSizePx,
     handleRef,
+    overlayRef,
     previewRef,
     onPointerDown,
     nudge,
     jumpTo,
-  } = useSplitDrag({ orientation, panelSide, getBounds, onCommitPx });
+  } = useSplitDrag({ orientation, panelSide, getBounds, onCommitPx, previewStyle });
 
   const handleDoubleClick = useCallback((event: React.MouseEvent) => {
     if (!onToggle) return;
@@ -193,7 +205,6 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
       role="separator"
       aria-orientation={isVertical ? 'vertical' : 'horizontal'}
       aria-label={ariaLabel}
-      aria-valuenow={dragSizePx !== null ? Math.round(dragSizePx) : undefined}
       tabIndex={0}
       onPointerDown={onPointerDown}
       onKeyDown={handleKeyDown}
@@ -279,32 +290,30 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
     </Box>
   );
 
-  // Size readout only while dragging — a tooltip on every hover would be noise.
-  const handleWithReadout = (
-    <Tooltip
-      title={dragSizePx !== null ? `${Math.round(dragSizePx)}px` : ''}
-      open={isDragging}
-      placement={isVertical ? 'top' : 'left'}
-      arrow
-    >
-      {handle}
-    </Tooltip>
-  );
-
   return (
     <>
       {createPortal(
+        // Drag-only layer; positioned and shown by useSplitDrag, never
+        // re-rendered mid-gesture.
         <Box
-          ref={previewRef}
-          data-testid="split-handle-preview"
+          ref={overlayRef}
+          data-testid="split-handle-overlay"
           sx={{
             display: 'none',
             position: 'fixed',
-            backgroundColor: SPLIT_LINE_ACTIVE_COLOR,
-            pointerEvents: 'none',
+            inset: 0,
             zIndex: SPLIT_PREVIEW_Z_INDEX,
+            cursor: isVertical ? 'col-resize' : 'row-resize',
+            userSelect: 'none',
           }}
-        />,
+        >
+          {/* Line and size readout, drawn by useSplitDrag. */}
+          <canvas
+            ref={previewRef}
+            data-testid="split-handle-preview"
+            style={{ position: 'absolute' }}
+          />
+        </Box>,
         document.body,
       )}
       {inGroup ? (
@@ -313,10 +322,10 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
           disabled
           style={{ flex: `0 0 ${SPLIT_HANDLE_THICKNESS_PX}px`, position: 'relative' }}
         >
-          {handleWithReadout}
+          {handle}
         </Separator>
       ) : (
-        handleWithReadout
+        handle
       )}
     </>
   );
