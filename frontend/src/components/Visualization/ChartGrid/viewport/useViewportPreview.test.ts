@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { axisPreviewTransform, liveAxisDomain, registerPreviewCell } from './useViewportPreview';
+import { axisPreviewTransform, liveAxisDomain, registerPreviewCell, schedulePreviewRefresh } from './useViewportPreview';
 import { axisFrame } from './useViewportGestures';
 import { createViewportController } from './viewportController';
 import { applyChartViewport, declareViewportAxis } from '../../../../observable-plot-generator/viewport/chartViewport';
@@ -85,6 +85,35 @@ describe('registerPreviewCell', () => {
     controller.set({ t: { min: 3, max: 4 } });
     jest.runOnlyPendingTimers();
     expect(log).toEqual([]);
+  });
+});
+
+describe('schedulePreviewRefresh', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test('batches redrawn cells into one frame, reads before writes, each cell once', () => {
+    const log: string[] = [];
+    const cell = (name: string) => ({
+      measure: () => {
+        log.push(`read ${name}`);
+        return () => log.push(`write ${name}`);
+      },
+    });
+    const a = cell('a');
+    const b = cell('b');
+
+    schedulePreviewRefresh(a);
+    schedulePreviewRefresh(b);
+    schedulePreviewRefresh(a);
+    expect(log).toEqual([]); // nothing measured inside the redraw itself
+    jest.runOnlyPendingTimers(); // jsdom's requestAnimationFrame runs on timers
+    expect(log).toEqual(['read a', 'read b', 'write a', 'write b']);
+
+    log.length = 0;
+    schedulePreviewRefresh(b);
+    jest.runOnlyPendingTimers();
+    expect(log).toEqual(['read b', 'write b']);
   });
 });
 

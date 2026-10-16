@@ -10,7 +10,7 @@
  *   domain, so ticks stay correct.
  * The regenerated SVG then replaces the transformed one.
  */
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type * as Plot from '@observablehq/plot';
 import {
   domainExtent,
@@ -137,6 +137,11 @@ interface PreviewCell {
   measure(): (() => void) | null;
 }
 
+function runPreviewPass(cells: Iterable<PreviewCell>): void {
+  const writes = Array.from(cells, (c) => c.measure());
+  writes.forEach((write) => write?.());
+}
+
 /**
  * All preview cells of a controller update in ONE animation frame, reads
  * first, then writes. Per-cell frames interleave a layout read with the
@@ -155,8 +160,7 @@ export function registerPreviewCell(controller: ViewportController, cell: Previe
       if (reg.frame !== null) return;
       reg.frame = requestAnimationFrame(() => {
         reg.frame = null;
-        const writes = Array.from(reg.cells, (c) => c.measure());
-        writes.forEach((write) => write?.());
+        runPreviewPass(reg.cells);
       });
     });
     previewRegistries.set(controller, reg);
@@ -171,6 +175,28 @@ export function registerPreviewCell(controller: ViewportController, cell: Previe
     if (reg.frame !== null) cancelAnimationFrame(reg.frame);
     previewRegistries.delete(controller);
   };
+}
+
+/**
+ * Cells whose SVG was just replaced, re-measured together in the next frame.
+ * Every plot of a grid redraws in one commit (a resize, a new query), each
+ * swapping in its SVG and then asking for a refresh. Measuring on the spot
+ * read layout right after the previous cell's DOM write, so a 270-facet grid
+ * ran 270 style + layout passes, about two seconds, in one task. The frame
+ * runs before paint, so the new SVG never shows without its transform.
+ */
+const pendingRefreshes = new Set<PreviewCell>();
+let refreshFrame: number | null = null;
+
+export function schedulePreviewRefresh(cell: PreviewCell): void {
+  pendingRefreshes.add(cell);
+  if (refreshFrame !== null) return;
+  refreshFrame = requestAnimationFrame(() => {
+    refreshFrame = null;
+    const cells = Array.from(pendingRefreshes);
+    pendingRefreshes.clear();
+    runPreviewPass(cells);
+  });
 }
 
 interface UseViewportPreviewArgs {
@@ -238,16 +264,19 @@ export function useViewportPreview({
     };
   }, [wrapperRef]);
 
+  // One object per cell, so a frame's refresh set holds each cell once.
+  const cell = useMemo<PreviewCell>(() => ({ measure }), [measure]);
+
   const refresh = useCallback(() => {
-    measure()?.();
-  }, [measure]);
+    schedulePreviewRefresh(cell);
+  }, [cell]);
 
   const hasAxes = !!controller && !!getViewportAxes(options);
 
   useEffect(() => {
     if (!controller || !hasAxes) return;
-    return registerPreviewCell(controller, { measure });
-  }, [controller, hasAxes, measure]);
+    return registerPreviewCell(controller, cell);
+  }, [controller, hasAxes, cell]);
 
   return refresh;
 }
