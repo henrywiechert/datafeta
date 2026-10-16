@@ -31,15 +31,21 @@ export function isDecorationElement(el: Element, root: Element): boolean {
   return false;
 }
 
+const DATA_MARK_SELECTOR =
+  'circle, rect, path[fill]:not([fill="none"]), path[stroke]:not([stroke="none"]):not([stroke="transparent"]), line';
+
 /**
  * Select all rendered data-mark elements under `root`, excluding grid lines,
  * axis ticks, and overlay-only marks.
  */
 export function queryDataMarkElements(root: Element): Element[] {
-  const allElements = root.querySelectorAll(
-    'circle, rect, path[fill]:not([fill="none"]), path[stroke]:not([stroke="none"]):not([stroke="transparent"]), line'
-  );
+  const allElements = root.querySelectorAll(DATA_MARK_SELECTOR);
   return Array.from(allElements).filter((el) => !isDecorationElement(el, root));
+}
+
+/** Whether `el` is one of the elements `queryDataMarkElements(root)` returns. */
+export function isDataMarkElement(el: Element, root: Element): boolean {
+  return el.matches(DATA_MARK_SELECTOR) && !isDecorationElement(el, root);
 }
 
 /**

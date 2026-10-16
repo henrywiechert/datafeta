@@ -174,4 +174,91 @@ describe('addTooltipListeners', () => {
 
     cleanup();
   });
+
+  it('listens on the plot, not on each mark', () => {
+    const { plot, marks } = buildPlot(50);
+    const targets: EventTarget[] = [];
+    const original = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (this: EventTarget, ...args: any[]) {
+      targets.push(this);
+      return (original as any).apply(this, args);
+    };
+    let cleanup: () => void;
+    try {
+      cleanup = addTooltipListeners(plot, { enabled: true, data: [], getFields: () => [] }, jest.fn(), jest.fn(), jest.fn());
+    } finally {
+      EventTarget.prototype.addEventListener = original;
+    }
+
+    // A dense scatter has ~80k marks; per-mark listeners cost every redraw.
+    expect(targets.some((t) => marks.includes(t as SVGRectElement))).toBe(false);
+    expect(targets).toContain(plot);
+    cleanup();
+  });
+
+  it('hides when the pointer leaves a mark, and ignores grid and axis elements', () => {
+    const { plot, marks } = buildPlot(2);
+    marks.forEach((m, i) => { (m as any).__data__ = i; });
+    const grid = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    grid.setAttribute('aria-label', 'y-grid');
+    const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    grid.appendChild(gridLine);
+    plot.appendChild(grid);
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ name: 'first' }, { name: 'second' }],
+      getFields: (data) => [{ label: 'Name', value: data.name }],
+    };
+    const showTooltip = jest.fn();
+    const hideTooltip = jest.fn();
+    const cleanup = addTooltipListeners(plot, config, showTooltip, hideTooltip, jest.fn());
+
+    fireEvent.mouseEnter(gridLine, { clientX: 1, clientY: 1 });
+    expect(showTooltip).not.toHaveBeenCalled();
+
+    fireEvent.mouseEnter(marks[1], { clientX: 1, clientY: 1 });
+    expect(showTooltip).toHaveBeenCalledTimes(1);
+    hideTooltip.mockClear();
+
+    fireEvent.mouseLeave(marks[1], { clientX: 1, clientY: 1 });
+    expect(hideTooltip).toHaveBeenCalledTimes(1);
+    expect(marks[1].classList.contains('chart-mark--highlighted')).toBe(false);
+
+    cleanup();
+  });
+
+  it('follows the pointer over a mark once per frame', () => {
+    jest.useFakeTimers();
+    const { plot, marks } = buildPlot(1);
+    const updatePosition = jest.fn();
+    const cleanup = addTooltipListeners(plot, { enabled: true, data: [{}], getFields: () => [] }, jest.fn(), jest.fn(), updatePosition);
+
+    fireEvent.mouseMove(marks[0], { clientX: 5, clientY: 6 });
+    fireEvent.mouseMove(marks[0], { clientX: 7, clientY: 8 });
+    jest.runOnlyPendingTimers(); // jsdom's requestAnimationFrame runs on timers
+    expect(updatePosition).toHaveBeenCalledTimes(1);
+    expect(updatePosition).toHaveBeenCalledWith(7, 8);
+
+    cleanup();
+    jest.useRealTimers();
+  });
+
+  it('pins on click without the document click handler hiding it', () => {
+    const { plot, marks } = buildPlot(1);
+    (marks[0] as any).__data__ = 0;
+    const pinTooltip = jest.fn();
+    const hideTooltip = jest.fn();
+    const cleanup = addTooltipListeners(
+      plot,
+      { enabled: true, data: [{ name: 'only' }], getFields: (d) => [{ label: 'Name', value: d.name }] },
+      jest.fn(), hideTooltip, jest.fn(), pinTooltip, jest.fn(), { current: false },
+    );
+
+    fireEvent.click(marks[0]);
+    expect(pinTooltip).toHaveBeenCalledTimes(1);
+    expect(hideTooltip).not.toHaveBeenCalled();
+
+    cleanup();
+  });
 });
+

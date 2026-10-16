@@ -2,8 +2,8 @@
 /**
  * Tooltip Event Listeners
  *
- * Wires mouseenter / mousemove / mouseleave / click (and global safety handlers)
- * onto Observable Plot SVG mark elements so that the CustomTooltip component
+ * Wires hover / mousemove / click (and global safety handlers) for Observable
+ * Plot SVG mark elements, delegated to the plot, so that the CustomTooltip component
  * can display field data on hover, and optionally pin on click for filter actions.
  *
  * Extracted from ObservablePlot.tsx for maintainability — this module is
@@ -14,7 +14,7 @@ import React from 'react';
 
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 import { T } from '../../../theme/tokens';
-import { isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
+import { isDataMarkElement, isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
 import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
 
 // ---------------------------------------------------------------------------
@@ -38,8 +38,8 @@ function isVisibleColor(val: string | null): boolean {
 
 /**
  * Build a one-time index of "visible colour at this (cx,cy)" for every
- * non-decoration circle in the plot. Computed once per render instead of
- * once per mouseenter: `resolveColorFromElement`'s fallback previously
+ * non-decoration circle in the plot. Computed once per render (on the first
+ * hover that needs it) instead of once per hover: `resolveColorFromElement`'s fallback previously
  * re-scanned every circle in the SVG on EVERY hover (O(circle count) per
  * event), which scales directly with mark count — any chart type that adds
  * more invisible circles (e.g. Gantt's snap-target dots) made every hover
@@ -84,10 +84,10 @@ function buildCircleColorIndex(root: Element): Map<string, string> {
  * Resolve the rendered colour of an SVG mark element.
  *
  * Reads fill/stroke from both DOM attributes and computed styles.
- * For transparent hover-dots (tick strips) it looks up the precomputed
+ * For transparent hover-dots (tick strips) it looks up the
  * `circleColorByPosition` index for a visible circle at the same position.
  */
-function resolveColorFromElement(el: Element, circleColorByPosition: Map<string, string>): string | undefined {
+function resolveColorFromElement(el: Element, circleColorByPosition: () => Map<string, string>): string | undefined {
   const cs = getComputedStyle(el);
   const resolveColor = (val: string | null): string | undefined => {
     if (!val) return undefined;
@@ -111,7 +111,7 @@ function resolveColorFromElement(el: Element, circleColorByPosition: Map<string,
     const cx = el.getAttribute('cx');
     const cy = el.getAttribute('cy');
     if (cx != null && cy != null) {
-      color = circleColorByPosition.get(`${cx},${cy}`);
+      color = circleColorByPosition().get(`${cx},${cy}`);
     }
   }
   
@@ -321,12 +321,27 @@ export function addTooltipListeners(
   let pendingX = 0;
   let pendingY = 0;
 
-  // Find all interactive marks (circles, rects, paths with fill, lines),
+  // Interactive marks are circles, rects, paths with fill, and lines,
   // excluding grid lines, axis ticks, and overlay-only marks (linear
-  // regression, moving average — they have no data).
-  const marks = queryDataMarkElements(plot);
-  const circleColorByPosition = buildCircleColorIndex(plot);
-  const cleanupFunctions: Array<() => void> = [];
+  // regression, moving average — they have no data): see isDataMarkElement.
+  //
+  // Listeners are delegated to the plot rather than attached per mark: a dense
+  // scatter has ~80k marks, and adding then removing four listeners on each
+  // cost ~120ms of every redraw. Marks have no rendered children, so
+  // mouseover/mouseout on a mark fire exactly where mouseenter/mouseleave did.
+  const markFor = (target: EventTarget | null): Element | null =>
+    target instanceof Element && isDataMarkElement(target, plot) ? target : null;
+
+  // Both built on first need, not per redraw. Element positions are only the
+  // datum fallback for marks without a Plot binding; the colour index is only
+  // read for transparent hover dots, and calls getComputedStyle per circle.
+  let markIndex: Map<Element, number> | null = null;
+  const indexOfMark = (mark: Element): number => {
+    if (!markIndex) markIndex = new Map(queryDataMarkElements(plot).map((el, i) => [el, i]));
+    return markIndex.get(mark) ?? -1;
+  };
+  let circleColorIndex: Map<string, string> | null = null;
+  const circleColorByPosition = () => (circleColorIndex ??= buildCircleColorIndex(plot));
   
   // Track which element is actually highlighted (may differ from hovered element)
   let highlightedElement: Element | null = null;
@@ -344,132 +359,128 @@ export function addTooltipListeners(
     }
   };
 
-  marks.forEach((mark, index) => {
+  /**
+   * Extract data from a mark, show tooltip, and highlight the element.
+   * Shared between hover and click handlers to avoid duplication.
+   */
+  const showMarkTooltip = (mark: Element, mouseEvent: MouseEvent) => {
     // Observable Plot stores data on elements via __data__ property
     const element = mark as any;
+    const index = element.__data__ == null ? indexOfMark(mark) : -1;
+    const data = getMarkDatum(element, index, config.data);
+
+    if (!data) {
+      console.warn('[CustomTooltip] No data found for mark:', { index, element, available: config.data?.length });
+      return;
+    }
     
-    /**
-     * Extract data from a mark, show tooltip, and highlight the element.
-     * Shared between mouseenter and click handlers to avoid duplication.
-     */
-    const showMarkTooltip = (mouseEvent: MouseEvent) => {
-      const data = getMarkDatum(element, index, config.data);
+    try {
+      const fields = config.getFields(data);
+      const pinnedComparison = config.getPinnedComparison?.(data);
 
-      if (!data) {
-        console.warn('[CustomTooltip] No data found for mark:', { index, element, available: config.data?.length });
-        return;
+      // A hover-proxy dot stands in for its bar: colour and highlight come from the bar.
+      const proxiedRect = findProxiedRect(mark);
+
+      // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
+      // and is always correct. Do this BEFORE adding highlight class.
+      let colorHex: string | undefined = undefined;
+      if (mark instanceof Element) {
+        colorHex = resolveColorFromElement(proxiedRect ?? mark, circleColorByPosition);
       }
-      
-      try {
-        const fields = config.getFields(data);
-        const pinnedComparison = config.getPinnedComparison?.(data);
 
-        // A hover-proxy dot stands in for its bar: colour and highlight come from the bar.
-        const proxiedRect = findProxiedRect(mark);
+      clearAnyHighlight();
 
-        // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
-        // and is always correct. Do this BEFORE adding highlight class.
-        let colorHex: string | undefined = undefined;
-        if (mark instanceof Element) {
-          colorHex = resolveColorFromElement(proxiedRect ?? mark, circleColorByPosition);
-        }
+      showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
 
-        clearAnyHighlight();
-
-        showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
-
-        // Determine which element to highlight
-        // If this is a transparent circle (hover dot for tick strips), highlight the line instead
-        let elementToHighlight: Element = proxiedRect ?? mark;
-        if (!proxiedRect && mark.tagName.toLowerCase() === 'circle') {
-          const fill = mark.getAttribute('fill');
-          const stroke = mark.getAttribute('stroke');
-          const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
-                                (stroke === 'transparent' || stroke === 'none' || !stroke);
-          if (isTransparent) {
-            const correspondingLine = findCorrespondingLine(mark);
-            if (correspondingLine) {
-              elementToHighlight = correspondingLine;
-            }
+      // Determine which element to highlight
+      // If this is a transparent circle (hover dot for tick strips), highlight the line instead
+      let elementToHighlight: Element = proxiedRect ?? mark;
+      if (!proxiedRect && mark.tagName.toLowerCase() === 'circle') {
+        const fill = mark.getAttribute('fill');
+        const stroke = mark.getAttribute('stroke');
+        const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
+                              (stroke === 'transparent' || stroke === 'none' || !stroke);
+        if (isTransparent) {
+          const correspondingLine = findCorrespondingLine(mark);
+          if (correspondingLine) {
+            elementToHighlight = correspondingLine;
           }
         }
-        
-        // Add highlight class AFTER computing color to avoid style interference
-        elementToHighlight.classList.add('chart-mark--highlighted');
-        highlightedElement = elementToHighlight;
-
-        const svgRoot = mark.closest('svg');
-        if (svgRoot instanceof SVGSVGElement) {
-          activeGuideLine = updateVerticalGuideLine(svgRoot, config, mark, colorHex);
-        }
-      } catch (error) {
-        console.warn('[CustomTooltip] Error generating tooltip fields:', error);
       }
-    };
+      
+      // Add highlight class AFTER computing color to avoid style interference
+      elementToHighlight.classList.add('chart-mark--highlighted');
+      highlightedElement = elementToHighlight;
 
-    /** Remove highlight from the currently highlighted element. */
-    const clearHighlight = () => {
-      clearAnyHighlight();
-    };
-
-    const handleMouseEnter = (e: Event) => {
-      // Don't replace a pinned tooltip on hover — the user must click to switch marks
-      if (pinnedRef?.current) return;
-      showMarkTooltip(e as MouseEvent);
-    };
-
-    const handleMouseMove = (e: Event) => {
-      // Don't move a pinned tooltip
-      if (pinnedRef?.current) return;
-      const mouseEvent = e as MouseEvent;
-      pendingX = mouseEvent.clientX;
-      pendingY = mouseEvent.clientY;
-      // Throttle to one React state update per animation frame to reduce DOM
-      // mutations and limit Bitwarden's shadow-root traversal overhead.
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          updatePosition(pendingX, pendingY);
-        });
+      const svgRoot = mark.closest('svg');
+      if (svgRoot instanceof SVGSVGElement) {
+        activeGuideLine = updateVerticalGuideLine(svgRoot, config, mark, colorHex);
       }
-    };
+    } catch (error) {
+      console.warn('[CustomTooltip] Error generating tooltip fields:', error);
+    }
+  };
 
-    const handleMouseLeave = () => {
-      // Don't dismiss when tooltip is pinned
-      if (pinnedRef?.current) return;
+  /** Remove highlight from the currently highlighted element. */
+  const clearHighlight = () => {
+    clearAnyHighlight();
+  };
+
+  // Plain `Event` parameters: `plot` is an SVG/HTML union, whose addEventListener
+  // only accepts generic listeners.
+  const handleMarkOver = (event: Event) => {
+    const e = event as MouseEvent;
+    const mark = markFor(e.target);
+    // Don't replace a pinned tooltip on hover — the user must click to switch marks
+    if (!mark || pinnedRef?.current) return;
+    showMarkTooltip(mark, e);
+  };
+
+  const handleMarkMove = (event: Event) => {
+    const e = event as MouseEvent;
+    // Don't move a pinned tooltip
+    if (pinnedRef?.current || !markFor(e.target)) return;
+    pendingX = e.clientX;
+    pendingY = e.clientY;
+    // Throttle to one React state update per animation frame to reduce DOM
+    // mutations and limit Bitwarden's shadow-root traversal overhead.
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        updatePosition(pendingX, pendingY);
+      });
+    }
+  };
+
+  const handleMarkOut = (event: Event) => {
+    const e = event as MouseEvent;
+    // Don't dismiss when tooltip is pinned
+    if (pinnedRef?.current || !markFor(e.target)) return;
+    clearHighlight();
+    hideTooltip();
+  };
+
+  const handleMarkClick = (event: Event) => {
+    const e = event as MouseEvent;
+    const mark = markFor(e.target);
+    if (!mark || !pinTooltip) return;
+    e.stopPropagation(); // Prevent document click handler from immediately hiding
+    
+    // If already pinned (e.g. on a different mark), switch to this mark:
+    // unpin first, clear old highlight, then show + pin the new one
+    if (pinnedRef?.current) {
+      unpinTooltip?.();
       clearHighlight();
-      hideTooltip();
-    };
+      showMarkTooltip(mark, e);
+    }
+    
+    pinTooltip();
+  };
 
-    const handleClick = (e: Event) => {
-      if (!pinTooltip) return;
-      e.stopPropagation(); // Prevent document click handler from immediately hiding
-      
-      // If already pinned (e.g. on a different mark), switch to this mark:
-      // unpin first, clear old highlight, then show + pin the new one
-      if (pinnedRef?.current) {
-        unpinTooltip?.();
-        clearHighlight();
-        showMarkTooltip(e as MouseEvent);
-      }
-      
-      pinTooltip();
-    };
-
-    mark.addEventListener('mouseenter', handleMouseEnter);
-    mark.addEventListener('mousemove', handleMouseMove);
-    mark.addEventListener('mouseleave', handleMouseLeave);
-    mark.addEventListener('click', handleClick);
-
-    // Store cleanup function for this mark
-    cleanupFunctions.push(() => {
-      mark.removeEventListener('mouseenter', handleMouseEnter);
-      mark.removeEventListener('mousemove', handleMouseMove);
-      mark.removeEventListener('mouseleave', handleMouseLeave);
-      mark.removeEventListener('click', handleClick);
-      clearAnyHighlight();
-    });
-  });
+  plot.addEventListener('mouseover', handleMarkOver);
+  plot.addEventListener('mousemove', handleMarkMove);
+  plot.addEventListener('mouseout', handleMarkOut);
+  plot.addEventListener('click', handleMarkClick);
   
   // Add global fallback handlers to prevent stuck tooltips
   const handleDocumentMouseLeave = (e: MouseEvent) => {
@@ -571,7 +582,10 @@ export function addTooltipListeners(
     }
 
     // Clean up mark listeners
-    cleanupFunctions.forEach(cleanup => cleanup());
+    plot.removeEventListener('mouseover', handleMarkOver);
+    plot.removeEventListener('mousemove', handleMarkMove);
+    plot.removeEventListener('mouseout', handleMarkOut);
+    plot.removeEventListener('click', handleMarkClick);
     
     // Clean up global listeners
     document.removeEventListener('mousemove', handleDocumentMouseLeave);
