@@ -20,6 +20,7 @@ import {
 } from '../../../../observable-plot-generator/viewport/chartViewport';
 import type { CellViewportAxis, ViewportController, ViewportPatch } from './viewportController';
 import { minSpanFor, panBy, zoomAt } from './viewportMath';
+import { previewHostOf } from './previewLayer';
 
 /** Pointer travel before a plain drag becomes a pan (px). */
 const PAN_THRESHOLD_PX = 5;
@@ -37,6 +38,29 @@ export const NO_PAN_ATTRIBUTE = 'data-viewport-no-pan';
  */
 export function isViewportZoomWheel(e: WheelEvent): boolean {
   return e.altKey;
+}
+
+/**
+ * Alt+wheel zoom needs a non-passive wheel listener to claim the event. On an
+ * element, Chrome then records a wheel hit-test rect for every element painted
+ * inside it and merges them on every repaint: with a dense scatter (80k dots)
+ * each frame, hover included, paid ~100ms of layerization. A document-level
+ * listener has no per-element cost, so cells share one, routed to the hovered
+ * cell. It is installed only while a cell is hovered: a blocking wheel
+ * listener makes the browser consult the main thread before it scrolls, and
+ * that stays limited to the chart, as with the per-cell listeners.
+ */
+let wheelCell: { wrapper: Element; onWheel: (e: WheelEvent) => void } | null = null;
+
+const dispatchWheel = (e: WheelEvent) => {
+  if (wheelCell && e.target instanceof Node && wheelCell.wrapper.contains(e.target)) wheelCell.onWheel(e);
+};
+
+function setWheelCell(cell: typeof wheelCell): void {
+  // Capture phase, so claiming the event still stops it before any listener inside the cell.
+  if (cell && !wheelCell) document.addEventListener('wheel', dispatchWheel, { passive: false, capture: true });
+  if (!cell && wheelCell) document.removeEventListener('wheel', dispatchWheel, { capture: true });
+  wheelCell = cell;
 }
 
 /** Pointerdown events re-dispatched after a click-without-drag; the pan handler must ignore them. */
@@ -95,11 +119,11 @@ export function axisFrame(plotElement: Element | undefined, axis: 'x' | 'y'): Ax
   if (!Array.isArray(range) || range.length !== 2 || range[0] === range[1]) return null;
   const svg = plotElement instanceof SVGSVGElement ? plotElement : plotElement.querySelector('svg');
   if (!svg) return null;
-  // Geometry must ignore the live preview's CSS transform on the svg
-  // (useViewportPreview): getBoundingClientRect() of the svg itself would
-  // return the transformed box. The svg sits at the top-left of its
-  // (untransformed) host, and clientWidth/Height are layout sizes.
-  const rect = (svg.parentElement ?? svg).getBoundingClientRect();
+  // Geometry must ignore the live preview's CSS transform (useViewportPreview):
+  // getBoundingClientRect() of the svg or its layer would return the
+  // transformed box. The svg sits at the top-left of its (untransformed)
+  // host, and clientWidth/Height are layout sizes.
+  const rect = previewHostOf(svg).getBoundingClientRect();
   const attr = Number(svg.getAttribute(axis === 'x' ? 'width' : 'height'));
   const size = (axis === 'x' ? svg.clientWidth : svg.clientHeight) || attr;
   const scale = size > 0 && attr > 0 ? attr / size : 1;
@@ -192,7 +216,10 @@ export function useViewportGestures({
     };
 
     let session: PanSession | null = null;
-    let restoreUserSelect: string | null = null;
+    // Keeps a pan from selecting text. Not `user-select` on <body>: an
+    // inherited style change there restyles the whole page (hundreds of ms
+    // with a dense chart) at both ends of every pan.
+    const preventSelection = (ev: Event) => ev.preventDefault();
 
     // Releasing Alt after Alt+wheel must not activate the browser menu bar
     // (Firefox on Windows/Linux toggles it on a bare Alt keyup).
@@ -207,11 +234,8 @@ export function useViewportGestures({
       document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerup', onPointerUp);
       document.removeEventListener('pointercancel', onPointerUp);
+      document.removeEventListener('selectstart', preventSelection);
       delete wrapper.dataset.panning;
-      if (restoreUserSelect !== null) {
-        document.body.style.userSelect = restoreUserSelect;
-        restoreUserSelect = null;
-      }
       session = null;
     };
 
@@ -223,15 +247,15 @@ export function useViewportGestures({
         if (Math.hypot(e.clientX - s.startX, e.clientY - s.startY) < PAN_THRESHOLD_PX) return;
         s.started = true;
         wrapper.dataset.panning = 'true';
-        restoreUserSelect = document.body.style.userSelect;
-        document.body.style.userSelect = 'none';
+        window.getSelection()?.removeAllRanges();
       }
       const patch: ViewportPatch = {};
       for (const { axis, frame, start } of s.axes) {
         const clientDelta = axis.axis === 'x' ? e.clientX - s.startX : e.clientY - s.startY;
         patch[axis.column] = panBy(start, panDelta(frame, clientDelta * frame.scale, start), axis.bounds);
       }
-      ctrl.set(patch);
+      // Committed on release (flush below), however long the drag pauses.
+      ctrl.set(patch, { holdCommit: true });
     };
 
     const onPointerUp = (e: PointerEvent) => {
@@ -298,6 +322,7 @@ export function useViewportGestures({
       document.addEventListener('pointermove', onPointerMove);
       document.addEventListener('pointerup', onPointerUp);
       document.addEventListener('pointercancel', onPointerUp);
+      document.addEventListener('selectstart', preventSelection);
     };
 
     const onDoubleClick = (e: MouseEvent) => {
@@ -308,13 +333,16 @@ export function useViewportGestures({
       ctrl.clear(columns);
     };
 
-    const onPointerEnter = () => latest.current.controller?.setHoveredCell(target);
+    const onPointerEnter = () => {
+      latest.current.controller?.setHoveredCell(target);
+      setWheelCell({ wrapper, onWheel });
+    };
     const onPointerLeave = () => {
       const ctrl = latest.current.controller;
       if (ctrl?.getHoveredCell() === target) ctrl.setHoveredCell(null);
+      if (wheelCell?.wrapper === wrapper) setWheelCell(null);
     };
 
-    wrapper.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keyup', onKeyUp, { capture: true });
     wrapper.addEventListener('pointerdown', onPointerDown, { capture: true });
     wrapper.addEventListener('dblclick', onDoubleClick);
@@ -327,9 +355,11 @@ export function useViewportGestures({
       // ':hover' unsupported (e.g. test DOM)
     }
     return () => {
+      // A pan torn down mid-drag still owes its held commit.
+      const heldPan = session?.started;
       endSession();
+      if (heldPan) latest.current.controller?.flush();
       onPointerLeave();
-      wrapper.removeEventListener('wheel', onWheel);
       window.removeEventListener('keyup', onKeyUp, { capture: true });
       wrapper.removeEventListener('pointerdown', onPointerDown, { capture: true });
       wrapper.removeEventListener('dblclick', onDoubleClick);

@@ -31,6 +31,21 @@ html, body {
   overflow: hidden;
 }
 
+/*
+ * react-resizable-panels puts an inline `touch-action: pan-x/pan-y` on every
+ * Group and Panel content div (for its own touch-drag resize). Nested
+ * horizontal and vertical groups intersect to `none` for everything inside,
+ * and under a restricted touch-action Chrome records a touch hit-test rect for
+ * every painted element and merges them on every repaint: with a dense scatter
+ * (80k dots) each hover or pan frame paid ~100ms. The app never uses the
+ * library's drag (its Separators are disabled; SplitHandle owns the gesture
+ * and sets touch-action on itself), so the hint only costs.
+ */
+[data-group],
+[data-panel] > div {
+  touch-action: auto !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

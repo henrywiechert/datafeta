@@ -55,7 +55,11 @@ function setup() {
   const controller = createViewportController(50);
   const plot = makePlotElement();
   const utils = render(<Harness controller={controller} plot={plot} />);
-  return { ...utils, controller, plot };
+  const wrapper = utils.getByTestId('wrapper');
+  // pointerenter does not bubble: dispatch it on the cell itself.
+  const hover = () => act(() => { wrapper.dispatchEvent(new (window as any).PointerEvent('pointerenter')); });
+  const unhover = () => act(() => { wrapper.dispatchEvent(new (window as any).PointerEvent('pointerleave')); });
+  return { ...utils, controller, plot, wrapper, hover, unhover };
 }
 
 const pointer = (type: string, init: Record<string, any> = {}) =>
@@ -66,7 +70,8 @@ describe('useViewportGestures', () => {
   afterEach(() => jest.useRealTimers());
 
   test('alt+wheel zooms around the pointer and claims the event', () => {
-    const { controller, plot } = setup();
+    const { controller, plot, hover } = setup();
+    hover();
     const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
     act(() => { plot.dispatchEvent(wheel); });
 
@@ -83,11 +88,47 @@ describe('useViewportGestures', () => {
     // Browsers scale deltas by the page zoom, so a notch at 110% is fractional
     ['ctrl+wheel with fractional delta (page zoom / trackpad pinch)', { ctrlKey: true, deltaY: -90.909 }],
   ])('%s is left to the browser', (_label, mods) => {
-    const { controller, plot } = setup();
+    const { controller, plot, hover } = setup();
+    hover();
     const wheel = new WheelEvent('wheel', { deltaY: -100, clientX: 50, bubbles: true, cancelable: true, ...mods });
     act(() => { plot.dispatchEvent(wheel); });
     expect(wheel.defaultPrevented).toBe(false);
     expect(controller.get('t')).toBeUndefined();
+  });
+
+  test('alt+wheel is claimed only while the cell is hovered, without a wheel listener on the cell', () => {
+    // Record which element each listener lands on (jest 27 mocks don't keep `this`).
+    const registered: Array<[EventTarget, string]> = [];
+    const original = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (this: EventTarget, type: string, ...rest: any[]) {
+      registered.push([this, type]);
+      return (original as any).call(this, type, ...rest);
+    };
+    let setupResult: ReturnType<typeof setup>;
+    try {
+      setupResult = setup();
+    } finally {
+      EventTarget.prototype.addEventListener = original;
+    }
+    const { controller, plot, wrapper, hover, unhover } = setupResult;
+    // A non-passive wheel listener on an element makes Chrome track every mark painted inside it.
+    const wheelOnCell = registered.some(([el, type]) => el === wrapper && type === 'wheel');
+    expect(wheelOnCell).toBe(false);
+
+    const altWheel = () => {
+      const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
+      act(() => { plot.dispatchEvent(wheel); });
+      return wheel.defaultPrevented;
+    };
+    expect(altWheel()).toBe(false);
+    expect(controller.get('t')).toBeUndefined();
+
+    hover();
+    expect(altWheel()).toBe(true);
+    expect(controller.get('t')).toBeDefined();
+
+    unhover();
+    expect(altWheel()).toBe(false);
   });
 
   test('a drag pans after the threshold and swallows the closing click', () => {
@@ -116,6 +157,45 @@ describe('useViewportGestures', () => {
     act(() => { jest.runAllTimers(); });
     plot.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  test('a paused drag commits once, on release', () => {
+    const { controller, plot } = setup();
+    const onCommit = jest.fn();
+    controller.subscribeCommitted(onCommit);
+
+    act(() => {
+      plot.dispatchEvent(pointer('pointerdown', { clientX: 100 }));
+      document.dispatchEvent(pointer('pointermove', { clientX: 150 }));
+    });
+    // Holding still for longer than the idle time must not redraw mid-drag.
+    act(() => { jest.advanceTimersByTime(1000); });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    act(() => {
+      document.dispatchEvent(pointer('pointermove', { clientX: 160 }));
+      document.dispatchEvent(pointer('pointerup', { clientX: 160 }));
+    });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  test('a pan blocks text selection without restyling <body>', () => {
+    const { plot } = setup();
+    const selectStart = () => {
+      const ev = new Event('selectstart', { bubbles: true, cancelable: true });
+      plot.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+
+    act(() => {
+      plot.dispatchEvent(pointer('pointerdown', { clientX: 100 }));
+      document.dispatchEvent(pointer('pointermove', { clientX: 150 }));
+    });
+    expect(selectStart()).toBe(true);
+    expect(document.body.style.userSelect).toBe('');
+
+    act(() => { document.dispatchEvent(pointer('pointerup', { clientX: 150 })); });
+    expect(selectStart()).toBe(false);
   });
 
   test('a click without drag hands the withheld pointerdown to the plot', () => {

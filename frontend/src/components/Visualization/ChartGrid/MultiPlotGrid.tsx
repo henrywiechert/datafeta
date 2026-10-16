@@ -29,6 +29,7 @@ import VirtualResizeLine from './VirtualResizeLine';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { useTabletUi } from '../../../hooks/useTabletUi';
 import { YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
 import {
@@ -129,6 +130,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
+  const { isTablet } = useTabletUi();
   const {
     columns,
     rows,
@@ -337,8 +339,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           bottom: 0,
           overflowX: 'scroll',
           overflowY: 'hidden',
-          // Vertical finger drags are forwarded to the vertical layer (useScrollSync).
-          touchAction: 'pan-x pinch-zoom',
+          // Tablet: vertical finger drags are forwarded to the vertical layer
+          // (useScrollSync). Tablet only, because any non-auto touch-action
+          // makes Chrome record a touch hit-test rect for every element painted
+          // under it and merge them on every repaint: with a dense scatter
+          // (80k dots) each hover or pan frame paid ~100ms of layerization.
+          touchAction: isTablet ? 'pan-x pinch-zoom' : undefined,
           zIndex: 3,
           pointerEvents: 'auto',
           // Match the rendered (webkit) horizontal scrollbar to the reserved gutter.
