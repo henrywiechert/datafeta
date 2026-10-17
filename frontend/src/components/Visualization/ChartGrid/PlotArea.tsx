@@ -26,6 +26,7 @@ import {
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 import { useDoubleTap } from './hooks/useDoubleTap';
 import { NO_PAN_ATTRIBUTE, useViewportGestures } from './viewport/useViewportGestures';
+import { lockedAxisMessage, showLockedAxisHint } from './viewport/lockedAxisHint';
 import { liveAxisProjection, useLiveViewportVersion, useViewportPreview } from './viewport/useViewportPreview';
 import { getViewportAxes } from '../../../observable-plot-generator/viewport/chartViewport';
 import type { ViewportGridConfig } from './viewport/viewportController';
@@ -358,6 +359,20 @@ const PlotCell: React.FC<PlotCellProps> = ({
     handleMeasureBrushEnd(brush);
     if (brush.gesture === 'measure') return;
 
+    // A zoom filter applies to every facet, so it can't follow per-facet domains.
+    if (viewport?.independentDomains?.[brush.axis]) {
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (rect) {
+        const isX = brush.axis === 'x';
+        showLockedAxisHint(
+          rect.left + (isX ? brush.currentAxisPx : brush.currentCrossAxisPx),
+          rect.top + (isX ? brush.currentCrossAxisPx : brush.currentAxisPx),
+          lockedAxisMessage([brush.axis], false),
+        );
+      }
+      return;
+    }
+
     const el = plotElementsRef.current[cell.id];
     if (!el) return;
     onBrushEnd?.({ brush, plotElement: el, xField, yField });
@@ -406,7 +421,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
         </Tooltip>
       )}
       <BrushOverlay
-        disabled={brushDisabled}
+        disabled={brushDisabled || (isGanttChart && !!(viewport?.independentDomains?.x || viewport?.independentDomains?.y))}
         onBrushEnd={handleCellBrushEnd}
         onBrushMove={handleCellBrushMove}
         measureEnabled={isGanttChart}

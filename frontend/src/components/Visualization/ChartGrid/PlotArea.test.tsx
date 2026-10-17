@@ -355,6 +355,55 @@ describe('PlotArea Gantt measurement', () => {
   });
 });
 
+describe('PlotArea zoom brush on independent axes', () => {
+  const plotCellGrid = buildGrid([
+    { id: 'plot-1', position: { row: 0, col: 0 }, content: { kind: 'plot', options: {} } },
+  ]);
+
+  const renderWith = (independentDomains: { x?: boolean; y?: boolean }, onBrushEnd: jest.Mock) => {
+    brushOverlayProps.length = 0;
+    render(
+      <PlotArea
+        grid={plotCellGrid}
+        plotsTranslateRef={React.createRef<HTMLDivElement>()}
+        plotTemplateColumns="100px"
+        plotRowsSpec="100px"
+        totalContentWidthPx={100}
+        viewport={{ independentDomains }}
+        onBrushEnd={onBrushEnd}
+      />,
+    );
+    return brushOverlayProps[0];
+  };
+  const zoom = (axis: 'x' | 'y') => ({
+    axis, startPx: 10, endPx: 60, gesture: 'zoom' as const,
+    originAxisPx: 10, currentAxisPx: 60, originCrossAxisPx: 5, currentCrossAxisPx: 5,
+  });
+
+  afterEach(() => {
+    cleanup();
+    document.body.querySelectorAll('[role="status"]').forEach((el) => el.remove());
+  });
+
+  it('keeps the brush enabled and filters the shared axis while the other axis is independent', () => {
+    const onBrushEnd = jest.fn();
+    const overlay = renderWith({ x: true }, onBrushEnd);
+    expect(overlay.disabled).toBeFalsy();
+
+    overlay.onBrushEnd(zoom('y'));
+    expect(onBrushEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not filter an independent axis and explains why', () => {
+    const onBrushEnd = jest.fn();
+    const overlay = renderWith({ x: true }, onBrushEnd);
+
+    overlay.onBrushEnd(zoom('x'));
+    expect(onBrushEnd).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="status"]')?.textContent).toMatch(/X axis is independent per facet/);
+  });
+});
+
 describe('PlotArea pan/zoom clipping', () => {
   afterEach(() => cleanup());
 

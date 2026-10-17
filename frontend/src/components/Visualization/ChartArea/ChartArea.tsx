@@ -310,7 +310,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({
   const { handleTableCellFilterAction } = useTableRowsFilterActions();
 
   const {
-    brushDisabled,
     handleBrushEnd,
     handleZoomOut: handleFilterZoomOut,
     handleZoomReset: handleFilterZoomReset,
@@ -321,7 +320,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     filterFields: state.filterFields,
     appliedFilterConfigurations,
     filterMetadata: state.filterMetadata,
-    independentDomains,
   });
 
   // Zoom out / reset cover both zoom mechanisms: the pan/zoom viewport is
@@ -565,8 +563,8 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     [viewportController, independentDomains],
   );
   const brushProps = useMemo<ChartGridBrushProps>(
-    () => ({ disabled: brushDisabled, onBrushEnd: handleBrushEnd }),
-    [brushDisabled, handleBrushEnd],
+    () => ({ onBrushEnd: handleBrushEnd }),
+    [handleBrushEnd],
   );
   const labelStylesProps = useMemo<ChartGridLabelStyles>(
     () => ({ axisLabelStyles, facetLabelStyles, categoryTickStyles }),
