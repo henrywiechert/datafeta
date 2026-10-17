@@ -243,6 +243,32 @@ describe('addTooltipListeners', () => {
     jest.useRealTimers();
   });
 
+  it('shows no tooltip while Alt is held, and hides a visible one when Alt is pressed', () => {
+    const { plot, marks } = buildPlot(2);
+    marks.forEach((m, i) => { (m as any).__data__ = i; });
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ name: 'first' }, { name: 'second' }],
+      getFields: (data) => [{ label: 'Name', value: data.name }],
+    };
+    const showTooltip = jest.fn();
+    const hideTooltip = jest.fn();
+    const cleanup = addTooltipListeners(plot, config, showTooltip, hideTooltip, jest.fn(), jest.fn(), jest.fn(), { current: false });
+
+    fireEvent.mouseOver(marks[0], { clientX: 1, clientY: 1, altKey: true });
+    expect(showTooltip).not.toHaveBeenCalled();
+
+    fireEvent.mouseOver(marks[1], { clientX: 1, clientY: 1 });
+    expect(showTooltip).toHaveBeenCalledTimes(1);
+    hideTooltip.mockClear();
+
+    fireEvent.keyDown(document, { key: 'Alt', altKey: true });
+    expect(hideTooltip).toHaveBeenCalledTimes(1);
+    expect(marks[1].classList.contains('chart-mark--highlighted')).toBe(false);
+
+    cleanup();
+  });
+
   it('pins on click without the document click handler hiding it', () => {
     const { plot, marks } = buildPlot(1);
     (marks[0] as any).__data__ = 0;
