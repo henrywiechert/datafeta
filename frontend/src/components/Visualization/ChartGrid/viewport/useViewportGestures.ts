@@ -1,8 +1,8 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Mouse pan/zoom on one plot cell:
- * - Alt/Option + wheel zooms around the pointer; a horizontal wheel delta
- *   with the modifier pans x. Ctrl+wheel and trackpad pinch are left to the
+ * - Alt/Option + wheel (Cmd + wheel on Mac) zooms around the pointer; a
+ *   horizontal wheel delta with the modifier pans x. Ctrl+wheel and trackpad pinch are left to the
  *   browser's page zoom, so the gesture never means two things depending on
  *   what has focus or sits under the pointer (e.g. a loading dialog).
  * - Plain left-button drag pans (after a small threshold, so clicks still
