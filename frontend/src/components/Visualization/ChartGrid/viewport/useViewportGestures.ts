@@ -29,15 +29,17 @@ const WHEEL_ZOOM_SPEED = 0.002;
 /** Elements (e.g. measurement grips) that own their own drag. */
 export const NO_PAN_ATTRIBUTE = 'data-viewport-no-pan';
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
+
 /**
- * Pan/zoom wheel gesture: Alt/Option + wheel only. Any Ctrl+wheel, including
- * a trackpad pinch (which browsers report as ctrl+wheel), stays browser page
- * zoom: a pinch can't be told apart from a Ctrl+mouse-wheel notch reliably,
- * since browsers scale wheel deltas by the page zoom and so make notches
- * fractional too.
+ * Pan/zoom wheel gesture: Alt/Option + wheel (also Cmd + wheel on Mac). Any
+ * Ctrl+wheel, including a trackpad pinch (which browsers report as
+ * ctrl+wheel), stays browser page zoom: a pinch can't be told apart from a
+ * Ctrl+mouse-wheel notch reliably, since browsers scale wheel deltas by the
+ * page zoom and so make notches fractional too.
  */
 export function isViewportZoomWheel(e: WheelEvent): boolean {
-  return e.altKey;
+  return e.altKey || (IS_MAC && e.metaKey);
 }
 
 /**
@@ -195,8 +197,13 @@ export function useViewportGestures({
       if (e.altKey) suppressNextAltKeyUp = true;
 
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-      const dy = e.deltaY * unit;
-      const dx = e.deltaX * unit;
+      let dy = e.deltaY * unit;
+      let dx = e.deltaX * unit;
+      // macOS reports a modifier-held mouse wheel on the x axis; a purely horizontal delta zooms there.
+      if (IS_MAC && dy === 0 && dx !== 0) {
+        dy = dx;
+        dx = 0;
+      }
       const patch: ViewportPatch = {};
       for (const axis of axes) {
         const frame = axisFrame(plotElement, axis.axis);
