@@ -69,7 +69,6 @@ interface UseBrushZoomParams {
   filterFields: Field[];
   appliedFilterConfigurations: Record<string, FilterConfig>;
   filterMetadata: Record<string, FilterMetadata>;
-  independentDomains?: { x?: boolean; y?: boolean };
   /** Drop the pan/zoom viewport of the given columns. */
   onClearViewport?: (columns: string[]) => void;
 }
@@ -82,10 +81,8 @@ export function useBrushZoom({
   filterFields,
   appliedFilterConfigurations,
   filterMetadata,
-  independentDomains,
   onClearViewport,
 }: UseBrushZoomParams) {
-  const brushDisabled = !!(independentDomains?.x || independentDomains?.y);
   const recordUndoPoint = useRecordUndoPoint();
 
   const findExistingZoomFilter = useCallback(
@@ -316,7 +313,6 @@ export function useBrushZoom({
   );
 
   return {
-    brushDisabled,
     handleBrushEnd,
     handleZoomOut,
     handleZoomReset,
