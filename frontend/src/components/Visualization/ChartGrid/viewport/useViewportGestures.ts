@@ -21,6 +21,7 @@ import {
 import type { CellViewportAxis, ViewportController, ViewportPatch } from './viewportController';
 import { minSpanFor, panBy, zoomAt } from './viewportMath';
 import { previewHostOf } from './previewLayer';
+import { lockedAxisMessage, showLockedAxisHint } from './lockedAxisHint';
 
 /** Pointer travel before a plain drag becomes a pan (px). */
 const PAN_THRESHOLD_PX = 5;
@@ -93,6 +94,16 @@ export function resolveCellViewportAxes(
     });
   }
   return out;
+}
+
+/** Zoomable axes of a cell that are excluded because their domains are independent per facet. */
+export function lockedViewportAxes(
+  options: Plot.PlotOptions | undefined,
+  independentDomains: IndependentAxes | undefined,
+): Array<'x' | 'y'> {
+  const axes = getViewportAxes(options);
+  if (!axes) return [];
+  return (['x', 'y'] as const).filter((axis) => axes[axis]?.bounds && independentDomains?.[axis]);
 }
 
 /** Live viewport of the axis; without one the axis shows its natural domain. */
@@ -176,7 +187,11 @@ export function useViewportGestures({
   const latest = useRef({ options, getPlotElement, controller, independentDomains });
   latest.current = { options, getPlotElement, controller, independentDomains };
 
-  const hasAxes = !!controller && resolveCellViewportAxes(options, independentDomains).length > 0;
+  // A cell with only locked axes still listens, to explain why a zoom does nothing.
+  const hasAxes =
+    !!controller &&
+    (resolveCellViewportAxes(options, independentDomains).length > 0 ||
+      lockedViewportAxes(options, independentDomains).length > 0);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -190,11 +205,16 @@ export function useViewportGestures({
       const ctrl = latest.current.controller;
       const plotElement = latest.current.getPlotElement();
       const axes = resolveAxes();
-      if (!ctrl || !plotElement || axes.length === 0) return;
+      const locked = lockedViewportAxes(latest.current.options, latest.current.independentDomains);
+      if (!ctrl || !plotElement || (axes.length === 0 && locked.length === 0)) return;
       // Claim the gesture: no browser page zoom, no grid scroll.
       e.preventDefault();
       e.stopPropagation();
       if (e.altKey) suppressNextAltKeyUp = true;
+      if (locked.length > 0 && (e.deltaY !== 0 || e.deltaX !== 0)) {
+        showLockedAxisHint(e.clientX, e.clientY, lockedAxisMessage(locked, axes.length > 0));
+      }
+      if (axes.length === 0) return;
 
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       let dy = e.deltaY * unit;

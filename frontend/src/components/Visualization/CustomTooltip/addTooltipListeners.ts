@@ -433,6 +433,8 @@ export function addTooltipListeners(
     const mark = markFor(e.target);
     // Don't replace a pinned tooltip on hover — the user must click to switch marks
     if (!mark || pinnedRef?.current) return;
+    // Alt/Option is the zoom/measure modifier; tooltips would only get in the way.
+    if (e.altKey) return;
     showMarkTooltip(mark, e);
   };
 
@@ -440,6 +442,11 @@ export function addTooltipListeners(
     const e = event as MouseEvent;
     // Don't move a pinned tooltip
     if (pinnedRef?.current || !markFor(e.target)) return;
+    if (e.altKey) {
+      clearHighlight();
+      hideTooltip();
+      return;
+    }
     pendingX = e.clientX;
     pendingY = e.clientY;
     // Throttle to one React state update per animation frame to reduce DOM
@@ -535,6 +542,11 @@ export function addTooltipListeners(
   };
   
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Alt' && !pinnedRef?.current) {
+      clearAnyHighlight();
+      hideTooltip();
+      return;
+    }
     if (e.key === 'Escape') {
       // Unpin if pinned, otherwise just hide
       if (pinnedRef?.current) {

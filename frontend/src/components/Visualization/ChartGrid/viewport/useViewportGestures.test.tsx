@@ -41,9 +41,9 @@ function makeOptions() {
   return options;
 }
 
-function Harness({ controller, plot }: { controller: ViewportController; plot: SVGSVGElement }) {
+function Harness({ controller, plot, independentDomains }: { controller: ViewportController; plot: SVGSVGElement; independentDomains?: { x?: boolean; y?: boolean } }) {
   const ref = useRef<HTMLDivElement>(null);
-  useViewportGestures({ wrapperRef: ref, options: makeOptions(), getPlotElement: () => plot, controller });
+  useViewportGestures({ wrapperRef: ref, options: makeOptions(), getPlotElement: () => plot, controller, independentDomains });
   return (
     <div ref={ref} data-testid="wrapper">
       <div data-testid="plot-host" ref={(el) => { if (el && !el.contains(plot)) el.appendChild(plot); }} />
@@ -129,6 +129,21 @@ describe('useViewportGestures', () => {
 
     unhover();
     expect(altWheel()).toBe(false);
+  });
+
+  test('alt+wheel over an independent axis explains why it does not zoom', () => {
+    const controller = createViewportController(50);
+    const plot = makePlotElement();
+    const utils = render(<Harness controller={controller} plot={plot} independentDomains={{ x: true }} />);
+    const wrapper = utils.getByTestId('wrapper');
+    act(() => { wrapper.dispatchEvent(new (window as any).PointerEvent('pointerenter')); });
+
+    const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
+    act(() => { plot.dispatchEvent(wheel); });
+
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(controller.get('t')).toBeUndefined();
+    expect(document.querySelector('[role="status"]')?.textContent).toMatch(/X axis is independent per facet/);
   });
 
   test('a drag pans after the threshold and swallows the closing click', () => {
