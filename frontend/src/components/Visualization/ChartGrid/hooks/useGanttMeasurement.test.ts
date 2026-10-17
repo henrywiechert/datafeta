@@ -164,9 +164,7 @@ describe('useGanttMeasurement', () => {
     act(() => result.current.onBrushEnd(brush({ originAxisPx: 12, currentAxisPx: 78 })));
     expect(result.current.measurement).not.toBeNull();
 
-    act(() => {
-      fireEvent.keyDown(document, { key: 'Escape' });
-    });
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(result.current.measurement).toBeNull();
   });
 
@@ -182,14 +180,10 @@ describe('useGanttMeasurement', () => {
     const fakePointerDown = { stopPropagation: jest.fn(), preventDefault: jest.fn() } as any;
     act(() => result.current.onGripPointerDown('start')(fakePointerDown));
 
-    act(() => {
-      fireEvent(document, new MouseEvent('pointermove', { clientX: 48, clientY: 50 }));
-    });
+    fireEvent(document, new MouseEvent('pointermove', { clientX: 48, clientY: 50 }));
     expect(result.current.measurement?.leftPx).toBe(50);
     expect(result.current.measurement?.rightPx).toBe(80); // unchanged — only the dragged end moved
 
-    act(() => {
-      fireEvent(document, new MouseEvent('pointerup'));
-    });
+    fireEvent(document, new MouseEvent('pointerup'));
   });
 });
