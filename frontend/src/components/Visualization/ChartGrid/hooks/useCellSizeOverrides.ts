@@ -17,6 +17,8 @@ export interface CellSizeOverrides {
   previewRowResize: (intent: UniformResizeIntent) => number;
   handleColumnResize: (intent: UniformResizeIntent) => void;
   handleRowResize: (intent: UniformResizeIntent) => void;
+  /** Applies column and row sizes in one update (two separate calls would overwrite each other). */
+  handleSizeResize: (columnIntent: UniformResizeIntent, rowIntent: UniformResizeIntent) => void;
   handleReset: () => void;
 }
 
@@ -84,6 +86,14 @@ export function useCellSizeOverrides(grid: GridResultModel | null, store?: CellS
     });
   }, [constraints, userCellWidth, layoutSignature, setStoredValue]);
 
+  const handleSizeResize = useCallback((columnIntent: UniformResizeIntent, rowIntent: UniformResizeIntent) => {
+    setStoredValue({
+      width: resolveUniformColumnSize(columnIntent, constraints),
+      height: resolveUniformRowSize(rowIntent, constraints),
+      layoutSignature,
+    });
+  }, [constraints, layoutSignature, setStoredValue]);
+
   const handleReset = useCallback(() => {
     setStoredValue(undefined);
   }, [setStoredValue]);
@@ -98,6 +108,7 @@ export function useCellSizeOverrides(grid: GridResultModel | null, store?: CellS
     previewRowResize,
     handleColumnResize,
     handleRowResize,
+    handleSizeResize,
     handleReset,
   }), [
     userCellWidth,
@@ -107,6 +118,7 @@ export function useCellSizeOverrides(grid: GridResultModel | null, store?: CellS
     previewRowResize,
     handleColumnResize,
     handleRowResize,
+    handleSizeResize,
     handleReset,
   ]);
 }

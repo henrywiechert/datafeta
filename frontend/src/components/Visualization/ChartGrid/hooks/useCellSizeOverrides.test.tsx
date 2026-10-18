@@ -49,6 +49,18 @@ describe('useCellSizeOverrides', () => {
     expect(latest.hasOverrides).toBe(true);
   });
 
+  it('applies column and row sizes together in a single update', () => {
+    render(<Harness grid={buildGrid()} />);
+
+    act(() => latest.handleSizeResize(
+      { currentSize: 120, delta: 80 },
+      { currentSize: 100, delta: 50 },
+    ));
+
+    expect(latest.userCellWidth).toBe(200);
+    expect(latest.userCellHeight).toBe(150);
+  });
+
   it('uses the same clamped size for drag previews and committed resizes', () => {
     render(<Harness grid={buildGrid({ minColumnSizes: [90], minRowSizes: [60] })} />);
 
