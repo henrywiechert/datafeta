@@ -1,6 +1,14 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { DataType, Table as ArrowTable, Type } from 'apache-arrow';
+import { DataType, Table as ArrowTable, TimeUnit, Type } from 'apache-arrow';
 import { devLog } from '../utils/devLog';
+import { epochUnitToPreciseDate, EpochUnit } from '../datetime/datetimeDisplayFormat';
+
+const ARROW_UNIT_TO_EPOCH_UNIT: Record<number, EpochUnit> = {
+  [TimeUnit.SECOND]: 's',
+  [TimeUnit.MILLISECOND]: 'ms',
+  [TimeUnit.MICROSECOND]: 'us',
+  [TimeUnit.NANOSECOND]: 'ns',
+};
 
 // Numeric Arrow type ids we consider safe to coerce when values arrive as strings
 const NUMERIC_TYPE_IDS = new Set([Type.Int, Type.Float, Type.Decimal]);
@@ -213,9 +221,15 @@ export function arrowTableToRows(table: ArrowTable): Record<string, any>[] {
 
   // Identify Timestamp columns for raw extraction (preserves µs/ns precision).
   const timestampFields = new Set<string>();
+  // Date32/Date64 vectors expose epoch-ms numbers; emitted as Dates because a bare
+  // number is unit-ambiguous downstream (ms vs µs overlap for dates 1938-2001).
+  const dateFields = new Set<string>();
   for (const field of fields) {
-    if ((field.type as any).typeId === Type.Timestamp) {
+    const typeId = (field.type as any).typeId;
+    if (typeId === Type.Timestamp) {
       timestampFields.add(field.name);
+    } else if (typeId === Type.Date) {
+      dateFields.add(field.name);
     }
   }
 
@@ -241,11 +255,17 @@ export function arrowTableToRows(table: ArrowTable): Record<string, any>[] {
       if (timestampFields.has(col)) {
         const vec = table.getChild(col);
         const raw = vec ? tryGetRawTimestamp(vec, i) : undefined;
-        if (raw !== undefined) {
+        const unit = ARROW_UNIT_TO_EPOCH_UNIT[(field.type as any).unit];
+        if (raw !== undefined && unit && typeof raw === 'number') {
+          row[col] = epochUnitToPreciseDate(raw, unit) ?? null;
+        } else if (raw !== undefined) {
           row[col] = raw;
         } else {
           row[col] = normalizeArrowValue(vec?.get(i), field.type, col);
         }
+      } else if (dateFields.has(col)) {
+        const v = normalizeArrowValue(table.getChild(col)?.get(i), field.type, col);
+        row[col] = typeof v === 'number' ? (epochUnitToPreciseDate(v, 'ms') ?? null) : v;
       } else {
         row[col] = normalizeArrowValue(table.getChild(col)?.get(i), field.type, col);
       }
