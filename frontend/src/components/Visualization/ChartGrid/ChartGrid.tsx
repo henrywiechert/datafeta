@@ -177,6 +177,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     setContextMenu(null);
   }, [contextMenu]);
 
+  const { handleReset: resetCellSizes } = cellSizeOverrides;
+  const handleResetSizes = useCallback(() => {
+    resetCellSizes();
+    setContextMenu(null);
+  }, [resetCellSizes]);
+
   const { isTablet } = useTabletUi();
   const handleCellZoom = useCallback((plotId: string) => setZoomedPlotId(plotId), []);
 
@@ -268,6 +274,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           anchorPosition={contextMenu ? { top: contextMenu.y, left: contextMenu.x } : undefined}
         >
           <MenuItem onClick={handleZoomOpen}>Zoom facet</MenuItem>
+          <MenuItem onClick={handleResetSizes} disabled={!cellSizeOverrides.hasOverrides}>
+            Reset Facet Sizes
+          </MenuItem>
         </Menu>
         {zoomedPlotId !== null && (
           <FacetZoomDialog
