@@ -46,6 +46,7 @@ export function useHeatmapSizeToolbar({
     hasOverrides,
     handleColumnResize,
     handleRowResize,
+    handleSizeResize,
     handleReset,
   } = cellSizeOverrides;
 
@@ -115,14 +116,10 @@ export function useHeatmapSizeToolbar({
     const fitColumnWidth = Math.floor(availableContentWidth / layoutCalcs.columns);
     const fitRowHeight = Math.floor(availableContentHeight / layoutCalcs.rows);
 
-    handleColumnResize({
-      currentSize: currentColumnWidth,
-      delta: fitColumnWidth - currentColumnWidth,
-    });
-    handleRowResize({
-      currentSize: currentRowHeight,
-      delta: fitRowHeight - currentRowHeight,
-    });
+    handleSizeResize(
+      { currentSize: currentColumnWidth, delta: fitColumnWidth - currentColumnWidth },
+      { currentSize: currentRowHeight, delta: fitRowHeight - currentRowHeight },
+    );
   }, [
     containerDimensions.height,
     containerDimensions.width,
@@ -130,8 +127,7 @@ export function useHeatmapSizeToolbar({
     currentRowHeight,
     grid,
     layoutCalcs,
-    handleColumnResize,
-    handleRowResize,
+    handleSizeResize,
   ]);
 
   return useMemo(() => {
