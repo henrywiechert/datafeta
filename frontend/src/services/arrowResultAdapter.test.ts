@@ -1,6 +1,31 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import * as Arrow from 'apache-arrow';
 import { Type } from 'apache-arrow';
 import { arrowTableToRows, normalizeArrowValue } from './arrowResultAdapter';
+
+describe('arrowTableToRows temporal units', () => {
+  // Epoch magnitudes of different units overlap for dates near 1970 (e.g. 1938-1990).
+  const dates = [new Date(Date.UTC(1938, 4, 1)), new Date(Date.UTC(1743, 10, 1)), new Date(Date.UTC(1990, 0, 1))];
+  const types: Record<string, any> = {
+    date32: new Arrow.DateDay(),
+    date64: new Arrow.DateMillisecond(),
+    second: new Arrow.TimestampSecond(),
+    milli: new Arrow.TimestampMillisecond(),
+    micro: new Arrow.TimestampMicrosecond(),
+    nano: new Arrow.TimestampNanosecond(),
+  };
+
+  test.each(Object.keys(types))('%s decodes to the exact Date regardless of magnitude', (key) => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const table = new Arrow.Table({ c: Arrow.vectorFromArray(dates, types[key]) });
+      const rows = arrowTableToRows(table);
+      expect(rows.map((r) => (r.c as Date).getTime())).toEqual(dates.map((d) => d.getTime()));
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+});
 
 describe('normalizeArrowValue', () => {
   test('coerces numeric strings for numeric Arrow fields', () => {

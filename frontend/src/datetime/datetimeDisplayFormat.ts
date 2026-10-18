@@ -90,14 +90,44 @@ export function readMicrosFraction(d: Date): number | undefined {
 export function epochToPreciseDate(num: number): Date | null {
   const c = epochToComponents(num);
   if (!c) return null;
-  const d = new Date(c.ms);
+  return annotatedDate(c.ms, c.microsFraction);
+}
+
+function annotatedDate(ms: number, microsFraction: number): Date | null {
+  const d = new Date(ms);
+  if (!Number.isFinite(d.getTime())) return null;
   Object.defineProperty(d, MICROS_FRACTION, {
-    value: c.microsFraction,
+    value: microsFraction,
     enumerable: false,
     writable: false,
     configurable: true,
   });
   return d;
+}
+
+export type EpochUnit = 's' | 'ms' | 'us' | 'ns';
+
+const mod = (a: number, b: number): number => ((a % b) + b) % b;
+
+/**
+ * Epoch -> Date for a KNOWN unit (e.g. from the Arrow schema). Unlike the
+ * magnitude heuristic in `epochToComponents`, this is correct for every date,
+ * including those within ~30 years of 1970 where the units overlap in magnitude.
+ */
+export function epochUnitToPreciseDate(num: number, unit: EpochUnit): Date | null {
+  if (!Number.isFinite(num)) return null;
+  switch (unit) {
+    case 's':
+      return annotatedDate(num * 1000, 0);
+    case 'ms': {
+      const ms = Math.floor(num);
+      return annotatedDate(ms, mod(ms, 1000) * 1000);
+    }
+    case 'us':
+      return annotatedDate(Math.floor(num / 1000), mod(num, 1_000_000));
+    case 'ns':
+      return annotatedDate(Math.floor(num / 1_000_000), Math.floor(mod(num, 1_000_000_000) / 1000));
+  }
 }
 
 export function epochToDate(num: number): Date | null {
