@@ -185,7 +185,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 |------|---------|-----------|
 | `useChartGridLayout` | All layout math: grid dimensions, gutters, templates | `LayoutCalculations` |
 | `useScrollSync` | Keeps Layer 1 plots in sync with Layer 2 vertical scroll; forwards wheel and vertical touch drags on Layer 1 to Layer 2 | `scrollOffsets`, `onWheelCapture` |
-| `useCellSizeOverrides` | User can drag gridlines to resize cells | `userCellWidth`, `userCellHeight`, `handleReset` |
+| `useCellSizeOverrides` | User can drag gridlines to resize cells; sizes persist per sheet (`panelLayout.cellSizes`) while the layout signature matches. Right-click → "Reset Facet Sizes" clears them | `userCellWidth`, `userCellHeight`, `handleReset` |
 | `useRowHeightCalculation` | Computes row height from container / row count | `rowHeightPx` |
 | `useContainerDimensions` | ResizeObserver tracking container size | `{ width, height }` |
 | `useStabilization` | Prevents rapid re-layout during transitions | `pendingRowHeightRef` |

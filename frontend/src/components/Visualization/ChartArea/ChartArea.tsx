@@ -51,6 +51,7 @@ import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilt
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
+import type { SheetCellSizes } from '../../../types/sheet';
 import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
 import type {
   ChartGridGanttProps,
@@ -301,7 +302,15 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     handleLineStyleLegendFilterAction,
     gridWithTooltipAction,
   } = useFilterActions({ grid, virtualColumns });
-  const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction);
+  const storedCellSizes = activeSheet?.panelLayout?.cellSizes;
+  const cellSizeStore = useMemo(
+    () => ({
+      value: storedCellSizes,
+      onChange: (cellSizes: SheetCellSizes | undefined) => updateActiveSheetPanelLayout({ cellSizes }),
+    }),
+    [storedCellSizes, updateActiveSheetPanelLayout],
+  );
+  const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction, cellSizeStore);
 
   const handleHeatmapSizeToolbarChange = useCallback((toolbarState: HeatmapSizeToolbarState | null) => {
     setHeatmapSizeToolbarState(toolbarState);

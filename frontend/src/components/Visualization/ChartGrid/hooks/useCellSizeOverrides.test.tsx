@@ -2,7 +2,8 @@
 import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { GridLayoutModel, GridResultModel } from '../../../../observable-plot-generator/gridModel';
-import { CellSizeOverrides, useCellSizeOverrides } from './useCellSizeOverrides';
+import { CellSizeOverrides, CellSizeStore, useCellSizeOverrides } from './useCellSizeOverrides';
+import type { SheetCellSizes } from '../../../../types/sheet';
 
 function buildGrid(overrides: Partial<GridLayoutModel> = {}): GridResultModel {
   return {
@@ -80,5 +81,25 @@ describe('useCellSizeOverrides', () => {
 
     expect(latest.userCellWidth).toBeNull();
     expect(latest.userCellHeight).toBeNull();
+  });
+
+  it('restores sizes from an external store only while the layout signature matches', () => {
+    let stored: SheetCellSizes | undefined;
+    const store = (): CellSizeStore => ({ value: stored, onChange: (v) => { stored = v; } });
+    const StoreHarness: React.FC<{ grid: GridResultModel }> = ({ grid }) => {
+      latest = useCellSizeOverrides(grid, store());
+      return null;
+    };
+
+    const { unmount } = render(<StoreHarness grid={buildGrid()} />);
+    act(() => latest.handleColumnResize({ currentSize: 120, delta: 20 }));
+    unmount();
+
+    render(<StoreHarness grid={buildGrid()} />);
+    expect(latest.userCellWidth).toBe(140);
+
+    cleanup();
+    render(<StoreHarness grid={buildGrid({ columns: 3, columnSizes: ['fr', 'fr', 'fr'] })} />);
+    expect(latest.userCellWidth).toBeNull();
   });
 });
