@@ -171,6 +171,14 @@ export interface SheetPanelLayout {
   legendWidth?: number;
   /** Debug view height in pixels. */
   debugHeight?: number;
+  /** User-dragged uniform facet cell size; only applies while the grid layout signature matches. */
+  cellSizes?: SheetCellSizes;
+}
+
+export interface SheetCellSizes {
+  width: number | null;
+  height: number | null;
+  layoutSignature: string;
 }
 
 export interface Sheet {
