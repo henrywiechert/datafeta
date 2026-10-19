@@ -10,6 +10,8 @@ import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { deOverlapSeriesLabels } from './deOverlapSeriesLabels';
 import { stampColorCategories } from './stampColorCategories';
+import { flattenSymbolTransforms } from './flattenSymbolTransforms';
+import { hoistPlotStyles } from './hoistPlotStyles';
 import { PREVIEW_LAYER_ATTR } from './ChartGrid/viewport/previewLayer';
 
 interface ObservablePlotProps {
@@ -83,7 +85,11 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       try {
         // Force Observable Plot to create fresh plot (no caching)
         const plot = Plot.plot(newOptions);
-        
+
+        // Detached-tree cleanups that keep a dense plot cheap to restyle and layerize.
+        hoistPlotStyles(plot, layerRef.current.ownerDocument);
+        flattenSymbolTransforms(plot);
+
         // Use replaceChildren for better performance than innerHTML
         // This is a single synchronous operation that's faster for the browser to process
         layerRef.current.replaceChildren(plot);

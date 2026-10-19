@@ -110,15 +110,6 @@
     pointer-events: none;
 }
 
-/* Drag-to-pan in progress: keep marks from hovering/tooltipping under the pointer. */
-.plotWrapper[data-panning] {
-    cursor: grabbing;
-}
-
-.plotWrapper[data-panning] .observablePlotContainer {
-    pointer-events: none;
-}
-
 /* Remove per-plot title for gapless layout */
 
 .plotWrapper .observablePlotContainer {
