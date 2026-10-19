@@ -62,6 +62,9 @@ function setup() {
   return { ...utils, controller, plot, wrapper, hover, unhover };
 }
 
+const holdAlt = () => act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', altKey: true })); });
+const releaseAlt = () => act(() => { window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false })); });
+
 const pointer = (type: string, init: Record<string, any> = {}) =>
   new (window as any).PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, pointerType: 'mouse', ...init });
 
@@ -72,6 +75,7 @@ describe('useViewportGestures', () => {
   test('alt+wheel zooms around the pointer and claims the event', () => {
     const { controller, plot, hover } = setup();
     hover();
+    holdAlt();
     const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
     act(() => { plot.dispatchEvent(wheel); });
 
@@ -120,10 +124,12 @@ describe('useViewportGestures', () => {
       act(() => { plot.dispatchEvent(wheel); });
       return wheel.defaultPrevented;
     };
+    holdAlt();
     expect(altWheel()).toBe(false);
     expect(controller.get('t')).toBeUndefined();
 
     hover();
+    holdAlt();
     expect(altWheel()).toBe(true);
     expect(controller.get('t')).toBeDefined();
 
@@ -131,12 +137,56 @@ describe('useViewportGestures', () => {
     expect(altWheel()).toBe(false);
   });
 
+  test('a blocking wheel listener exists only while a hovered cell has the zoom modifier held', () => {
+    // Any non-passive wheel listener, even on document, makes Chrome track every mark painted under it.
+    const blocking = new Set<unknown>();
+    const add = jest.spyOn(document, 'addEventListener').mockImplementation(function (this: Document, type: string, listener: any, opts?: any) {
+      if (type === 'wheel' && opts?.passive === false) blocking.add(listener);
+      return EventTarget.prototype.addEventListener.call(this, type, listener, opts);
+    });
+    const remove = jest.spyOn(document, 'removeEventListener').mockImplementation(function (this: Document, type: string, listener: any, opts?: any) {
+      if (type === 'wheel') blocking.delete(listener);
+      return EventTarget.prototype.removeEventListener.call(this, type, listener, opts);
+    });
+    try {
+      const { plot, hover, unhover } = setup();
+      hover();
+      expect(blocking.size).toBe(0);
+      holdAlt();
+      expect(blocking.size).toBe(1);
+      releaseAlt();
+      expect(blocking.size).toBe(0);
+      // Modifier flags of pointer events count too (no keyboard focus needed).
+      act(() => { plot.dispatchEvent(pointer('pointermove', { altKey: true })); });
+      expect(blocking.size).toBe(1);
+      unhover();
+      expect(blocking.size).toBe(0);
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  test('an unclaimed alt+wheel claims the notches after it', () => {
+    const { controller, plot, hover } = setup();
+    hover();
+    const altWheel = () => {
+      const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
+      act(() => { plot.dispatchEvent(wheel); });
+      return wheel.defaultPrevented;
+    };
+    expect(altWheel()).toBe(false);
+    expect(controller.get('t')).toBeUndefined();
+    expect(altWheel()).toBe(true);
+    expect(controller.get('t')).toBeDefined();
+  });
+
   test('alt+wheel over an independent axis explains why it does not zoom', () => {
     const controller = createViewportController(50);
     const plot = makePlotElement();
     const utils = render(<Harness controller={controller} plot={plot} independentDomains={{ x: true }} />);
     const wrapper = utils.getByTestId('wrapper');
-    act(() => { wrapper.dispatchEvent(new (window as any).PointerEvent('pointerenter')); });
+    act(() => { wrapper.dispatchEvent(new (window as any).PointerEvent('pointerenter', { altKey: true })); });
 
     const wheel = new WheelEvent('wheel', { deltaY: -100, altKey: true, clientX: 50, bubbles: true, cancelable: true });
     act(() => { plot.dispatchEvent(wheel); });

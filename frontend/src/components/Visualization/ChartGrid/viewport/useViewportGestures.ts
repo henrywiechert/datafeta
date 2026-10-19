@@ -44,26 +44,67 @@ export function isViewportZoomWheel(e: WheelEvent): boolean {
 }
 
 /**
- * Alt+wheel zoom needs a non-passive wheel listener to claim the event. On an
- * element, Chrome then records a wheel hit-test rect for every element painted
- * inside it and merges them on every repaint: with a dense scatter (80k dots)
- * each frame, hover included, paid ~100ms of layerization. A document-level
- * listener has no per-element cost, so cells share one, routed to the hovered
- * cell. It is installed only while a cell is hovered: a blocking wheel
- * listener makes the browser consult the main thread before it scrolls, and
- * that stays limited to the chart, as with the per-cell listeners.
+ * Alt+wheel zoom needs a non-passive wheel listener to claim the event. Any
+ * blocking wheel listener, even on document or window, makes Chrome record a
+ * wheel hit-test rect for every element painted under it and merge them all
+ * whenever it re-layerizes: with a dense scatter each frame of a drag-pan
+ * preview paid 200–340ms of layerization (one on an element: every hover
+ * frame too). So cells share one document-level listener, routed to the
+ * hovered cell, and it is attached only while a cell is hovered AND the zoom
+ * modifier is held; hover, drag-pan and scrolling run without it.
+ *
+ * The modifier state comes from key events and from the pointer and wheel
+ * events over the cell, which carry it even when the page has no keyboard
+ * focus. A zoom wheel that still arrives unclaimed (modifier pressed while
+ * elsewhere, pointer not moved since) only attaches the listener for the
+ * notches that follow.
  */
 let wheelCell: { wrapper: Element; onWheel: (e: WheelEvent) => void } | null = null;
+let zoomModifierHeld = false;
+let claimingWheel = false;
 
 const dispatchWheel = (e: WheelEvent) => {
   if (wheelCell && e.target instanceof Node && wheelCell.wrapper.contains(e.target)) wheelCell.onWheel(e);
 };
 
-function setWheelCell(cell: typeof wheelCell): void {
+function syncWheelClaim(): void {
+  const claim = wheelCell !== null && zoomModifierHeld;
+  if (claim === claimingWheel) return;
+  claimingWheel = claim;
   // Capture phase, so claiming the event still stops it before any listener inside the cell.
-  if (cell && !wheelCell) document.addEventListener('wheel', dispatchWheel, { passive: false, capture: true });
-  if (!cell && wheelCell) document.removeEventListener('wheel', dispatchWheel, { capture: true });
+  if (claim) document.addEventListener('wheel', dispatchWheel, { passive: false, capture: true });
+  else document.removeEventListener('wheel', dispatchWheel, { capture: true });
+}
+
+const trackZoomModifier = (e: KeyboardEvent | MouseEvent) => {
+  zoomModifierHeld = e.altKey || (IS_MAC && e.metaKey);
+  syncWheelClaim();
+};
+
+const releaseZoomModifier = () => {
+  zoomModifierHeld = false;
+  syncWheelClaim();
+};
+
+function setWheelCell(cell: typeof wheelCell): void {
+  // Passive listeners only: these never make the browser wait on the main thread.
+  if (cell && !wheelCell) {
+    window.addEventListener('keydown', trackZoomModifier, { capture: true });
+    window.addEventListener('keyup', trackZoomModifier, { capture: true });
+    window.addEventListener('blur', releaseZoomModifier);
+    document.addEventListener('pointermove', trackZoomModifier, { capture: true, passive: true });
+    document.addEventListener('wheel', trackZoomModifier, { capture: true, passive: true });
+  }
+  if (!cell && wheelCell) {
+    window.removeEventListener('keydown', trackZoomModifier, { capture: true });
+    window.removeEventListener('keyup', trackZoomModifier, { capture: true });
+    window.removeEventListener('blur', releaseZoomModifier);
+    document.removeEventListener('pointermove', trackZoomModifier, { capture: true });
+    document.removeEventListener('wheel', trackZoomModifier, { capture: true });
+    zoomModifierHeld = false;
+  }
   wheelCell = cell;
+  syncWheelClaim();
 }
 
 /** Pointerdown events re-dispatched after a click-without-drag; the pan handler must ignore them. */
@@ -243,6 +284,11 @@ export function useViewportGestures({
     };
 
     let session: PanSession | null = null;
+    // Covers the cell while a pan runs: shows the grabbing cursor and keeps
+    // marks from hovering/tooltipping under the pointer. Not `pointer-events:
+    // none` on the plot: that inherited change restyles and repaints every
+    // mark (~50k dots: ~1s across both ends of a pan), one element costs nothing.
+    let panShield: HTMLDivElement | null = null;
     // Keeps a pan from selecting text. Not `user-select` on <body>: an
     // inherited style change there restyles the whole page (hundreds of ms
     // with a dense chart) at both ends of every pan.
@@ -262,7 +308,8 @@ export function useViewportGestures({
       document.removeEventListener('pointerup', onPointerUp);
       document.removeEventListener('pointercancel', onPointerUp);
       document.removeEventListener('selectstart', preventSelection);
-      delete wrapper.dataset.panning;
+      panShield?.remove();
+      panShield = null;
       session = null;
     };
 
@@ -273,7 +320,9 @@ export function useViewportGestures({
       if (!s.started) {
         if (Math.hypot(e.clientX - s.startX, e.clientY - s.startY) < PAN_THRESHOLD_PX) return;
         s.started = true;
-        wrapper.dataset.panning = 'true';
+        panShield = document.createElement('div');
+        panShield.style.cssText = 'position: absolute; inset: 0; z-index: 1; cursor: grabbing;';
+        wrapper.appendChild(panShield);
         window.getSelection()?.removeAllRanges();
       }
       const patch: ViewportPatch = {};
@@ -360,9 +409,10 @@ export function useViewportGestures({
       ctrl.clear(columns);
     };
 
-    const onPointerEnter = () => {
+    const onPointerEnter = (e?: PointerEvent) => {
       latest.current.controller?.setHoveredCell(target);
       setWheelCell({ wrapper, onWheel });
+      if (e) trackZoomModifier(e);
     };
     const onPointerLeave = () => {
       const ctrl = latest.current.controller;
