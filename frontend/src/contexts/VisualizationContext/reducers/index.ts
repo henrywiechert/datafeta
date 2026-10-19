@@ -1,7 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { VisualizationState, VisualizationAction } from '../types';
 import { axisReducer } from './axisReducer';
-import { loadingReducer } from './loadingReducer';
 import { filterReducer } from './filterReducer';
 import { encodingReducer } from './encodingReducer';
 import { overridesReducer } from './overridesReducer';
@@ -19,7 +18,6 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
   // Try each reducer in order - first one to handle wins
   const reducers = [
     axisReducer,
-    loadingReducer,
     filterReducer,
     encodingReducer,
     overridesReducer,

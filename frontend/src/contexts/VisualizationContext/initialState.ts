@@ -15,13 +15,6 @@ export const initialState: VisualizationState = {
   yAxisFields: [],
   queryResult: null,
   queryError: null,
-  // Loading states
-  isLoadingQuery: false,
-  isLoadingRendering: false,
-  showLoadingModal: false,
-  loadingOperationType: null,
-  loadingStartTime: null,
-  canCancelOperation: false,
   // Filter states
   filterFields: [],
   filterConfigurations: {},
@@ -74,10 +67,6 @@ export const initialState: VisualizationState = {
   },
   // Axis domain sharing defaults
   independentDomains: { x: false, y: false },
-  // Per-operation timing defaults
-  operationStartTimes: { query: null, rendering: null, metadata: null },
-  activeOperations: [],
-  modalPrimaryOperation: null,
   // Per-field overrides default
   fieldOverrides: {},
   // Global chart type default (null = auto-detect)

@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import styles from './ChartArea.module.css';
-import { useVisualizationContext, useChannels } from '../../../contexts/VisualizationContext';
+import { useVisualizationContext, useChannels, useLoadingState, useLoadingStore } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
@@ -87,6 +87,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
   const { activeSheet, updateActiveSheetPanelLayout } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const channels = useChannels();
+  const loadingStore = useLoadingStore();
 
   // -- State destructuring -----------------------------------------------------
   const {
@@ -233,7 +234,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({
       channels,
       showTableRows,
       queryResult,
-      queryVersion,
       startOperation,
       completeOperation,
       showOperationModal,
@@ -343,12 +343,18 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     handleFilterZoomReset();
   }, [viewportController, handleFilterZoomReset]);
 
+  // Read when a batch settles rather than subscribed: a subscription would
+  // re-render ChartArea on every rendering start/complete.
+  const isRenderingActive = useCallback(
+    () => loadingStore.getState().isLoadingRendering,
+    [loadingStore],
+  );
   const { handlePlotRenderComplete } = useRenderingTracking({
     grid,
     showTableRows,
     renderingCoordinator,
     completeOperation,
-    isLoadingRendering: state.isLoadingRendering,
+    isRenderingActive,
   });
 
   // Per-sheet panel layout. ChartArea is remounted on sheet switch (its provider
@@ -470,6 +476,11 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     [setTablePageSize, dispatch],
   );
 
+  // Selected as false outside table mode so loading transitions don't
+  // re-render ChartArea for charts that have no pager.
+  const tablePagerLoading = useLoadingState(
+    (s) => isTableMode && (s.isLoadingQuery || s.isLoadingRendering),
+  );
   const tableRefactorPagerData = useMemo(() => {
     if (!isTableMode) return undefined;
     const pagination = grid?.pagination;
@@ -479,7 +490,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
       totalRowTuples: pagination?.totalRowTuples ?? 0,
       onPageChange: handleTablePageChange,
       onPageSizeChange: handleTablePageSizeChange,
-      loading: state.isLoadingQuery || state.isLoadingRendering,
+      loading: tablePagerLoading,
     };
   }, [
     isTableMode,
@@ -488,8 +499,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     tablePageSize,
     handleTablePageChange,
     handleTablePageSizeChange,
-    state.isLoadingQuery,
-    state.isLoadingRendering,
+    tablePagerLoading,
   ]);
 
   // -- Sheet cache -------------------------------------------------------------

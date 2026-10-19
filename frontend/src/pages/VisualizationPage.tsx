@@ -5,7 +5,7 @@ import { Navigate } from 'react-router-dom';
 import { Panel, Group as PanelGroup } from "react-resizable-panels";
 import type { GroupImperativeHandle, PanelImperativeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
-import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
+import { useVisualizationContext, useLoadingState, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
@@ -124,6 +124,24 @@ function resizeAgainstChart(
 }
 
 // Inner component that uses both sheet and visualization contexts
+// Subscribes to the loading store itself so loading transitions re-render only
+// the modal, not the page.
+const SheetLoadingModal = ({ onCancel }: { onCancel: () => void }) => {
+    const loading = useLoadingState((s) => s);
+    return (
+        <LoadingModal
+            open={loading.showLoadingModal}
+            operationType={loading.loadingOperationType}
+            canCancel={loading.canCancelOperation}
+            startTime={loading.loadingStartTime}
+            onCancel={onCancel}
+            activeOperations={loading.activeOperations}
+            modalPrimaryOperation={loading.modalPrimaryOperation}
+            operationStartTimes={loading.operationStartTimes}
+        />
+    );
+};
+
 const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     const [fieldsSearch, setFieldsSearch] = React.useState('');
     
@@ -242,13 +260,6 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
     const { undo, completeUndo, redo, completeRedo } = useUndoRedo();
     const axisDropFieldIdsRef = React.useRef<string[] | null>(null);
     
-    const { 
-        showLoadingModal, 
-        loadingOperationType, 
-        loadingStartTime, 
-        canCancelOperation,
-    } = state;
-
     // Panel refs for imperative control
     const panelGroupRef = useRef<GroupImperativeHandle>(null);
     const leftPanelRef = useRef<PanelImperativeHandle>(null);
@@ -924,16 +935,7 @@ const VisualizationPageContent = ({ fileMenu }: VisualizationPageProps) => {
             <SelectPartsDialog {...partDialogProps} />
 
             {/* Loading Modal for long-running operations */}
-            <LoadingModal
-                open={showLoadingModal}
-                operationType={loadingOperationType}
-                canCancel={canCancelOperation}
-                startTime={loadingStartTime}
-                onCancel={handleCancelOperation}
-                activeOperations={state.activeOperations}
-                modalPrimaryOperation={state.modalPrimaryOperation}
-                operationStartTimes={state.operationStartTimes}
-            />
+            <SheetLoadingModal onCancel={handleCancelOperation} />
         </Box>
         </FieldAssignProvider>
     );
