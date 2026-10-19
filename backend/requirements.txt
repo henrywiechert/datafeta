@@ -33,7 +33,7 @@ click==8.4.2
     # via
     #   huggingface-hub
     #   uvicorn
-clickhouse-connect==1.10.0
+clickhouse-connect==1.10.1
     # via -r requirements.in
 duckdb==1.5.6
     # via -r requirements.in
