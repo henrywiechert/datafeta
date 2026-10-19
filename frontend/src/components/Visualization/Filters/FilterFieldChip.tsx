@@ -518,6 +518,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           size="small"
           onClick={handleToggleExpand}
           className={styles.expandButton}
+          aria-label={expanded ? 'Collapse filter' : 'Expand filter'}
+          aria-expanded={expanded}
         >
           {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </IconButton>
@@ -540,7 +542,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
         </MenuItem>
       </Menu>
 
-      <Collapse in={expanded}>
+      {/* Unmounted when closed so the discrete list re-pins its selection on reopen */}
+      <Collapse in={expanded} unmountOnExit>
         <Box className={styles.controlContainer}>
           {renderFilterControl()}
         </Box>

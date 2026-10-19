@@ -59,6 +59,7 @@ const renderChip = (metadata: DiscreteFilterMetadata) => {
       onRefetchValues={jest.fn().mockResolvedValue(undefined)}
     />
   );
+  fireEvent.click(screen.getByRole('button', { name: 'Expand filter' }));
   return onConfigChange;
 };
 

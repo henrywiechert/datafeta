@@ -11,12 +11,16 @@ import {
   Switch,
   Tooltip,
 } from '@mui/material';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator, DiscreteValueListMode } from '../../../types';
 import { filterValueKey } from '../../../utils/filterValueKey';
 import styles from './DiscreteFilterControl.module.css';
 import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
 
 const LOADING_OVERLAY_DELAY_MS = 400;
+// About as many rows as fit in the list viewport.
+const PINNED_AUTO_COLLAPSE_COUNT = 8;
 
 interface DiscreteFilterControlProps {
   metadata: DiscreteFilterMetadata;
@@ -111,11 +115,13 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     [selectedValues]
   );
 
+  // Only convert when the number keeps the same key: Number('') and Number(' ') are 0,
+  // and '007' / '1e3' would also change identity, so the value would never match again.
   const normalizeValueForSelection = useCallback((v: any) => {
     if (v === null || v === undefined) return v;
     if (selectionPrefersNumber && typeof v === 'string') {
       const n = Number(v);
-      if (!Number.isNaN(n) && Number.isFinite(n)) return n;
+      if (Number.isFinite(n) && filterValueKey(n) === filterValueKey(v)) return n;
     }
     return v;
   }, [selectionPrefersNumber]);
@@ -150,9 +156,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     return sorted;
   }, []);
 
-  // Partition into selected and unselected values. Selected values stay pinned only
-  // when no local search is active; once the user types a search, both groups should
-  // respect that filter so "all selected" still narrows the rendered list.
+  // Partition into selected and unselected values
   const { pinnedValues, unpinnedValues } = useMemo(() => {
     const selected: any[] = [];
     const unselected: any[] = [];
@@ -191,6 +195,15 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       unpinnedValues: sortValues(filteredUnselected),
     };
   }, [metadata.availableValues, selectedKeysSet, listFilterTerm, useRegex, sortValues]);
+
+  // A large pinned group would push every unselected value below the fold, so it starts
+  // collapsed to a header. Grouping only makes sense when both groups have rows, and a
+  // search result is short enough to always show in full.
+  const showPinnedGroup = pinnedValues.length > 0 && unpinnedValues.length > 0;
+  const [pinnedCollapsedChoice, setPinnedCollapsedChoice] = useState<boolean | null>(null);
+  const pinnedCollapsed = showPinnedGroup
+    && !listFilterTerm.trim()
+    && (pinnedCollapsedChoice ?? pinnedValues.length > PINNED_AUTO_COLLAPSE_COUNT);
 
   // Combined list for master select/deselect (Excel-style header checkbox)
   const allVisibleValues = useMemo(
@@ -250,6 +263,21 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       .map(normalizeValueForSelection);
     onChange([...kept, ...newlySelected]);
   }, [allVisibleValues, selectedValues, selectedKeysSet, onChange, normalizeValueForSelection]);
+
+  // Keyed by value, not index: selecting a value removes it from the main list, and
+  // index keys would remount every row below it.
+  const renderCheckboxItem = (value: any) => {
+    const key = filterValueKey(value);
+    return (
+      <CheckboxItem
+        key={key}
+        value={value}
+        valueStr={value === null || value === undefined ? '(null)' : String(value)}
+        isChecked={selectedKeysSet.has(key)}
+        onToggle={handleToggle}
+      />
+    );
+  };
 
   const updatePatternConfig = useCallback((updates: Partial<{
     matchMode: DiscreteFilterMatchMode;
@@ -538,39 +566,37 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Box>
         <div className={styles.sectionDivider} />
 
-      {/* Checkbox list: selected values pinned on top */}
+      {/* The pinned group and the main list are siblings, not ternary branches: the main
+          list must stay the same DOM element when the first value is selected, or React
+          remounts it and its scroll position resets to the top. */}
+      {showPinnedGroup && (
+        <Box className={styles.pinnedSection}>
+          <button
+            type="button"
+            className={styles.pinnedHeader}
+            aria-expanded={!pinnedCollapsed}
+            disabled={!!listFilterTerm.trim()}
+            onClick={() => setPinnedCollapsedChoice(!pinnedCollapsed)}
+          >
+            {pinnedCollapsed
+              ? <ChevronRightIcon className={styles.pinnedHeaderIcon} />
+              : <ExpandMoreIcon className={styles.pinnedHeaderIcon} />}
+            Selected ({pinnedValues.length})
+          </button>
+          {!pinnedCollapsed && (
+            <Box className={styles.pinnedList}>
+              {pinnedValues.map(renderCheckboxItem)}
+            </Box>
+          )}
+        </Box>
+      )}
+      {showPinnedGroup && <div className={styles.pinnedDivider} />}
       <Box className={styles.checkboxList}>
-        {pinnedValues.map((value, index) => {
-          const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          const isChecked = selectedKeysSet.has(filterValueKey(value));
-          return (
-            <CheckboxItem
-              key={`pinned-${valueStr}-${index}`}
-              value={value}
-              valueStr={valueStr}
-              isChecked={isChecked}
-              onToggle={handleToggle}
-            />
-          );
-        })}
-        {pinnedValues.length > 0 && unpinnedValues.length > 0 && (
-          <div className={styles.pinnedDivider} />
-        )}
-        {unpinnedValues.map((value, index) => {
-          const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          const isChecked = selectedKeysSet.has(filterValueKey(value));
-          return (
-            <CheckboxItem
-              key={`unpinned-${valueStr}-${index}`}
-              value={value}
-              valueStr={valueStr}
-              isChecked={isChecked}
-              onToggle={handleToggle}
-            />
-          );
-        })}
+        {showPinnedGroup
+          ? unpinnedValues.map(renderCheckboxItem)
+          : allVisibleValues.map(renderCheckboxItem)}
       </Box>
-      
+
       {/* Selection summary */}
       <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
         {selectedValues.length} of {metadata.availableValues.length} selected
