@@ -241,7 +241,7 @@
   max-height: 200px;
   overflow-y: auto;
   overflow-x: auto; /* allow horizontal scroll for long items */
-  padding: 0;
+  padding: 4px 0 0 0;
 }
 
 .sectionDivider {
@@ -251,13 +251,63 @@
   flex-shrink: 0;
 }
 
+/* Pinned section with independent scrolling */
+.pinnedSection {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.pinnedList {
+  display: flex;
+  flex-direction: column;
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 4px 0 0 0;
+}
+
 /* Divider between the pinned (selected) and unpinned (unselected) sections.
    Uses a stronger border token so it stays visible in dark mode. */
 .pinnedDivider {
-  height: 1px;
+  height: 2px;
   background: var(--df-border-strong);
-  margin: 3px 8px;
+  margin: 8px 0;
   flex-shrink: 0;
+}
+
+/* Collapsible header of the pinned (selected) section */
+.pinnedHeader {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 !important;
+  height: 18px;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--df-text-label);
+  text-align: left;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pinnedHeader:hover:not(:disabled) {
+  color: var(--df-text-primary);
+  background: transparent !important;
+}
+
+.pinnedHeader:disabled {
+  cursor: default;
+}
+
+.pinnedHeaderIcon {
+  font-size: 14px !important;
 }
 
 .checkboxItem {
