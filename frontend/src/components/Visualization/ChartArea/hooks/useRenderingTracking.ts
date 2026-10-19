@@ -21,7 +21,8 @@ interface UseRenderingTrackingProps {
     markPlotRendered: (plotId: string) => void;
   };
   completeOperation: (op: LoadingOperationType) => void;
-  isLoadingRendering: boolean;
+  /** Whether a rendering operation is in progress, read when the batch settles. */
+  isRenderingActive: () => boolean;
 }
 
 export function useRenderingTracking({
@@ -29,7 +30,7 @@ export function useRenderingTracking({
   showTableRows = false,
   renderingCoordinator,
   completeOperation,
-  isLoadingRendering,
+  isRenderingActive,
 }: UseRenderingTrackingProps) {
   useLayoutEffect(() => {
     if (showTableRows) {
@@ -55,20 +56,20 @@ export function useRenderingTracking({
       }
 
       renderingCoordinator.startRenderingBatch(renderableIds, () => {
-        if (isLoadingRendering) {
+        if (isRenderingActive()) {
           if (process.env.NODE_ENV === 'development') {
             devLog('[ChartArea] All cells rendered, completing rendering operation');
           }
           completeOperation('rendering');
         }
       });
-    } else if (grid !== null && isLoadingRendering) {
+    } else if (grid !== null && isRenderingActive()) {
       if (process.env.NODE_ENV === 'development') {
         devLog('[ChartArea] Grid has no renderable cells, completing rendering immediately');
       }
       completeOperation('rendering');
     }
-  }, [grid, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
+  }, [grid, showTableRows, renderingCoordinator, completeOperation, isRenderingActive]);
 
   const handlePlotRenderComplete = useCallback(
     (plotId: string) => {

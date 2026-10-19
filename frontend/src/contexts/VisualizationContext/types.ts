@@ -99,13 +99,6 @@ export interface VisualizationState {
   yAxisFields: Field[];
   queryResult: QueryResult | null;
   queryError: string | null;
-  // Loading states
-  isLoadingQuery: boolean;
-  isLoadingRendering: boolean;
-  showLoadingModal: boolean;
-  loadingOperationType: LoadingOperationType | null;
-  loadingStartTime: number | null;
-  canCancelOperation: boolean;
   // Filter states
   filterFields: Field[];
   filterConfigurations: Record<string, FilterConfig>;
@@ -147,10 +140,6 @@ export interface VisualizationState {
   optimizationSettings: QueryOptimizationSettings;
   // Axis domain sharing controls
   independentDomains: { x: boolean; y: boolean };
-  // Per-operation timing
-  operationStartTimes: Record<LoadingOperationType, number | null>;
-  activeOperations: LoadingOperationType[];
-  modalPrimaryOperation: LoadingOperationType | null;
   // Per-field chart overrides
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
@@ -239,20 +228,7 @@ export type VisualizationAction =
   | { type: 'RESET_STATE' }
   // Reset query state only (used on connection change without clearing visualization config)
   | { type: 'RESET_QUERY_STATE' }
-  // Loading actions
-  | { type: 'SET_LOADING_QUERY'; payload: boolean }
-  | { type: 'SET_LOADING_RENDERING'; payload: boolean }
-  | { type: 'SET_LOADING_MODAL'; payload: { show: boolean; operationType?: LoadingOperationType; canCancel?: boolean } }
-  | { type: 'SET_LOADING_START_TIME'; payload: number | null }
-  | { type: 'CANCEL_OPERATION' }
-  | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType }
-  | { type: 'RESET_LOADING_STATES' }
-  | { type: 'SET_OPERATION_START_TIME'; payload: { op: LoadingOperationType; time: number } }
-  | { type: 'ADD_ACTIVE_OPERATION'; payload: LoadingOperationType }
-  | { type: 'REMOVE_ACTIVE_OPERATION'; payload: LoadingOperationType }
-  | { type: 'SET_MODAL_PRIMARY_OPERATION'; payload: LoadingOperationType | null }
-  | { type: 'ENSURE_PRIMARY_OPERATION'; payload: LoadingOperationType }
-  | { type: 'REQUEST_SHOW_MODAL'; payload: { operationType: LoadingOperationType; canCancel: boolean } }
+  // Loading actions live in loadingStore (see LoadingAction)
   // Filter actions
   | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }

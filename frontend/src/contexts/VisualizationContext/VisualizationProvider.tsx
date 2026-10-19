@@ -1,11 +1,13 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { createContext, useReducer, ReactNode, useRef, useCallback, useMemo } from 'react';
+import React, { createContext, useReducer, ReactNode, useRef, useCallback, useMemo, useState } from 'react';
 import { Field, FilterConfig, VisualizationStateSnapshot } from '../../types';
 import { getTimeoutForOperation } from '../../config/loadingConfig';
 import { VisualizationState, VisualizationAction, LoadingOperationType, ChartTypeParams } from './types';
 import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
 import { PERSISTED_STATE_KEYS } from './persistedKeys';
+import { createLoadingStore, dispatchLoading, LoadingStoreContext } from './loadingStore';
+import type { LoadingAction } from './reducers/loadingReducer';
 import { DistributionVariant, LineVariant } from '../../types';
 import { createMeasureGroup, migrateLegacyMeasureGroup } from '../../utils/syntheticFields';
 import { resetBus } from '../../services/resetBus';
@@ -162,6 +164,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   }, [initialStateProp]);
 
   const [state, dispatch] = useReducer(visualizationReducer, mergedInitialState);
+  // Loading state lives outside `state` so its transitions don't re-render
+  // every context consumer (see loadingStore).
+  const [loadingStore] = useState(createLoadingStore);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
 
   // Start an operation with timeout handling
@@ -172,22 +177,25 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     }
 
     const now = Date.now();
-    dispatch({ type: 'SET_LOADING_START_TIME', payload: now });
-    dispatch({ type: 'SET_OPERATION_START_TIME', payload: { op: operationType, time: now } });
-    dispatch({ type: 'ADD_ACTIVE_OPERATION', payload: operationType });
+    const actions: LoadingAction[] = [
+      { type: 'SET_LOADING_START_TIME', payload: now },
+      { type: 'SET_OPERATION_START_TIME', payload: { op: operationType, time: now } },
+      { type: 'ADD_ACTIVE_OPERATION', payload: operationType },
+    ];
     
     switch (operationType) {
       case 'query':
-        dispatch({ type: 'SET_LOADING_QUERY', payload: true });
+        actions.push({ type: 'SET_LOADING_QUERY', payload: true });
         break;
       case 'rendering':
-        dispatch({ type: 'SET_LOADING_RENDERING', payload: true });
+        actions.push({ type: 'SET_LOADING_RENDERING', payload: true });
         break;
       case 'metadata':
         // Note: Metadata loading state is now managed by DataSourceContext
         // The 'metadata' operation type is kept for modal/timeout handling
         break;
     }
+    dispatchLoading(loadingStore, ...actions);
 
     // Set timeout to show modal
     const timeoutMs = getTimeoutForOperation(operationType);
@@ -200,10 +208,13 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       if (process.env.NODE_ENV === 'development') {
         console.log(`[VisualizationContext] Modal timeout fired for ${operationType} after ${timeoutMs}ms`);
       }
-      dispatch({ type: 'ENSURE_PRIMARY_OPERATION', payload: operationType });
-      dispatch({ type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } });
+      dispatchLoading(
+        loadingStore,
+        { type: 'ENSURE_PRIMARY_OPERATION', payload: operationType },
+        { type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } },
+      );
     }, timeoutMs);
-  }, []);
+  }, [loadingStore]);
 
   // Show a started operation's modal now instead of after its timeout. The
   // timeout can't fire while synchronous work blocks the main thread, so a
@@ -213,9 +224,12 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       clearTimeout(timeoutRefs.current[operationType]!);
       timeoutRefs.current[operationType] = null;
     }
-    dispatch({ type: 'ENSURE_PRIMARY_OPERATION', payload: operationType });
-    dispatch({ type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } });
-  }, []);
+    dispatchLoading(
+      loadingStore,
+      { type: 'ENSURE_PRIMARY_OPERATION', payload: operationType },
+      { type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } },
+    );
+  }, [loadingStore]);
 
   // Complete an operation
   const completeOperation = useCallback((operationType: LoadingOperationType) => {
@@ -232,9 +246,12 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       }
     }
 
-    dispatch({ type: 'REMOVE_ACTIVE_OPERATION', payload: operationType });
-    dispatch({ type: 'COMPLETE_SPECIFIC_OPERATION', payload: operationType });
-  }, []);
+    dispatchLoading(
+      loadingStore,
+      { type: 'REMOVE_ACTIVE_OPERATION', payload: operationType },
+      { type: 'COMPLETE_SPECIFIC_OPERATION', payload: operationType },
+    );
+  }, [loadingStore]);
 
   // Cancel an operation
   const cancelOperation = useCallback(() => {
@@ -246,8 +263,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     });
     timeoutRefs.current = {};
 
-    dispatch({ type: 'CANCEL_OPERATION' });
-  }, []);
+    dispatchLoading(loadingStore, { type: 'CANCEL_OPERATION' });
+  }, [loadingStore]);
 
   // Cleanup timeouts on unmount
   React.useEffect(() => {
@@ -295,7 +312,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       timeoutRefs,
       getUndoableSnapshot
     }), [state, startOperation, completeOperation, showOperationModal, cancelOperation, getUndoableSnapshot])}>
-      {children}
+      <LoadingStoreContext.Provider value={loadingStore}>
+        {children}
+      </LoadingStoreContext.Provider>
     </VisualizationContext.Provider>
   );
 }

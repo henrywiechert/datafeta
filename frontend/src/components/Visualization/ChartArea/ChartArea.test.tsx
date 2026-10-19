@@ -45,6 +45,8 @@ jest.mock('../../../contexts/AppConfigContext', () => ({
 jest.mock('../../../contexts/VisualizationContext', () => ({
   useVisualizationContext: jest.fn(),
   useChannels: jest.fn(),
+  useLoadingStore: () => ({ getState: () => ({ isLoadingRendering: false }) }),
+  useLoadingState: () => false,
 }));
 
 jest.mock('../../../contexts/DataSourceContext', () => ({

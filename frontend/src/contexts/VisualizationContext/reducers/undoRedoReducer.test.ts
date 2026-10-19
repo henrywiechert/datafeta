@@ -101,16 +101,10 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
   });
 
   it('does not touch ephemeral (non-persisted) state', () => {
-    const ephemeralBefore = {
-      isLoadingQuery: true,
-      queryError: 'boom',
-      operationStartTimes: { query: 1234, rendering: null, metadata: null },
-      activeOperations: ['query'] as const,
-    };
     const base: VisualizationState = {
       ...initialState,
-      ...ephemeralBefore,
-      activeOperations: [...ephemeralBefore.activeOperations],
+      queryError: 'boom',
+      queryResult: { columns: [], rows: [], row_count: 0 } as any,
     };
 
     const restored = undoRedoReducer(base, {
@@ -119,10 +113,8 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
     });
 
     expect(restored).not.toBeNull();
-    expect(restored!.isLoadingQuery).toBe(true);
     expect(restored!.queryError).toBe('boom');
-    expect(restored!.operationStartTimes.query).toBe(1234);
-    expect(restored!.activeOperations).toEqual(['query']);
+    expect(restored!.queryResult).toBe(base.queryResult);
   });
 
   it('returns null for unrelated actions (so the reducer pipeline can chain)', () => {

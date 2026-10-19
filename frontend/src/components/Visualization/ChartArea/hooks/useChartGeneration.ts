@@ -41,7 +41,6 @@ interface UseChartGenerationProps {
   channels: Channels;
   showTableRows?: boolean;
   queryResult: any; // Add queryResult here
-  queryVersion?: number; // Add queryVersion to detect union/join changes
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   showOperationModal: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -87,7 +86,6 @@ export const useChartGeneration = ({
   channels,
   showTableRows = false,
   queryResult, // Destructure here
-  queryVersion, // Destructure queryVersion
   startOperation,
   completeOperation,
   showOperationModal,
@@ -235,8 +233,10 @@ export const useChartGeneration = ({
     // The user chose not to proceed
   }, []);
 
+  // New data arrives as a new queryResult. queryVersion is deliberately not a
+  // dependency: a refresh bumps it before the query runs, so regenerating on it
+  // redrew the stale result once more (~1s of main thread on large scatters).
   const generateChartSpec = useCallback(async () => {
-    void queryVersion; // Ensure chart regeneration tracks query version changes.
     const startTime = Date.now();
 
     // Prefer the canonical planner axes when available so query and render
@@ -396,7 +396,6 @@ export const useChartGeneration = ({
     startOperation,
     completeOperation,
     queryResult,
-    queryVersion,
     fieldOverrides,
     globalChartType,
     lineVariant,
