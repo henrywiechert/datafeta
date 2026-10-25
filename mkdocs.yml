@@ -43,3 +43,4 @@ nav:
   - Reference:
     - Keyboard Shortcuts: reference/keyboard-shortcuts.md
     - Data Sources: reference/data-sources.md
+    - Deployment: reference/deployment.md

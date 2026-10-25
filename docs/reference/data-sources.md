@@ -169,9 +169,30 @@ Large Parquet datasets work best when partitioned by a common dimension (e.g. da
 
 | Option | Notes |
 |---|---|
-| Dataset identifier | Format: `owner/dataset-name` (from the Kaggle URL) |
-| API key | Must be configured on the server by an administrator |
+| Kaggle username | Your Kaggle account username |
+| API key | Generate one at [kaggle.com/settings](https://www.kaggle.com/settings) under "API" |
+| Dataset identifier | Format: `owner/dataset-name` (from the Kaggle URL), e.g. `zillow/zecon` |
 
-The dataset is downloaded and cached on the server the first time it is accessed. Subsequent connections are fast.
+Credentials are entered in the connection form, used only for that session, and never persisted or exported. No server-side configuration is required (uses the [Kaggle Public API](https://www.kaggle.com/docs/api)).
+
+CSV and Parquet files in the dataset are downloaded to a session-scoped temporary directory on the server, queried via DuckDB, and removed on disconnect.
 
 **CSV parsing:** Kaggle datasets are read as CSV via DuckDB. Use **Advanced CSV Options** on the connection form (delimiter, decimal separator, date/timestamp formats, type inference sample size). These settings apply **connection-wide** to every CSV file in the dataset—the same options as [CSV Files](#csv-files) above. If a single file in a dataset uses a different date format, adjust that file outside DataSlicer or use a different dataset connection.
+
+---
+
+## HuggingFace
+
+| Option | Notes |
+|---|---|
+| Dataset | Dataset ID, e.g. `stanfordnlp/imdb`. Search by keyword in the form or type it manually |
+| Splits | Optional: select specific config/split combinations to load (defaults to all available) |
+| Access token | Optional: a HuggingFace [User Access Token](https://huggingface.co/settings/tokens) with at least `read` scope. Required for gated or private datasets |
+
+Datasets are queried directly as remote Parquet shards served by the [Hugging Face Dataset Viewer](https://huggingface.co/docs/dataset-viewer/en/parquet). DuckDB's `httpfs` extension streams them on demand, so no full download is required. Each selected split becomes a queryable table in the workspace.
+
+Splits whose Parquet files exceed the size limit are shown with a warning and cannot be selected. The limit is configurable on the server:
+
+| Variable | Default | Description |
+|---|---|---|
+| `HF_MAX_SPLIT_BYTES_MB` | `500` | Maximum allowed Parquet size (in MB) per split |
