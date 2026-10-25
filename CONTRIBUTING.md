@@ -15,6 +15,41 @@ Thanks for contributing to this project.
 - Do not mix unrelated refactors with feature or bug-fix changes.
 - Keep public API changes explicit in the PR description.
 
+## Development setup
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm start          # dev server on http://localhost:3000
+```
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Or, from the repository root:
+
+```bash
+python -m pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
+### Tests
+
+Run all backend and frontend tests from the repository root:
+
+```bash
+make test
+```
+
+Architecture notes live in [`backend/README.md`](backend/README.md) and [`frontend/README.md`](frontend/README.md); see also [`frontend/ARROW.md`](frontend/ARROW.md) and [`frontend/DUCKDB_WASM.md`](frontend/DUCKDB_WASM.md). Packaging the desktop app is described in [`desktop/README.md`](desktop/README.md).
+
 ## Development standards
 
 ### Backend
