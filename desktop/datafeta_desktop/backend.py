@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Run the FastAPI backend in-process on a loopback port (replaces the Electron sidecar process)."""
+"""Run the FastAPI backend in-process on a loopback port."""
 from __future__ import annotations
 
 import logging
@@ -13,7 +13,7 @@ from PySide6.QtCore import QObject, Signal
 
 from . import paths
 
-log = logging.getLogger("datafeta_qt.backend")
+log = logging.getLogger("datafeta_desktop.backend")
 
 
 def find_free_port() -> int:
@@ -23,20 +23,36 @@ def find_free_port() -> int:
 
 
 def prepare_environment(port: int) -> None:
-    """Set the same env the Electron shell passes to the sidecar, then reuse its env prep."""
+    """Point the backend at this shell's data dirs and bundled frontend/docs assets."""
     os.environ["DATAFETA_HOST"] = "127.0.0.1"
     os.environ["DATAFETA_PORT"] = str(port)
     os.environ["DATAFETA_DATA_DIR"] = str(paths.data_dir())
     os.environ.setdefault("LOG_LEVEL", "info")
 
-    if not paths.is_frozen():
-        for extra in (paths.repo_root(), paths.repo_root() / "desktop" / "sidecar"):
-            if str(extra) not in sys.path:
-                sys.path.insert(0, str(extra))
+    if not paths.is_frozen() and str(paths.repo_root()) not in sys.path:
+        sys.path.insert(0, str(paths.repo_root()))
 
-    from entrypoint import _prepare_env  # desktop/sidecar/entrypoint.py
+    data_path = paths.data_dir()
+    for sub in ("snapshots", "uploads", "logs"):
+        (data_path / sub).mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("SNAPSHOT_STORAGE_DIR", str(data_path / "snapshots"))
+    os.environ.setdefault("UPLOAD_ROOT_DIR", str(data_path / "uploads"))
+    os.environ.setdefault("LOG_FILE", str(data_path / "logs" / "backend.log"))
 
-    _prepare_env()
+    bundle = paths.bundle_dir()
+    static_dir = bundle / "backend" / "static"
+    if static_dir.is_dir():
+        os.environ.setdefault("FRONTEND_STATIC_DIR", str(static_dir))
+    docs_dir = bundle / "site"
+    if docs_dir.is_dir():
+        os.environ.setdefault("DOCS_STATIC_DIR", str(docs_dir))
+
+    # The UI is served from the backend's own origin, so CORS is unused; keep a loopback
+    # allowlist for safety.
+    if not os.environ.get("CORS_ALLOW_ORIGINS"):
+        os.environ["CORS_ALLOW_ORIGINS"] = (
+            f"http://127.0.0.1:{port},http://localhost:{port}"
+        )
 
 
 def load_backend_app():

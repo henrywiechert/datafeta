@@ -1,12 +1,12 @@
-; Inno Setup script for the Qt desktop shell. Built by desktop/qt/scripts/package.py:
+; Inno Setup script for the desktop app. Built by desktop/scripts/package.py:
 ;   ISCC /DAppVersion=x.y.z /DSourceDir=... /DOutputDir=... /DOutputBaseFilename=... windows.iss
-; Per-user install without UAC, like the Electron NSIS config (oneClick, perMachine: false).
+; Per-user install without UAC.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
-#define AppName "Data Slicer Qt"
-#define AppExe "Data Slicer Qt.exe"
+#define AppName "Data Slicer"
+#define AppExe "Data Slicer.exe"
 
 [Setup]
 AppId={{6C1E3E0B-9B7E-4C8C-9F0B-3D5A8E2C7A41}

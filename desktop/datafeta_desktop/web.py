@@ -23,12 +23,12 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBo
 
 from . import paths
 
-log = logging.getLogger("datafeta_qt.web")
+log = logging.getLogger("datafeta_desktop.web")
 
-# The SPA registers beforeunload (a "Leave site?" guard, plus state flushes). Electron's
-# shell cancels the prompt via will-prevent-unload so close/reload always proceed. Qt has
-# no such hook, so wrap beforeunload listeners: they still run (flushes happen) but cannot
-# call preventDefault() / set returnValue. window.confirm() stays untouched.
+# The SPA registers beforeunload (a "Leave site?" guard, plus state flushes). Close/reload
+# must always proceed, and Qt has no hook to cancel the prompt, so wrap beforeunload
+# listeners: they still run (flushes happen) but cannot call preventDefault() / set
+# returnValue. window.confirm() stays untouched.
 BEFOREUNLOAD_SHIM = r"""
 (() => {
   const wrapped = new WeakMap();
@@ -87,7 +87,7 @@ def create_profile(parent) -> QWebEngineProfile:
 
 
 def _on_download_requested(download: QWebEngineDownloadRequest) -> None:
-    """Electron's default: ask where to save. Qt cancels downloads nobody accepts."""
+    """Ask where to save; Qt cancels downloads nobody accepts."""
     downloads = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
     suggested = str(Path(downloads or Path.home()) / download.suggestedFileName())
     target, _ = QFileDialog.getSaveFileName(QApplication.activeWindow(), "Save File", suggested)
@@ -154,7 +154,7 @@ class WebPage(QWebEnginePage):
         return _PopupCatcher(self.profile(), self.route_url, self)
 
     def _on_permission(self, permission: QWebEnginePermission) -> None:
-        # Electron grants permission requests by default; keep that for our own origin only.
+        # Grant permission requests (clipboard, ...) for our own origin only.
         if self.is_app_url(permission.origin()):
             permission.grant()
         else:
@@ -212,7 +212,7 @@ class BrowserWindow(QMainWindow):
     def page(self) -> WebPage:
         return self.view.page()  # type: ignore[return-value]
 
-    # --- closing: run the page's beforeunload handlers first (state flush), like Electron ---
+    # --- closing: run the page's beforeunload handlers first (state flush) ---
     def closeEvent(self, event) -> None:  # noqa: N802
         if self._close_ready:
             if self._devtools is not None:

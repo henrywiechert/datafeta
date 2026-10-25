@@ -35,17 +35,12 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
-!desktop/sidecar/*.spec
-!desktop/qt/*.spec
+!desktop/*.spec
 
 # Desktop packaging artifacts
-desktop/node_modules/
 desktop/dist/
-desktop/dist-sidecar/
-desktop/build-sidecar/
-desktop/qt/dist/
-desktop/qt/dist-pyinstaller/
-desktop/qt/build-pyinstaller/
+desktop/dist-pyinstaller/
+desktop/build-pyinstaller/
 backend/static/
 
 # Installer logs

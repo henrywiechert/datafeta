@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Application menu mirroring the Electron shell (app/File/Edit/View/Window/Help)."""
+"""Application menu (app/File/Edit/View/Window/Help)."""
 from __future__ import annotations
 
 import sys
@@ -121,7 +121,7 @@ def _show_about(window) -> None:
     QMessageBox.about(
         window,
         f"About {paths.APP_NAME}",
-        f"<b>{paths.APP_NAME}</b><br>Version {paths.app_version()} (Qt shell)<br><br>"
+        f"<b>{paths.APP_NAME}</b><br>Version {paths.app_version()}<br><br>"
         "Copyright © 2024-2026 Henry Wiechert (datafeta.io)",
     )
 

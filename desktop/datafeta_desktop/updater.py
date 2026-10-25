@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Auto-update, modelled on the Electron shell's electron-updater setup.
+"""Auto-update from a simple static feed.
 
-Feed layout (same idea as electron-builder's latest-*.yml):
+Feed layout:
   <feed>/latest-qt-<os>-<arch>.json  {"version", "path", "sha256", "size", "releaseDate"}
   <feed>/<path>                      installer / archive for that platform
 
@@ -29,7 +29,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import paths
 
-log = logging.getLogger("datafeta_qt.updater")
+log = logging.getLogger("datafeta_desktop.updater")
 
 GITHUB_OWNER = "henrywiechert"
 GITHUB_REPO = "data-slicer"
@@ -313,7 +313,7 @@ class Updater(QObject):
                 QApplication.quit()
 
     def install_pending_on_quit(self) -> None:
-        """electron-updater's autoInstallOnAppQuit: apply a downloaded update on exit."""
+        """Apply a downloaded update on exit."""
         if self._pending is not None:
             self._start_install(relaunch=False)
 

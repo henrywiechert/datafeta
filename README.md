@@ -27,7 +27,7 @@ Just want a look? A **stripped-down demo** (restricted features) is online at [a
 Data Slicer is available in two ways:
 
 1. **Web app** — React frontend + FastAPI backend, deployed with Docker. Good for shared / remote data, large datasets and team deployments.
-2. **Desktop app** — standalone Electron app (Windows / macOS / Linux) with a bundled local backend. No server setup; data stays on your machine. See [`desktop/README.md`](./desktop/README.md). Trade-off: it is single-user and large datasets are processed on your own PC.
+2. **Desktop app** — standalone Qt app (Windows / macOS / Linux) with a bundled local backend. No server setup; data stays on your machine. See [`desktop/README.md`](./desktop/README.md). Trade-off: it is single-user and large datasets are processed on your own PC.
 
 ## Key features
 
