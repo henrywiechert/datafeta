@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Single-instance lock (Electron's requestSingleInstanceLock + "second-instance")."""
+"""Single-instance lock: a second launch focuses the running window."""
 from __future__ import annotations
 
 import getpass

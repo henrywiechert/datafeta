@@ -150,7 +150,7 @@ def startup_event():
         logger.exception("Failed to initialize snapshot storage directory")
         # Non-fatal: continue startup even if snapshots aren't available
 
-# FRONTEND_STATIC_DIR / DOCS_STATIC_DIR let the desktop sidecar point at bundled assets.
+# FRONTEND_STATIC_DIR / DOCS_STATIC_DIR let the desktop app point at bundled assets.
 FRONTEND_BUILD_DIR = os.path.abspath(
     os.environ.get("FRONTEND_STATIC_DIR")
     or os.path.join(os.path.dirname(__file__), "static")

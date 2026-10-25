@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build the Qt desktop shell: frontend -> PyInstaller bundle -> OS artifacts + update metadata.
+# Build the desktop app: frontend -> PyInstaller bundle -> OS artifacts + update metadata.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
-QT_DIR="$ROOT_DIR/desktop/qt"
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+DESKTOP_DIR="$ROOT_DIR/desktop"
 
 PYTHON="${DATAFETA_PYTHON:-}"
 if [[ -z "$PYTHON" ]]; then
@@ -31,22 +31,22 @@ echo "==> Generating backend version.json"
 "$PYTHON" "$ROOT_DIR/backend/scripts/generate_version.py"
 
 echo "==> Ensuring PySide6 + PyInstaller are installed"
-"$PYTHON" -m pip install -q -r "$QT_DIR/requirements.txt"
+"$PYTHON" -m pip install -q -r "$DESKTOP_DIR/requirements.txt"
 
-# kaggle authenticates on import; see desktop/scripts/build-sidecar.sh.
+# kaggle authenticates on import, so give PyInstaller dummy credentials for its analysis pass.
 export KAGGLE_USERNAME="${KAGGLE_USERNAME:-pyinstaller-ci}"
 export KAGGLE_KEY="${KAGGLE_KEY:-0123456789abcdef0123456789abcdef}"
 
-echo "==> Building Qt shell with PyInstaller"
-rm -rf "$QT_DIR/dist-pyinstaller" "$QT_DIR/build-pyinstaller"
+echo "==> Building desktop app with PyInstaller"
+rm -rf "$DESKTOP_DIR/dist-pyinstaller" "$DESKTOP_DIR/build-pyinstaller"
 "$PYTHON" -m PyInstaller \
   --noconfirm \
   --clean \
-  --distpath "$QT_DIR/dist-pyinstaller" \
-  --workpath "$QT_DIR/build-pyinstaller" \
-  "$QT_DIR/data-slicer-qt.spec"
+  --distpath "$DESKTOP_DIR/dist-pyinstaller" \
+  --workpath "$DESKTOP_DIR/build-pyinstaller" \
+  "$DESKTOP_DIR/data-slicer.spec"
 
 echo "==> Packaging artifacts"
-"$PYTHON" "$QT_DIR/scripts/package.py"
+"$PYTHON" "$DESKTOP_DIR/scripts/package.py"
 
-echo "==> Done. Artifacts under $QT_DIR/dist"
+echo "==> Done. Artifacts under $DESKTOP_DIR/dist"

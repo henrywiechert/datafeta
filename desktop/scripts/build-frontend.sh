@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the React frontend and copy it into backend/static for the sidecar.
+# Build the React frontend and copy it into backend/static for the desktop app.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"

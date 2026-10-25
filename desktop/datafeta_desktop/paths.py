@@ -8,10 +8,9 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Data Slicer"
-# Distinct from the Electron build so both shells can be installed side by side.
-PRODUCT_NAME = "Data Slicer Qt"
-APP_ID = "io.datafeta.dataslicer.qt"
-# Same folder as Electron's userData, so both shells share uploads/snapshots/logs.
+PRODUCT_NAME = "Data Slicer"
+APP_ID = "io.datafeta.dataslicer"
+# Kept from the former Electron shell so existing uploads/snapshots/logs carry over.
 DATA_FOLDER = "datafeta-desktop"
 
 
@@ -20,8 +19,8 @@ def is_frozen() -> bool:
 
 
 def repo_root() -> Path:
-    # desktop/qt/datafeta_qt/paths.py -> repo root
-    return Path(__file__).resolve().parents[3]
+    # desktop/datafeta_desktop/paths.py -> repo root
+    return Path(__file__).resolve().parents[2]
 
 
 def bundle_dir() -> Path:
@@ -35,7 +34,7 @@ def bundle_dir() -> Path:
 
 
 def user_data_dir() -> Path:
-    """Equivalent of Electron's app.getPath("userData")."""
+    """Per-user application data folder."""
     if sys.platform == "darwin":
         base = Path.home() / "Library" / "Application Support"
     elif sys.platform == "win32":
@@ -51,7 +50,7 @@ def data_dir() -> Path:
 
 
 def web_profile_dir() -> Path:
-    """QtWebEngine storage (localStorage, cache). Separate from Electron's Chromium profile."""
+    """QtWebEngine storage (localStorage, cache)."""
     return user_data_dir() / "qt-webengine"
 
 
@@ -65,7 +64,7 @@ def icon_path() -> Path | None:
 
 
 def app_version() -> str:
-    """Version shared with the Electron build (desktop/package.json)."""
+    """Desktop app version (desktop/package.json)."""
     try:
         pkg = json.loads((bundle_dir() / "desktop" / "package.json").read_text(encoding="utf-8"))
         return str(pkg.get("version") or "0.0.0")

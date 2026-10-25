@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-"""Qt shell entry: single instance, in-process backend, main window, menu, updater."""
+"""Desktop app entry: single instance, in-process backend, main window, menu, updater."""
 from __future__ import annotations
 
 import faulthandler
@@ -21,7 +21,7 @@ from .single_instance import SingleInstance
 from .updater import Updater
 from .web import BrowserWindow, WebPage, create_profile
 
-log = logging.getLogger("datafeta_qt")
+log = logging.getLogger("datafeta_desktop")
 
 STARTUP_TIMEOUT_S = 90
 HEALTH_POLL_MS = 250
@@ -43,7 +43,7 @@ def _setup_logging() -> None:
     # Configure only the shell's logger: root stays unconfigured so backend.main's
     # logging.basicConfig still installs its backend.log handler.
     formatter = logging.Formatter("%(asctime)s [desktop] %(levelname)s %(name)s: %(message)s")
-    shell_log = logging.getLogger("datafeta_qt")
+    shell_log = logging.getLogger("datafeta_desktop")
     shell_log.setLevel(logging.INFO)
     shell_log.propagate = False
     streams = [log_file] if sys.stderr is log_file else [log_file, sys.stderr]

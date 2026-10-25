@@ -1,11 +1,11 @@
-# Build Data Slicer desktop installers for macOS, Windows, and Linux.
+# Build the Qt (PySide6) desktop app for macOS, Windows, and Linux.
 #
 # - workflow_dispatch: build all platforms; optionally publish to GitHub Releases
 # - push tags desktop-v*: build + publish (version taken from the tag)
 #
-# Artifacts are always uploaded on the workflow run. Publishing requires
-# contents:write (GITHUB_TOKEN) and uploads updater metadata (latest-*.yml)
-# for electron-updater.
+# Publishing uploads artifacts + latest-qt-*.json to the GitHub Release v<version>
+# (created if missing), which the app's updater reads. Without a tag, <version> is
+# the one in desktop/package.json.
 
 name: Desktop build
 
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish artifacts to a GitHub Release (uses desktop/package.json version)"
+        description: "Upload artifacts to GitHub Release v<desktop/package.json version>"
         type: boolean
         default: false
   push:
@@ -31,49 +31,39 @@ jobs:
   prepare-release:
     name: Prepare release
     runs-on: ubuntu-latest
-
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      publish: ${{ steps.release.outputs.publish }}
     steps:
       - name: Checkout
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         uses: actions/checkout@v6
 
-      - name: Determine release metadata
+      - name: Ensure GitHub release exists
         id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           if [[ "${GITHUB_REF_NAME}" == desktop-v* ]]; then
             VERSION="${GITHUB_REF_NAME#desktop-v}"
             PUBLISH=true
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.publish }}" == "true" ]]; then
-            VERSION="$(python -c 'import json, pathlib; print(json.loads(pathlib.Path("desktop/package.json").read_text())["version"])')"
-            PUBLISH=true
           else
-            VERSION=""
-            PUBLISH=false
+            VERSION="$(python -c 'import json, pathlib; print(json.loads(pathlib.Path("desktop/package.json").read_text())["version"])')"
+            PUBLISH="${{ inputs.publish }}"
           fi
-
+          TAG="v${VERSION}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "release_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure GitHub release exists
-        if: steps.release.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          TAG="${{ steps.release.outputs.release_tag }}"
-          VERSION="${{ steps.release.outputs.version }}"
-
+          if [[ "${PUBLISH}" != "true" ]]; then
+            exit 0
+          fi
           if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             echo "Release ${TAG} already exists"
           else
-            gh release create "$TAG" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --target "${GITHUB_SHA}" \
-              --title "${VERSION}" \
-              --notes ""
+            gh release create "$TAG" --repo "${GITHUB_REPOSITORY}" --target "${GITHUB_SHA}" \
+              --title "${VERSION}" --notes ""
           fi
+
   build:
     name: Build (${{ matrix.os }})
     needs: prepare-release
@@ -85,12 +75,8 @@ jobs:
         include:
           - os: macos-14
           - os: windows-latest
-          - os: ubuntu-latest
-
-    env:
-      # macOS uses ad-hoc signing (mac.identity "-" in package.json) so downloaded
-      # arm64 builds aren't flagged as "damaged". No Developer ID cert is configured.
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Oldest supported runner: the AppImage needs a glibc at least as new as the build host's.
+          - os: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -103,9 +89,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            desktop/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -114,7 +98,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             backend/requirements.txt
-            desktop/requirements-build.txt
+            desktop/requirements.txt
 
       - name: Sync desktop version from tag
         if: startsWith(github.ref, 'refs/tags/desktop-v')
@@ -124,15 +108,22 @@ jobs:
           echo "Setting desktop version to ${VER} from tag"
           (cd desktop && npm version "$VER" --no-git-tag-version --allow-same-version)
 
-      - name: Install Linux packaging dependencies
+      - name: Install Linux Qt runtime libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            fakeroot \
-            rpm \
-            dpkg \
-            libfuse2t64 || sudo apt-get install -y fakeroot rpm dpkg libfuse2
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-keysyms1 libxcb-shape0 libnss3 libxcomposite1 libxdamage1 libxrandr2 \
+            libxtst6 libxkbfile1 libasound2 libfontconfig1 libdbus-1-3
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
 
       - name: Install Python dependencies
         shell: bash
@@ -142,42 +133,29 @@ jobs:
           # On Linux/macOS, uvicorn[standard] still pulls uvloop via its own platform markers.
           grep -v '^uvloop==' backend/requirements.txt > "${RUNNER_TEMP}/requirements-desktop.txt"
           python -m pip install -r "${RUNNER_TEMP}/requirements-desktop.txt"
-          python -m pip install -r desktop/requirements-build.txt
+          python -m pip install -r desktop/requirements.txt
 
       - name: Build frontend → backend/static
         shell: bash
         run: bash desktop/scripts/build-frontend.sh
 
-      - name: Build PyInstaller sidecar
+      - name: Build and package desktop app
         shell: bash
         env:
           DATAFETA_PYTHON: python
-        run: bash desktop/scripts/build-sidecar.sh
-
-      - name: Install desktop npm dependencies
-        working-directory: desktop
-        run: npm ci --no-audit --no-fund
-
-      - name: Package Electron app
-        if: ${{ !(startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
-        working-directory: desktop
-        run: npm run dist
-
-      - name: Package and publish Electron app
-        if: ${{ startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
-        working-directory: desktop
-        run: npm run dist:publish
+          SKIP_FRONTEND: "1"
+        run: bash desktop/scripts/build.sh
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
           if-no-files-found: error
-          path: |
-            desktop/dist/*.dmg
-            desktop/dist/*.zip
-            desktop/dist/*.exe
-            desktop/dist/*.AppImage
-            desktop/dist/latest*.yml
-            desktop/dist/*.blockmap
-            desktop/dist/builder-effective-config.yaml
+          path: desktop/dist/*
+
+      - name: Publish to GitHub Release
+        if: ${{ needs.prepare-release.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${{ needs.prepare-release.outputs.tag }}" desktop/dist/* --clobber --repo "${GITHUB_REPOSITORY}"

@@ -182,11 +182,7 @@ function AppContent() {
 
   // Warn before an accidental page reload would lose work: either unsaved edits
   // to the open configuration, or an active connection that would be dropped.
-  // Skip in Electron — the desktop shell owns quit via the window close button.
   useEffect(() => {
-    const isElectron = /Electron/i.test(navigator.userAgent);
-    if (isElectron) return;
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (currentSnapshot.isDirty || isConnected) {
         // Standard way to trigger the browser's "Leave site?" dialog

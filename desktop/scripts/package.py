@@ -20,13 +20,13 @@ import urllib.request
 from datetime import datetime, UTC
 from pathlib import Path
 
-QT_DIR = Path(__file__).resolve().parents[1]
-REPO_ROOT = QT_DIR.parents[1]
-BUILD_DIR = QT_DIR / "dist-pyinstaller"
-DIST_DIR = QT_DIR / "dist"
-PRODUCT_NAME = "Data Slicer Qt"
-APP_ID = "io.datafeta.dataslicer.qt"
-ONEDIR = BUILD_DIR / "data-slicer-qt"
+DESKTOP_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = DESKTOP_DIR.parent
+BUILD_DIR = DESKTOP_DIR / "dist-pyinstaller"
+DIST_DIR = DESKTOP_DIR / "dist"
+PRODUCT_NAME = "Data Slicer"
+APP_ID = "io.datafeta.dataslicer"
+ONEDIR = BUILD_DIR / "data-slicer"
 ICON = REPO_ROOT / "frontend" / "public" / "logo512.png"
 APPIMAGETOOL_URL = (
     "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-{arch}.AppImage"
@@ -38,7 +38,7 @@ def version() -> str:
 
 
 def platform_key() -> str:
-    # Must match datafeta_qt.updater.platform_key().
+    # Must match datafeta_desktop.updater.platform_key().
     os_name = {"darwin": "mac", "win32": "win"}.get(sys.platform, "linux")
     machine = platform.machine().lower()
     arch = {"x86_64": "x64", "amd64": "x64", "aarch64": "arm64"}.get(machine, machine)
@@ -64,7 +64,7 @@ def _appimagetool() -> Path:
     found = os.environ.get("APPIMAGETOOL") or shutil.which("appimagetool")
     if found:
         return Path(found)
-    tool = QT_DIR / "build-pyinstaller" / "appimagetool.AppImage"
+    tool = DESKTOP_DIR / "build-pyinstaller" / "appimagetool.AppImage"
     if not tool.exists():
         url = APPIMAGETOOL_URL.format(arch=platform.machine())
         print(f"Downloading {url}", flush=True)
@@ -77,23 +77,23 @@ def _appimagetool() -> Path:
 def package_linux(base: str) -> Path:
     tarball = DIST_DIR / f"{base}.tar.gz"
     with tarfile.open(tarball, "w:gz") as tar:
-        tar.add(ONEDIR, arcname="data-slicer-qt")
+        tar.add(ONEDIR, arcname="data-slicer")
 
-    appdir = QT_DIR / "build-pyinstaller" / "AppDir"
+    appdir = DESKTOP_DIR / "build-pyinstaller" / "AppDir"
     shutil.rmtree(appdir, ignore_errors=True)
-    shutil.copytree(ONEDIR, appdir / "usr" / "lib" / "data-slicer-qt", symlinks=True)
+    shutil.copytree(ONEDIR, appdir / "usr" / "lib" / "data-slicer", symlinks=True)
     apprun = appdir / "AppRun"
     apprun.write_text(
         "#!/bin/sh\n"
         'HERE="$(dirname "$(readlink -f "$0")")"\n'
-        f'exec "$HERE/usr/lib/data-slicer-qt/{PRODUCT_NAME}" "$@"\n'
+        f'exec "$HERE/usr/lib/data-slicer/{PRODUCT_NAME}" "$@"\n'
     )
     apprun.chmod(0o755)
     (appdir / f"{APP_ID}.desktop").write_text(
         "[Desktop Entry]\n"
         "Type=Application\n"
         f"Name={PRODUCT_NAME}\n"
-        "Exec=data-slicer-qt\n"
+        "Exec=data-slicer\n"
         f"Icon={APP_ID}\n"
         "Categories=Office;\n"
     )
@@ -126,7 +126,7 @@ def package_windows(base: str) -> Path:
         f"/DSourceDir={ONEDIR}",
         f"/DOutputDir={DIST_DIR}",
         f"/DOutputBaseFilename={base}-setup",
-        QT_DIR / "installer" / "windows.iss",
+        DESKTOP_DIR / "installer" / "windows.iss",
     )
     return DIST_DIR / f"{base}-setup.exe"
 
@@ -135,7 +135,7 @@ def package_windows(base: str) -> Path:
 
 def package_mac(base: str) -> Path:
     app = BUILD_DIR / f"{PRODUCT_NAME}.app"
-    # Ad-hoc signature like the Electron build (mac.identity "-"), same entitlements.
+    # Ad-hoc signature with the hardened-runtime entitlements.
     run(
         "codesign", "--force", "--deep", "--sign", "-", "--options", "runtime",
         "--entitlements", REPO_ROOT / "desktop" / "build-resources" / "entitlements.mac.plist",
@@ -144,7 +144,7 @@ def package_mac(base: str) -> Path:
     archive = DIST_DIR / f"{base}.zip"
     run("ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, archive)
 
-    staging = QT_DIR / "build-pyinstaller" / "dmg"
+    staging = DESKTOP_DIR / "build-pyinstaller" / "dmg"
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     run("ditto", app, staging / app.name)
@@ -158,12 +158,12 @@ def package_mac(base: str) -> Path:
 
 def main() -> None:
     if not BUILD_DIR.is_dir():
-        raise SystemExit(f"{BUILD_DIR} missing; run PyInstaller first (desktop/qt/scripts/build.sh).")
+        raise SystemExit(f"{BUILD_DIR} missing; run PyInstaller first (desktop/scripts/build.sh).")
     shutil.rmtree(DIST_DIR, ignore_errors=True)
     DIST_DIR.mkdir(parents=True)
 
     key = platform_key()
-    base = f"Data-Slicer-Qt-{version()}-{key}"
+    base = f"Data-Slicer-{version()}-{key}"
     if sys.platform == "win32":
         update_file = package_windows(base)
     elif sys.platform == "darwin":

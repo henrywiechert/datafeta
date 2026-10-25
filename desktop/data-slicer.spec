@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec for the Qt desktop shell (UI + backend in one process).
-# Build from repo root via: desktop/qt/scripts/build.sh
+# Build from repo root via: desktop/scripts/build.sh
 
 import json
 import os
@@ -12,18 +12,17 @@ from PyInstaller.depend.bindepend import get_imports
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 SPECDIR = Path(SPEC).resolve().parent
-REPO_ROOT = SPECDIR.parents[1]
+REPO_ROOT = SPECDIR.parent
 BACKEND_DIR = REPO_ROOT / "backend"
 STATIC_DIR = BACKEND_DIR / "static"
 VERSION = json.loads((REPO_ROOT / "desktop" / "package.json").read_text())["version"]
-PRODUCT_NAME = "Data Slicer Qt"
-BUNDLE_ID = "io.datafeta.dataslicer.qt"
+PRODUCT_NAME = "Data Slicer"
+BUNDLE_ID = "io.datafeta.dataslicer"
 
 datas = []
 binaries = []
 hiddenimports = []
 
-# Backend packaging mirrors desktop/sidecar/datafeta-backend.spec.
 for pkg in ("duckdb", "pyarrow", "python_calamine", "uvicorn", "anyio", "clickhouse_connect", "pydantic", "starlette"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     datas += pkg_datas
@@ -35,7 +34,6 @@ hiddenimports += collect_submodules(
     filter=lambda name: not name.startswith("backend.tests"),
 )
 hiddenimports += [
-    "entrypoint",  # desktop/sidecar/entrypoint.py (_prepare_env)
     "uvicorn.logging",
     "uvicorn.loops",
     "uvicorn.loops.auto",
@@ -65,7 +63,7 @@ datas.append((str(REPO_ROOT / "frontend" / "public" / "logo512.png"), "frontend/
 
 a = Analysis(
     [str(SPECDIR / "launcher.py")],
-    pathex=[str(REPO_ROOT), str(SPECDIR), str(REPO_ROOT / "desktop" / "sidecar")],
+    pathex=[str(REPO_ROOT), str(SPECDIR)],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -184,7 +182,7 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="data-slicer-qt",
+    name="data-slicer",
 )
 
 if sys.platform == "darwin":
