@@ -1,7 +1,7 @@
 # Multi-stage build: frontend (React) + backend (FastAPI)
 
 # ===== Frontend build stage =====
-FROM node:24-alpine AS frontend-build
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-build
 WORKDIR /app/frontend
 
 RUN apk add --no-cache git
@@ -15,7 +15,7 @@ COPY .git /app/.git
 RUN node scripts/generate-version.js && npm run build
 
 # ===== Docs build stage =====
-FROM python:3.11-slim AS docs-build
+FROM --platform=$BUILDPLATFORM python:3.11-slim AS docs-build
 WORKDIR /app
 
 COPY docs-requirements.txt ./
