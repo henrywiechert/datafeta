@@ -2,6 +2,7 @@
 import React, { useRef } from 'react';
 import { act, render } from '@testing-library/react';
 import { useViewportGestures } from './useViewportGestures';
+import AxisZoomGutter from './AxisZoomGutter';
 import { createViewportController, ViewportController } from './viewportController';
 import { applyChartViewport, declareViewportAxis } from '../../../../observable-plot-generator/viewport/chartViewport';
 
@@ -84,6 +85,52 @@ describe('useViewportGestures', () => {
     expect(range.max - range.min).toBeCloseTo(100 * Math.exp(-0.2));
     // Pointer at 50px = value 25 stays at the same relative position.
     expect((25 - range.min) / (range.max - range.min)).toBeCloseTo(0.25);
+  });
+
+  describe('axis gutter zoom', () => {
+    const gutter = (props: { axis?: 'x' | 'y'; independent?: boolean } = {}) => {
+      const controller = createViewportController(50);
+      const options = makeOptions();
+      const utils = render(
+        <AxisZoomGutter options={options} axis={props.axis ?? 'x'} controller={controller} independent={props.independent}>
+          <span data-testid="tick" />
+        </AxisZoomGutter>,
+      );
+      const el = utils.container.firstElementChild as HTMLElement;
+      // A 200x40 px gutter at the origin.
+      el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 40, right: 200, bottom: 40, x: 0, y: 0, toJSON: () => ({}) });
+      act(() => { el.dispatchEvent(new (window as any).PointerEvent('pointerenter')); });
+      holdAlt();
+      const wheel = (init: Record<string, any>) => {
+        const e = new WheelEvent('wheel', { deltaY: -100, altKey: true, bubbles: true, cancelable: true, ...init });
+        act(() => { utils.getByTestId('tick').dispatchEvent(e); });
+        return e;
+      };
+      return { controller, wheel };
+    };
+
+    test('alt+wheel over the x gutter zooms x around the pointer', () => {
+      const { controller, wheel } = gutter();
+      const e = wheel({ clientX: 50 });
+      const range = controller.get('t')!;
+      expect(e.defaultPrevented).toBe(true);
+      expect(range.max - range.min).toBeCloseTo(100 * Math.exp(-0.2));
+      expect((25 - range.min) / (range.max - range.min)).toBeCloseTo(0.25);
+    });
+
+    test('plain wheel over the gutter is left alone', () => {
+      const { controller, wheel } = gutter();
+      const e = wheel({ clientX: 50, altKey: false });
+      expect(e.defaultPrevented).toBe(false);
+      expect(controller.get('t')).toBeUndefined();
+    });
+
+    test('an independent axis does not zoom', () => {
+      const { controller, wheel } = gutter({ independent: true });
+      const e = wheel({ clientX: 50 });
+      expect(e.defaultPrevented).toBe(true);
+      expect(controller.get('t')).toBeUndefined();
+    });
   });
 
   test.each([
