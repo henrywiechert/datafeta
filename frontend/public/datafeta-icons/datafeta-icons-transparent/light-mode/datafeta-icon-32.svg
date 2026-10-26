@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32" role="img" aria-label="datafeta">
+<title>datafeta</title>
+<g transform="translate(256 258) scale(1.15) translate(-256 -258) translate(25 0)">
+<circle cx="224" cy="296" r="88" fill="none" stroke="#12343B" stroke-width="56"/>
+<circle cx="224" cy="296" r="88" fill="none" stroke="#F2A541" stroke-width="56" stroke-dasharray="138.2 414.7" transform="rotate(90 224 296)"/>
+<rect x="298" y="104" width="56" height="308" rx="28" fill="#12343B"/>
+<circle cx="224" cy="296" r="36" fill="#F2A541"/>
+</g>
+</svg>
