@@ -9,6 +9,7 @@ import { formatNumericTick, isContinuousNumericDomain } from '../../../observabl
 import type { ViewportController } from './viewport/viewportController';
 import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
 import AxisViewportBar from './viewport/AxisViewportBar';
+import AxisZoomGutter from './viewport/AxisZoomGutter';
 
 interface YAxesProps {
   grid: GridResultModel;
@@ -18,6 +19,8 @@ interface YAxesProps {
   hasRowFacets: boolean;
   /** Live pan/zoom viewport: ticks follow a gesture before the chart regenerates. */
   viewportController?: ViewportController;
+  /** Y has independent per-facet domains, so the zoom wheel over the gutter cannot zoom it. */
+  yIndependent?: boolean;
 }
 
 /**
@@ -60,7 +63,7 @@ function buildYAxisOptions(
   } as any;
 }
 
-const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets, viewportController }) => {
+const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets, viewportController, yIndependent }) => {
   useLiveViewportVersion(viewportController, AXIS_LIVE_UPDATE_INTERVAL_MS);
   const tickLineWidth = Math.max(3, Math.floor((dynamicYAxisPx - 8) / TEXT_PX_PER_CHAR));
 
@@ -80,8 +83,12 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
         const effectiveYTickFormat = yTickFormat ?? (yIsNumeric ? formatNumericTick : undefined);
         const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
-          <div
+          <AxisZoomGutter
             key={`y-axis-${r}`}
+            options={sample?.content.options}
+            axis="y"
+            controller={viewportController}
+            independent={yIndependent}
             style={{
               gridColumn: hasRowFacets ? 3 : 2,
               gridRow: r + 1,
@@ -92,7 +99,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
           >
             <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, effectiveYTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(effectiveYTickFormat !== undefined ? { tickFormat: effectiveYTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
             <AxisViewportBar options={sample?.content.options} axis="y" controller={viewportController} />
-          </div>
+          </AxisZoomGutter>
         );
       })}
     </>
@@ -105,7 +112,8 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
     prevProps.rows !== nextProps.rows ||
     prevProps.dynamicYAxisPx !== nextProps.dynamicYAxisPx ||
     prevProps.hasRowFacets !== nextProps.hasRowFacets ||
-    prevProps.viewportController !== nextProps.viewportController
+    prevProps.viewportController !== nextProps.viewportController ||
+    prevProps.yIndependent !== nextProps.yIndependent
   ) {
     return false;
   }

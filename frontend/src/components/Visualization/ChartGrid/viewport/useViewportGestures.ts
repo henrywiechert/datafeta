@@ -5,6 +5,8 @@
  *   horizontal wheel delta with the modifier pans x. Ctrl+wheel and trackpad pinch are left to the
  *   browser's page zoom, so the gesture never means two things depending on
  *   what has focus or sits under the pointer (e.g. a loading dialog).
+ * - The same wheel over an external axis gutter zooms that axis alone
+ *   (useAxisGutterZoom).
  * - Plain left-button drag pans (after a small threshold, so clicks still
  *   pin tooltips and dismiss measurements).
  * - Double-click resets the cell's columns to their natural domain.
@@ -62,6 +64,8 @@ export function isViewportZoomWheel(e: WheelEvent): boolean {
 let wheelCell: { wrapper: Element; onWheel: (e: WheelEvent) => void } | null = null;
 let zoomModifierHeld = false;
 let claimingWheel = false;
+/** Alt was used for a zoom wheel, so its release must not reach the browser menu bar. */
+let suppressNextAltKeyUpGlobal = false;
 
 const dispatchWheel = (e: WheelEvent) => {
   if (wheelCell && e.target instanceof Node && wheelCell.wrapper.contains(e.target)) wheelCell.onWheel(e);
@@ -199,6 +203,82 @@ function panDelta(frame: AxisFrame, svgDelta: number, range: ViewportRange): num
   return -(svgDelta / (frame.r1 - frame.r0)) * (range.max - range.min);
 }
 
+/** Wheel pixels → zoom factor (Alt/Cmd+wheel); shared by the cell and the axis gutters. */
+function wheelDeltaPx(e: WheelEvent): number {
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+  let dy = e.deltaY * unit;
+  // macOS reports a modifier-held mouse wheel on the x axis.
+  if (IS_MAC && dy === 0 && e.deltaX !== 0) dy = e.deltaX * unit;
+  return dy;
+}
+
+interface UseAxisGutterZoomArgs {
+  gutterRef: RefObject<HTMLElement>;
+  options: Plot.PlotOptions | undefined;
+  axis: 'x' | 'y';
+  controller: ViewportController | undefined;
+  /** The axis has independent per-facet domains, so it cannot zoom. */
+  independent?: boolean;
+}
+
+/**
+ * Zoom one axis alone: the zoom wheel gesture (see isViewportZoomWheel) over
+ * its external gutter. The gutter's full length shows the live viewport (x
+ * left→right, y bottom→top), so the pointer's fraction along it locates the
+ * anchor. Shares the cells' document-level wheel claim, so no blocking
+ * listener sits on the gutter.
+ */
+export function useAxisGutterZoom({ gutterRef, options, axis, controller, independent }: UseAxisGutterZoomArgs): void {
+  const latest = useRef({ options, controller, independent });
+  latest.current = { options, controller, independent };
+  const active = !!controller;
+
+  useEffect(() => {
+    const gutter = gutterRef.current;
+    if (!gutter || !active) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (!isViewportZoomWheel(e)) return;
+      const { options: opts, controller: ctrl, independent: locked } = latest.current;
+      if (!ctrl) return;
+      const info = resolveCellViewportAxes(opts, locked ? { [axis]: true } : undefined).find((a) => a.axis === axis);
+      if (!info && !locked) return;
+      // Claim the gesture: no browser page zoom, no grid scroll.
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.altKey) suppressNextAltKeyUpGlobal = true;
+      if (!info) {
+        if (e.deltaY !== 0 || e.deltaX !== 0) showLockedAxisHint(e.clientX, e.clientY, lockedAxisMessage([axis], false));
+        return;
+      }
+      const dy = wheelDeltaPx(e);
+      const rect = gutter.getBoundingClientRect();
+      const length = axis === 'x' ? rect.width : rect.height;
+      if (dy === 0 || !(length > 0)) return;
+      const fraction = axis === 'x' ? (e.clientX - rect.left) / length : 1 - (e.clientY - rect.top) / length;
+      const range = currentRange(ctrl, info);
+      const anchor = range.min + Math.min(1, Math.max(0, fraction)) * (range.max - range.min);
+      const next = zoomAt(range, anchor, Math.exp(dy * WHEEL_ZOOM_SPEED), info.bounds, minSpanFor(info.bounds, info.temporal));
+      ctrl.set({ [info.column]: next });
+    };
+
+    const onPointerEnter = (e: PointerEvent) => {
+      setWheelCell({ wrapper: gutter, onWheel });
+      trackZoomModifier(e);
+    };
+    const onPointerLeave = () => {
+      if (wheelCell?.wrapper === gutter) setWheelCell(null);
+    };
+    gutter.addEventListener('pointerenter', onPointerEnter);
+    gutter.addEventListener('pointerleave', onPointerLeave);
+    return () => {
+      gutter.removeEventListener('pointerenter', onPointerEnter);
+      gutter.removeEventListener('pointerleave', onPointerLeave);
+      onPointerLeave();
+    };
+  }, [gutterRef, axis, active]);
+}
+
 interface PanSession {
   pointerId: number;
   startX: number;
@@ -251,7 +331,7 @@ export function useViewportGestures({
       // Claim the gesture: no browser page zoom, no grid scroll.
       e.preventDefault();
       e.stopPropagation();
-      if (e.altKey) suppressNextAltKeyUp = true;
+      if (e.altKey) suppressNextAltKeyUpGlobal = true;
       if (locked.length > 0 && (e.deltaY !== 0 || e.deltaX !== 0)) {
         showLockedAxisHint(e.clientX, e.clientY, lockedAxisMessage(locked, axes.length > 0));
       }
@@ -296,10 +376,9 @@ export function useViewportGestures({
 
     // Releasing Alt after Alt+wheel must not activate the browser menu bar
     // (Firefox on Windows/Linux toggles it on a bare Alt keyup).
-    let suppressNextAltKeyUp = false;
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key !== 'Alt' || !suppressNextAltKeyUp) return;
-      suppressNextAltKeyUp = false;
+      if (e.key !== 'Alt' || !suppressNextAltKeyUpGlobal) return;
+      suppressNextAltKeyUpGlobal = false;
       e.preventDefault();
     };
 

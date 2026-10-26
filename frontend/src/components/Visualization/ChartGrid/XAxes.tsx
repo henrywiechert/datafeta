@@ -12,6 +12,7 @@ import { formatNumericTick, isContinuousNumericDomain } from '../../../observabl
 import type { ViewportController } from './viewport/viewportController';
 import { AXIS_LIVE_UPDATE_INTERVAL_MS, liveAxisDomain, useLiveViewportVersion } from './viewport/useViewportPreview';
 import AxisViewportBar from './viewport/AxisViewportBar';
+import AxisZoomGutter from './viewport/AxisZoomGutter';
 
 // Approximate horizontal room per numeric tick label; keeps narrow/faceted
 // columns from crowding ticks together.
@@ -36,6 +37,8 @@ interface XAxesProps {
   renderScales?: boolean;
   /** Live pan/zoom viewport: ticks follow a gesture before the chart regenerates. */
   viewportController?: ViewportController;
+  /** X has independent per-facet domains, so the zoom wheel over the gutter cannot zoom it. */
+  xIndependent?: boolean;
 }
 
 function buildXAxisOptions(
@@ -98,6 +101,7 @@ const XAxes: React.FC<XAxesProps> = ({
   onXAxisLabelStyleChange,
   renderScales = true,
   viewportController,
+  xIndependent,
 }) => {
   useLiveViewportVersion(viewportController, AXIS_LIVE_UPDATE_INTERVAL_MS);
   const [xLabelPopoverAnchor, setXLabelPopoverAnchor] = useState<HTMLElement | null>(null);
@@ -148,8 +152,12 @@ const XAxes: React.FC<XAxesProps> = ({
               ? (categoryOrientation === 'vertical' ? -90 : categoryOrientation === 'angled' ? -45 : 0)
               : 0;
             return (
-              <div
+              <AxisZoomGutter
                 key={`x-axis-${c}`}
+                options={sample?.content.options}
+                axis="x"
+                controller={viewportController}
+                independent={xIndependent}
                 style={{
                   gridColumn: c + 1,
                   position: 'relative',
@@ -159,7 +167,7 @@ const XAxes: React.FC<XAxesProps> = ({
               >
                 <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, effectiveXTickFormat, xTickSpacing), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickSpacing !== undefined ? { tickSpacing: xTickSpacing } : {}), ...(effectiveXTickFormat !== undefined ? { tickFormat: effectiveXTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
                 <AxisViewportBar options={sample?.content.options} axis="x" controller={viewportController} />
-              </div>
+              </AxisZoomGutter>
             );
           })}
         </div>
@@ -217,6 +225,7 @@ export default React.memo(XAxes, (prevProps, nextProps) => {
     prevProps.xLabelRowPx === nextProps.xLabelRowPx &&
     prevProps.renderScales === nextProps.renderScales &&
     prevProps.viewportController === nextProps.viewportController &&
+    prevProps.xIndependent === nextProps.xIndependent &&
     prevProps.grid.cells === nextProps.grid.cells &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout &&

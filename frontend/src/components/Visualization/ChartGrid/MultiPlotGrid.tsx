@@ -411,6 +411,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               onXAxisLabelStyleChange={handleXLabelStyleChange}
               renderScales={!hideExternalAxes}
               viewportController={viewport?.controller}
+              xIndependent={viewport?.independentDomains?.x}
             />
           )}
         </div>
@@ -612,6 +613,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               rowHeights={actualRowHeights}
               hasRowFacets={hasRowFacets}
               viewportController={viewport?.controller}
+              yIndependent={viewport?.independentDomains?.y}
             />
           )}
             </div>
