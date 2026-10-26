@@ -15,6 +15,7 @@ import { useVisualizationContext } from '../../../../contexts/VisualizationConte
 import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 import {
   addFieldAsDiscreteFilter,
+  findDiscreteFilterFor,
   updateExistingDiscreteFilter,
 } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
@@ -54,13 +55,11 @@ export function useTableRowsFilterActions() {
       recordUndoPoint();
 
       // Check for existing filter on this column
-      const existingFilter = filterFields.find(
-        (f) => f.columnName === sourceField.columnName,
-      );
+      const existingFilter = findDiscreteFilterFor(sourceField, filterFields, filterConfigurations);
 
       if (action === 'keep') {
         // "Keep only" – selectedValues = the clicked values
-        if (existingFilter && filterConfigurations[existingFilter.id]?.type === 'discrete') {
+        if (existingFilter) {
           updateExistingDiscreteFilter(
             existingFilter.id,
             existingFilter.columnName,
@@ -75,7 +74,7 @@ export function useTableRowsFilterActions() {
       } else {
         // "Exclude" – store excludedValues so the query builder uses NOT IN.
         // We create/update a filter config directly with excludedValues set.
-        if (existingFilter && filterConfigurations[existingFilter.id]?.type === 'discrete') {
+        if (existingFilter) {
           const current = filterConfigurations[existingFilter.id] as DiscreteFilterConfig;
           // Merge: accumulate excluded values
           const prevExcluded = current.excludedValues ?? [];
