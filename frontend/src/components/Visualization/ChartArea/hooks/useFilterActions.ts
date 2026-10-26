@@ -12,7 +12,11 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
 import { toDatePartInteger } from '../utils/dateTimeConversion';
-import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
+import {
+  addFieldAsDiscreteFilter,
+  findDiscreteFilterFor,
+  updateExistingDiscreteFilter,
+} from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
 import type { DateTimePart, Field, VirtualColumnDefinition } from '../../../../types';
 import type { LegendFilterAction } from '../../Legend/LegendPanel';
@@ -76,14 +80,9 @@ export function useFilterActions({
               return !values.some(sv => String(sv) === valStr);
             });
 
-      const existingFilter = filterFields.find(
-        (filterField: Field) => filterField.columnName === field.columnName,
-      );
+      const existingFilter = findDiscreteFilterFor(field, filterFields, filterConfigurations);
 
-      if (
-        existingFilter &&
-        filterConfigurations[existingFilter.id]?.type === 'discrete'
-      ) {
+      if (existingFilter) {
         updateExistingDiscreteFilter(
           existingFilter.id,
           existingFilter.columnName,
@@ -140,9 +139,7 @@ export function useFilterActions({
       const { filterFields, filterConfigurations, queryResult } = latest.current;
       recordUndoPoint();
 
-      const existingFilter = filterFields.find(
-        (f: any) => f.columnName === sourceField.columnName,
-      );
+      const existingFilter = findDiscreteFilterFor(sourceField, filterFields, filterConfigurations);
       const filterDateTimePart: DateTimePart | undefined =
         existingFilter?.dateTimePart ?? sourceField.dateTimePart;
       const filterDateTimeMode =
@@ -179,10 +176,7 @@ export function useFilterActions({
         keepValues = allValues.filter(v => String(v) !== excludeStr);
       }
 
-      if (
-        existingFilter &&
-        filterConfigurations[existingFilter.id]?.type === 'discrete'
-      ) {
+      if (existingFilter) {
         updateExistingDiscreteFilter(
           existingFilter.id,
           existingFilter.columnName,

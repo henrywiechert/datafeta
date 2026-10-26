@@ -8,11 +8,35 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { Field, DiscreteFilterConfig, ContinuousFilterConfig, DateTimeFilterConfig } from '../types';
+import { Field, FilterConfig, DiscreteFilterConfig, ContinuousFilterConfig, DateTimeFilterConfig } from '../types';
 import { VisualizationAction } from '../contexts/VisualizationContext';
 
 // Re-export for convenience so callers don't need an extra import
 export type Dispatch = React.Dispatch<VisualizationAction>;
+
+/**
+ * Find the discrete filter that a keep/exclude action on `sourceField` should
+ * update, or undefined when a new filter must be added.
+ *
+ * One column can sit on the filter shelf several times with different datetime
+ * parts (e.g. month and weekday of the same timestamp), so the part must match.
+ * A source without a part carries the full value, which converts into any part,
+ * so it falls back to the first discrete filter on the column.
+ */
+export function findDiscreteFilterFor(
+  sourceField: Field,
+  filterFields: Field[],
+  filterConfigurations: Record<string, FilterConfig>,
+): Field | undefined {
+  const candidates = filterFields.filter(
+    (f) =>
+      f.columnName === sourceField.columnName &&
+      filterConfigurations[f.id]?.type === 'discrete',
+  );
+  const samePart = candidates.find((f) => f.dateTimePart === sourceField.dateTimePart);
+  if (samePart || sourceField.dateTimePart) return samePart;
+  return candidates[0];
+}
 
 /**
  * Create a new discrete filter field from an existing Field (e.g. the color
