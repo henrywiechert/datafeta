@@ -23,9 +23,11 @@ backports-zstd==1.8.0 ; python_version < "3.14"
     #   clickhouse-connect
 bleach==6.3.0
     # via kaggle
-certifi==2026.4.22
+certifi==2026.10.23
     # via
     #   clickhouse-connect
+    #   kaggle
+    #   kagglesdk
     #   requests
 charset-normalizer==3.4.7
     # via requests
@@ -72,9 +74,9 @@ jupyter-core==5.9.1
     # via nbformat
 jupytext==1.19.2
     # via kaggle
-kaggle==2.2.4
+kaggle==2.2.5
     # via -r requirements.in
-kagglesdk==0.1.37
+kagglesdk==0.1.38
     # via kaggle
 lz4==4.4.5
     # via clickhouse-connect
