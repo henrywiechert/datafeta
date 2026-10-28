@@ -69,7 +69,13 @@ const AppInfoDisplay: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            component="a"
+            href="https://datafeta.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'inherit', textDecoration: 'none' }}
+          >
             <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
             <Box component="span" sx={{ fontWeight: 700 }}>DataSlicer</Box>
           </Box>

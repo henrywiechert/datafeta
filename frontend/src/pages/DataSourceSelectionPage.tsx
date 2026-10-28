@@ -221,11 +221,12 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
     <div className={styles.container}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
         <a
-          href="/"
-          onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+          href="https://datafeta.io"
+          target="_blank"
+          rel="noopener noreferrer"
           className={styles.pageTitle}
           style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', margin: 0 }}
-          title="Reload Data Source Selection"
+          title="datafeta.io"
         >
           <DataSlicerIcon style={{ fontSize: '2rem' }} />
           DataSlicer

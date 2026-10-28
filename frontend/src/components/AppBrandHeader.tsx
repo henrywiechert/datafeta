@@ -33,10 +33,15 @@ export default function AppBrandHeader({ fileMenu }: AppBrandHeaderProps) {
       }}
     >
       <Box
+        component="a"
+        href="https://datafeta.io"
+        target="_blank"
+        rel="noopener noreferrer"
         sx={{
           display: 'flex',
           alignItems: 'center',
           gap: 0.75,
+          textDecoration: 'none',
           fontSize: '0.9rem',
           fontWeight: 700,
           letterSpacing: '0.02em',

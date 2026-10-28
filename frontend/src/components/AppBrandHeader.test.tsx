@@ -7,6 +7,7 @@ describe('AppBrandHeader', () => {
   it('renders the DataSlicer badge and the file menu next to help', () => {
     render(<AppBrandHeader fileMenu={<button type="button">file menu</button>} />);
     expect(screen.getByText('DataSlicer')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /DataSlicer/ })).toHaveAttribute('href', 'https://datafeta.io');
     expect(screen.getByRole('button', { name: 'file menu' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New' })).not.toBeInTheDocument();
   });
