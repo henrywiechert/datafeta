@@ -282,7 +282,7 @@
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  margin: 0;
+  margin: 0 !important;
   padding: 0 !important;
   height: 18px;
   border: none !important;
@@ -291,14 +291,14 @@
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--df-text-label);
+  color: var(--df-text-label) !important;
   text-align: left;
   cursor: pointer;
   line-height: 1;
 }
 
 .pinnedHeader:hover:not(:disabled) {
-  color: var(--df-text-primary);
+  color: var(--df-text-primary) !important;
   background: transparent !important;
 }
 

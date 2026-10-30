@@ -19,8 +19,6 @@ import styles from './DiscreteFilterControl.module.css';
 import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
 
 const LOADING_OVERLAY_DELAY_MS = 400;
-// About as many rows as fit in the list viewport.
-const PINNED_AUTO_COLLAPSE_COUNT = 8;
 
 interface DiscreteFilterControlProps {
   metadata: DiscreteFilterMetadata;
@@ -196,14 +194,14 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     };
   }, [metadata.availableValues, selectedKeysSet, listFilterTerm, useRegex, sortValues]);
 
-  // A large pinned group would push every unselected value below the fold, so it starts
-  // collapsed to a header. Grouping only makes sense when both groups have rows, and a
-  // search result is short enough to always show in full.
+  // The pinned list has its own max-height and scrolls, so it starts expanded: a collapsed
+  // group hides most of the filter's values. Grouping only makes sense when both groups
+  // have rows, and a search result is short enough to always show in full.
   const showPinnedGroup = pinnedValues.length > 0 && unpinnedValues.length > 0;
   const [pinnedCollapsedChoice, setPinnedCollapsedChoice] = useState<boolean | null>(null);
   const pinnedCollapsed = showPinnedGroup
     && !listFilterTerm.trim()
-    && (pinnedCollapsedChoice ?? pinnedValues.length > PINNED_AUTO_COLLAPSE_COUNT);
+    && (pinnedCollapsedChoice ?? false);
 
   // Combined list for master select/deselect (Excel-style header checkbox)
   const allVisibleValues = useMemo(

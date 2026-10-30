@@ -232,19 +232,19 @@ describe('DiscreteFilterControl', () => {
     expect(listBefore).toBeInTheDocument();
   });
 
-  test('collapses a large pinned group and expands it on click', () => {
+  test('keeps a large pinned group expanded and collapses it on click', () => {
     const values = Array.from({ length: 20 }, (_, i) => `V${String(i).padStart(2, '0')}`);
     render(<StatefulList values={values} initial={values.slice(0, 12)} />);
 
     const header = screen.getByRole('button', { name: 'Selected (12)' });
-    expect(header).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('V00')).not.toBeInTheDocument();
-    expect(renderedValueOrder()[0]).toBe('V12');
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByLabelText('V00')).toBeChecked();
     expect(screen.getByText('12 of 20 selected')).toBeInTheDocument();
 
     fireEvent.click(header);
-    expect(header).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText('V00')).toBeChecked();
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('V00')).not.toBeInTheDocument();
+    expect(renderedValueOrder()[0]).toBe('V12');
   });
 
   test('does not group when every value is selected', () => {
