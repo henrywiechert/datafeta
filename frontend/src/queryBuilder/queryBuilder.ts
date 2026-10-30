@@ -271,12 +271,14 @@ export const buildAggregatedQuery = ({
     return out;
   };
 
-  // Merge tooltip fields with regular fields for dimension/measure extraction
-  // Tooltip fields should be included in the query as dimensions
+  // Tooltip fields are extra selections at the same grain. Match on the result
+  // column, not the source column: SUM(sales) and AVG(sales) are different
+  // outputs, and so are a raw column and an aggregate of it. Dimensions still
+  // collapse when they resolve to the same datetime output.
   const allFieldsForQuery = [...fields];
   for (const tf of tooltipFields) {
-    // Avoid duplicate by columnName & date part alias uniqueness
-    if (!allFieldsForQuery.some(f => sameDateTimeColumn(f, tf))) {
+    const tooltipKey = getResultColumnName(tf);
+    if (!allFieldsForQuery.some(f => getResultColumnName(f) === tooltipKey)) {
       allFieldsForQuery.push(tf);
     }
   }

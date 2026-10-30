@@ -379,6 +379,12 @@ const FieldOverridesPanel: React.FC = () => {
               });
             }
           }}
+          onLabelUpdate={(field) => {
+            const currentLabelFields = override.labelFields || [];
+            handleUpdateOverride(targetField.id, {
+              labelFields: currentLabelFields.map((f: Field) => (f.id === field.id ? field : f)),
+            });
+          }}
           onLabelRemove={(fieldId) => {
             const currentLabelFields = override.labelFields || [];
             const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);
@@ -593,6 +599,9 @@ const FieldOverridesPanel: React.FC = () => {
           labelsEnabled={labelsEnabled}
           labelFontSize={labelFontSize}
           onLabelDrop={shelfActions.addLabelField}
+          onLabelUpdate={(field) => {
+            applyGlobalAction({ type: 'UPDATE_FIELD', payload: field });
+          }}
           onLabelRemove={(fieldId) => {
             const currentLabelFields = labelFields as Field[] || [];
             const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);

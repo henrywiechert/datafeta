@@ -91,4 +91,25 @@ describe('axisReducer query state semantics', () => {
     expect(nextState!.queryResult).toBeNull();
     expect(nextState!.queryError).toBeNull();
   });
+
+  test('UPDATE_FIELD replaces a label field in place and triggers a re-query', () => {
+    const label = {
+      id: 'label-1',
+      columnName: 'sales',
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+      aggregation: 'sum',
+    } as any;
+    const state = { ...initialState, labelFields: [label] };
+
+    const nextState = axisReducer(state, {
+      type: 'UPDATE_FIELD',
+      payload: { ...label, aggregation: 'avg' },
+    } as any);
+
+    expect(nextState!.labelFields).toHaveLength(1);
+    expect(nextState!.labelFields[0].aggregation).toBe('avg');
+    expect(nextState!.queryVersion).toBe(state.queryVersion + 1);
+  });
 });

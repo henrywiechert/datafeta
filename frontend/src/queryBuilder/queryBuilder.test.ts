@@ -205,6 +205,15 @@ describe('convertFilterConfigsToFilters', () => {
 });
 
 describe('buildQuery', () => {
+  const measure = (columnName: string, aggregation: Field['aggregation'], id = columnName): Field =>
+    field(columnName, {
+      id,
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+      aggregation,
+    });
+
   test('uses planned aggregated query mode even when fields would otherwise infer raw', () => {
     const sales = field('sales', {
       type: 'measure',
@@ -221,6 +230,47 @@ describe('buildQuery', () => {
     expect(query?.dimensions).toEqual([]);
     expect(query?.measures).toEqual([
       { field: 'sales', aggregation: 'sum', alias: 'sales' },
+    ]);
+  });
+
+  test('keeps a tooltip measure aggregation that differs from the same column on an axis', () => {
+    const query = buildQuery({
+      fields: [field('category'), measure('sales', 'sum', 'sales-axis')],
+      tooltipFields: [measure('sales', 'avg', 'sales-tooltip')],
+      selectedTable: 'orders',
+      queryMode: 'aggregated',
+    });
+
+    expect(query?.measures).toEqual([
+      { field: 'sales', aggregation: 'sum', alias: 'SUM(sales)' },
+      { field: 'sales', aggregation: 'avg', alias: 'AVG(sales)' },
+    ]);
+  });
+
+  test('does not duplicate a tooltip measure that already has the same aggregation', () => {
+    const query = buildQuery({
+      fields: [field('category'), measure('sales', 'sum', 'sales-axis')],
+      tooltipFields: [measure('sales', 'sum', 'sales-tooltip')],
+      selectedTable: 'orders',
+      queryMode: 'aggregated',
+    });
+
+    expect(query?.measures).toEqual([
+      { field: 'sales', aggregation: 'sum', alias: 'SUM(sales)' },
+    ]);
+  });
+
+  test('keeps a tooltip-only measure aggregation', () => {
+    const query = buildQuery({
+      fields: [field('category'), measure('profit', 'sum', 'profit-axis')],
+      tooltipFields: [measure('sales', 'avg', 'sales-tooltip')],
+      selectedTable: 'orders',
+      queryMode: 'aggregated',
+    });
+
+    expect(query?.measures).toEqual([
+      { field: 'profit', aggregation: 'sum', alias: 'SUM(profit)' },
+      { field: 'sales', aggregation: 'avg', alias: 'AVG(sales)' },
     ]);
   });
 });

@@ -41,6 +41,8 @@ interface LabelFieldControlProps {
   labelsEnabled?: boolean;
   labelFontSize?: number;
   onLabelDrop: (field: Field) => void;
+  /** Replace an existing label field in place (e.g. after a context-menu edit). */
+  onLabelUpdate: (field: Field) => void;
   onLabelRemove: (fieldId: string) => void;
   onDisplayLabelChange?: (label: string | undefined) => void;
   onDataLabelModeChange?: (mode: DataLabelMode) => void;
@@ -58,6 +60,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   labelsEnabled = false,
   labelFontSize = 10,
   onLabelDrop,
+  onLabelUpdate,
   onLabelRemove,
   onDisplayLabelChange,
   onDataLabelModeChange,
@@ -136,8 +139,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                       source="LABEL_ZONE"
                       onUpdate={(updated) => {
                         const f = Array.isArray(updated) ? updated[0] : updated;
-                        // For override label fields, update by re-dropping (replacement semantics handled upstream)
-                        onLabelDrop(f);
+                        onLabelUpdate(f);
                       }}
                       onRemoveFromZone={(ids) => {
                         ids.forEach((id) => onLabelRemove(id));
