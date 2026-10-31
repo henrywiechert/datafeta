@@ -7,6 +7,8 @@
 
 <br clear="left" />
 
+<br></br>
+
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Data Slicer screenshots" />
 </p>
