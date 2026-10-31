@@ -1,16 +1,10 @@
-<table>
-  <tr>
-    <td valign="middle">
-      <img src="frontend/public/datafeta-icons/datafeta-icon.svg" alt="datafeta" width="120" style="display: block; margin-right: 15px;" />
-    </td>
-    <td valign="middle">
-      <h1>Data Slicer - Data Analysis Platform (OLAP in Browser)</h1>
-      <p>A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files. It implements many aspects of the openly available <a href="https://stanford.edu">Polaris Formalism</a>, later commercially productized as <a href="https://tableau.com">Tableau (Salesforce)</a>.</p>
-    </td>
-  </tr>
-</table>
+<img src="frontend/public/datafeta-icons/datafeta-icon.svg" alt="datafeta" width="120" height="120" align="left" hspace="16" />
 
-<br />
+<h2>Data Slicer - Data Analysis Platform (OLAP in Browser)</h2>
+
+<p>A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files. It implements many aspects of the openly available <a href="https://stanford.edu">Polaris Formalism</a>, later commercially productized as <a href="https://tableau.com">Tableau (Salesforce)</a>.</p>
+
+<br clear="left" />
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="Data Slicer screenshots" />
