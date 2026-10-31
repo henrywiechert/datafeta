@@ -2,7 +2,6 @@
 
 <p>
   <img src="frontend/public/datafeta-icons/datafeta-icon.svg" alt="datafeta" width="120" height="120" align="left" hspace="16" />
-  <br /><br />
   A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files. It implements many aspects of the openly available <a href="https://stanford.edu">Polaris Formalism</a>, later commercially productized as <a href="https://tableau.com">Tableau (Salesforce)</a>.
 </p>
 
