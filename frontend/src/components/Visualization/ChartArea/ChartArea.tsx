@@ -173,6 +173,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     selectedTable,
     selectedDatabase,
     tableColumnFields,
+    measureGroupMembers: measureGroup.members,
     filterConfigurations: chartFilterConfigurations,
     virtualTable,
     virtualColumns,

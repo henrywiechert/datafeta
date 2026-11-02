@@ -35,6 +35,7 @@ describe('useTableRowsToggle', () => {
     sizeField: null,
     labelFields: [],
     tooltipFields: [],
+    measureGroup: { id: 'g', name: 'Measure Group', members: [] },
     ...overrides,
   });
 
@@ -88,5 +89,31 @@ describe('useTableRowsToggle', () => {
       expect.objectContaining({ type: 'SET_TABLE_COLUMN_FIELDS' }),
     );
     expect(dispatch).toHaveBeenCalledWith({ type: 'SET_SHOW_TABLE_ROWS', payload: false });
+  });
+
+  it('seeds the measure group members in place of MeasureNames/MeasureValues', () => {
+    const generated = makeField('num_bt_generated', { type: 'measure', flavour: 'continuous', aggregation: 'sum' });
+    const bad = makeField('num_bt_bad', { type: 'measure', flavour: 'continuous', aggregation: 'sum' });
+    mockUseVisualizationContext.mockReturnValue({
+      state: buildState({
+        xAxisFields: [makeField('MeasureNames', { isSynthetic: true, syntheticType: 'MeasureNames' })],
+        yAxisFields: [makeField('MeasureValues', { type: 'measure', isSynthetic: true, syntheticType: 'MeasureValues' })],
+        tooltipFields: [makeField('run_path')],
+        measureGroup: { id: 'g', name: 'Measure Group', members: [generated, bad] },
+      }),
+      dispatch,
+    });
+
+    const { result } = renderHook(() => useTableRowsToggle());
+    act(() => result.current(true));
+
+    const seedAction = dispatch.mock.calls.find(
+      ([action]) => action.type === 'SET_TABLE_COLUMN_FIELDS',
+    );
+    expect(seedAction[0].payload.map((f: Field) => f.columnName)).toEqual([
+      'num_bt_generated',
+      'num_bt_bad',
+      'run_path',
+    ]);
   });
 });

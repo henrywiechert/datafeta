@@ -6,8 +6,11 @@ import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
  * Compute shared numeric domains for all measures used across a grid.
  * Preserves negative ranges and adds DOMAIN_PAD_RATIO headroom to both sides.
  * 
- * For stacked charts with color fields, computes the domain based on stacked totals,
- * separating positive and negative stacks so mixed-sign data keeps the correct extent.
+ * For stacked charts, computes the domain based on stacked totals (per category when
+ * given), separating positive and negative stacks so mixed-sign data keeps the correct
+ * extent. Charts stack by default when there is a color field; bar marks also stack
+ * rows that share a category without one (e.g. a tooltip dimension), so they pass
+ * `stacked` explicitly.
  * When faceting is present, totals are computed per facet to avoid inflating the
  * domain with data from other facets.
  */
@@ -17,7 +20,8 @@ export function computeSharedMeasureDomains(
   yCandidates: any[],
   colorField?: any,
   categoryField?: any,
-  facetFields?: any[]
+  facetFields?: any[],
+  stacked: boolean = !!colorField
 ): Record<string, [number, number]> {
   const measures: string[] = [];
 
@@ -42,20 +46,19 @@ export function computeSharedMeasureDomains(
       if (value > maxVal) maxVal = value;
     };
     
-    if (colorField && categoryField) {
-      const categoryColumnName = getResultColumnName(categoryField);
+    if (stacked) {
+      const categoryColumnName = categoryField ? getResultColumnName(categoryField) : undefined;
       const facetColumnNames = facetFields?.map((f: any) => getResultColumnName(f)) ?? [];
       const stackTotals = new Map<string, { pos: number; neg: number }>();
 
       for (const row of data) {
-        const category = row[categoryColumnName];
         const value = row[measureName];
         if (typeof value !== 'number' || Number.isNaN(value)) continue;
 
         const facetKey = facetColumnNames.length > 0
           ? facetColumnNames.map((col: string) => row[col]).join('|')
           : '__global__';
-        const key = `${facetKey}::${category}`;
+        const key = categoryColumnName ? `${facetKey}::${row[categoryColumnName]}` : facetKey;
         const entry = stackTotals.get(key) ?? { pos: 0, neg: 0 };
         if (value >= 0) {
           entry.pos += value;
@@ -69,20 +72,6 @@ export function computeSharedMeasureDomains(
         if (pos !== 0) updateRange(pos);
         if (neg !== 0) updateRange(neg);
       });
-    } else if (colorField && !categoryField) {
-      let posTotal = 0;
-      let negTotal = 0;
-      for (const row of data) {
-        const value = row[measureName];
-        if (typeof value !== 'number' || Number.isNaN(value)) continue;
-        if (value >= 0) {
-          posTotal += value;
-        } else {
-          negTotal += value;
-        }
-      }
-      if (posTotal !== 0) updateRange(posTotal);
-      if (negTotal !== 0) updateRange(negTotal);
     } else {
       for (const row of data) {
         updateRange(row[measureName]);

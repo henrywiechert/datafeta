@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { useRecordUndoPoint } from '../../../../hooks/useRecordUndoPoint';
-import { collectEncodingFields } from '../../../../utils/tableColumns';
+import { collectEncodingFields, expandSyntheticTableColumns } from '../../../../utils/tableColumns';
 
 export function useTableRowsToggle(): (show: boolean) => void {
   const { state, dispatch } = useVisualizationContext();
@@ -24,6 +24,7 @@ export function useTableRowsToggle(): (show: boolean) => void {
     sizeField,
     labelFields,
     tooltipFields,
+    measureGroup,
   } = state;
 
   return useCallback(
@@ -33,13 +34,16 @@ export function useTableRowsToggle(): (show: boolean) => void {
       // encodings when entering the view with an empty list. Afterwards
       // the list is user-owned and never re-seeded.
       if (show && tableColumnFields.length === 0) {
-        const seed = collectEncodingFields(
-          xAxisFields,
-          yAxisFields,
-          colorField,
-          sizeField,
-          labelFields,
-          tooltipFields,
+        const seed = expandSyntheticTableColumns(
+          collectEncodingFields(
+            xAxisFields,
+            yAxisFields,
+            colorField,
+            sizeField,
+            labelFields,
+            tooltipFields,
+          ),
+          measureGroup.members,
         ).map((f) => ({ ...f, id: uuidv4() }));
         if (seed.length > 0) {
           dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: seed });
@@ -56,6 +60,7 @@ export function useTableRowsToggle(): (show: boolean) => void {
       sizeField,
       labelFields,
       tooltipFields,
+      measureGroup,
       dispatch,
     ],
   );

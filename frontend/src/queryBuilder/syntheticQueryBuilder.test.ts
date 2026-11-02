@@ -64,4 +64,29 @@ describe('transformMeasuresToRows', () => {
 
     expect(result.rows.map((r) => r.MeasureNames)).toEqual(['sales', 'profit']);
   });
+
+  it('keeps tooltip-only dimensions that are not on any shelf', () => {
+    const sales = field({ id: 'a', columnName: 'sales', aggregation: 'sum' });
+    const profit = field({ id: 'b', columnName: 'profit', aggregation: 'sum' });
+
+    const wide: QueryResult = {
+      columns: [
+        { name: 'region', type: 'string' },
+        { name: 'store', type: 'string' },
+        { name: 'SUM(sales)', type: 'float' },
+        { name: 'SUM(profit)', type: 'float' },
+      ],
+      rows: [{ region: 'EU', store: 'S1', 'SUM(sales)': 100, 'SUM(profit)': 25 }],
+      row_count: 1,
+    };
+
+    // `store` came from tooltipFields, so it is not among the shelf fields
+    const result = transformMeasuresToRows(wide, [sales, profit], [region, measureValues], new Set());
+
+    expect(result.rows).toEqual([
+      { region: 'EU', store: 'S1', MeasureNames: 'sales', 'SUM(MeasureValues)': 100 },
+      { region: 'EU', store: 'S1', MeasureNames: 'profit', 'SUM(MeasureValues)': 25 },
+    ]);
+    expect(result.columns.map((c) => c.name)).toEqual(['region', 'store', 'MeasureNames', 'SUM(MeasureValues)']);
+  });
 });

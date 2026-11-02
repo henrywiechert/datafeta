@@ -36,11 +36,12 @@ const makeField = (columnName: string): Field => ({
 const NO_FIELDS: Field[] = [];
 const COLUMNS: Field[] = [makeField('country')];
 
-const props = (tableColumnFields: Field[]) => ({
+const props = (tableColumnFields: Field[], measureGroupMembers: Field[] = NO_FIELDS) => ({
   enabled: true,
   selectedTable: 'orders',
   selectedDatabase: 'shop',
   tableColumnFields,
+  measureGroupMembers,
   filterConfigurations: {},
 });
 
@@ -80,5 +81,33 @@ describe('useTableRowsQuery row count', () => {
     rerender(props([...COLUMNS, makeField('city')]));
     await waitFor(() => expect(mockExecuteQueryArrow).toHaveBeenCalledTimes(2));
     expect(mockGetRowCount).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useTableRowsQuery synthetic columns', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetRowCount.mockResolvedValue(1);
+    mockExecuteQueryArrow.mockResolvedValue({ rows: [], columns: [] });
+  });
+
+  it('queries the measure group members instead of MeasureNames/MeasureValues', async () => {
+    // Column lists seeded before synthetic fields were expanded still hold them.
+    const columns: Field[] = [
+      { ...makeField('MeasureNames'), isSynthetic: true, syntheticType: 'MeasureNames' },
+      { ...makeField('MeasureValues'), type: 'measure', flavour: 'continuous', isSynthetic: true, syntheticType: 'MeasureValues' },
+      makeField('run_path'),
+    ];
+    const members: Field[] = [
+      { ...makeField('sales'), type: 'measure', flavour: 'continuous', aggregation: 'sum' },
+      { ...makeField('sales'), id: 'sales-avg', type: 'measure', flavour: 'continuous', aggregation: 'avg' },
+      { ...makeField('profit'), type: 'measure', flavour: 'continuous', aggregation: 'sum' },
+    ];
+
+    renderHook(() => useTableRowsQuery(props(columns, members)));
+
+    await waitFor(() => expect(mockExecuteQueryArrow).toHaveBeenCalledTimes(1));
+    const queryDesc = mockExecuteQueryArrow.mock.calls[0][0];
+    expect(queryDesc.dimensions.map((d: any) => d.field)).toEqual(['sales', 'profit', 'run_path']);
   });
 });

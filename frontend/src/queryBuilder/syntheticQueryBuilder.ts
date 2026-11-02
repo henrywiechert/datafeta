@@ -248,16 +248,16 @@ export function transformMeasuresToRows(
   axisMeasureColumnNames: Set<string>
 ): QueryResult {
   const transformedRows: any[] = [];
-  
-  // Get all fields that should be copied to each row (dimensions + non-unpivoted measures)
-  const fieldsToKeep = originalFields.filter(
-    f => !isMeasureValuesField(f) && !isMeasureNamesField(f)
+
+  // Non-unpivoted measures placed on the shelves (axes, color, size, ...)
+  const otherMeasureFields = originalFields.filter(
+    f => f.type === 'measure' && !isMeasureValuesField(f) && !isMeasureNamesField(f)
   );
-  
-  // Separate into dimensions and measures
-  const dimensionFields = fieldsToKeep.filter(f => f.type === 'dimension');
-  const otherMeasureFields = fieldsToKeep.filter(f => f.type === 'measure');
-  
+  const otherMeasureColumnNames = new Set(otherMeasureFields.map((field) => getResultColumnName({
+    ...field,
+    aggregation: field.aggregation || 'sum',
+  })));
+
   // Find the MeasureValues field to get its aggregation
   const measureValuesField = originalFields.find(f => isMeasureValuesField(f));
   const aggregation = measureValuesField?.aggregation || 'sum';
@@ -274,6 +274,13 @@ export function transformMeasuresToRows(
   });
   const measureLabels = measureFields.map((field) => getMeasureMemberLabel(field, measureFields));
 
+  // Every other result column is copied to each long row: shelf dimensions, but
+  // also tooltip/label fields the query added that aren't on any shelf.
+  const memberColumnNames = new Set(measureColumnNames);
+  const passthroughColumns = result.columns.filter(
+    c => !memberColumnNames.has(c.name) || otherMeasureColumnNames.has(c.name)
+  );
+
   // Transform each row
   for (const row of result.rows) {
     // For each measure, create a new row
@@ -288,24 +295,14 @@ export function transformMeasuresToRows(
 
       const newRow: any = {};
 
-      // Copy dimension values
-      for (const dimField of dimensionFields) {
-        const dimColumnName = getResultColumnName(dimField);
-        newRow[dimColumnName] = row[dimColumnName];
-      }
-      
-      // Copy other measure values (measures that aren't being unpivoted, like colorField/sizeField)
-      // For axis measures, only copy once per original row to avoid duplication.
+      // Copy passthrough values. For axis measures, only copy once per original
+      // row to avoid duplication.
       const isPrimaryRow = i === 0;
-      for (const measureField of otherMeasureFields) {
-        const measureColumnName = getResultColumnName({
-          ...measureField,
-          aggregation: measureField.aggregation || 'sum',
-        });
-        if (axisMeasureColumnNames.has(measureColumnName) && !isPrimaryRow) {
+      for (const col of passthroughColumns) {
+        if (axisMeasureColumnNames.has(col.name) && !isPrimaryRow) {
           continue;
         }
-        newRow[measureColumnName] = row[measureColumnName];
+        newRow[col.name] = row[col.name];
       }
 
       // Add synthetic columns with proper names
@@ -317,34 +314,8 @@ export function transformMeasuresToRows(
   }
 
   // Build new column list
-  const newColumns: QueryResult['columns'] = [];
-  
-  // Add dimension columns
-  for (const dimField of dimensionFields) {
-    const dimColumnName = getResultColumnName(dimField);
-    const origCol = result.columns.find(c => c.name === dimColumnName);
-    if (origCol) {
-      newColumns.push(origCol);
-    }
-  }
-  
-  // Add other measure columns (including explicitly placed measures)
-  const addedColumns = new Set(newColumns.map(col => col.name));
-  for (const measureField of otherMeasureFields) {
-    const measureColumnName = getResultColumnName({
-      ...measureField,
-      aggregation: measureField.aggregation || 'sum',
-    });
-    if (addedColumns.has(measureColumnName)) {
-      continue;
-    }
-    const origCol = result.columns.find(c => c.name === measureColumnName);
-    if (origCol) {
-      newColumns.push(origCol);
-      addedColumns.add(measureColumnName);
-    }
-  }
-  
+  const newColumns: QueryResult['columns'] = [...passthroughColumns];
+
   // Add synthetic columns with proper names
   newColumns.push({ name: MEASURE_NAMES_FIELD, type: 'string' });
   newColumns.push({ name: measureValuesColumnName, type: 'float' });

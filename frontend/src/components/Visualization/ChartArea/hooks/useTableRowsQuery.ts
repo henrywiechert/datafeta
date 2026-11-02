@@ -13,6 +13,7 @@ import { VirtualTableDefinition, VirtualColumnDefinition } from '../../../../typ
 import { queryApi } from '../../../../services/api/queryApi';
 import { metadataApi } from '../../../../services/api/metadataApi';
 import { convertFilterConfigsToFilters, extractColumnCasts } from '../../../../queryBuilder/queryBuilder';
+import { expandSyntheticTableColumns } from '../../../../utils/tableColumns';
 
 import type { TableRowsSortModel } from '../../../../types';
 export type { TableRowsSortModel } from '../../../../types';
@@ -23,6 +24,8 @@ export interface UseTableRowsQueryProps {
   selectedDatabase: string | null;
   /** Columns to display, sourced from the table view's dedicated "Columns" drop zone. */
   tableColumnFields: Field[];
+  /** Members of the measure group, which a MeasureValues column expands to. */
+  measureGroupMembers: Field[];
   filterConfigurations: Record<string, FilterConfig>;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
@@ -47,6 +50,7 @@ export function useTableRowsQuery({
   selectedTable,
   selectedDatabase,
   tableColumnFields,
+  measureGroupMembers,
   filterConfigurations,
   virtualTable,
   virtualColumns,
@@ -62,8 +66,12 @@ export function useTableRowsQuery({
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // The columns to display are exactly the table view's column list.
-  const allFields = tableColumnFields;
+  // The columns to display are the table view's column list, with synthetic
+  // fields (seeded or dropped from the chart encodings) mapped to real columns.
+  const allFields = useMemo(
+    () => expandSyntheticTableColumns(tableColumnFields, measureGroupMembers),
+    [tableColumnFields, measureGroupMembers],
+  );
 
   // Stable key for filter configs to detect changes
   const filterKey = useMemo(() => JSON.stringify(filterConfigurations), [filterConfigurations]);

@@ -76,4 +76,6 @@ export interface FacetCoordinatorConfig {
   cellGenerator: CellGenerator;
   categoryField?: Field | null;
   sharedCategoryDomain?: any[];
+  /** Rows sharing a cell and category stack into one mark (bars); measure domains use stack totals */
+  stacked?: boolean;
 }

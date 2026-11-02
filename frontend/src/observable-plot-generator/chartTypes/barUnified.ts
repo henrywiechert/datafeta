@@ -2,7 +2,7 @@
 import { ChartGenerationContext, LabelConfig, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
-import { resolveBarLayoutMarkStyle } from '../helpers/chartTypeResolver';
+import { BarLayoutMarkStyle, resolveBarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
@@ -96,7 +96,9 @@ export function barUnified(
   // Use effective manual size which may come from combined MeasureValues overrides
   const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize: effectiveManualSize }) ?? BAND_PADDING;
 
-  // Shared value domains across measures for consistent scaling (stack-aware when color is present)
+  const markStyle = resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant);
+
+  // Shared value domains across measures for consistent scaling (stack-aware)
   const sharedDomains = computeBarUnifiedMeasureDomains(
     measures as Field[],
     data,
@@ -104,6 +106,7 @@ export function barUnified(
     categoryDims as Field[],
     categoryAccessor,
     context.facetFields,
+    markStyle,
   );
 
   // Apply bar sorting if specified on any measure
@@ -159,7 +162,7 @@ export function barUnified(
       // When there's no color field, use the global/effective manualColor as the bar fill
       manualColor: colorField ? undefined : effectiveManualColor,
       measureField: measure,
-      markStyle: resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant),
+      markStyle,
       sizeField,
       sizeRange: context.sizeRange,
       manualSize: effectiveManualSize,
@@ -367,6 +370,7 @@ function computeBarUnifiedMeasureDomains(
   categoryDims: Field[],
   categoryAccessor: ((row: any) => string) | undefined,
   facetFields?: Field[],
+  markStyle?: BarLayoutMarkStyle,
 ): Record<string, [number, number]> {
   const domainData =
     categoryDims.length > 1 && categoryAccessor
@@ -386,16 +390,18 @@ function computeBarUnifiedMeasureDomains(
             dataType: 'string',
           };
 
-  // Stack totals per category only apply when both color and category axes are present.
-  const categoryFieldForStacking = colorField && categoryField ? categoryField : undefined;
+  // Color stacks every mark style; bar marks (Plot's implicit stackY/X) also stack
+  // rows that share a category without color, e.g. one row per tooltip dimension value.
+  const stacked = !!colorField || markStyle === 'bar';
 
   return computeSharedMeasureDomains(
     domainData,
     measures as any[],
     measures as any[],
     colorField,
-    categoryFieldForStacking,
+    categoryField,
     facetFields,
+    stacked,
   );
 }
 

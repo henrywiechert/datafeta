@@ -148,6 +148,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       categoryAxis === 'x' ? context.xAxisTickHeightPx : context.yAxisTickWidthPx
     ) : undefined;
 
+    const markStyle = resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant);
+
     // Create a specialized cell generator for multi-measure bar charts
     const barCellGen = createBarCellGenerator(
       xFields,
@@ -162,7 +164,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       effectiveManualColor,
       context.tooltipFields,
       tickFormat,
-      resolveBarLayoutMarkStyle(context.globalChartType, context.lineVariant),
+      markStyle,
       sizeField,
       context.sizeRange,
       effectiveManualSize,
@@ -176,6 +178,9 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       cellGenerator: barCellGen,
       categoryField,
       sharedCategoryDomain: sharedCategoryDomain || undefined,
+      // Color stacks every mark style; bar marks also stack rows sharing a category
+      // without color (e.g. one row per tooltip dimension value).
+      stacked: !!colorField || markStyle === 'bar',
     });
   }
   

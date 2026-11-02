@@ -20,7 +20,7 @@ export function buildFacetDomainContext(
   facetSpace: FacetSpace,
   dataIndex: FacetDataIndex
 ): FacetDomainContext {
-  const { context, plan, categoryField, sharedCategoryDomain } = config;
+  const { context, plan, categoryField, sharedCategoryDomain, stacked } = config;
   const { xFields, yFields, queryResult, independentDomains } = context;
   const color = resolveContextColorChannel(context);
   const colorField = color.field ?? undefined;
@@ -38,7 +38,8 @@ export function buildFacetDomainContext(
     color.bias,
     color.reversed,
     context.measureValuesSourceFields,
-    context.fieldOverrides
+    context.fieldOverrides,
+    stacked
   );
 
   const perColumnSharedDomains = independentDomains?.x
@@ -56,7 +57,8 @@ export function buildFacetDomainContext(
               color.bias,
               color.reversed,
               context.measureValuesSourceFields,
-              context.fieldOverrides
+              context.fieldOverrides,
+              stacked
             )
           : sharedDomains;
 
@@ -82,7 +84,8 @@ export function buildFacetDomainContext(
               color.bias,
               color.reversed,
               context.measureValuesSourceFields,
-              context.fieldOverrides
+              context.fieldOverrides,
+              stacked
             )
           : sharedDomains;
 

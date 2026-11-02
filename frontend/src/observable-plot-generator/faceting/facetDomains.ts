@@ -14,6 +14,7 @@ export type { SharedDomains };
  * 
  * @param measureValuesSourceFields - Optional source measures for MeasureValues (for per-measure color overrides)
  * @param fieldOverrides - Optional per-field overrides (for per-measure color overrides)
+ * @param stacked - Whether rows sharing a cell/category stack (see computeSharedMeasureDomains)
  */
 export function computeSharedDomainsForFaceting(
   data: any[],
@@ -26,7 +27,8 @@ export function computeSharedDomainsForFaceting(
   colorBias?: number,
   colorReversed?: boolean,
   measureValuesSourceFields?: Field[],
-  fieldOverrides?: Record<string, FieldOverrideState>
+  fieldOverrides?: Record<string, FieldOverrideState>,
+  stacked?: boolean
 ): SharedDomains {
   // Compute shared measure domains
   const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -36,7 +38,8 @@ export function computeSharedDomainsForFaceting(
     allMeasures as any[],
     colorField,
     categoryField,
-    facetFields
+    facetFields,
+    stacked
   );
 
   // Compute shared numeric domains (for continuous dimensions and measures)

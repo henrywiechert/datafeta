@@ -4,6 +4,7 @@
  */
 import { Field } from '../types';
 import { getResultColumnName } from './fieldUtils';
+import { isMeasureNamesField, isMeasureValuesField } from './syntheticFields';
 
 /**
  * Collect all active fields from every encoding channel, deduplicated by their
@@ -37,6 +38,29 @@ export function collectEncodingFields(
   if (sizeField) add(sizeField);
   labelFields.forEach(add);
   tooltipFields.forEach(add);
+
+  return result;
+}
+
+/**
+ * Replace the synthetic fields, which have no raw column, for the table view's
+ * raw-rows query: MeasureValues becomes the measure group's member columns and
+ * MeasureNames is dropped. Deduplicated by column name, since members can share
+ * a column under different aggregations.
+ */
+export function expandSyntheticTableColumns(fields: Field[], measureGroupMembers: Field[]): Field[] {
+  const seen = new Set<string>();
+  const result: Field[] = [];
+
+  for (const f of fields) {
+    if (isMeasureNamesField(f)) continue;
+    for (const col of isMeasureValuesField(f) ? measureGroupMembers : [f]) {
+      if (!seen.has(col.columnName)) {
+        seen.add(col.columnName);
+        result.push(col);
+      }
+    }
+  }
 
   return result;
 }
