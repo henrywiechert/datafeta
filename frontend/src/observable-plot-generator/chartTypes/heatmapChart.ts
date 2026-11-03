@@ -397,9 +397,11 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     (options as any).__discreteAxes = { x: true, y: true };
   }
 
+  // Plot binds each element's `__data__` to its index in the mark's own data,
+  // so the tooltip must resolve against the (re-sorted) array the mark renders.
   (options as any).__customTooltip = {
     enabled: true,
-    data,
+    data: useScaledRectMark ? sizedHeatmapData : data,
     getFields: tooltipGetter,
   };
 

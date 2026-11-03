@@ -363,6 +363,24 @@ describe('buildHeatmapOptions size encoding', () => {
     expect(width).toBeLessThan(1);
   });
 
+  test('tooltip data is index-aligned with the re-sorted rect mark data', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      color: color(meas('sales')),
+      sizeField: meas('sales'),
+      sizeRange: [3, 18],
+    });
+
+    const primary = (opts.marks as any[])[0];
+    const tooltipData = (opts as any).__customTooltip.data;
+    // Largest-first paint order differs from the input order...
+    expect(primary.data.map((d: any) => d['SUM(sales)'])).toEqual([200, 150, 100, 50]);
+    // ...so Plot's `__data__` index must resolve against that same array.
+    expect(tooltipData).toBe(primary.data);
+  });
+
   test('falls back to Plot.cell when no size field is configured', () => {
     const opts = buildHeatmapOptions({
       data: SAMPLE_ROWS,
