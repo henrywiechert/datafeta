@@ -23,6 +23,9 @@ export interface LabelSamplingConfig {
 
 const HARD_CAP = 5000;
 
+/** Marks a row that must still be stacked but should not be labelled. */
+export const HIDDEN_LABEL_KEY = '__labelHidden';
+
 /**
  * Decide whether labels should render and return sampled data subset if needed.
  * Chart-agnostic - just handles sampling logic.
@@ -145,6 +148,8 @@ export interface LabelMarkConfig {
   stackTransform?: 'stackX' | 'stackY';
   /** For stacked charts: column to group by for stacking */
   zColumn?: string;
+  /** For stacked charts: segment order, which must match the bars' stack order */
+  stackOrder?: (d: any) => number | string;
 }
 
 /**
@@ -184,6 +189,7 @@ export function createLabelMark(cfg: LabelMarkConfig): ReturnType<typeof Plot.te
     base.x = cfg.x;
     base.y = cfg.y;
     base.z = cfg.zColumn;
+    if (cfg.stackOrder) base.order = cfg.stackOrder;
     
     if (cfg.stackTransform === 'stackY') {
       return Plot.textY(cfg.data, Plot.stackY(base));
@@ -221,6 +227,8 @@ export interface LabelRenderConfig {
   orientation?: 'vertical' | 'horizontal';
   colorColumn?: string;
   isStacked?: boolean;
+  /** Stacked bars: segment order matching the bars' stack order */
+  stackOrder?: (d: any) => number | string;
   durationColumn?: string;
 }
 
@@ -228,6 +236,9 @@ export interface LabelRenderConfig {
  * @deprecated Use buildLabelStringFromFields + chart-specific defaults instead.
  */
 export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
+  // Rows kept only so they take their place in the stack, but without a label of their own.
+  if (d?.[HIDDEN_LABEL_KEY]) return '';
+
   // First try explicit label fields
   const fromFields = buildLabelStringFromFields(d, cfg.labelFields, cfg.yColumn);
   if (fromFields.length > 0) {
@@ -283,6 +294,7 @@ export function createLegacyLabelMark(
       y: yCol,
       stackTransform: cfg.orientation === 'vertical' ? 'stackY' : 'stackX',
       zColumn: cfg.colorColumn,
+      stackOrder: cfg.stackOrder,
     });
   }
   

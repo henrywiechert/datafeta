@@ -6,7 +6,7 @@ import { LabelConfig } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
-import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
+import { buildBarOptions, createStackOrder, resolveMeasureAlias } from '../chartTypes/barCore';
 import { BarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
@@ -301,7 +301,7 @@ function buildMeasureBarOptions(
   
   // Add labels if configured
   if (labelCfg) {
-    addBarLabels(options, cellData, measureName, barOrientation, categoryColumnName, colorColumnName, labelCfg);
+    addBarLabels(options, cellData, measureName, barOrientation, categoryColumnName, colorColumnName, labelCfg, sharedDomains.colorScale);
   }
   
   return options;
@@ -314,7 +314,8 @@ function addBarLabels(
   barOrientation: 'barX' | 'barY',
   categoryColumnName: string | undefined,
   colorColumnName: string | undefined,
-  labelCfg: LabelConfig
+  labelCfg: LabelConfig,
+  colorScale: SharedDomains['colorScale'],
 ): void {
   let labelData = cellData;
   const orientation = barOrientation === 'barX' ? 'horizontal' : 'vertical';
@@ -360,7 +361,9 @@ function addBarLabels(
     chartType: 'bar',
     orientation,
     colorColumn: colorColumnName,
-    isStacked: isStacked
+    isStacked: isStacked,
+    // Stack labels in the bars' segment order, or they land on the wrong segments.
+    stackOrder: colorColumnName ? createStackOrder(colorScale, colorColumnName) : undefined,
   };
   
   const prepared = prepareLabelData(labelConfig);

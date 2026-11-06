@@ -261,6 +261,22 @@ export function sortCategoriesByValue(
   return sorted;
 }
 
+/**
+ * Stack order shared by the bar marks and their label marks: Plot stacks in
+ * input order unless told otherwise, so both must sort segments identically.
+ */
+export function createStackOrder(colorScale: ColorScaleInfo | null | undefined, colorColumn: string) {
+  const categoricalColorOrder = colorScale?.kind === 'categorical'
+    ? new Map((colorScale.domain as any[]).map((value, idx) => [value, idx]))
+    : null;
+  return (d: any): number | string => {
+    const value = d?.[colorColumn];
+    const indexed = categoricalColorOrder?.get(value);
+    if (typeof indexed === 'number') return indexed;
+    return String(value ?? '');
+  };
+}
+
 function applyStackIfNeeded(
   orientation: Orientation,
   config: any,
@@ -385,9 +401,6 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const O = ORIENTATION[orientation];
   const categories = categoriesDomain || deriveCategories(data, categoryColumn);
-  const categoricalColorOrder = colorScale?.kind === 'categorical'
-    ? new Map((colorScale.domain as any[]).map((value, idx) => [value, idx]))
-    : null;
 
   // Compute domain, accounting for stacking when there's no category but there is color.
   // Line/area marks plot individual values, so they skip the stacked-total domain.
@@ -456,12 +469,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   // Enforce deterministic stack ordering whenever a color field is used.
   if (colorColumn) {
     baseConfig.z = colorColumn;
-    baseConfig.order = (d: any) => {
-      const value = d?.[colorColumn];
-      const indexed = categoricalColorOrder?.get(value);
-      if (typeof indexed === 'number') return indexed;
-      return String(value ?? '');
-    };
+    baseConfig.order = createStackOrder(colorScale, colorColumn);
   }
 
   // Keep mark input order stable across categories and color groups.

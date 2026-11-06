@@ -1,13 +1,13 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { ChartGenerationContext, LabelConfig, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
-import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
+import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue, createStackOrder } from './barCore';
 import { BarLayoutMarkStyle, resolveBarLayoutMarkStyle } from '../helpers/chartTypeResolver';
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
-import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig, HIDDEN_LABEL_KEY } from '../utils/labelUtils';
 // Tick strip for continuous dimensions
 import { tickStrip } from './tickStrip';
 import { boxPlot } from './boxPlot';
@@ -219,11 +219,12 @@ export function barUnified(
         // Only filter small segments for single stacked bars (not for categorical stacked bars)
         const total = labelData.reduce((sum: number, r: any) => sum + (typeof r[measureName] === 'number' ? r[measureName] : 0), 0) || 0;
         if (total > 0) {
-          // Keep segments >=1% of total
-          labelData = labelData.filter(r => {
+          // Label only segments >=1% of total. Small ones stay in the data so the
+          // remaining labels are stacked at the same offsets as the bars.
+          labelData = labelData.map(r => {
             const v = r[measureName];
-            if (typeof v !== 'number' || !isFinite(v)) return false;
-            return v / total >= 0.01;
+            const visible = typeof v === 'number' && isFinite(v) && v / total >= 0.01;
+            return visible ? r : { ...r, [HIDDEN_LABEL_KEY]: true };
           });
         }
       }
@@ -245,7 +246,8 @@ export function barUnified(
         chartType: 'bar',
         orientation,
         colorColumn: colorColumn,
-        isStacked: isStacked
+        isStacked: isStacked,
+        stackOrder: colorColumn ? createStackOrder(colorScale, colorColumn) : undefined,
       };
       // Inject synthetic category column BEFORE sampling when there is no category and no color (single total bar)
       if (needsSyntheticCategory) {
