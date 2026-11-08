@@ -32,7 +32,7 @@ jest.mock('@mui/material', () => {
   );
 
   return {
-    Popover: ({ children, open, anchorEl, anchorOrigin, transformOrigin, PaperProps, ...props }: any) => open ? React.createElement('div', props, children) : null,
+    Popover: ({ children, open, anchorEl, anchorOrigin, anchorReference, anchorPosition, transformOrigin, PaperProps, ...props }: any) => open ? React.createElement('div', props, children) : null,
     Box: passthrough,
     Button: ({ children, size, variant, ...props }: any) => React.createElement('button', props, children),
     Typography: passthrough,
