@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useEffect, useState } from 'react';
-import { Box, IconButton, Popover, Slider, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, TextField, Typography, Tooltip } from '@mui/material';
+import { Box, IconButton, Popover, Slider, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
