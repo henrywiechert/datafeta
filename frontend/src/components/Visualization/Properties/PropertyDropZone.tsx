@@ -60,7 +60,7 @@ export const PropertyDropZone: React.FC<PropertyDropZoneProps> = ({
 
   return (
     <Box
-      className={`${styles.dropZone} ${variant === 'plain' ? styles.plain : ''} ${hasContent ? styles.hasContent : ''} ${
+      className={`${styles.dropZone} df-drop-target ${variant === 'plain' ? styles.plain : ''} ${hasContent ? styles.hasContent : ''} ${
         isOver ? styles.dragOver : ''
       }`}
       onDragOver={handleDragOver}

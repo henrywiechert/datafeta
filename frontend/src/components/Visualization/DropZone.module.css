@@ -2,7 +2,7 @@
     padding: 16px;
     margin-bottom: 0px;
     border: 1px dashed var(--df-border-strong);
-    border-radius: 5px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: flex-start;

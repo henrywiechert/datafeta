@@ -114,7 +114,7 @@ const MeasureGroupsPanel: React.FC = () => {
         )}
       </Box>
       <Box
-        className={`${filterDropZoneStyles.dropZone} ${isOver ? filterDropZoneStyles.isOver : ''}`}
+        className={`${filterDropZoneStyles.dropZone} df-drop-target ${isOver ? filterDropZoneStyles.isOver : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={(e) => {

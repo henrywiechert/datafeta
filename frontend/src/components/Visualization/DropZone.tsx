@@ -297,7 +297,7 @@ const DropZone: React.FC<DropZoneProps> = ({
     clearSelection();
   };
 
-  const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
+  const dropZoneClass = `${styles.dropZone} df-drop-target ${isOver ? styles.isOver : ''}`;
 
   return (
     <div style={DROPZONE_STYLES.container}>

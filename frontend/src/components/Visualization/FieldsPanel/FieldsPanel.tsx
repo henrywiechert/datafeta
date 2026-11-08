@@ -271,7 +271,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
       <Collapse in={fieldsExpanded} timeout={200} className={styles.fieldsCollapse}>
       <div
         id="fields-panel-content"
-        className={`${styles.fieldsList} ${isDragOver ? styles.dragOver : styles.normal}`}
+        className={`${styles.fieldsList} df-drop-target df-drop-target-remove ${isDragOver ? styles.dragOver : styles.normal}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

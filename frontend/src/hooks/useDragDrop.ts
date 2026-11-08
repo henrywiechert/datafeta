@@ -115,9 +115,13 @@ export function useDragDrop(
       return;
     }
     
-    if (source === 'MEASURE_GROUP') {
-      // Use the dragged field copies directly
-      const fieldCopies = fieldsToAdd.map(f => ({ ...f, id: uuidv4() }));
+    if (source !== 'X_AXIS' && source !== 'Y_AXIS') {
+      // Any other zone (measure group, color, size, filter, ...): copy the dragged
+      // fields in. Axis `disabled` is shelf-local, so it is not carried over.
+      const fieldCopies = fieldsToAdd.map(f => {
+        const { disabled: _disabled, ...rest } = f;
+        return { ...rest, id: uuidv4() };
+      });
       
       if (fieldCopies.length === 0) {
         if (axisDropFieldIdsRef) axisDropFieldIdsRef.current = null;
@@ -270,29 +274,28 @@ export function useDragDrop(
    * Handle drops on the filter zone
    */
   const handleFilterDrop = useCallback((field: Field, source: DragSource) => {
-    // Record current state for undo
-    recordUndoPoint();
-    
     // Read current state from refs for stable callback
     const currentFieldsToUse = fieldsToUseRef.current;
     const currentFilterFields = filterFieldsRef.current;
     
-    // Resolve the source field depending on where it came from
-    let sourceField: Field | undefined;
-    if (source === 'AVAILABLE_FIELDS') {
-      sourceField = currentFieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
-      if (isMeasureNamesField(sourceField) || isMeasureValuesField(sourceField)) return;
-    } else if (source === 'X_AXIS' || source === 'Y_AXIS') {
-      if (isMeasureNamesField(field) || isMeasureValuesField(field)) return;
-      sourceField = field;
-    }
+    // Resolve the source field depending on where it came from: the field
+    // list is canonical, every other zone supplies the dragged field itself.
+    const sourceField: Field | undefined =
+      source === 'AVAILABLE_FIELDS'
+        ? currentFieldsToUse.find(f => f.id === field.id)
+        : field;
     if (!sourceField) return;
+    if (isMeasureNamesField(sourceField) || isMeasureValuesField(sourceField)) return;
 
-    // Delegate to the shared utility (creates a copy with new UUID).
-    // selectedValues is left empty — useFilterMetadata will auto-initialise
-    // the config because no pre-seeded config exists for the new field id.
-    const fieldCopy = { ...sourceField, id: uuidv4() };
+    // Record current state for undo
+    recordUndoPoint();
+
+    // Create a copy with a new UUID (axis `disabled` is shelf-local, so it is
+    // dropped). selectedValues is left empty — useFilterMetadata will
+    // auto-initialise the config because no pre-seeded config exists for the
+    // new field id.
+    const { disabled: _disabled, ...withoutDisabled } = sourceField;
+    const fieldCopy = { ...withoutDisabled, id: uuidv4() };
     dispatch({
       type: 'SET_FILTER_FIELDS',
       payload: [...currentFilterFields, fieldCopy],

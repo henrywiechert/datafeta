@@ -2,7 +2,7 @@
   min-height: 44px;
   padding: 1px;
   border: 1px dashed var(--df-border-hairline);
-  border-radius: 4px;
+  border-radius: 16px;
   background-color: var(--df-surface-panel);
   transition: all 0.2s ease;
 }

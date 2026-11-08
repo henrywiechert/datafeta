@@ -3,7 +3,7 @@
   min-width: 60px;
   padding: 1px;
   border: 2px dashed var(--df-border-accent);
-  border-radius: 4px;
+  border-radius: 16px;
   background-color: var(--df-surface-accent-subtle);
   transition: all 0.2s ease;
 }
@@ -40,12 +40,16 @@
   min-width: 0;
 }
 
-/* Plain variant for dense override controls: no frame/background */
+/*
+ * Plain variant for dense override controls: no frame/background. 28px matches
+ * the icon button beside each zone, so the target is roomier than the 22px chip
+ * without growing the row.
+ */
 .plain {
   border: none;
   background-color: transparent;
   padding: 0;
-  min-height: 22px;
+  min-height: 28px;
   min-width: 0;
 }
 
@@ -64,12 +68,12 @@
   justify-content: flex-start;
   color: var(--df-text-placeholder);
   font-weight: 400;
-  min-height: 22px;
+  min-height: 28px;
 }
 
 .plain .content {
   flex-direction: row;
   align-items: center;
   gap: 4px;
-  min-height: 22px;
+  min-height: 28px;
 }

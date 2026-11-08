@@ -181,3 +181,28 @@ html {
   background-color: var(--df-text-accent);
   color: var(--df-text-on-accent);
 }
+
+/*
+ * Drop-zone hint while a field is being dragged. dragDataStore sets
+ * `data-field-drag="<source>"` on <body>; every zone that accepts a drop
+ * carries `.df-drop-target`. An inset outline keeps layout untouched and is
+ * not clipped by scrolling zones. Zones' own hover (`isOver`) styles still win
+ * through their border/background. The field list is only a target for chips
+ * dragged out of a zone (it removes them), hence the second rule.
+ *
+ * The outline's width, style and offset are fixed in the resting state and only
+ * the colour changes: zones transition `all`, so introducing the outline from
+ * the default (3px, none) would animate its width and flash.
+ */
+.df-drop-target {
+  outline: 2px dotted transparent;
+  outline-offset: -3px;
+}
+
+body[data-field-drag] .df-drop-target {
+  outline-color: var(--df-drop-hint-border);
+}
+
+body[data-field-drag="AVAILABLE_FIELDS"] .df-drop-target-remove {
+  outline-color: transparent;
+}

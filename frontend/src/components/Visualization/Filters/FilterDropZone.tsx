@@ -114,7 +114,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
 
   return (
     <Box
-      className={`${styles.dropZone} ${isOver ? styles.isOver : ''}`}
+      className={`${styles.dropZone} df-drop-target ${isOver ? styles.isOver : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

@@ -21,9 +21,37 @@ export interface DragPayload {
 
 let currentPayload: DragPayload | null = null;
 
+/**
+ * Attribute set on <body> while a field drag is in flight, holding the drag
+ * source. Global CSS (index.css) uses it to frame every `.df-drop-target`.
+ */
+const DRAG_ACTIVE_ATTRIBUTE = 'data-field-drag';
+
+function showDropTargets(source: string): void {
+  if (typeof document === 'undefined') return;
+  document.body.setAttribute(DRAG_ACTIVE_ATTRIBUTE, source);
+}
+
+function hideDropTargets(): void {
+  if (typeof document === 'undefined') return;
+  document.body.removeAttribute(DRAG_ACTIVE_ATTRIBUTE);
+}
+
+// A chip removed by its own drop never receives `dragend`, so the highlight
+// is also dropped when any drop lands. This leaves the payload alone: the drop
+// handlers still need to read it.
+if (typeof document !== 'undefined') {
+  document.addEventListener('drop', hideDropTargets, true);
+}
+
 /** Store the drag payload at drag-start. */
 export function setDragData(payload: DragPayload): void {
   currentPayload = payload;
+  // Deferred so the style change does not land inside the browser's
+  // drag-start; skipped if the drag already ended.
+  setTimeout(() => {
+    if (currentPayload === payload) showDropTargets(payload.source);
+  }, 0);
 }
 
 /** Retrieve the current drag payload (returns null if nothing is being dragged). */
@@ -34,6 +62,7 @@ export function getDragData(): DragPayload | null {
 /** Clear the stored payload (call on drag-end or after drop). */
 export function clearDragData(): void {
   currentPayload = null;
+  hideDropTargets();
 }
 
 /**

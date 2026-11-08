@@ -143,7 +143,7 @@ const TableColumnsDropZone: React.FC<TableColumnsDropZoneProps> = ({
     clearSelection();
   };
 
-  const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
+  const dropZoneClass = `${styles.dropZone} df-drop-target ${isOver ? styles.isOver : ''}`;
 
   // `flex-start` rather than the shared `center`: a centred overflowing child
   // puts its first chip row above the scroll container's top, out of reach.
