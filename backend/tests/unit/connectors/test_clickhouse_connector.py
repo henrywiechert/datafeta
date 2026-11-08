@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests for ClickHouse connector metadata preview helpers."""
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -93,3 +94,24 @@ class TestClickHouseConnectorPatternPreview:
             {'database': 'db_b', 'tables': ['orders_4']},
         ]
         assert truncated is True
+
+
+class TestClickHouseConnectorFetchDataDatetimes:
+    def test_fetch_data_normalizes_timezone_aware_datetimes_to_utc(self):
+        cet = timezone(timedelta(hours=1))
+        connector = ClickHouseConnector()
+        connector.client = Mock()
+        result = connector.client.query.return_value
+        result.columns = None
+        result.column_names = ['min_date', 'naive']
+        result.result_rows = [
+            (
+                datetime(2025, 11, 12, 15, 53, 49, 227000, tzinfo=cet),
+                datetime(2025, 11, 12, 14, 53, 49, 227000),
+            )
+        ]
+
+        _, rows = connector.fetch_data('SELECT 1')
+
+        assert rows[0]['min_date'] == '2025-11-12T14:53:49.227000+00:00'
+        assert rows[0]['naive'] == '2025-11-12T14:53:49.227000'

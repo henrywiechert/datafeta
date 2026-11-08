@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Connector for ClickHouse database using HTTP protocol."""
 import logging
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Tuple
 import threading
 from typing import Optional
@@ -443,6 +444,11 @@ class ClickHouseConnector(BaseConnector):
                 for col_name, value in zip(result.column_names, row):
                     # Convert datetime objects to ISO format strings if needed
                     if hasattr(value, 'isoformat'):
+                        # clickhouse_connect returns DateTime values in the server/column
+                        # timezone; the frontend drops the offset and treats the digits as
+                        # UTC, so normalize to UTC first.
+                        if isinstance(value, datetime) and value.tzinfo is not None:
+                            value = value.astimezone(timezone.utc)
                         row_dict[col_name] = value.isoformat()
                     else:
                         row_dict[col_name] = value
