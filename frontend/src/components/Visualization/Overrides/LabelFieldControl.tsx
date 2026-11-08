@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState } from 'react';
-import { Box, IconButton, Popover, Slider, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, IconButton, Popover, Slider, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, TextField, Typography, Tooltip } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
@@ -28,6 +28,21 @@ const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'off', label: 'Off' },
 ];
 
+type LabelSamplingStrategy = 'auto' | 'all' | 'sample';
+
+/** Max labels per step; one extra step past the end means "all". */
+const DENSITY_STEPS = [10, 25, 50, 100, 200, 300, 500, 1000, 2000, 5000];
+const DENSITY_ALL_INDEX = DENSITY_STEPS.length;
+
+function densityIndexOf(strategy: LabelSamplingStrategy, threshold: number): number {
+  if (strategy === 'all') return DENSITY_ALL_INDEX;
+  let best = 0;
+  DENSITY_STEPS.forEach((step, i) => {
+    if (Math.abs(step - threshold) < Math.abs(DENSITY_STEPS[best] - threshold)) best = i;
+  });
+  return best;
+}
+
 const FONT_SIZE_MIN = 8;
 const FONT_SIZE_MAX = 26;
 
@@ -40,6 +55,8 @@ interface LabelFieldControlProps {
   showLabelsEnabled?: boolean;
   labelsEnabled?: boolean;
   labelFontSize?: number;
+  labelSamplingStrategy?: LabelSamplingStrategy;
+  labelSamplingThreshold?: number;
   onLabelDrop: (field: Field) => void;
   /** Replace an existing label field in place (e.g. after a context-menu edit). */
   onLabelUpdate: (field: Field) => void;
@@ -48,6 +65,7 @@ interface LabelFieldControlProps {
   onDataLabelModeChange?: (mode: DataLabelMode) => void;
   onLabelsEnabledChange?: (enabled: boolean) => void;
   onLabelFontSizeChange?: (fontSize: number) => void;
+  onLabelDensityChange?: (strategy: LabelSamplingStrategy, threshold: number) => void;
 }
 
 const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
@@ -59,6 +77,8 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   showLabelsEnabled = false,
   labelsEnabled = false,
   labelFontSize = 10,
+  labelSamplingStrategy = 'auto',
+  labelSamplingThreshold = 300,
   onLabelDrop,
   onLabelUpdate,
   onLabelRemove,
@@ -66,9 +86,13 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   onDataLabelModeChange,
   onLabelsEnabledChange,
   onLabelFontSizeChange,
+  onLabelDensityChange,
 }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const popoverOpen = Boolean(anchorEl);
+  const committedDensity = densityIndexOf(labelSamplingStrategy, labelSamplingThreshold);
+  const [densityIndex, setDensityIndex] = useState(committedDensity);
+  useEffect(() => setDensityIndex(committedDensity), [committedDensity]);
 
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
@@ -90,6 +114,13 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
     if (!onLabelFontSizeChange) return;
     const fontSize = Array.isArray(value) ? value[0] : value;
     onLabelFontSizeChange(fontSize);
+  };
+
+  const handleDensityCommit = (_: unknown, value: number | number[]) => {
+    if (!onLabelDensityChange) return;
+    const index = Array.isArray(value) ? value[0] : value;
+    if (index >= DENSITY_ALL_INDEX) onLabelDensityChange('all', labelSamplingThreshold);
+    else onLabelDensityChange('auto', DENSITY_STEPS[index]);
   };
 
   return (
@@ -226,6 +257,48 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             </Box>
           )}
 
+          {onLabelDensityChange && (
+            <Box
+              sx={{
+                px: 0.5,
+                py: 0.25,
+                borderRadius: 1,
+                backgroundColor: T.surfaceSubtle,
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{ fontSize: '0.7rem', fontWeight: 500, color: T.textControlLabel, lineHeight: 1.3 }}
+              >
+                Label density: {densityIndex >= DENSITY_ALL_INDEX ? 'all' : `up to ${DENSITY_STEPS[densityIndex]}`}
+              </Typography>
+              <Slider
+                size="small"
+                value={densityIndex}
+                min={0}
+                max={DENSITY_ALL_INDEX}
+                step={1}
+                onChange={(_, value) => setDensityIndex(Array.isArray(value) ? value[0] : value)}
+                onChangeCommitted={handleDensityCommit}
+                valueLabelDisplay="off"
+                marks={[
+                  { value: 0, label: 'Min' },
+                  { value: DENSITY_ALL_INDEX, label: 'All' },
+                ]}
+                sx={{
+                  mt: 0.25,
+                  mb: 0.5,
+                  mx: 0.5,
+                  width: 'calc(100% - 8px)',
+                  '& .MuiSlider-markLabel': {
+                    fontSize: '0.65rem',
+                    top: 20,
+                  },
+                }}
+              />
+            </Box>
+          )}
+
           {onLabelFontSizeChange && (
             <Box
               sx={{
@@ -266,7 +339,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             </Box>
           )}
 
-          {!showLabelsEnabled && !showDataLabelMode && !onLabelFontSizeChange && (
+          {!showLabelsEnabled && !showDataLabelMode && !onLabelFontSizeChange && !onLabelDensityChange && (
             <Typography variant="caption" sx={{ color: T.textMuted, fontSize: '0.7rem' }}>
               Label options (coming soon)
             </Typography>

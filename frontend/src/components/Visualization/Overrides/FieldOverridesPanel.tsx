@@ -135,6 +135,8 @@ const FieldOverridesPanel: React.FC = () => {
     labelFields,
     labelsEnabled,
     labelFontSize,
+    labelSamplingStrategy,
+    labelSamplingThreshold,
     tooltipFields,
     globalChartType,
     chartTypeParams,
@@ -598,6 +600,8 @@ const FieldOverridesPanel: React.FC = () => {
           showLabelsEnabled={true}
           labelsEnabled={labelsEnabled}
           labelFontSize={labelFontSize}
+          labelSamplingStrategy={labelSamplingStrategy}
+          labelSamplingThreshold={labelSamplingThreshold}
           onLabelDrop={shelfActions.addLabelField}
           onLabelUpdate={(field) => {
             applyGlobalAction({ type: 'UPDATE_FIELD', payload: field });
@@ -615,6 +619,12 @@ const FieldOverridesPanel: React.FC = () => {
           }}
           onLabelFontSizeChange={(fontSize) => {
             applyGlobalAction({ type: 'SET_LABEL_FONT_SIZE', payload: fontSize });
+          }}
+          onLabelDensityChange={(strategy, threshold) => {
+            applyGlobalActions([
+              { type: 'SET_LABEL_SAMPLING_STRATEGY', payload: strategy },
+              { type: 'SET_LABEL_SAMPLING_THRESHOLD', payload: threshold },
+            ]);
           }}
         />
 

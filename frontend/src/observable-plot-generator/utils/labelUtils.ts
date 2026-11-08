@@ -21,7 +21,11 @@ export interface LabelSamplingConfig {
   supportsSampling?: boolean;
 }
 
-const HARD_CAP = 5000;
+/**
+ * Safety net for the "All" density setting. Matches the 50 000-mark render limit
+ * (MARKS_LIMIT), so "All" really shows every label of any chart that is allowed to render.
+ */
+const HARD_CAP = 50000;
 
 /** Marks a row that must still be stacked but should not be labelled. */
 export const HIDDEN_LABEL_KEY = '__labelHidden';
@@ -49,7 +53,8 @@ export function prepareLabelData(cfg: LabelSamplingConfig): { shouldRender: bool
   
   // Hard cap protection
   if (cfg.samplingStrategy === 'all' && total > HARD_CAP) {
-    const every = Math.ceil(total / cfg.samplingThreshold);
+    // 'all' ignores the threshold, so thin to the hard cap, not to the (possibly tiny) threshold.
+    const every = Math.ceil(total / HARD_CAP);
     const sampled = cfg.data.filter((_, i) => i % every === 0);
     return { shouldRender: true, data: sampled };
   }

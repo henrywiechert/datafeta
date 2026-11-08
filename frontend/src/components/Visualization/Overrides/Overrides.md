@@ -134,7 +134,7 @@ const effectiveSizeRange = override.sizeRange || sizeRange || [4, 20];
 | Aspect | Description |
 |--------|-------------|
 | Role | Label fields drop zone + data label mode selector |
-| Features | Multiple label fields, dataLabelMode (auto/all/sample), labelsEnabled toggle |
+| Features | Multiple label fields, dataLabelMode (inherit/on/off), labelsEnabled toggle, font size, label density slider (Min → All; steps map to `auto` with a max-label threshold, the last step to `all`) |
 | Reuses | `PropertyDropZone`, `FieldChip` |
 
 ### TooltipFieldControl
