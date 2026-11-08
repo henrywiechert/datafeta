@@ -384,7 +384,7 @@ const DEFAULT_X_AXIS_LABEL_STYLE: XAxisLabelStyle = {
 };
 
 /** Minimum width for Y-axis label column */
-const MIN_Y_LABEL_COL_PX = 16;
+export const MIN_Y_LABEL_COL_PX = 16;
 const MAX_X_LABEL_ROW_AUTO_PX = 200;
 
 /**

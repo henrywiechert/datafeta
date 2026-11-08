@@ -106,6 +106,7 @@ export const initialState: VisualizationState = {
       fontSizeByDepth: [],
       orientation: 'horizontal',
       orientationByDepth: [],
+      heightPx: null,
       horizontalAlign: 'center',
       verticalAlign: 'center',
       horizontalAlignByDepth: [],

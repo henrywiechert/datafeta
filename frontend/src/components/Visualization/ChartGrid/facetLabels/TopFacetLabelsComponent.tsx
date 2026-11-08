@@ -46,9 +46,13 @@ const TopFacetHeaderTitleComponent: React.FC<TopFacetHeaderTitleProps> = ({ grid
   const { facetLabelStyles } = state;
   const colLevels = grid.headers?.cols?.levels || [];
 
-  const handleHeaderStyleChange = useCallback((updates: Partial<FacetHeaderLabelStyle>) => {
+  const handleHeaderStyleChange = useCallback((updates: Partial<FacetHeaderLabelStyle & { heightPx: number | null }>) => {
     dispatch({ type: 'SET_FACET_TOP_HEADER_STYLE', payload: updates });
   }, [dispatch]);
+
+  const handleHeaderSizeReset = useCallback(() => {
+    handleHeaderStyleChange({ heightPx: null });
+  }, [handleHeaderStyleChange]);
 
   const headerStyle = facetLabelStyles.topHeader;
   const {
@@ -132,6 +136,7 @@ const TopFacetHeaderTitleComponent: React.FC<TopFacetHeaderTitleProps> = ({ grid
         onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
         onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
         onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
+        onResetSize={handleHeaderSizeReset}
         orientationOptions={['horizontal', 'vertical']}
       />
     </>

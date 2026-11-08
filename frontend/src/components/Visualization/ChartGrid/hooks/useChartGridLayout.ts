@@ -236,7 +236,9 @@ export function useChartGridLayout(
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const xLabelRowPx = computeDynamicXLabelRowPx(grid, xAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
-    const facetTopHeaderPx = colLevels.length > 0 ? topHeaderFallbackPx : 0;
+    const facetTopHeaderPx = colLevels.length > 0
+      ? (effectiveFacetLabelStyles?.topHeader.heightPx ?? topHeaderFallbackPx)
+      : 0;
     const dimTopHeaderHeight = colLevels.length > 0 ? facetTopHeaderPx + sumTrackSizes(facetTopValueHeightsPx) : 0;
     // Reserve a thin strip for Y-measure band names when there is no column
     // header band to host them.

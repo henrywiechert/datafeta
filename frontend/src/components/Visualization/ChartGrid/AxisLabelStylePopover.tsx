@@ -1,18 +1,16 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import {
-  Popover,
-  Box,
-  Typography,
-  Slider,
-  ToggleButton,
-  ToggleButtonGroup,
-  TextField,
-  FormControlLabel,
-  Switch,
-} from '@mui/material';
+import { Popover } from '@mui/material';
 import { XAxisLabelStyle, YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
+import {
+  FontSizeRow,
+  LABEL_POPOVER_PAPER_PROPS,
+  LabelPopoverBody,
+  LabelPopoverTitle,
+  ToggleRow,
+  useFrozenAnchorPosition,
+} from './labelPopoverControls';
 
 // Base props shared by both axis types
 interface BaseAxisLabelStylePopoverProps {
@@ -58,8 +56,9 @@ const Y_ORIENTATIONS: { value: YAxisLabelStyle['orientation']; label: string }[]
  * Provides controls for:
  * - Font size (8-26px slider)
  * - Orientation (horizontal/vertical/angled)
- * - Height override (X-axis field-name row, auto or manual px)
- * - Width override (Y-axis only, auto or manual px)
+ *
+ * Label row/column sizes are set by dragging the handle in the chart (the Reset size button
+ * returns to auto-fit); changing the orientation also resets to auto-fit.
  */
 const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   const { anchorEl, onClose, axis, style, onChange } = props;
@@ -67,74 +66,26 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   // Portal into the fullscreen element so the popover is painted above the
   // fullscreen layer instead of behind it (defaults to document.body otherwise).
   const portalTarget = useFullscreenPortalTarget();
-  const yStyle = axis === 'y' ? (style as YAxisLabelStyle) : null;
-  const xStyle = axis === 'x' ? (style as XAxisLabelStyle) : null;
-  const isAutoWidth = yStyle?.widthPx === null;
-  const isAutoHeight = xStyle?.heightPx == null;
+  const anchorPosition = useFrozenAnchorPosition(anchorEl);
 
-  const handleFontSizeChange = (_: Event, value: number | number[]) => {
-    const fontSize = Array.isArray(value) ? value[0] : value;
-    // Cast to any to avoid type narrowing issues with discriminated union
+  // Orientation changes the text footprint, so a manual size falls back to
+  // auto-fit; font size changes leave the user's size untouched.
+  const sizeResetUpdate = axis === 'x' ? { heightPx: null } : { widthPx: null };
+
+  const handleFontSizeChange = (fontSize: number) => {
     (onChange as (updates: { fontSize: number }) => void)({ fontSize });
   };
 
-  const handleOrientationChange = (
-    _: React.MouseEvent<HTMLElement>,
-    newOrientation: string | null
-  ) => {
-    if (newOrientation) {
-      // Cast to any to avoid type narrowing issues with discriminated union
-      (onChange as (updates: { orientation: string }) => void)({ orientation: newOrientation });
-    }
+  const handleOrientationChange = (orientation: string) => {
+    (onChange as (updates: Record<string, unknown>) => void)({ orientation, ...sizeResetUpdate });
   };
 
-  const handleCategoryOrientationChange = (
-    _: React.MouseEvent<HTMLElement>,
-    newOrientation: string | null
-  ) => {
-    if (newOrientation && axis === 'x') {
-      (onChange as (updates: { categoryOrientation: string }) => void)({ categoryOrientation: newOrientation });
-    }
+  const handleCategoryOrientationChange = (categoryOrientation: string) => {
+    (onChange as (updates: { categoryOrientation: string }) => void)({ categoryOrientation });
   };
 
-  const handleAutoHeightToggle = (checked: boolean) => {
-    if (axis === 'x') {
-      const xOnChange = onChange as (updates: Partial<XAxisLabelStyle>) => void;
-      xOnChange({ heightPx: checked ? null : 40 });
-    }
-  };
-
-  const handleHeightChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (axis === 'x') {
-      const value = parseInt(event.target.value, 10);
-      if (!isNaN(value) && value > 0) {
-        const xOnChange = onChange as (updates: Partial<XAxisLabelStyle>) => void;
-        xOnChange({ heightPx: value });
-      }
-    }
-  };
-
-  const handleAutoWidthToggle = (checked: boolean) => {
-    if (axis === 'y') {
-      const yOnChange = onChange as (updates: Partial<YAxisLabelStyle>) => void;
-      if (checked) {
-        // Switch to auto width
-        yOnChange({ widthPx: null });
-      } else {
-        // Switch to manual, default to 80px
-        yOnChange({ widthPx: 80 });
-      }
-    }
-  };
-
-  const handleWidthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (axis === 'y') {
-      const value = parseInt(event.target.value, 10);
-      if (!isNaN(value) && value > 0) {
-        const yOnChange = onChange as (updates: Partial<YAxisLabelStyle>) => void;
-        yOnChange({ widthPx: value });
-      }
-    }
+  const handleResetSize = () => {
+    (onChange as (updates: Record<string, unknown>) => void)(sizeResetUpdate);
   };
 
   const orientations = axis === 'x' ? X_ORIENTATIONS : Y_ORIENTATIONS;
@@ -142,154 +93,44 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   return (
     <Popover
       open={open}
-      anchorEl={anchorEl}
+      anchorReference="anchorPosition"
+      anchorPosition={anchorPosition}
       onClose={onClose}
       container={portalTarget}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-      PaperProps={{ sx: { p: 2, width: 240 } }}
+      PaperProps={LABEL_POPOVER_PAPER_PROPS}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-          {axis === 'x' ? 'X-Axis' : 'Y-Axis'} Label Style
-        </Typography>
+      <LabelPopoverBody>
+        <LabelPopoverTitle
+          title={`${axis === 'x' ? 'X-Axis' : 'Y-Axis'} Label Style`}
+          onResetSize={handleResetSize}
+        />
 
-        {/* Font Size */}
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>
-            Font Size: {style.fontSize}px
-          </Typography>
-          <Slider
-            size="small"
-            value={style.fontSize}
-            min={FONT_SIZE_MIN}
-            max={FONT_SIZE_MAX}
-            step={1}
-            onChange={handleFontSizeChange}
-            marks={[
-              { value: FONT_SIZE_MIN, label: `${FONT_SIZE_MIN}` },
-              { value: FONT_SIZE_MAX, label: `${FONT_SIZE_MAX}` },
-            ]}
-            sx={{ mx: 0.5 }}
+        <FontSizeRow
+          value={style.fontSize}
+          min={FONT_SIZE_MIN}
+          max={FONT_SIZE_MAX}
+          onChange={handleFontSizeChange}
+        />
+
+        <ToggleRow
+          label={axis === 'x' ? 'Label orientation' : 'Orientation'}
+          value={style.orientation}
+          options={orientations}
+          onChange={handleOrientationChange}
+        />
+
+        {/* Category (tick label) orientation: X-axis only */}
+        {axis === 'x' && (
+          <ToggleRow
+            label="Category orientation"
+            value={(style as XAxisLabelStyle).categoryOrientation ?? 'vertical'}
+            options={X_ORIENTATIONS}
+            onChange={handleCategoryOrientationChange}
           />
-        </Box>
-
-        {/* Label Orientation */}
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>
-            {axis === 'x' ? 'Label orientation' : 'Orientation'}
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={style.orientation}
-            onChange={handleOrientationChange}
-            sx={{
-              '& .MuiToggleButton-root': {
-                py: 0.5,
-                px: 1.5,
-                fontSize: '0.75rem',
-                textTransform: 'none',
-              },
-            }}
-          >
-            {orientations.map((opt) => (
-              <ToggleButton key={opt.value} value={opt.value}>
-                {opt.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
-
-        {/* Category (tick label) Orientation — X-axis only */}
-        {axis === 'x' && (
-          <Box>
-            <Typography variant="body2" sx={{ mb: 0.5 }}>
-              Category orientation
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={(style as XAxisLabelStyle).categoryOrientation ?? 'vertical'}
-              onChange={handleCategoryOrientationChange}
-              sx={{
-                '& .MuiToggleButton-root': {
-                  py: 0.5,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                  textTransform: 'none',
-                },
-              }}
-            >
-              {X_ORIENTATIONS.map((opt) => (
-                <ToggleButton key={opt.value} value={opt.value}>
-                  {opt.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
         )}
-
-        {/* Height Override (X-axis field-name row) */}
-        {axis === 'x' && (
-          <Box>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={isAutoHeight}
-                  onChange={(e) => handleAutoHeightToggle(e.target.checked)}
-                />
-              }
-              label={
-                <Typography variant="body2">Auto Height</Typography>
-              }
-              sx={{ ml: 0 }}
-            />
-            {!isAutoHeight && xStyle && (
-              <TextField
-                size="small"
-                type="number"
-                label="Height (px)"
-                value={xStyle.heightPx ?? 40}
-                onChange={handleHeightChange}
-                inputProps={{ min: 20, max: 400, step: 4 }}
-                sx={{ mt: 1, width: '100%' }}
-              />
-            )}
-          </Box>
-        )}
-
-        {/* Width Override (Y-axis only) */}
-        {axis === 'y' && (
-          <Box>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={isAutoWidth}
-                  onChange={(e) => handleAutoWidthToggle(e.target.checked)}
-                />
-              }
-              label={
-                <Typography variant="body2">Auto Width</Typography>
-              }
-              sx={{ ml: 0 }}
-            />
-            {!isAutoWidth && yStyle && (
-              <TextField
-                size="small"
-                type="number"
-                label="Width (px)"
-                value={yStyle.widthPx ?? 80}
-                onChange={handleWidthChange}
-                inputProps={{ min: 20, max: 300, step: 10 }}
-                sx={{ mt: 1, width: '100%' }}
-              />
-            )}
-          </Box>
-        )}
-      </Box>
+      </LabelPopoverBody>
     </Popover>
   );
 };

@@ -49,6 +49,8 @@ In the Properties panel under **Sort**:
 
 - Axis tick labels are formatted automatically based on the field type (numbers use compact notation for large values, dates use locale-appropriate formats).
 - To rename a field's axis label, right-click the field in the axis drop zone and choose **Rename**.
+- Click an axis label (or a facet header) to change its font size and orientation.
+- Drag the line between an axis label or facet header and the chart to resize the label column or row. Use **Reset size** in the label's format dialog to return to the automatic size.
 
 ---
 

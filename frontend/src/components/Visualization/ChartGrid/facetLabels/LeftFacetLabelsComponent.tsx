@@ -51,6 +51,10 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     dispatch({ type: 'SET_FACET_LEFT_HEADER_STYLE', payload: updates });
   }, [dispatch]);
 
+  const handleHeaderSizeReset = useCallback(() => {
+    handleHeaderStyleChange({ widthPx: null });
+  }, [handleHeaderStyleChange]);
+
   const handleValuesStyleChange = useCallback((updates: Partial<FacetLeftValuesLabelStyle>) => {
     dispatch({ type: 'SET_FACET_LEFT_VALUES_STYLE', payload: updates });
   }, [dispatch]);
@@ -350,6 +354,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
         onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
         onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
+        onResetSize={handleHeaderSizeReset}
         orientationOptions={['horizontal', 'vertical']}
       />
 

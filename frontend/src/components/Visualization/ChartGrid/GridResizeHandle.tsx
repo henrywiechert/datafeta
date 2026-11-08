@@ -14,6 +14,8 @@ interface GridResizeHandleProps {
   onResizeMove?: (delta: number) => void;
   onResizeEnd?: (delta: number) => void;
   zIndex?: number;
+  /** Overrides the pointer hit thickness (px) for handles that sit next to clickable labels. */
+  hitThicknessPx?: number;
   // Which axis area this handle is in (for cursor change)
   isInAxisArea: boolean;
   testId?: string;
@@ -34,6 +36,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
   onResizeMove,
   onResizeEnd,
   zIndex = 10,
+  hitThicknessPx,
   isInAxisArea,
   testId,
 }) => {
@@ -45,7 +48,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
 
   const isHorizontal = orientation === 'horizontal';
   // Tablet: wide invisible hit area around the thin visual line.
-  const hitThickness = isTablet ? TABLET_RESIZE_HIT_PX : RESIZE_HANDLE_WIDTH;
+  const hitThickness = isTablet ? TABLET_RESIZE_HIT_PX : (hitThicknessPx ?? RESIZE_HANDLE_WIDTH);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;

@@ -31,7 +31,7 @@ import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useTabletUi } from '../../../hooks/useTabletUi';
 import { YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
-import { buildPlotGridSizingStyle } from './utils/layoutUtils';
+import { buildPlotGridSizingStyle, MIN_Y_LABEL_COL_PX } from './utils/layoutUtils';
 import {
   getFacetColumnSizeConstraints,
   getFacetRowSizeConstraints,
@@ -73,6 +73,9 @@ interface MultiPlotGridProps {
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
+
+/** Wider than the visible line so a click near the divider hits the handle, not the label. */
+const LABEL_HANDLE_HIT_PX = 10;
 
 interface AxisGutterDrag {
   orientation: 'horizontal' | 'vertical';
@@ -288,6 +291,22 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     });
   }, [dispatch, facetRowConstraints]);
 
+  const handleFacetLeftHeaderResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    if (intent.delta === 0) return;
+    dispatch({
+      type: 'SET_FACET_LEFT_HEADER_STYLE',
+      payload: { widthPx: resolveFacetTrackSize(intent, facetColumnConstraints) },
+    });
+  }, [dispatch, facetColumnConstraints]);
+
+  const handleFacetTopHeaderResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    if (intent.delta === 0) return;
+    dispatch({
+      type: 'SET_FACET_TOP_HEADER_STYLE',
+      payload: { heightPx: resolveFacetTrackSize(intent, facetRowConstraints) },
+    });
+  }, [dispatch, facetRowConstraints]);
+
   const handleCategoryYWidthResize = useCallback((intent: { currentSize: number; delta: number }) => {
     dispatch({
       type: 'SET_CATEGORY_Y_WIDTH_PX',
@@ -303,9 +322,19 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   }, [dispatch]);
 
   const handleXLabelRowResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    // A plain click on the handle must not freeze the auto size.
+    if (intent.delta === 0) return;
     dispatch({
       type: 'SET_X_AXIS_LABEL_STYLE',
       payload: { heightPx: Math.max(X_LABEL_ROW_PX, intent.currentSize - intent.delta) },
+    });
+  }, [dispatch]);
+
+  const handleYLabelColResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    if (intent.delta === 0) return;
+    dispatch({
+      type: 'SET_Y_AXIS_LABEL_STYLE',
+      payload: { widthPx: Math.max(MIN_Y_LABEL_COL_PX, intent.currentSize + intent.delta) },
     });
   }, [dispatch]);
 
@@ -756,6 +785,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         {xLabelRowPx > 0 && (
           <GridResizeHandle
             testId="x-label-row-handle"
+            hitThicknessPx={LABEL_HANDLE_HIT_PX}
+            zIndex={30}
             orientation="horizontal"
             position={xLabelBoundaryPx}
             length={containerDimensions.width - leftFixedWidthPx}
@@ -772,6 +803,81 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onResizeEnd={(delta) => {
               setAxisGutterDrag(null);
               handleXLabelRowResize({ currentSize: xLabelRowPx, delta });
+            }}
+            isInAxisArea={true}
+          />
+        )}
+        {yLabelColPx > 0 && dynamicYAxisPx > 0 && (
+          <GridResizeHandle
+            testId="y-label-col-handle"
+            hitThicknessPx={LABEL_HANDLE_HIT_PX}
+            zIndex={30}
+            orientation="vertical"
+            position={yLabelBoundaryPx}
+            length={Math.max(0, plotBottomBoundaryPx - plotTopBoundaryPx)}
+            crossAxisOffset={plotTopBoundaryPx}
+            onResizeStart={() => setAxisGutterDrag({
+              orientation: 'vertical',
+              startPosition: yLabelBoundaryPx,
+              currentSize: yLabelColPx,
+              currentDelta: 0,
+              minSize: MIN_Y_LABEL_COL_PX,
+              growTowardStart: false,
+            })}
+            onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+            onResizeEnd={(delta) => {
+              setAxisGutterDrag(null);
+              handleYLabelColResize({ currentSize: yLabelColPx, delta });
+            }}
+            isInAxisArea={true}
+          />
+        )}
+        {hasRowFacets && facetLeftHeaderPx > 0 && (
+          <GridResizeHandle
+            testId="facet-left-header-handle"
+            hitThicknessPx={LABEL_HANDLE_HIT_PX}
+            zIndex={30}
+            orientation="vertical"
+            position={facetLeftHeaderPx}
+            length={Math.max(1, plotBottomBoundaryPx - plotTopBoundaryPx)}
+            crossAxisOffset={plotTopBoundaryPx}
+            onResizeStart={() => setAxisGutterDrag({
+              orientation: 'vertical',
+              startPosition: facetLeftHeaderPx,
+              currentSize: facetLeftHeaderPx,
+              currentDelta: 0,
+              minSize: facetColumnConstraints.minSize,
+              growTowardStart: false,
+            })}
+            onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+            onResizeEnd={(delta) => {
+              setAxisGutterDrag(null);
+              handleFacetLeftHeaderResize({ currentSize: facetLeftHeaderPx, delta });
+            }}
+            isInAxisArea={true}
+          />
+        )}
+        {facetTopHeaderPx > 0 && (
+          <GridResizeHandle
+            testId="facet-top-header-handle"
+            hitThicknessPx={LABEL_HANDLE_HIT_PX}
+            zIndex={30}
+            orientation="horizontal"
+            position={facetTopHeaderPx}
+            length={Math.max(1, containerDimensions.width - leftFixedWidthPx)}
+            crossAxisOffset={leftFixedWidthPx}
+            onResizeStart={() => setAxisGutterDrag({
+              orientation: 'horizontal',
+              startPosition: facetTopHeaderPx,
+              currentSize: facetTopHeaderPx,
+              currentDelta: 0,
+              minSize: facetRowConstraints.minSize,
+              growTowardStart: false,
+            })}
+            onResizeMove={(delta) => setAxisGutterDrag((prev) => (prev ? { ...prev, currentDelta: delta } : null))}
+            onResizeEnd={(delta) => {
+              setAxisGutterDrag(null);
+              handleFacetTopHeaderResize({ currentSize: facetTopHeaderPx, delta });
             }}
             isInAxisArea={true}
           />

@@ -68,7 +68,7 @@ export interface FacetLeftValuesLabelStyle {
 }
 
 export interface FacetLabelStyles {
-  topHeader: FacetHeaderLabelStyle;
+  topHeader: FacetHeaderLabelStyle & { heightPx?: number | null };
   topValues: FacetTopValuesLabelStyle;
   leftHeader: FacetHeaderLabelStyle & { widthPx: number | null };
   leftValues: FacetLeftValuesLabelStyle;

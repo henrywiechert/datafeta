@@ -1,18 +1,30 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import {
-  Popover,
-  Box,
-  Typography,
-  Slider,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material';
+import { Popover } from '@mui/material';
 import {
   FacetLabelAlign,
   FacetWrapMode,
 } from '../../../../contexts/VisualizationContext/types';
 import { useFullscreenPortalTarget } from '../../../../hooks/useFullscreenPortalTarget';
+import {
+  FontSizeRow,
+  LABEL_POPOVER_PAPER_PROPS,
+  LabelPopoverBody,
+  LabelPopoverTitle,
+  ToggleRow,
+  useFrozenAnchorPosition,
+} from '../labelPopoverControls';
+
+const ALIGN_OPTIONS = [
+  { value: 'start', label: 'Start' },
+  { value: 'center', label: 'Center' },
+  { value: 'end', label: 'End' },
+];
+
+const WRAP_OPTIONS = [
+  { value: 'wrap', label: 'Wrap' },
+  { value: 'nowrap', label: 'No Wrap' },
+];
 
 export interface FacetStylePopoverProps {
   anchorEl: HTMLElement | null;
@@ -29,6 +41,8 @@ export interface FacetStylePopoverProps {
   onHorizontalAlignChange?: (alignment: FacetLabelAlign) => void;
   onVerticalAlignChange?: (alignment: FacetLabelAlign) => void;
   onWrapModeChange?: (wrapMode: FacetWrapMode) => void;
+  /** When set, shows a button that returns the label size to auto-fit. */
+  onResetSize?: () => void;
   orientationOptions: string[];
 }
 
@@ -47,6 +61,7 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
   onHorizontalAlignChange,
   onVerticalAlignChange,
   onWrapModeChange,
+  onResetSize,
   orientationOptions,
 }) => {
   const open = Boolean(anchorEl);
@@ -54,147 +69,59 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
   // so MUI's default portal to document.body renders behind the fullscreen layer.
   // Render into the fullscreen element instead (falls back to document.body).
   const portalTarget = useFullscreenPortalTarget();
+  const anchorPosition = useFrozenAnchorPosition(anchorEl);
 
   return (
     <Popover
       open={open}
-      anchorEl={anchorEl}
+      anchorReference="anchorPosition"
+      anchorPosition={anchorPosition}
       onClose={onClose}
       container={portalTarget}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-      PaperProps={{ sx: { p: 2, width: 240 } }}
+      PaperProps={LABEL_POPOVER_PAPER_PROPS}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-          {title}
-        </Typography>
+      <LabelPopoverBody>
+        <LabelPopoverTitle title={title} scopeLabel={scopeLabel} onResetSize={onResetSize} />
 
-        {scopeLabel && (
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {scopeLabel}
-          </Typography>
-        )}
+        <FontSizeRow value={fontSize} min={8} max={26} onChange={onFontSizeChange} />
 
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>
-            Font Size: {fontSize}px
-          </Typography>
-          <Slider
-            size="small"
-            value={fontSize}
-            min={8}
-            max={26}
-            step={1}
-            onChange={(_, value) => onFontSizeChange(Array.isArray(value) ? value[0] : value)}
-            marks={[
-              { value: 8, label: '8' },
-              { value: 26, label: '26' },
-            ]}
-            sx={{ mx: 0.5 }}
-          />
-        </Box>
-
-        <Box>
-          <Typography variant="body2" sx={{ mb: 0.5 }}>
-            Orientation
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={orientation}
-            onChange={(_, val) => val && onOrientationChange(val)}
-            sx={{
-              '& .MuiToggleButton-root': {
-                py: 0.5,
-                px: 1.5,
-                fontSize: '0.75rem',
-                textTransform: 'capitalize',
-              },
-            }}
-          >
-            {orientationOptions.map((opt) => (
-              <ToggleButton key={opt} value={opt}>
-                {opt}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
+        <ToggleRow
+          label="Orientation"
+          value={orientation}
+          options={orientationOptions.map((opt) => ({ value: opt, label: opt }))}
+          onChange={onOrientationChange}
+          capitalize
+        />
 
         {onHorizontalAlignChange && horizontalAlign && (
-          <Box>
-            <Typography variant="body2" sx={{ mb: 0.5 }}>
-              Horizontal Align
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={horizontalAlign}
-              onChange={(_, val) => val && onHorizontalAlignChange(val)}
-              sx={{
-                '& .MuiToggleButton-root': {
-                  py: 0.5,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                },
-              }}
-            >
-              <ToggleButton value="start">Start</ToggleButton>
-              <ToggleButton value="center">Center</ToggleButton>
-              <ToggleButton value="end">End</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          <ToggleRow
+            label="Horizontal Align"
+            value={horizontalAlign}
+            options={ALIGN_OPTIONS}
+            onChange={(val) => onHorizontalAlignChange(val as FacetLabelAlign)}
+          />
         )}
 
         {onVerticalAlignChange && verticalAlign && (
-          <Box>
-            <Typography variant="body2" sx={{ mb: 0.5 }}>
-              Vertical Align
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={verticalAlign}
-              onChange={(_, val) => val && onVerticalAlignChange(val)}
-              sx={{
-                '& .MuiToggleButton-root': {
-                  py: 0.5,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                },
-              }}
-            >
-              <ToggleButton value="start">Start</ToggleButton>
-              <ToggleButton value="center">Center</ToggleButton>
-              <ToggleButton value="end">End</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          <ToggleRow
+            label="Vertical Align"
+            value={verticalAlign}
+            options={ALIGN_OPTIONS}
+            onChange={(val) => onVerticalAlignChange(val as FacetLabelAlign)}
+          />
         )}
 
         {onWrapModeChange && wrapMode && (
-          <Box>
-            <Typography variant="body2" sx={{ mb: 0.5 }}>
-              Wrap Mode
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={wrapMode}
-              onChange={(_, val) => val && onWrapModeChange(val)}
-              sx={{
-                '& .MuiToggleButton-root': {
-                  py: 0.5,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                },
-              }}
-            >
-              <ToggleButton value="wrap">Wrap</ToggleButton>
-              <ToggleButton value="nowrap">No Wrap</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          <ToggleRow
+            label="Wrap Mode"
+            value={wrapMode}
+            options={WRAP_OPTIONS}
+            onChange={(val) => onWrapModeChange(val as FacetWrapMode)}
+          />
         )}
-      </Box>
+      </LabelPopoverBody>
     </Popover>
   );
 };

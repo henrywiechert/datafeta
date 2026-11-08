@@ -84,7 +84,7 @@ export interface MeasureBandSizeStyle {
 }
 
 export interface FacetLabelStyles {
-  topHeader: FacetHeaderLabelStyle;
+  topHeader: FacetHeaderLabelStyle & { heightPx?: number | null };
   topValues: FacetTopValuesLabelStyle;
   leftHeader: FacetHeaderLabelStyle & { widthPx: number | null };
   leftValues: FacetLeftValuesLabelStyle;
@@ -333,7 +333,7 @@ export type VisualizationAction =
   | { type: 'SET_CATEGORY_X_HEIGHT_PX'; payload: number | null }
   | { type: 'SET_CATEGORY_Y_WIDTH_PX'; payload: number | null }
   // Facet label styling actions
-  | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle> }
+  | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { heightPx: number | null }> }
   | { type: 'SET_FACET_TOP_VALUES_STYLE'; payload: Partial<FacetTopValuesLabelStyle> }
   | { type: 'SET_FACET_TOP_VALUES_DEPTH_HEIGHT'; payload: { depthIndex: number; heightPx: number | null } }
   | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }

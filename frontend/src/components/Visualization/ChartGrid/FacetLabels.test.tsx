@@ -34,6 +34,7 @@ jest.mock('@mui/material', () => {
   return {
     Popover: ({ children, open, anchorEl, anchorOrigin, transformOrigin, PaperProps, ...props }: any) => open ? React.createElement('div', props, children) : null,
     Box: passthrough,
+    Button: ({ children, size, variant, ...props }: any) => React.createElement('button', props, children),
     Typography: passthrough,
     Slider: ({ value, onChange, ...props }: any) => React.createElement('input', {
       ...props,
@@ -43,7 +44,7 @@ jest.mock('@mui/material', () => {
     }),
     ToggleButtonGroup: ({ children, value, onChange, ...props }: any) => React.createElement(
       'div',
-      omitProps(props, ['exclusive']),
+      omitProps(props, ['exclusive', 'fullWidth']),
       React.createElement(ToggleGroupContext.Provider, { value: { value, onChange } }, children),
     ),
     ToggleButton: ({ children, value, ...props }: any) => {
