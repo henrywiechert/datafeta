@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { buildCrosshair } from './crosshair';
-import { OVERLAY_NO_HIGHLIGHT_CLASS } from './types';
+import { applyOverlays } from './index';
+import { DEFAULT_OVERLAYS, OVERLAY_NO_HIGHLIGHT_CLASS } from './types';
 
 // Plot is ESM and untransformed by CRA's jest config; record mark calls instead.
 jest.mock('@observablehq/plot', () => {
@@ -8,6 +9,9 @@ jest.mock('@observablehq/plot', () => {
   const pointer = (kind: string) => (opts: any) => ({ ...opts, __pointer: kind });
   return {
     ruleX: mark('ruleX'), ruleY: mark('ruleY'), dot: mark('dot'), text: mark('text'),
+    lineY: mark('lineY'), lineX: mark('lineX'), windowY: (_: any, o: any) => o, windowX: (_: any, o: any) => o,
+    linearRegressionY: mark('linearRegressionY'), linearRegressionX: mark('linearRegressionX'),
+    density: mark('density'),
     pointer: pointer('xy'), pointerX: pointer('x'), pointerY: pointer('y'),
   };
 });
@@ -56,5 +60,23 @@ describe('buildCrosshair', () => {
 
   test('omits labels when axis values are off', () => {
     expect(build({ showLabels: false }).map((m) => m.type)).toEqual(['ruleX', 'ruleY', 'dot']);
+  });
+});
+
+describe('applyOverlays crosshair spec', () => {
+  const meta = { data: rows, xColumn: 'x', yColumn: 'y', chartType: 'scatter' as const, orientation: 'y' as const };
+  const overlays = (axes: 'both' | 'x' | 'y') => DEFAULT_OVERLAYS.map((o) =>
+    o.type === 'crosshair' ? { ...o, enabled: true, params: { ...o.params, crosshairAxes: axes } } : o);
+
+  test('records what the crosshair plots so other cells can mirror it', () => {
+    const out = applyOverlays({ marks: [] } as any, overlays('x'), meta) as any;
+
+    expect(out.__crosshair).toEqual({ xColumn: 'x', yColumn: 'y', axes: 'x' });
+  });
+
+  test('records nothing when the crosshair is off', () => {
+    const out = applyOverlays({ marks: [] } as any, DEFAULT_OVERLAYS, meta) as any;
+
+    expect(out.__crosshair).toBeUndefined();
   });
 });

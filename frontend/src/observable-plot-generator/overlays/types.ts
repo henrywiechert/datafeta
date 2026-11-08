@@ -76,6 +76,16 @@ export interface OverlayParams {
   crosshairAxes?: 'both' | 'x' | 'y';  // Guide lines to draw; 'x'/'y' also snap by that axis alone (default 'both')
 }
 
+/**
+ * What a cell's crosshair plots, attached to the cell's options as
+ * `__crosshair` so the renderer can mirror it into the other cells of the grid.
+ */
+export interface CrosshairSpec {
+  xColumn: string;
+  yColumn: string;
+  axes: 'both' | 'x' | 'y';
+}
+
 // --- Per-overlay configuration -----------------------------------------------
 
 export interface OverlayConfig {

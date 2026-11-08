@@ -21,6 +21,7 @@ import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../
 import { UserChartType } from '../../../types';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 import { useTabletUi } from '../../../hooks/useTabletUi';
+import { CrosshairSyncContext, CrosshairSyncStore } from '../crosshairSync';
 
 /** Gantt-specific configuration, grouped to keep the ChartGrid prop surface flat. */
 export interface ChartGridGanttProps {
@@ -104,6 +105,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const vScrollRef = useRef<HTMLDivElement>(null);
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
   const plotGridRef = useRef<HTMLDivElement>(null);
+  const [crosshairSync] = useState(() => new CrosshairSyncStore());
 
   const { userCellWidth, userCellHeight } = cellSizeOverrides;
 
@@ -242,30 +244,32 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   if (layoutCalcs) {
     return (
       <>
-        <MultiPlotGrid
-          grid={grid}
-          layoutCalcs={layoutCalcs}
-          scrollSync={scrollSync}
-          containerDimensions={containerDimensions}
-          cellSizeOverrides={cellSizeOverrides}
-          refs={{
-            containerRef,
-            hScrollRef,
-            vScrollRef,
-            plotsTranslateRef,
-            plotGridRef,
-          }}
-          onPlotRenderComplete={onPlotRenderComplete}
-          isTransitioning={isTransitioning}
-          brushDisabled={brushDisabled}
-          onBrushEnd={onBrushEnd}
-          isGanttChart={isGanttChart}
-          viewport={viewport}
-          onCellContextMenu={handleCellContextMenu}
-          onCellZoom={isTablet ? handleCellZoom : undefined}
-          autoExpandPinnedComparison={autoExpandPinnedComparison}
-          onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
-        />
+        <CrosshairSyncContext.Provider value={crosshairSync}>
+          <MultiPlotGrid
+            grid={grid}
+            layoutCalcs={layoutCalcs}
+            scrollSync={scrollSync}
+            containerDimensions={containerDimensions}
+            cellSizeOverrides={cellSizeOverrides}
+            refs={{
+              containerRef,
+              hScrollRef,
+              vScrollRef,
+              plotsTranslateRef,
+              plotGridRef,
+            }}
+            onPlotRenderComplete={onPlotRenderComplete}
+            isTransitioning={isTransitioning}
+            brushDisabled={brushDisabled}
+            onBrushEnd={onBrushEnd}
+            isGanttChart={isGanttChart}
+            viewport={viewport}
+            onCellContextMenu={handleCellContextMenu}
+            onCellZoom={isTablet ? handleCellZoom : undefined}
+            autoExpandPinnedComparison={autoExpandPinnedComparison}
+            onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
+          />
+        </CrosshairSyncContext.Provider>
         <Menu
           open={contextMenu !== null}
           onClose={handleMenuClose}

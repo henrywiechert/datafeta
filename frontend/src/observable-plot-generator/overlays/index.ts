@@ -12,7 +12,7 @@
 
 import * as Plot from '@observablehq/plot';
 import { UserChartType } from '../../types';
-import { OverlayConfig, OverlayType, OverlayParams, OVERLAY_META } from './types';
+import { CrosshairSpec, OverlayConfig, OverlayType, OverlayParams, OVERLAY_META } from './types';
 import { buildLinearRegression } from './linearRegression';
 import { buildMovingAverage } from './movingAverage';
 import { buildDensity } from './density';
@@ -95,6 +95,7 @@ export function applyOverlays(
   if (active.length === 0) return options;
 
   const extraMarks: Plot.Markish[] = [];
+  let crosshair: CrosshairSpec | undefined;
 
   // Pre-sort data by the independent axis so the moving average
   // transform produces a smooth left-to-right line.
@@ -120,6 +121,13 @@ export function applyOverlays(
     if (!builder) continue;
 
     if (overlay.hideSourceData) shouldHideSource = true;
+    if (overlay.type === 'crosshair') {
+      crosshair = {
+        xColumn: meta.xColumn,
+        yColumn: meta.yColumn,
+        axes: overlay.params.crosshairAxes ?? 'both',
+      };
+    }
     for (const [key, value] of Object.entries(SCALE_DEFAULTS[overlay.type] ?? {})) {
       if ((options as any)[key] == null) (scaleDefaults as any)[key] = value;
     }
@@ -137,6 +145,7 @@ export function applyOverlays(
   return {
     ...options,
     ...scaleDefaults,
+    ...(crosshair && { __crosshair: crosshair }),
     marks: [...baseMasks, ...extraMarks],
   };
 }

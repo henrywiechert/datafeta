@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import * as Plot from '@observablehq/plot';
 import { CustomTooltip } from './CustomTooltip/CustomTooltip';
@@ -13,10 +13,13 @@ import { stampColorCategories } from './stampColorCategories';
 import { flattenSymbolTransforms } from './flattenSymbolTransforms';
 import { hoistPlotStyles } from './hoistPlotStyles';
 import { PREVIEW_LAYER_ATTR } from './ChartGrid/viewport/previewLayer';
+import { attachCrosshairSync, CrosshairSyncContext } from './crosshairSync';
+import type { CrosshairSpec } from '../../observable-plot-generator/overlays/types';
 
 interface ObservablePlotProps {
   options: Plot.PlotOptions & {
     __customTooltip?: CustomTooltipConfig;
+    __crosshair?: CrosshairSpec;
   };
   plotId?: string; // Unique ID for tracking rendering
   onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
@@ -42,6 +45,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
+  const crosshairSync = useContext(CrosshairSyncContext);
 
   useEffect(() => {
     if (!containerRef.current || !layerRef.current) return;
@@ -114,6 +118,11 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
           cleanupFunctionsRef.current.push(cleanup);
         }
 
+        // Mirror the crosshair into the other cells of the grid
+        if (crosshairSync && options.__crosshair) {
+          cleanupFunctionsRef.current.push(attachCrosshairSync(plot, options.__crosshair, crosshairSync));
+        }
+
         // Notify that rendering is complete - use requestAnimationFrame to ensure DOM is updated
         if (plotId && onRenderComplete) {
           requestAnimationFrame(() => {
@@ -145,7 +154,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady]);
+  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, crosshairSync]);
 
   return (
     <>
