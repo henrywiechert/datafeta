@@ -16,6 +16,7 @@ import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../.
 import { T } from '../../../theme/tokens';
 import { isDataMarkElement, isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
 import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
+import { useTooltipPreferencesStore } from '../../../stores/tooltipPreferencesStore';
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -301,6 +302,13 @@ function updateVerticalGuideLine(
 // ---------------------------------------------------------------------------
 
 /**
+ * Dismisses the tooltip currently pinned in some chart. Clicks on a mark stop
+ * propagation, so a pinned tooltip in another cell never sees the document
+ * click that would unpin it; pinning therefore dismisses the previous one.
+ */
+let dismissPinnedElsewhere: (() => void) | null = null;
+
+/**
  * Add tooltip event listeners to Observable Plot marks.
  * Extracts data from marks and displays custom tooltip on hover.
  * Returns a cleanup function to remove all event listeners.
@@ -329,6 +337,8 @@ export function addTooltipListeners(
   // scatter has ~80k marks, and adding then removing four listeners on each
   // cost ~120ms of every redraw. Marks have no rendered children, so
   // mouseover/mouseout on a mark fire exactly where mouseenter/mouseleave did.
+  const hoverDisabled = () => useTooltipPreferencesStore.getState().hoverDisabled;
+
   const markFor = (target: EventTarget | null): Element | null =>
     target instanceof Element && isDataMarkElement(target, plot) ? target : null;
 
@@ -362,8 +372,9 @@ export function addTooltipListeners(
   /**
    * Extract data from a mark, show tooltip, and highlight the element.
    * Shared between hover and click handlers to avoid duplication.
+   * With `withTooltip` false only the mark highlight (and guide line) is drawn.
    */
-  const showMarkTooltip = (mark: Element, mouseEvent: MouseEvent) => {
+  const showMarkTooltip = (mark: Element, mouseEvent: MouseEvent, withTooltip = true) => {
     // Observable Plot stores data on elements via __data__ property
     const element = mark as any;
     const index = element.__data__ == null ? indexOfMark(mark) : -1;
@@ -375,8 +386,8 @@ export function addTooltipListeners(
     }
     
     try {
-      const fields = config.getFields(data);
-      const pinnedComparison = config.getPinnedComparison?.(data);
+      const fields = withTooltip ? config.getFields(data) : [];
+      const pinnedComparison = withTooltip ? config.getPinnedComparison?.(data) : undefined;
 
       // A hover-proxy dot stands in for its bar: colour and highlight come from the bar.
       const proxiedRect = findProxiedRect(mark);
@@ -390,7 +401,7 @@ export function addTooltipListeners(
 
       clearAnyHighlight();
 
-      showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
+      if (withTooltip) showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
 
       // Determine which element to highlight
       // If this is a transparent circle (hover dot for tick strips), highlight the line instead
@@ -435,13 +446,13 @@ export function addTooltipListeners(
     if (!mark || pinnedRef?.current) return;
     // Alt/Option is the zoom/measure modifier; tooltips would only get in the way.
     if (e.altKey) return;
-    showMarkTooltip(mark, e);
+    showMarkTooltip(mark, e, !hoverDisabled());
   };
 
   const handleMarkMove = (event: Event) => {
     const e = event as MouseEvent;
     // Don't move a pinned tooltip
-    if (pinnedRef?.current || !markFor(e.target)) return;
+    if (pinnedRef?.current || !markFor(e.target) || hoverDisabled()) return;
     if (e.altKey) {
       clearHighlight();
       hideTooltip();
@@ -467,16 +478,27 @@ export function addTooltipListeners(
     hideTooltip();
   };
 
+  const dismissOwnPin = () => {
+    if (!pinnedRef?.current) return;
+    clearAnyHighlight();
+    unpinTooltip?.();
+  };
+
   const handleMarkClick = (event: Event) => {
     const e = event as MouseEvent;
     const mark = markFor(e.target);
     if (!mark || !pinTooltip) return;
     e.stopPropagation(); // Prevent document click handler from immediately hiding
+
+    if (dismissPinnedElsewhere && dismissPinnedElsewhere !== dismissOwnPin) dismissPinnedElsewhere();
+    dismissPinnedElsewhere = dismissOwnPin;
     
     // If already pinned (e.g. on a different mark), switch to this mark:
-    // unpin first, clear old highlight, then show + pin the new one
-    if (pinnedRef?.current) {
-      unpinTooltip?.();
+    // unpin first, clear old highlight, then show + pin the new one. With
+    // hover tooltips disabled nothing is showing yet, so show it here too.
+    const wasPinned = pinnedRef?.current;
+    if (wasPinned || hoverDisabled()) {
+      if (wasPinned) unpinTooltip?.();
       clearHighlight();
       showMarkTooltip(mark, e);
     }
@@ -607,6 +629,8 @@ export function addTooltipListeners(
     window.removeEventListener('blur', handleWindowBlur);
     plot.removeEventListener('mouseleave', handlePlotMouseLeave);
     
+    if (dismissPinnedElsewhere === dismissOwnPin) dismissPinnedElsewhere = null;
+
     // Final safety: hide tooltip on cleanup
     clearAnyHighlight();
     hideTooltip();

@@ -141,4 +141,56 @@ describe('crosshair sync', () => {
     hover(a, { date: 6, sales: 30 });
     expect(lines(b)).toEqual([]);
   });
+
+  describe('un-pinning on a click in another cell', () => {
+    // jsdom has no PointerEvent
+    class FakePointerEvent extends MouseEvent {
+      pointerType: string;
+      constructor(type: string, init: any = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? '';
+      }
+    }
+    const original = (global as any).PointerEvent;
+    beforeAll(() => { (global as any).PointerEvent = FakePointerEvent; });
+    afterAll(() => { (global as any).PointerEvent = original; });
+
+    const press = (el: Element) => el.dispatchEvent(new FakePointerEvent('pointerdown', { pointerType: 'mouse' }));
+    const spyOnPress = (el: Element) => {
+      const spy = jest.fn();
+      el.addEventListener('pointerdown', spy);
+      return spy;
+    };
+
+    test('sends the pinned cell the click that releases its crosshair', () => {
+      const store = new CrosshairSyncStore();
+      const a = makePlot();
+      const b = makePlot();
+      attachCrosshairSync(a, spec, store);
+      attachCrosshairSync(b, spec, store);
+      const pressedA = spyOnPress(a);
+
+      hover(a, { date: 5, sales: 25 });
+      hover(b, { date: 2, sales: 50 });
+      press(b);
+
+      expect(pressedA).toHaveBeenCalledTimes(1);
+    });
+
+    test('leaves cells that are not pinned alone', () => {
+      const store = new CrosshairSyncStore();
+      const a = makePlot();
+      const b = makePlot();
+      attachCrosshairSync(a, spec, store);
+      attachCrosshairSync(b, spec, store);
+      const pressedA = spyOnPress(a);
+      const pressedB = spyOnPress(b);
+
+      hover(b, { date: 2, sales: 50 });
+      press(b);
+
+      expect(pressedA).not.toHaveBeenCalled();
+      expect(pressedB).toHaveBeenCalledTimes(1);
+    });
+  });
 });

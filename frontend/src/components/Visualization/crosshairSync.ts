@@ -13,6 +13,7 @@
 
 import { createContext } from 'react';
 import { T } from '../../theme/tokens';
+import { bypassViewportPan } from './ChartGrid/viewport/useViewportGestures';
 import type { CrosshairSpec } from '../../observable-plot-generator/overlays/types';
 
 export interface CrosshairPoint {
@@ -26,6 +27,7 @@ type Listener = (source: object, point: CrosshairPoint | null) => void;
 /** Shared by all cells of one grid; `null` outside a grid (no syncing). */
 export class CrosshairSyncStore {
   private listeners = new Set<Listener>();
+  private releasers = new Map<object, () => void>();
   private activeSource: object | null = null;
 
   publish(source: object, point: CrosshairPoint | null): void {
@@ -34,6 +36,17 @@ export class CrosshairSyncStore {
     if (point == null && this.activeSource !== source) return;
     this.activeSource = point == null ? null : source;
     this.listeners.forEach((l) => l(source, point));
+  }
+
+  /** Register how a cell un-pins its own crosshair; returns the unregister function. */
+  registerRelease(source: object, release: () => void): () => void {
+    this.releasers.set(source, release);
+    return () => { this.releasers.delete(source); };
+  }
+
+  /** Un-pin the crosshair in every cell except `source`. */
+  releaseOthers(source: object): void {
+    this.releasers.forEach((release, s) => { if (s !== source) release(); });
   }
 
   subscribe(listener: Listener): () => void {
@@ -98,6 +111,28 @@ export function attachCrosshairSync(
   const showY = spec.axes !== 'x';
   let group: SVGGElement | null = null;
 
+  // Plot's pointer pins its crosshair on click and only unpins on a click in
+  // the same SVG. It holds that state privately, so unpin by sending it the
+  // click it would otherwise never get. A pinned crosshair still has a point
+  // while the pointer is elsewhere, which tells it apart from a hovered one.
+  let releasing = false;
+  const release = () => {
+    if ((plot as any).value == null || typeof PointerEvent !== 'function') return;
+    releasing = true;
+    // The cell's pan handler would otherwise withhold it and start a pan.
+    const click = new PointerEvent('pointerdown', { pointerType: 'mouse' });
+    bypassViewportPan(click);
+    svg.dispatchEvent(click);
+    releasing = false;
+  };
+  const onPointerDown = (e: Event) => {
+    if (releasing || (e as PointerEvent).pointerType !== 'mouse') return;
+    store.releaseOthers(source);
+  };
+  // Capture: Plot's own handler on this SVG stops propagation.
+  svg.addEventListener('pointerdown', onPointerDown, true);
+  const unregisterRelease = store.registerRelease(source, release);
+
   const clear = () => {
     group?.remove();
     group = null;
@@ -160,6 +195,8 @@ export function attachCrosshairSync(
 
   return () => {
     plot.removeEventListener('input', onInput);
+    svg.removeEventListener('pointerdown', onPointerDown, true);
+    unregisterRelease();
     unsubscribe();
     store.publish(source, null);
     clear();

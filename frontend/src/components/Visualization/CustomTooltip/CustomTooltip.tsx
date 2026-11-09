@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TooltipField, TooltipFilterAction, PinnedTooltipComparison } from '../../../types';
 import { sanitizeLinkHref } from '../../../utils/linkColumnUrl';
+import { useTooltipPreferencesStore } from '../../../stores/tooltipPreferencesStore';
 import './CustomTooltip.css';
 
 // Re-export for backward compatibility
@@ -211,6 +212,14 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
     onAutoExpandPinnedComparisonChange?.(!autoExpandPinnedComparison);
   };
 
+  const hoverDisabled = useTooltipPreferencesStore((s) => s.hoverDisabled);
+  const setHoverDisabled = useTooltipPreferencesStore((s) => s.setHoverDisabled);
+
+  const handleHoverDisabledToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    stopTooltipControlPropagation(event);
+    setHoverDisabled(!hoverDisabled);
+  };
+
   const showComparisonToggle = pinned && Boolean(pinnedComparison);
   const showComparisonPanel = Boolean(pinnedComparison && autoExpandPinnedComparison);
 
@@ -344,21 +353,38 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
         );
       })}
 
-      {(showComparisonToggle || showComparisonPanel) && (
+      {(pinned || showComparisonPanel) && (
         <div className="custom-tooltip__comparison">
-          {showComparisonToggle && (
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={autoExpandPinnedComparison}
-              aria-label="Show all values"
-              className="custom-tooltip__comparison-mode"
-              onMouseDown={stopTooltipControlPropagation}
-              onClick={handleAutoExpandPinnedComparisonToggle}
-            >
-              <span className={`custom-tooltip__comparison-mode-box${autoExpandPinnedComparison ? ' custom-tooltip__comparison-mode-box--checked' : ''}`} aria-hidden="true" />
-              <span className="custom-tooltip__comparison-mode-label">Show all values</span>
-            </button>
+          {pinned && (
+            <div className="custom-tooltip__toggles">
+              {showComparisonToggle && (
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={autoExpandPinnedComparison}
+                  aria-label="Show all values"
+                  className="custom-tooltip__comparison-mode"
+                  onMouseDown={stopTooltipControlPropagation}
+                  onClick={handleAutoExpandPinnedComparisonToggle}
+                >
+                  <span className={`custom-tooltip__comparison-mode-box${autoExpandPinnedComparison ? ' custom-tooltip__comparison-mode-box--checked' : ''}`} aria-hidden="true" />
+                  <span className="custom-tooltip__comparison-mode-label">Show all values</span>
+                </button>
+              )}
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={hoverDisabled}
+                aria-label="Disable Tooltip"
+                title="Show tooltips only when clicking a mark"
+                className="custom-tooltip__comparison-mode"
+                onMouseDown={stopTooltipControlPropagation}
+                onClick={handleHoverDisabledToggle}
+              >
+                <span className={`custom-tooltip__comparison-mode-box${hoverDisabled ? ' custom-tooltip__comparison-mode-box--checked' : ''}`} aria-hidden="true" />
+                <span className="custom-tooltip__comparison-mode-label">Disable Tooltip</span>
+              </button>
+            </div>
           )}
           {showComparisonPanel && comparisonPanel}
         </div>

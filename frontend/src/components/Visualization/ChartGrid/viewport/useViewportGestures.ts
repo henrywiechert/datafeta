@@ -114,6 +114,11 @@ function setWheelCell(cell: typeof wheelCell): void {
 /** Pointerdown events re-dispatched after a click-without-drag; the pan handler must ignore them. */
 const replayedEvents = new WeakSet<Event>();
 
+/** Mark a synthetic pointerdown so the pan handler lets it through to the plot untouched. */
+export function bypassViewportPan(event: Event): void {
+  replayedEvents.add(event);
+}
+
 export interface IndependentAxes {
   x?: boolean;
   y?: boolean;

@@ -3,6 +3,7 @@ import { fireEvent } from '@testing-library/react';
 
 import { addTooltipListeners } from './addTooltipListeners';
 import { CustomTooltipConfig } from '../../../types';
+import { useTooltipPreferencesStore } from '../../../stores/tooltipPreferencesStore';
 import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
 
 function buildPlot(markCount: number): { plot: SVGSVGElement; marks: SVGRectElement[] } {
@@ -26,6 +27,7 @@ function buildPlot(markCount: number): { plot: SVGSVGElement; marks: SVGRectElem
 
 describe('addTooltipListeners', () => {
   afterEach(() => {
+    useTooltipPreferencesStore.setState({ hoverDisabled: false });
     document.body.innerHTML = '';
     jest.restoreAllMocks();
   });
@@ -286,5 +288,73 @@ describe('addTooltipListeners', () => {
 
     cleanup();
   });
-});
 
+  describe('with hover tooltips disabled', () => {
+    const setup = () => {
+      useTooltipPreferencesStore.setState({ hoverDisabled: true });
+      const { plot, marks } = buildPlot(1);
+      (marks[0] as any).__data__ = 0;
+      const showTooltip = jest.fn();
+      const pinTooltip = jest.fn();
+      const cleanup = addTooltipListeners(
+        plot,
+        { enabled: true, data: [{ name: 'only' }], getFields: (d) => [{ label: 'Name', value: d.name }] },
+        showTooltip, jest.fn(), jest.fn(), pinTooltip, jest.fn(), { current: false },
+      );
+      return { marks, showTooltip, pinTooltip, cleanup };
+    };
+
+    it('still highlights the hovered mark, but shows no tooltip', () => {
+      const { marks, showTooltip, cleanup } = setup();
+
+      fireEvent.mouseOver(marks[0], { clientX: 5, clientY: 5 });
+
+      expect(showTooltip).not.toHaveBeenCalled();
+      expect(marks[0].classList.contains('chart-mark--highlighted')).toBe(true);
+
+      fireEvent.mouseOut(marks[0]);
+      expect(marks[0].classList.contains('chart-mark--highlighted')).toBe(false);
+      cleanup();
+    });
+
+    it('shows and pins the tooltip on click', () => {
+      const { marks, showTooltip, pinTooltip, cleanup } = setup();
+
+      fireEvent.click(marks[0], { clientX: 5, clientY: 5 });
+
+      expect(showTooltip).toHaveBeenCalledTimes(1);
+      expect(pinTooltip).toHaveBeenCalledTimes(1);
+      expect(marks[0].classList.contains('chart-mark--highlighted')).toBe(true);
+      cleanup();
+    });
+  });
+
+  it('dismisses the tooltip pinned in another chart when pinning here', () => {
+    const build = () => {
+      const { plot, marks } = buildPlot(1);
+      (marks[0] as any).__data__ = 0;
+      const pinnedRef = { current: true };
+      const unpinTooltip = jest.fn(() => { pinnedRef.current = false; });
+      const cleanup = addTooltipListeners(
+        plot,
+        { enabled: true, data: [{ name: 'only' }], getFields: (d) => [{ label: 'Name', value: d.name }] },
+        jest.fn(), jest.fn(), jest.fn(), jest.fn(), unpinTooltip, pinnedRef,
+      );
+      return { marks, unpinTooltip, pinnedRef, cleanup };
+    };
+    const first = build();
+    const second = build();
+    first.pinnedRef.current = false;
+    second.pinnedRef.current = false;
+
+    fireEvent.click(first.marks[0]);
+    first.pinnedRef.current = true; // the pin the hook would have applied
+    fireEvent.click(second.marks[0]);
+
+    expect(first.unpinTooltip).toHaveBeenCalledTimes(1);
+    expect(second.unpinTooltip).not.toHaveBeenCalled();
+
+    first.cleanup();
+    second.cleanup();
+  });
+});

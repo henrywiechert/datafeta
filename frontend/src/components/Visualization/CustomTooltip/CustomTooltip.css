@@ -251,6 +251,12 @@ line.chart-mark--highlighted {
   border-top: 1px solid var(--df-inverse-border-subtle);
 }
 
+.custom-tooltip__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+}
+
 .custom-tooltip__comparison-mode {
   display: inline-flex;
   align-items: center;

@@ -1,10 +1,15 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { CustomTooltip } from './CustomTooltip';
 import { PinnedTooltipComparison } from '../../../types';
+import { useTooltipPreferencesStore } from '../../../stores/tooltipPreferencesStore';
 
 describe('CustomTooltip', () => {
+  afterEach(() => {
+    act(() => useTooltipPreferencesStore.setState({ hoverDisabled: false }));
+  });
+
   const baseComparison: PinnedTooltipComparison = {
     title: 'All Values At 2024',
     comparisonBasis: 'plotted-dots',
@@ -145,5 +150,23 @@ describe('CustomTooltip', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Show all values' }));
 
     expect(onAutoExpandPinnedComparisonChange).toHaveBeenCalledWith(false);
+  });
+
+  test('pinned tooltip offers a Disable Tooltip toggle that flips the hover preference', () => {
+    render(<CustomTooltip x={10} y={20} fields={[{ label: 'Year', value: '2024' }]} visible pinned />);
+
+    const toggle = screen.getByRole('checkbox', { name: 'Disable Tooltip' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(toggle);
+
+    expect(useTooltipPreferencesStore.getState().hoverDisabled).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Disable Tooltip' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('hover tooltip does not show the Disable Tooltip toggle', () => {
+    render(<CustomTooltip x={10} y={20} fields={[{ label: 'Year', value: '2024' }]} visible />);
+
+    expect(screen.queryByRole('checkbox', { name: 'Disable Tooltip' })).not.toBeInTheDocument();
   });
 });
