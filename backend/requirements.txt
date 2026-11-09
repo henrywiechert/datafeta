@@ -125,7 +125,7 @@ python-dotenv==1.2.2
     # via
     #   kaggle
     #   uvicorn
-python-multipart==0.0.32
+python-multipart==0.0.33
     # via -r requirements.in
 python-slugify==8.0.4
     # via kaggle
