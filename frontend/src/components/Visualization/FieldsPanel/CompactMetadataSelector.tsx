@@ -16,6 +16,7 @@ import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import SectionHeader from '../Properties/SectionHeader';
 import styles from './CompactMetadataSelector.module.css';
+import { connectorTraits } from '../../../utils/connectorTraits';
 import { dataFileAccept } from '../../../utils/uploadFileTypes';
 import { useFileFormats } from '../../../contexts/AppConfigContext';
 import {
@@ -237,10 +238,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   }, [expanded]);
 
   const extraTableCount = joinedTables.length + unionTables.length;
-  const supportsJoins =
-    connectionType === 'clickhouse' ||
-    connectionType === 'kaggle' ||
-    connectionType === 'sqlite';
+  const { supportsJoins } = connectorTraits(connectionType);
   const collapsedHint = selectedTable
     ? `${selectedDatabase ? `${selectedDatabase}.` : ''}${selectedTable}${extraTableCount > 0 ? ` +${extraTableCount}` : ''}`
     : '';
@@ -388,13 +386,13 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     onTableSelect('');
   }, [onTableSelect]);
 
-  // Sources whose tables are all in one uploaded artifact and can be UNIONed
-  // by name alone (no database qualifier).
-  const supportsFileStyleUnion = connectionType === 'csv' || connectionType === 'sqlite';
+  // Sources whose tables share one namespace and can be UNIONed by name alone
+  // (no database qualifier).
+  const supportsFileStyleUnion = connectorTraits(connectionType).supportsNameUnion;
 
-  // CSV/SQLite/Hive Parquet multi-table: available tables for UNION (excludes primary and already-added)
+  // Name-unionable sources and Hive Parquet: available tables for UNION (excludes primary and already-added)
   const csvUnionableOptions = React.useMemo(() => {
-    if (connectionType !== 'csv' && connectionType !== 'sqlite' && connectionType !== 'hive_parquet') return [];
+    if (!supportsFileStyleUnion && connectionType !== 'hive_parquet') return [];
     return tableOptions.filter(
       (t) =>
         t !== selectedTable &&
@@ -402,7 +400,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         // For hive_parquet, only show loaded partitions as unionable
         (connectionType !== 'hive_parquet' || loadedPartitions.has(t))
     );
-  }, [connectionType, tableOptions, selectedTable, unionTables, loadedPartitions]);
+  }, [connectionType, supportsFileStyleUnion, tableOptions, selectedTable, unionTables, loadedPartitions]);
 
   const [csvStagedTable, setCsvStagedTable] = React.useState('');
 

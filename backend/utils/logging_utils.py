@@ -13,10 +13,16 @@ SENSITIVE_KEYS = frozenset({
 })
 
 
+def _is_sensitive(key: str) -> bool:
+    lowered = key.lower()
+    return lowered in SENSITIVE_KEYS or any(lowered.endswith(f"_{k}") for k in SENSITIVE_KEYS)
+
+
 def redact_sensitive(data: Dict[str, Any], replacement: str = '***') -> Dict[str, Any]:
     """Return a shallow copy of the dict with sensitive values masked.
     
-    Keys are matched case-insensitively against SENSITIVE_KEYS.
+    Keys are matched case-insensitively against SENSITIVE_KEYS, also as a
+    ``_``-separated suffix (``hf_token``, ``influx_password``).
     
     Args:
         data: Dictionary that may contain sensitive values.
@@ -26,6 +32,6 @@ def redact_sensitive(data: Dict[str, Any], replacement: str = '***') -> Dict[str
         New dictionary with sensitive values replaced.
     """
     return {
-        k: replacement if k.lower() in SENSITIVE_KEYS else v
+        k: replacement if _is_sensitive(k) else v
         for k, v in data.items()
     }

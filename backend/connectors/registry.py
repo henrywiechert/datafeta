@@ -21,6 +21,8 @@ from backend.connectors.file_connector import FileConnector
 from backend.connectors.file_handlers import FILE_HANDLERS
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.huggingface_connector import HuggingFaceConnector
+from backend.connectors.influxdb_connector import InfluxDbConnector
+from backend.connectors.influxql_client import InfluxDbConfig
 from backend.connectors.kaggle_connector import KaggleConnector
 from backend.connectors.sqlite_connector import SqliteConnector
 from backend.dialects import ClickHouseDialect, DuckDbDialect
@@ -89,17 +91,29 @@ class SqliteConfig(BaseModel):
     pass
 
 
-def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
+def _session_dir(request, session_id: str) -> str:
+    """The session's directory under the upload root (created on demand)."""
     if request is None:
-        raise ValueError("Request is required to resolve upload_root_dir for Kaggle connector")
+        raise ValueError("Request is required to resolve upload_root_dir")
     upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
     if not upload_root_dir:
         raise ValueError("Upload root directory is not initialized")
     session_dir = os.path.join(upload_root_dir, session_id)
     os.makedirs(session_dir, exist_ok=True)
+    return session_dir
+
+
+def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
     return {
         **cfg.model_dump(exclude_none=True),
-        "download_dir": session_dir,
+        "download_dir": _session_dir(request, session_id),
+    }
+
+
+def _build_influxdb_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
+    return {
+        **cfg.model_dump(exclude_none=True),
+        "data_dir": _session_dir(request, session_id),
     }
 
 
@@ -260,6 +274,23 @@ def get_connector_registry() -> ConnectorRegistry:
             config_model=HuggingFaceConfig,
             factory=HuggingFaceConnector,
             build_connect_args=lambda cfg, _request, _session_id: cfg.model_dump(exclude_none=True),
+        )
+    )
+
+    registry.register(
+        ConnectorSpec(
+            id="influxdb",
+            display_name="InfluxDB 1.8 / 2.x (DuckDB)",
+            dialect=duckdb_dialect,
+            capabilities=ConnectorCapabilities(
+                supports_json_connect=True,
+                supports_multipart_connect=False,
+                supports_databases=False,
+                supports_arrow=True,
+            ),
+            config_model=InfluxDbConfig,
+            factory=InfluxDbConnector,
+            build_connect_args=_build_influxdb_connect_args,
         )
     )
 

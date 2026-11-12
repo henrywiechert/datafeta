@@ -5,9 +5,10 @@
  */
 
 import { HuggingFaceDataset, HuggingFaceSplit, KaggleDataset, KaggleFile } from '../../types';
+import type { ConnectionType } from '../../types/connection';
+import type { InfluxDbFormState } from './influxdbForm';
 
-// Connection type union
-export type ConnectionType = 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+export type { ConnectionType };
 
 // File form state (supports CSV and Parquet files)
 export interface CsvFormState {
@@ -161,6 +162,7 @@ export interface ConnectionFormState {
   kaggle: KaggleFormState;
   huggingFace: HuggingFaceFormState;
   hiveParquet: HiveParquetFormState;
+  influxDb: InfluxDbFormState;
 }
 
 // Action types for useReducer
@@ -172,11 +174,13 @@ export type ConnectionFormAction =
   | { type: 'UPDATE_KAGGLE'; payload: Partial<KaggleFormState> }
   | { type: 'UPDATE_HUGGINGFACE'; payload: Partial<HuggingFaceFormState> }
   | { type: 'UPDATE_HIVE_PARQUET'; payload: Partial<HiveParquetFormState> }
+  | { type: 'UPDATE_INFLUXDB'; payload: Partial<InfluxDbFormState> }
   | { type: 'RESET_CSV' }
   | { type: 'RESET_SQLITE' }
   | { type: 'RESET_CLICKHOUSE' }
   | { type: 'RESET_KAGGLE' }
   | { type: 'RESET_HUGGINGFACE' }
   | { type: 'RESET_HIVE_PARQUET' }
+  | { type: 'RESET_INFLUXDB' }
   | { type: 'SYNC_FROM_CONNECTION'; payload: { type: ConnectionType; details: any } };
 

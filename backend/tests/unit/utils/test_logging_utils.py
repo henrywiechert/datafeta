@@ -38,6 +38,13 @@ class TestRedactSensitive:
         assert result['Connection_String'] == '***'
         assert result['PASSWORD'] == '***'
 
+    @pytest.mark.parametrize("key", ["hf_token", "influx_token", "influx_password", "Kaggle_API_Key"])
+    def test_redact_sensitive_masks_prefixed_secret_keys(self, key):
+        result = redact_sensitive({key: 'secret', 'influx_auth': 'token', 'influx_username': 'u'})
+        assert result[key] == '***'
+        assert result['influx_auth'] == 'token'
+        assert result['influx_username'] == 'u'
+
     def test_redact_sensitive_custom_replacement(self):
         """Test that custom replacement string can be used."""
         data = {'password': 'secret'}

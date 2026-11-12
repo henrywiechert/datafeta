@@ -26,15 +26,13 @@ from backend.dialects.duckdb import DuckDbDialect
 _clickhouse_dialect = ClickHouseDialect()
 _duckdb_dialect = DuckDbDialect()
 
+# Engine names (and the legacy 'file' alias). Connector ids such as 'csv' or
+# 'kaggle' resolve through the connector registry, which declares each
+# connector's dialect, so a new connector needs no entry here.
 _DIALECT_MAP = {
     'clickhouse': _clickhouse_dialect,
     'duckdb': _duckdb_dialect,
-    'csv': _duckdb_dialect,
     'file': _duckdb_dialect,
-    'sqlite': _duckdb_dialect,
-    'kaggle': _duckdb_dialect,
-    'huggingface': _duckdb_dialect,
-    'hive_parquet': _duckdb_dialect,
 }
 
 
@@ -57,9 +55,32 @@ def get_dialect(db_type: str) -> SqlDialect:
     """
     normalized = db_type.lower()
     dialect = _DIALECT_MAP.get(normalized)
-    if dialect is None:
-        raise ValueError(f"Unknown db_type: {db_type}. Known types: {list(_DIALECT_MAP.keys())}")
-    return dialect
+    if dialect is not None:
+        return dialect
+
+    # Imported lazily: the registry imports the connectors, which import this module.
+    from backend.connectors.registry import get_connector_registry
+
+    specs = get_connector_registry().list_specs()
+    spec = specs.get(normalized)
+    if spec is None:
+        known = sorted(set(_DIALECT_MAP) | set(specs))
+        raise ValueError(f"Unknown db_type: {db_type}. Known types: {known}")
+    return spec.dialect
+
+
+def engine_name(db_type) -> str:
+    """The query engine ('duckdb', 'clickhouse', ...) behind a db_type or dialect.
+
+    Unknown strings are returned lower-cased, unchanged.
+    """
+    if hasattr(db_type, "name"):
+        return db_type.name
+    normalized = str(db_type).lower()
+    try:
+        return get_dialect(normalized).name
+    except ValueError:
+        return normalized
 
 
 __all__ = [
@@ -67,4 +88,5 @@ __all__ = [
     'ClickHouseDialect',
     'DuckDbDialect',
     'get_dialect',
+    'engine_name',
 ]

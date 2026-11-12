@@ -36,7 +36,7 @@ Data Slicer is available in two ways:
 
 ## Key features
 
-- **Many data sources** — CSV, Parquet, JSON/NDJSON, Excel, SQLite, ClickHouse, Hive Parquet, Kaggle and HuggingFace datasets
+- **Many data sources** — CSV, Parquet, JSON/NDJSON, Excel, SQLite, ClickHouse, InfluxDB 1.8/2.x, Hive Parquet, Kaggle and HuggingFace datasets
 - **Drag-and-drop charts** — built on Observable Plot, with automatic chart-type detection
 - **Faceting** — small multiples for multi-dimensional exploration
 - **Filters & computed fields** — discrete, continuous and date filters, virtual columns, joins and unions

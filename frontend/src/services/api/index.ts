@@ -18,6 +18,7 @@ import { queryApi } from './queryApi';
 import { snapshotApi } from './snapshotApi';
 import { kaggleApi } from './kaggleApi';
 import { huggingFaceApi } from './huggingfaceApi';
+import { influxDbApi } from './influxdbApi';
 import { appConfigApi } from './appConfigApi';
 import { demoApi } from './demoApi';
 import { 
@@ -89,6 +90,10 @@ export const apiService = {
   searchHuggingFaceDatasets: huggingFaceApi.searchHuggingFaceDatasets,
   listHuggingFaceSplits: huggingFaceApi.listHuggingFaceSplits,
 
+  // InfluxDB operations
+  listInfluxDbDatabases: influxDbApi.listInfluxDbDatabases,
+  listInfluxDbMeasurements: influxDbApi.listInfluxDbMeasurements,
+
   // Request management
   cancelAllRequests,
   getCurrentAbortController,
@@ -103,6 +108,7 @@ export { queryApi } from './queryApi';
 export { snapshotApi } from './snapshotApi';
 export { kaggleApi } from './kaggleApi';
 export { huggingFaceApi } from './huggingfaceApi';
+export { influxDbApi } from './influxdbApi';
 export { appConfigApi } from './appConfigApi';
 export { demoApi } from './demoApi';
 export type { AppConfig } from './appConfigApi';

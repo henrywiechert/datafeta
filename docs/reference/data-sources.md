@@ -154,6 +154,43 @@ DataSlicer uses the ClickHouse **HTTP interface**. Make sure port `8123` (or you
 
 ---
 
+## InfluxDB
+
+| Option | Default | Notes |
+|---|---|---|
+| Server URL | `http://localhost:8086` | InfluxDB 1.8, or 2.x (its v1 compatibility API answers InfluxQL) |
+| Authentication | None | Username/password, or an API token on 2.x. 2.x also accepts the token as the password |
+| Verify TLS certificate | On | Shown for `https://` URLs; turn off for self-signed certificates |
+| Database | | A 1.8 database, or a 2.x bucket with a [DBRP mapping](https://docs.influxdata.com/influxdb/v2/query-data/influxql/dbrp/) |
+| Measurements | All | Pick a subset with **Load measurements** |
+| Time range | Last 7 days | Last *N* (`s`, `m`, `h`, `d`, `w`), Between two UTC times (end optional), or All time |
+
+**How it works:** At connect time each selected measurement is read once over InfluxQL (chunked
+responses, so the server's row limit cannot truncate the result) and stored in a DuckDB table in
+a session-scoped file on the server. Every query then runs in DuckDB, so joins, unions, virtual
+columns and all chart types work as for file sources. The file is deleted on disconnect.
+Reconnect to pick up newer points.
+
+**Table and column mapping:**
+
+| InfluxDB | DataSlicer |
+|---|---|
+| Measurement | Table. Characters other than letters, digits and `_` become `_` (`disk.io` → `disk_io`) |
+| `time` | `time` — a UTC timestamp, truncated from nanoseconds to microseconds |
+| Tag key | Text column. A tag that shares its key with a field is named `<key>_tag` |
+| Field key (`float`, `integer`, `unsigned`, `boolean`, `string`) | `DOUBLE`, `BIGINT`, `UBIGINT`, `BOOLEAN`, `VARCHAR` |
+| Field written with different types in different shards | Numbers only → `DOUBLE`; otherwise `VARCHAR` |
+
+Only the default retention policy of the database is read. Credentials are used for the session
+only; saved configurations keep the URL, username, database, measurements and time range, and ask
+for the password or token again on restore.
+
+| Variable | Default | Description |
+|---|---|---|
+| `INFLUXDB_MAX_ROWS` | `50000000` | Maximum points loaded per connection, across all measurements |
+
+---
+
 ## Hive / Parquet
 
 | Option | Notes |

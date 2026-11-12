@@ -27,6 +27,13 @@ import {
   DEFAULT_HUGGINGFACE_STATE,
   DEFAULT_HIVE_PARQUET_STATE,
 } from '../components/ConnectionForms/types';
+import {
+  InfluxDbFormState,
+  DEFAULT_INFLUXDB_STATE,
+  appendInfluxDbDetails,
+  influxDbStateFromDetails,
+  validateInfluxDbForm,
+} from '../components/ConnectionForms/influxdbForm';
 
 function csvStateFromDetails(details: ConnectionDetails): CsvFormState {
   return {
@@ -64,6 +71,7 @@ const initialState: ConnectionFormState = {
   kaggle: DEFAULT_KAGGLE_STATE,
   huggingFace: DEFAULT_HUGGINGFACE_STATE,
   hiveParquet: DEFAULT_HIVE_PARQUET_STATE,
+  influxDb: DEFAULT_INFLUXDB_STATE,
 };
 
 // Reducer function
@@ -93,6 +101,9 @@ function connectionFormReducer(
     case 'UPDATE_HIVE_PARQUET':
       return { ...state, hiveParquet: { ...state.hiveParquet, ...action.payload } };
 
+    case 'UPDATE_INFLUXDB':
+      return { ...state, influxDb: { ...state.influxDb, ...action.payload } };
+
     case 'RESET_CSV':
       return { ...state, csv: DEFAULT_CSV_STATE };
 
@@ -110,6 +121,9 @@ function connectionFormReducer(
 
     case 'RESET_HIVE_PARQUET':
       return { ...state, hiveParquet: DEFAULT_HIVE_PARQUET_STATE };
+
+    case 'RESET_INFLUXDB':
+      return { ...state, influxDb: DEFAULT_INFLUXDB_STATE };
 
     case 'SYNC_FROM_CONNECTION': {
       const { type, details } = action.payload;
@@ -150,6 +164,8 @@ function connectionFormReducer(
           ...DEFAULT_HIVE_PARQUET_STATE,
           fileStructure: details.hive_file_structure || [],
         };
+      } else if (type === 'influxdb') {
+        newState.influxDb = influxDbStateFromDetails(details);
       }
 
       return newState;
@@ -173,6 +189,7 @@ export interface UseConnectionFormReturn {
   kaggleState: KaggleFormState;
   huggingFaceState: HuggingFaceFormState;
   hiveParquetState: HiveParquetFormState;
+  influxDbState: InfluxDbFormState;
 
   // Per-type state setters (grouped updates)
   updateCsvState: (updates: Partial<CsvFormState>) => void;
@@ -181,6 +198,7 @@ export interface UseConnectionFormReturn {
   updateKaggleState: (updates: Partial<KaggleFormState>) => void;
   updateHuggingFaceState: (updates: Partial<HuggingFaceFormState>) => void;
   updateHiveParquetState: (updates: Partial<HiveParquetFormState>) => void;
+  updateInfluxDbState: (updates: Partial<InfluxDbFormState>) => void;
 
   // Validation and building
   validateForm: () => ValidationResult;
@@ -241,6 +259,10 @@ export function useConnectionForm(): UseConnectionFormReturn {
     dispatch({ type: 'UPDATE_HIVE_PARQUET', payload: updates });
   }, []);
 
+  const updateInfluxDbState = useCallback((updates: Partial<InfluxDbFormState>) => {
+    dispatch({ type: 'UPDATE_INFLUXDB', payload: updates });
+  }, []);
+
   // File handling for CSV/Parquet (supports multiple files)
   const handleFileChange = useCallback((files: File[] | null) => {
     if (files && files.length > 0) {
@@ -278,7 +300,11 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Validation
   const validateForm = useCallback((): ValidationResult => {
-    const { connectionType, csv, sqlite, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+    const { connectionType, csv, sqlite, clickHouse, kaggle, huggingFace, hiveParquet, influxDb } = state;
+
+    if (connectionType === 'influxdb') {
+      return validateInfluxDbForm(influxDb);
+    }
 
     if (connectionType === 'sqlite') {
       if (!sqlite.selectedFile) {
@@ -342,7 +368,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Build ConnectionDetails from current state
   const buildConnectionDetails = useCallback((): ConnectionDetails => {
-    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet, influxDb } = state;
 
     const details: ConnectionDetails = { type: connectionType };
 
@@ -364,6 +390,8 @@ export function useConnectionForm(): UseConnectionFormReturn {
       if (huggingFace.selectedSplits.length > 0) {
         details.hf_splits = huggingFace.selectedSplits;
       }
+    } else if (connectionType === 'influxdb') {
+      appendInfluxDbDetails(details, influxDb);
     } else if (connectionType === 'clickhouse') {
       if (clickHouse.connectionString) {
         details.connection_string = clickHouse.connectionString;
@@ -604,12 +632,14 @@ export function useConnectionForm(): UseConnectionFormReturn {
     kaggleState: state.kaggle,
     huggingFaceState: state.huggingFace,
     hiveParquetState: state.hiveParquet,
+    influxDbState: state.influxDb,
     updateCsvState,
     updateSqliteState,
     updateClickHouseState,
     updateKaggleState,
     updateHuggingFaceState,
     updateHiveParquetState,
+    updateInfluxDbState,
     validateForm,
     buildConnectionDetails,
     searchKaggleDatasets,

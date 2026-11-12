@@ -7,9 +7,24 @@
 import { Database, Table, Column } from './database';
 import { ColumnCasts } from './query';
 
+import { InfluxAuthMode, InfluxTimeMode } from './influxdb';
+
+// Every connector id the backend registry knows (the single source for type unions).
+export const CONNECTION_TYPES = [
+  'csv',
+  'sqlite',
+  'clickhouse',
+  'kaggle',
+  'huggingface',
+  'hive_parquet',
+  'influxdb',
+] as const;
+
+export type ConnectionType = typeof CONNECTION_TYPES[number];
+
 // Request body for /connect endpoint
 export interface ConnectionDetails {
-  type: 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: ConnectionType;
   file_path?: string;
   connection_string?: string;
   host?: string;
@@ -40,6 +55,19 @@ export interface ConnectionDetails {
   hf_splits?: string[];
   // Hive Parquet configuration options
   hive_file_structure?: string[];
+  // InfluxDB configuration options
+  influx_url?: string;
+  influx_auth?: InfluxAuthMode;
+  influx_username?: string;
+  influx_password?: string;
+  influx_token?: string;
+  influx_verify_ssl?: boolean;
+  influx_database?: string;
+  influx_measurements?: string[];
+  influx_time_mode?: InfluxTimeMode;
+  influx_last?: string;
+  influx_start?: string;
+  influx_end?: string;
   // Multi-part files (e.g. workbook sheets): parts loaded per original filename
   // (no entry = every selectable part). Saved so a restore loads the same parts.
   file_parts?: Record<string, string[]>;

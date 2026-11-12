@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { ConnectionDetails, Field, VirtualColumnDefinition, ForeignKeyRelationship, Sheet } from '../types';
 import { apiService } from '../apiService';
+import { connectorTraits } from '../utils/connectorTraits';
 import { buildValidColumnNames } from '../utils/fieldValidation';
 import { processColumnsResponse } from '../utils/fieldUtils';
 import {
@@ -116,7 +117,7 @@ export function useMetadataOperations({
 
     const fetchTables = useCallback(async (databaseName: string): Promise<any[]> => {
         const targetDatabase = databaseName;
-        if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return [];
+        if (connectorTraits(connectionDetails?.type).hasDatabases && !targetDatabase) return [];
         
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
@@ -124,15 +125,7 @@ export function useMetadataOperations({
             const response = await apiService.listTables(targetDatabase);
             const tables = response.tables || [];
             dataSourceSetters.setTables(tables);
-            if (
-                (
-                    connectionDetails?.type === 'csv'
-                    || connectionDetails?.type === 'sqlite'
-                    || connectionDetails?.type === 'kaggle'
-                    || connectionDetails?.type === 'huggingface'
-                )
-                && tables.length === 1
-            ) {
+            if (connectorTraits(connectionDetails?.type).listsTablesOnConnect && tables.length === 1) {
                 dataSourceSetters.setSelectedTable(tables[0].name);
                 // Note: Query refresh is triggered by the effect that watches selectedTable
                 // and availableFields changes in the snapshot loading effect below
@@ -217,15 +210,11 @@ export function useMetadataOperations({
     // Fetch suggested joinable tables for the selected primary table
     const fetchSuggestedJoins = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        // Support JOIN for ClickHouse, Kaggle and SQLite
-        if (
-            connectionDetails?.type !== 'clickhouse'
-            && connectionDetails?.type !== 'kaggle'
-            && connectionDetails?.type !== 'sqlite'
-        ) return;
+        const traits = connectorTraits(connectionDetails?.type);
+        if (!traits.supportsJoins) return;
         
-        // Kaggle and SQLite have no databases; the connector ignores the name
-        const database = connectionDetails?.type === 'clickhouse'
+        // Sources without databases ignore the name; the connection type stands in for it
+        const database = traits.hasDatabases
             ? dataSource.selectedDatabase
             : connectionDetails?.type;
         if (!database) return;
@@ -427,7 +416,8 @@ export function useMetadataOperations({
         
         // Clear existing metadata and fetch new data when connection changes
         // This ensures we get fresh data after reconnecting to a different server
-        if (connectionDetails.type === 'clickhouse') {
+        const traits = connectorTraits(connectionDetails.type);
+        if (traits.hasDatabases) {
             // Clear old metadata first via DataSourceContext setters
             dataSourceSetters.setDatabases([]);
             dataSourceSetters.setTables([]);
@@ -444,12 +434,7 @@ export function useMetadataOperations({
                 dataSourceSetters.setMetadataError(null);
                 fetchDatabases();
             }
-        } else if (
-            connectionDetails.type === 'csv'
-            || connectionDetails.type === 'sqlite'
-            || connectionDetails.type === 'kaggle'
-            || connectionDetails.type === 'huggingface'
-        ) {
+        } else if (traits.listsTablesOnConnect) {
             // Clear old metadata first
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
@@ -537,18 +522,11 @@ export function useMetadataOperations({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedDatabase, dataSource.tables.length, dataSource.isLoadingMetadata]);
 
-    // Fetch suggested joins when table is selected or joined tables change (for ClickHouse and Kaggle)
+    // Fetch suggested joins when table is selected or joined tables change (sources that support JOINs)
     // This enables transitive relationships: when you join table B, you can then see tables that join to B
     // Also re-fetches when customRelationships change (manual FK mode)
     useEffect(() => {
-        if (
-            dataSource.selectedTable
-            && (
-                connectionDetails?.type === 'clickhouse'
-                || connectionDetails?.type === 'kaggle'
-                || connectionDetails?.type === 'sqlite'
-            )
-        ) {
+        if (dataSource.selectedTable && connectorTraits(connectionDetails?.type).supportsJoins) {
             fetchSuggestedJoins();
         }
         // REASON: deliberately key on the inputs that change suggested-join results; fetchSuggestedJoins identity is unstable so excluding it prevents redundant fetches.

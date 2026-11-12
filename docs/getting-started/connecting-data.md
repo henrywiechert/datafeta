@@ -93,6 +93,30 @@ Connect to a running ClickHouse database over HTTP.
 
 ---
 
+## InfluxDB
+
+Load measurements from InfluxDB 1.8, or from InfluxDB 2.x through its v1 (InfluxQL) API.
+
+**Steps:**
+
+1. Select **InfluxDB 1.8 / 2.x** as the connection type.
+2. Enter the **Server URL**, e.g. `http://localhost:8086`, and choose the authentication:
+    - **None** — the server has authentication disabled
+    - **Username and password** — an InfluxDB 1.8 user, or a 2.x v1-auth user
+    - **API token (2.x)** — a token with read access to the bucket
+3. Type the **Database**, or click **List databases** and pick one. On 2.x, a database is a bucket
+   with a DBRP mapping.
+4. Optionally click **Load measurements** and untick the ones you don't need. Without a selection,
+   every measurement is loaded.
+5. Choose the **Time range**: the last N minutes/hours/days/weeks, a fixed UTC window, or all time.
+6. Click **Connect**.
+
+The points are copied into DataSlicer once, when you connect; each measurement becomes a table. To
+see newer data, reconnect. See [Data Source Reference](../reference/data-sources.md#influxdb) for
+how tags, fields and timestamps are mapped.
+
+---
+
 ## Hive / Parquet Files
 
 Load columnar Parquet files, including large partitioned datasets.

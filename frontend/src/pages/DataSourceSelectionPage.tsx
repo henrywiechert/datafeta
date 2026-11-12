@@ -23,6 +23,7 @@ import {
   KaggleConnectionForm,
   HuggingFaceConnectionForm,
   HiveParquetConnectionForm,
+  InfluxDbConnectionForm,
   ConnectionType,
 } from '../components/ConnectionForms';
 import { readFileAsText } from '../services/configurationService';
@@ -69,6 +70,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
       { value: 'sqlite', label: 'SQLite Database File' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
+      { value: 'influxdb', label: 'InfluxDB 1.8 / 2.x' },
       { value: 'kaggle', label: 'Kaggle Dataset' },
       { value: 'huggingface', label: 'HuggingFace Dataset' },
     ];
@@ -123,7 +125,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
     const validation = form.validateForm();
     if (!validation.isValid) {
-      console.error(validation.errorMessage);
+      setStageError(validation.errorMessage);
       return;
     }
 
@@ -346,6 +348,14 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <ClickHouseConnectionForm
               state={form.clickHouseState}
               onUpdate={form.updateClickHouseState}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
+
+          {form.connectionType === 'influxdb' && (
+            <InfluxDbConnectionForm
+              state={form.influxDbState}
+              onUpdate={form.updateInfluxDbState}
               disabled={formDisabled || !currentConnectorEnabled}
             />
           )}

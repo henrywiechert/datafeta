@@ -13,4 +13,7 @@ export { ClickHouseConnectionForm } from './ClickHouseConnectionForm';
 export { KaggleConnectionForm } from './KaggleConnectionForm';
 export { HuggingFaceConnectionForm } from './HuggingFaceConnectionForm';
 export { HiveParquetConnectionForm } from './HiveParquetConnectionForm';
+export { InfluxDbConnectionForm } from './InfluxDbConnectionForm';
+export { DEFAULT_INFLUXDB_STATE } from './influxdbForm';
+export type { InfluxDbFormState } from './influxdbForm';
 
