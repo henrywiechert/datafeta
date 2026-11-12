@@ -4,7 +4,7 @@ from typing import get_args
 
 import pytest
 
-from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, get_dialect
+from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, engine_name, get_dialect
 from backend.dialects.aggregations import COUNT_STAR, AggregateSpec, FiniteGuard
 from backend.models.query import Measure
 
@@ -227,9 +227,27 @@ class TestDialectInterface:
 class TestGetDialectByConnectorType:
     """get_dialect maps connector type strings onto dialect instances."""
 
-    @pytest.mark.parametrize("db_type", ["csv", "file", "sqlite", "kaggle", "hive_parquet", "duckdb"])
+    @pytest.mark.parametrize(
+        "db_type", ["csv", "file", "sqlite", "kaggle", "huggingface", "hive_parquet", "influxdb", "duckdb"]
+    )
     def test_duckdb_backed_connectors_resolve_to_duckdb_dialect(self, db_type):
         assert get_dialect(db_type).name == "duckdb"
+
+    def test_every_registered_connector_resolves_to_its_declared_dialect(self):
+        from backend.connectors.registry import get_connector_registry
+
+        for connector_id, spec in get_connector_registry().list_specs().items():
+            assert get_dialect(connector_id).name == spec.dialect.name
+
+    @pytest.mark.parametrize("db_type, expected", [
+        ("influxdb", "duckdb"),
+        ("KAGGLE", "duckdb"),
+        ("clickhouse", "clickhouse"),
+        ("generic", "generic"),
+        (DuckDbDialect(), "duckdb"),
+    ])
+    def test_engine_name(self, db_type, expected):
+        assert engine_name(db_type) == expected
 
     def test_clickhouse_resolves_to_clickhouse_dialect(self):
         assert get_dialect("clickhouse").name == "clickhouse"

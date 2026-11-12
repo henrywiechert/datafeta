@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import app_config, connection, demo, metadata, query, relationships, kaggle, huggingface, snapshot
+from .routers import app_config, connection, demo, metadata, query, relationships, kaggle, huggingface, influxdb, snapshot
 from .config import snapshot_storage_dir
 # Import custom exceptions
 from .exceptions import (
@@ -101,6 +101,7 @@ app.include_router(query.router, prefix="/api/v1/data", tags=["query"])
 app.include_router(relationships.router, prefix="/api/v1/data", tags=["relationships"])
 app.include_router(kaggle.router, prefix="/api/v1/data/kaggle", tags=["kaggle"])
 app.include_router(huggingface.router, prefix="/api/v1/data/huggingface", tags=["huggingface"])
+app.include_router(influxdb.router, prefix="/api/v1/data/influxdb", tags=["influxdb"])
 app.include_router(snapshot.router, prefix="/api/v1", tags=["snapshots"])
 app.include_router(app_config.router, prefix="/api/v1", tags=["app-config"])
 app.include_router(demo.router, prefix="/api/v1", tags=["demo"])

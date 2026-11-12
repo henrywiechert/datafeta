@@ -54,8 +54,20 @@ export type {
   HuggingFaceSplitsResponse,
 } from './huggingface';
 
-// Connection types
+// InfluxDB types
 export type {
+  InfluxAuthMode,
+  InfluxTimeMode,
+  InfluxServerRequest,
+  InfluxMeasurement,
+  InfluxDatabasesResponse,
+  InfluxMeasurementsResponse,
+} from './influxdb';
+
+// Connection types
+export { CONNECTION_TYPES } from './connection';
+export type {
+  ConnectionType,
   ConnectionDetails,
   DatabaseListResponse,
   TableListResponse,

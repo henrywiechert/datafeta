@@ -11,6 +11,7 @@ This module provides centralized datetime functionality including:
 from typing import TYPE_CHECKING, Any, Dict, Callable, Optional, Union
 from pypika.terms import Function
 
+from backend.dialects import engine_name
 from backend.exceptions import QueryGenerationError
 from backend.services.query_components.terms import (
     CustomFunction,
@@ -243,9 +244,7 @@ class DateTimeService:
             >>> # Generates: date_trunc('hour', field) → "2024-01-15 14:00:00"
         """
         # Migration-friendly: accept either a db_type string or a SqlDialect.
-        normalized = db_type.name if hasattr(db_type, "name") else str(db_type).lower()
-        if normalized in {'csv', 'file', 'sqlite', 'kaggle', 'hive_parquet'}:
-            normalized = 'duckdb'
+        normalized = engine_name(db_type)
 
         # Parse text columns to datetime before applying datetime functions. This
         # makes UI "treat as DateTime" overrides on text or epoch-number columns

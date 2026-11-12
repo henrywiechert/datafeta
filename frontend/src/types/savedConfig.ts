@@ -5,6 +5,8 @@
  */
 
 import { ColumnCasts } from './query';
+import { ConnectionType } from './connection';
+import { InfluxAuthMode, InfluxTimeMode } from './influxdb';
 import { TableJoinDefinition, ForeignKeyRelationship } from './multiTable';
 import { VirtualColumnDefinition } from './virtualColumn';
 import { Field } from './field';
@@ -16,7 +18,7 @@ import { Sheet } from './sheet';
  * Excludes sensitive information like passwords.
  */
 export interface SavedConnectionMetadata {
-  type: 'csv' | 'sqlite' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: ConnectionType;
   // CSV-specific fields
   file_path?: string;
   csv_delimiter?: string;
@@ -41,6 +43,17 @@ export interface SavedConnectionMetadata {
   // HuggingFace-specific fields (NO token)
   hf_dataset?: string;
   hf_splits?: string[];
+  // InfluxDB-specific fields (NO password or token)
+  influx_url?: string;
+  influx_auth?: InfluxAuthMode;
+  influx_username?: string;
+  influx_verify_ssl?: boolean;
+  influx_database?: string;
+  influx_measurements?: string[];
+  influx_time_mode?: InfluxTimeMode;
+  influx_last?: string;
+  influx_start?: string;
+  influx_end?: string;
   // Hive Parquet-specific fields
   hive_file_structure?: string[];
   hive_loaded_partitions?: string[];

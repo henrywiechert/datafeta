@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from pypika import Table
 
+from backend.dialects import engine_name
 from backend.exceptions import QueryExecutionError
 from backend.services import datetime_semantics as semantics
 from backend.services.datetime_service import DateTimeService
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Engines whose schema lookups are cheap enough to feed the virtual column
 # builder with column types on every call.
-_TYPED_VC_ENGINES = {'duckdb', 'csv', 'file', 'sqlite', 'kaggle', 'hive_parquet', 'huggingface'}
+_TYPED_VC_ENGINES = {'duckdb'}
 
 
 @dataclass
@@ -195,7 +196,7 @@ def resolve_column_source(
     vc_builder = None
     if virtual_columns:
         column_types = None
-        if db_type in _TYPED_VC_ENGINES:
+        if engine_name(db_type) in _TYPED_VC_ENGINES:
             column_types = type_provider.get_types(None, resolved_table_name)
         vc_builder = VirtualColumnExpressionBuilder(
             table_map=table_map,

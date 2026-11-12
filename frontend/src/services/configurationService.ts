@@ -11,6 +11,7 @@ import {
   VirtualColumnDefinition,
   ForeignKeyRelationship
 } from '../types';
+import { CONNECTION_TYPES } from '../types/connection';
 import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
 import { refreshRelativeDateTimeFilters } from './relativeDateTimeFilters';
 
@@ -111,6 +112,18 @@ export function sanitizeConnectionDetails(
     // HuggingFace configuration (NO token)
     if (details.hf_dataset) sanitized.hf_dataset = details.hf_dataset;
     if (details.hf_splits) sanitized.hf_splits = details.hf_splits;
+  } else if (details.type === 'influxdb') {
+    // InfluxDB configuration (NO password or token)
+    sanitized.influx_url = details.influx_url;
+    sanitized.influx_auth = details.influx_auth;
+    if (details.influx_username) sanitized.influx_username = details.influx_username;
+    if (details.influx_verify_ssl !== undefined) sanitized.influx_verify_ssl = details.influx_verify_ssl;
+    sanitized.influx_database = details.influx_database;
+    if (details.influx_measurements) sanitized.influx_measurements = details.influx_measurements;
+    sanitized.influx_time_mode = details.influx_time_mode;
+    if (details.influx_last) sanitized.influx_last = details.influx_last;
+    if (details.influx_start) sanitized.influx_start = details.influx_start;
+    if (details.influx_end) sanitized.influx_end = details.influx_end;
   } else if (details.type === 'hive_parquet') {
     // Hive Parquet configuration
     if (details.hive_file_structure) sanitized.hive_file_structure = details.hive_file_structure;
@@ -294,8 +307,10 @@ export function validateConfiguration(config: any): SavedConfiguration {
 
   // Validate connection metadata if present
   if (config.connection) {
-    if (!config.connection.type || !['csv', 'sqlite', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet'].includes(config.connection.type)) {
-      throw new Error('Invalid configuration: connection.type must be "csv", "sqlite", "clickhouse", "kaggle", "huggingface", or "hive_parquet"');
+    if (!config.connection.type || !(CONNECTION_TYPES as readonly string[]).includes(config.connection.type)) {
+      throw new Error(
+        `Invalid configuration: connection.type must be one of ${CONNECTION_TYPES.map((t) => `"${t}"`).join(', ')}`
+      );
     }
   }
 
@@ -492,6 +507,20 @@ export function reconstructConnectionDetails(
     // HuggingFace configuration. Token is intentionally not saved.
     if (metadata.hf_dataset) details.hf_dataset = metadata.hf_dataset;
     if (metadata.hf_splits) details.hf_splits = metadata.hf_splits;
+  } else if (metadata.type === 'influxdb') {
+    // InfluxDB configuration. The secret (password or token, by auth mode) is asked for on restore.
+    details.influx_url = metadata.influx_url;
+    details.influx_auth = metadata.influx_auth;
+    if (metadata.influx_username) details.influx_username = metadata.influx_username;
+    if (metadata.influx_verify_ssl !== undefined) details.influx_verify_ssl = metadata.influx_verify_ssl;
+    details.influx_database = metadata.influx_database;
+    if (metadata.influx_measurements) details.influx_measurements = metadata.influx_measurements;
+    details.influx_time_mode = metadata.influx_time_mode;
+    if (metadata.influx_last) details.influx_last = metadata.influx_last;
+    if (metadata.influx_start) details.influx_start = metadata.influx_start;
+    if (metadata.influx_end) details.influx_end = metadata.influx_end;
+    if (password && metadata.influx_auth === 'token') details.influx_token = password;
+    else if (password) details.influx_password = password;
   } else if (metadata.type === 'hive_parquet') {
     // Hive Parquet configuration
     if (metadata.hive_file_structure) details.hive_file_structure = metadata.hive_file_structure;

@@ -54,6 +54,14 @@ interface ConnectionRestoreDialogProps {
   onSkip: () => void;
 }
 
+function describeInfluxTimeRange(metadata: SavedConnectionMetadata): string {
+  if (metadata.influx_time_mode === 'last') return `Last ${metadata.influx_last}`;
+  if (metadata.influx_time_mode === 'between') {
+    return `${metadata.influx_start} to ${metadata.influx_end || 'now'} (UTC)`;
+  }
+  return 'All time';
+}
+
 export default function ConnectionRestoreDialog({
   open,
   connectionMetadata,
@@ -112,6 +120,9 @@ export default function ConnectionRestoreDialog({
   const isSqlite = connectionMetadata?.type === 'sqlite';
   const isKaggle = connectionMetadata?.type === 'kaggle';
   const isHiveParquet = connectionMetadata?.type === 'hive_parquet';
+  const isInfluxDb = connectionMetadata?.type === 'influxdb';
+  const influxAuth = connectionMetadata?.influx_auth || 'none';
+  const influxNeedsToken = isInfluxDb && influxAuth === 'token';
 
   const hivePartitionsToRestore = useMemo(
     () => connectionMetadata?.hive_loaded_partitions || [],
@@ -147,6 +158,13 @@ export default function ConnectionRestoreDialog({
       // For Kaggle, we need credentials
       if (isKaggle && (!kaggleUsername || !kaggleApiKey)) {
         setError('Please provide Kaggle username and API key');
+        setIsConnecting(false);
+        return;
+      }
+
+      // For InfluxDB token auth, the token is required
+      if (influxNeedsToken && !password) {
+        setError('Please provide the InfluxDB API token');
         setIsConnecting(false);
         return;
       }
@@ -553,6 +571,54 @@ export default function ConnectionRestoreDialog({
             </>
           )}
 
+          {isInfluxDb && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                InfluxDB Connection
+              </Typography>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <Typography variant="body2">
+                  <strong>Server:</strong> {connectionMetadata.influx_url}
+                  {connectionMetadata.influx_username ? ` (as ${connectionMetadata.influx_username})` : ''}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Database:</strong> {connectionMetadata.influx_database}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Measurements:</strong>{' '}
+                  {connectionMetadata.influx_measurements?.length
+                    ? connectionMetadata.influx_measurements.join(', ')
+                    : 'All'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Time range:</strong> {describeInfluxTimeRange(connectionMetadata)}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Points are loaded again from the server, so recent data is included.
+              </Typography>
+
+              {influxAuth !== 'none' && (
+                <TextField
+                  autoFocus
+                  margin="dense"
+                  label={influxNeedsToken ? 'API Token' : 'Password'}
+                  type="password"
+                  fullWidth
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !isConnecting) {
+                      e.preventDefault();
+                      handleConnect();
+                    }
+                  }}
+                  disabled={isConnecting}
+                />
+              )}
+            </>
+          )}
+
           {isHiveParquet && (
             <>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -639,7 +705,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || ((isCsv || isSqlite) && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles)}
+          disabled={isConnecting || ((isCsv || isSqlite) && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles) || (influxNeedsToken && !password)}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}

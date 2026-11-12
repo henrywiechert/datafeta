@@ -237,6 +237,20 @@ class ConnectionDetails(BaseModel):
     hf_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
     hf_splits: Optional[List[str]] = None  # Selected Parquet-backed split table names
 
+    # Optional fields for InfluxDB (validated by InfluxDbConfig)
+    influx_url: Optional[str] = None  # e.g. http://localhost:8086
+    influx_auth: Optional[str] = None  # 'none' | 'basic' | 'token'
+    influx_username: Optional[str] = None
+    influx_password: Optional[str] = None
+    influx_token: Optional[str] = None  # InfluxDB 2.x API token
+    influx_verify_ssl: Optional[bool] = None
+    influx_database: Optional[str] = None  # 1.8 database, or 2.x bucket via its DBRP mapping
+    influx_measurements: Optional[List[str]] = None  # None = every measurement
+    influx_time_mode: Optional[str] = None  # 'all' | 'last' | 'between'
+    influx_last: Optional[str] = None  # duration for 'last', e.g. '7d'
+    influx_start: Optional[str] = None  # ISO 8601 start for 'between' (UTC without offset)
+    influx_end: Optional[str] = None  # ISO 8601 end for 'between'
+
     # Optional fields for Hive-partitioned Parquet connection
     hive_file_structure: Optional[List[str]] = None  # Relative file paths from folder picker
 
