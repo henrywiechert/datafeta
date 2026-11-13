@@ -264,7 +264,9 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
   // Compare field properties that affect rendering.
   // `disabled` must be included: otherwise a disable toggle while selected keeps
   // the green/blue selected paint until Esc changes isSelected.
-  // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
+  // Handler props are not compared: FieldChip passes them through useStableHandler,
+  // so their identity never changes and they always run the latest closure.
+  // Any new handler prop must be passed the same way, or it will go stale.
   return (
     prevProps.field.id === nextProps.field.id &&
     prevProps.field.columnName === nextProps.field.columnName &&

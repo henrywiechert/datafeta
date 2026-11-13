@@ -8,6 +8,7 @@ import { useSelectionStore, SelectionStore, SelectedField } from '../../../store
 import { useIsFieldSelected } from '../../../stores/useFieldSelected';
 import { useDragHandlers } from './useDragHandlers';
 import { useFieldSelection } from './useFieldSelection';
+import { useStableHandler } from './useStableHandler';
 import { FieldMenuConfig, getDefaultFieldMenuConfig } from './fieldMenuConfig';
 import { useTabletUi } from '../../../hooks/useTabletUi';
 import { useFieldAssign, FieldAssignShelf } from '../../../contexts/FieldAssignContext';
@@ -141,6 +142,17 @@ const FieldChip: React.FC<
     ? getSelectedFieldsForSource(source).map((sf: SelectedField) => sf.field)
     : [];
 
+  // ChipWithTooltip's memo ignores handler props, so it only ever sees the
+  // handlers from its first render. These keep one identity and dispatch to the
+  // current closures (allFields, field, tablet state, ...). See useStableHandler.
+  const chipOnClick = useStableHandler(handleChipClick);
+  const chipOnMouseDown = useStableHandler((event: React.MouseEvent) => {
+    if (!isTablet) handleMouseDown(event);
+  });
+  const chipOnContextMenu = useStableHandler(handleContextMenu);
+  const chipOnDragStart = useStableHandler(handleDragStart);
+  const chipOnDragEnd = useStableHandler(handleDragEnd);
+
   const effectiveMenuConfig = useMemo(
     () => menuConfig ?? getDefaultFieldMenuConfig(source),
     [menuConfig, source]
@@ -154,11 +166,11 @@ const FieldChip: React.FC<
         isDragging={isDragging}
         isSelected={isSelected}
         displayNameOverride={displayNameOverride}
-        onClick={handleChipClick}
-        onMouseDown={isTablet ? undefined : handleMouseDown}
-        onContextMenu={handleContextMenu}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onClick={chipOnClick}
+        onMouseDown={chipOnMouseDown}
+        onContextMenu={chipOnContextMenu}
+        onDragStart={chipOnDragStart}
+        onDragEnd={chipOnDragEnd}
         dragCount={dragCount}
         // Flagged upstream by field validation; a zone can override to opt out.
         isInvalid={isInvalid ?? field.isInvalid === true}
