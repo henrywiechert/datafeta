@@ -238,7 +238,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   }, [expanded]);
 
   const extraTableCount = joinedTables.length + unionTables.length;
-  const { supportsJoins } = connectorTraits(connectionType);
+  const { supportsJoins, hasDatabases } = connectorTraits(connectionType);
   const collapsedHint = selectedTable
     ? `${selectedDatabase ? `${selectedDatabase}.` : ''}${selectedTable}${extraTableCount > 0 ? ` +${extraTableCount}` : ''}`
     : '';
@@ -596,18 +596,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               />
             </Box>
           </Fade>
-
-          <SelectedTablesList
-            primaryDatabase={selectedDatabase}
-            primaryTable={selectedTable}
-            unionTables={unionTables}
-            joinedTables={joinedTables}
-            availableFields={availableFields}
-            onRemovePrimary={handleRemovePrimary}
-            onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
-            onRemoveJoinedTable={onToggleJoinedTable}
-            onRemoveDatabase={onRemoveUnionTables ? handleRemoveDatabase : undefined}
-          />
         </>
       ) : (
         <>
@@ -644,20 +632,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             <Typography variant="caption" className={styles.error} role="alert">
               {addFilesError}
             </Typography>
-          )}
-
-          {/* Show selected tables list for Hive Parquet when primary is set */}
-          {connectionType === 'hive_parquet' && selectedTable && (
-            <SelectedTablesList
-              primaryDatabase=""
-              primaryTable={selectedTable}
-              unionTables={unionTables}
-              joinedTables={joinedTables}
-              availableFields={availableFields}
-              onRemovePrimary={handleRemovePrimary}
-              onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
-              onRemoveJoinedTable={onToggleJoinedTable}
-            />
           )}
 
           {/* UNION picker for CSV/SQLite — Hive Parquet uses the main dropdown for adding */}
@@ -712,25 +686,28 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
                   </Tooltip>
                 </Box>
               </Box>
-
-              {/* Show selected tables list when there are union tables */}
-              {(unionTables.length > 0) && (
-                <SelectedTablesList
-                  primaryDatabase=""
-                  primaryTable={selectedTable}
-                  unionTables={unionTables}
-                  joinedTables={joinedTables}
-                  availableFields={availableFields}
-                  onRemovePrimary={handleRemovePrimary}
-                  onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
-                  onRemoveJoinedTable={onToggleJoinedTable}
-                />
-              )}
             </>
           )}
         </>
       )}
-      
+
+      {/*
+        Shown for every connector as soon as a table is selected (it renders
+        nothing before that), so each table's rows · columns are visible
+        without first having to add a UNION.
+      */}
+      <SelectedTablesList
+        primaryDatabase={hasDatabases ? selectedDatabase : ''}
+        primaryTable={selectedTable}
+        unionTables={unionTables}
+        joinedTables={joinedTables}
+        availableFields={availableFields}
+        onRemovePrimary={handleRemovePrimary}
+        onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+        onRemoveJoinedTable={onToggleJoinedTable}
+        onRemoveDatabase={hasDatabases && onRemoveUnionTables ? handleRemoveDatabase : undefined}
+      />
+
       {/* Show joinable tables selector (for ClickHouse, Kaggle and SQLite) */}
       {supportsJoins && selectedTable && onToggleJoinedTable && (
         <JoinTableSelector

@@ -93,6 +93,11 @@
 
 .badge {
   flex-shrink: 0;
+  /* Every variant carries the same 1px border (the fill colour on P) and
+     counts it inside the 16px, so all badges are the same size and the table
+     names beside them line up. */
+  box-sizing: border-box;
+  border: 1px solid transparent;
   width: 16px;
   height: 16px;
   display: inline-flex;
@@ -106,6 +111,7 @@
 }
 
 .badgeP {
+  border-color: var(--df-border-accent);
   background-color: var(--df-border-accent);
   color: var(--df-text-on-accent);
 }

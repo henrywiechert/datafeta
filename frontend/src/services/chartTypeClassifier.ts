@@ -9,6 +9,7 @@
 import { QueryDescription, Field, QueryOptimizationSettings, DistributionVariant, LineColorMode } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { lineColorSplitsSeries } from '../utils/lineColorEncoding';
+import { SOURCE_PROVENANCE_COLUMNS } from '../utils/syntheticFields';
 import {
   DateTimeCarrier,
   dateTimeOutputName,
@@ -170,15 +171,13 @@ export function classifyChartType(
  * are never a useful stratum. The union builder already strips them from
  * `cdf_partition_fields` for the same reason.
  */
-const SYNTHETIC_SOURCE_FIELDS = new Set(['_source_database', '_source_table']);
-
 function isUsableStratum(dim: {
   field: string;
   flavour?: string;
   date_part?: string;
   date_mode?: string;
 }): boolean {
-  if (SYNTHETIC_SOURCE_FIELDS.has(dim.field)) return false;
+  if (SOURCE_PROVENANCE_COLUMNS.has(dim.field)) return false;
   // Deliberately PART-only, not mode-only: this asks "is this a discrete stratum".
   // Every datetime dimension carries a date_mode (Full DateTime defaults to
   // 'timeline'), but Full DateTime is a *continuous* axis, not a stratum.

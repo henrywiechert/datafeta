@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SelectedTablesList from './SelectedTablesList';
 import { metadataApi } from '../../../services/api/metadataApi';
 
@@ -203,5 +203,56 @@ describe('SelectedTablesList — removing the primary table', () => {
     clickRemovePrimary();
 
     expect(screen.getByText('Fields currently on the axes become invalid.')).toBeInTheDocument();
+  });
+});
+
+describe('SelectedTablesList — column count', () => {
+  const statOf = (name: RegExp) =>
+    screen.getByRole('button', { name }).closest('li') as HTMLElement;
+
+  // The fields carry MeasureNames/MeasureValues and the _source_* provenance
+  // columns; listColumns appends the provenance columns too. Neither is a
+  // column of the table, so both sources must agree on the table's own count.
+  it('counts only the table own columns, from fields and from listColumns alike', async () => {
+    (metadataApi.getRowCount as jest.Mock).mockResolvedValue(5);
+    (metadataApi.listColumns as jest.Mock).mockResolvedValue({
+      columns: [{ name: 'a' }, { name: 'b' }, { name: '_source_database' }, { name: '_source_table' }],
+    });
+    renderList({
+      primaryDatabase: '',
+      primaryTable: 'people',
+      unionTables: [{ database: '', table_name: 'people_2' }],
+      availableFields: [
+        { columnName: 'a', type: 'dimension' },
+        { columnName: 'b', type: 'measure' },
+        { columnName: '_source_database', type: 'dimension' },
+        { columnName: '_source_table', type: 'dimension' },
+        { columnName: 'MeasureNames', type: 'dimension', isSynthetic: true },
+        { columnName: 'MeasureValues', type: 'measure', isSynthetic: true },
+        { columnName: 'vc', type: 'measure', is_virtual: true },
+      ] as any,
+    });
+
+    // UNION fields are an untagged superset, so both rows go through listColumns.
+    await waitFor(() => expect(within(statOf(/^Remove people_2$/)).getByText('5 · 2')).toBeInTheDocument());
+    expect(within(statOf(/^Remove people$/)).getByText('5 · 2')).toBeInTheDocument();
+  });
+
+  it('counts a lone table from its fields without the synthetic ones', async () => {
+    (metadataApi.getRowCount as jest.Mock).mockResolvedValue(5);
+    renderList({
+      primaryDatabase: '',
+      primaryTable: 'people',
+      unionTables: [],
+      availableFields: [
+        { columnName: 'a', type: 'dimension' },
+        { columnName: 'b', type: 'measure' },
+        { columnName: '_source_table', type: 'dimension' },
+        { columnName: 'MeasureNames', type: 'dimension', isSynthetic: true },
+      ] as any,
+    });
+
+    await waitFor(() => expect(within(statOf(/^Remove people$/)).getByText('5 · 2')).toBeInTheDocument());
+    expect(metadataApi.listColumns).not.toHaveBeenCalled();
   });
 });

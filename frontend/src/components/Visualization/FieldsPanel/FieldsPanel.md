@@ -278,14 +278,16 @@ handleDrop(e) {
 UI adapts based on `connectionType`:
 ```tsx
 {connectionType === 'clickhouse' ? (
-  <>
-    <TableAddPicker ... />      // Two-dropdown + add button
-    <SelectedTablesList ... />   // Shows primary + union tables
-  </>
+  <TableAddPicker ... />         // Two-dropdown + add button
 ) : (
-  <FilterableSelect ... />       // Simple single dropdown
+  <FilterableSelect ... />       // Simple single dropdown (+ Union picker)
 )}
+<SelectedTablesList ... />       // Every connector: primary + join + union rows
 ```
+
+`SelectedTablesList` is outside the branch on purpose: it appears for every
+connector once a table is selected (it renders nothing before that), so a
+table's rows · columns are visible without first adding a UNION.
 
 ### Keyboard Shortcuts
 - **Escape**: Clears field multi-selection (via `clearSelection()`)

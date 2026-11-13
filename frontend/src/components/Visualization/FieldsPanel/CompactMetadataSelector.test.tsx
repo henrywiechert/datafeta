@@ -1,8 +1,15 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CompactMetadataSelector from './CompactMetadataSelector';
 import { DataSourceProvider } from '../../../contexts/DataSourceContext';
+import { metadataApi } from '../../../services/api/metadataApi';
+
+// Selected Tables fetches a row count and a column count per table; keep those
+// off the network.
+jest.mock('../../../services/api/metadataApi', () => ({
+  metadataApi: { getRowCount: jest.fn(), listColumns: jest.fn() },
+}));
 
 /*
  * These cases used to live in FieldsPanel.test.tsx, which reached the Data
@@ -22,6 +29,11 @@ beforeAll(() => {
 
 beforeEach(() => {
   window.localStorage.clear();
+  // react-scripts' `resetMocks` drops factory implementations between tests.
+  // Left pending by default: a resolved count would update the list after the
+  // test's last assertion, outside act(). Tests about the counts resolve them.
+  (metadataApi.getRowCount as jest.Mock).mockReturnValue(new Promise(() => {}));
+  (metadataApi.listColumns as jest.Mock).mockReturnValue(new Promise(() => {}));
 });
 
 const renderSelector = (
@@ -53,8 +65,53 @@ describe('CompactMetadataSelector', () => {
     await waitFor(() => {
       expect(screen.queryByPlaceholderText('Search Table')).not.toBeVisible();
     });
-    expect(screen.getByText('sample.csv', { selector: 'span' })).toBeInTheDocument();
+    // Scoped to the header: the table name is also a row in Selected Tables.
+    const header = screen.getByLabelText('Expand data source').parentElement!;
+    expect(within(header).getByText('sample.csv')).toBeInTheDocument();
     expect(window.localStorage.getItem('fieldsPanel.dataSource.expanded')).toBe('false');
+  });
+
+  describe('Selected Tables', () => {
+    const primaryRow = () =>
+      screen.getByRole('button', { name: /^Remove / }).closest('li') as HTMLElement;
+
+    it('lists a lone file table with its dimensions, before any UNION', async () => {
+      (metadataApi.getRowCount as jest.Mock).mockResolvedValue(1234);
+      renderSelector({
+        availableFields: [
+          { columnName: 'a', type: 'dimension' },
+          { columnName: 'b', type: 'measure' },
+        ] as any,
+      });
+
+      expect(screen.getByText('Selected Tables')).toBeInTheDocument();
+      expect(within(primaryRow()).getByText('sample.csv')).toBeInTheDocument();
+      await waitFor(() => expect(within(primaryRow()).getByText('1.2K · 2')).toBeInTheDocument());
+      expect(metadataApi.getRowCount).toHaveBeenCalledWith(
+        'sample.csv', undefined, undefined, undefined, undefined, expect.anything()
+      );
+    });
+
+    it('lists the table for connectors without UNION support', async () => {
+      renderSelector({ connectionType: 'huggingface', selectedTable: 'train', tables: [{ name: 'train' }] });
+
+      expect(within(primaryRow()).getByText('train')).toBeInTheDocument();
+      await waitFor(() => expect(metadataApi.getRowCount).toHaveBeenCalled());
+    });
+
+    it('drops the database line for connectors without databases', async () => {
+      renderSelector({ connectionType: 'sqlite', selectedDatabase: 'stale_db' });
+
+      expect(within(primaryRow()).queryByText('stale_db')).not.toBeInTheDocument();
+      await waitFor(() => expect(metadataApi.getRowCount).toHaveBeenCalled());
+    });
+
+    it('stays hidden until a table is selected', () => {
+      renderSelector({ selectedTable: '' });
+
+      expect(screen.queryByText('Selected Tables')).not.toBeInTheDocument();
+      expect(metadataApi.getRowCount).not.toHaveBeenCalled();
+    });
   });
 
   it('restores collapsed Data Source state from localStorage', () => {

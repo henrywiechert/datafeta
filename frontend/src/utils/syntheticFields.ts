@@ -11,6 +11,13 @@ export const MEASURE_VALUES_FIELD = 'MeasureValues';
 export const DEFAULT_MEASURE_GROUP_ID = '__all_measures__';
 export const DEFAULT_MEASURE_GROUP_NAME = 'Measure Group';
 
+/**
+ * Provenance columns the backend appends to every table's column list (and
+ * fills per row in a UNION). Bookkeeping, not data: never a column of the
+ * table itself and never a useful visual encoding.
+ */
+export const SOURCE_PROVENANCE_COLUMNS: ReadonlySet<string> = new Set(['_source_database', '_source_table']);
+
 export function createMeasureGroup(members: Field[] = [], name: string = DEFAULT_MEASURE_GROUP_NAME): MeasureGroup {
   return { id: uuidv4(), name, members };
 }

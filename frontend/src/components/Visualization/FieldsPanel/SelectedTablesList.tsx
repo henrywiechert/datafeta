@@ -22,6 +22,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { Field } from '../../../types';
 import { formatCompactCount } from '../../../utils/compactCount';
+import { SOURCE_PROVENANCE_COLUMNS } from '../../../utils/syntheticFields';
 import styles from './SelectedTablesList.module.css';
 
 type UnionTableRef = { database: string; table_name: string };
@@ -56,6 +57,15 @@ type RowTarget = { key: string; table: string; database?: string };
 
 // ── Column counting from field attribution ────────────────────────────
 
+/**
+ * A column of the table itself. Excludes virtual columns, the synthetic
+ * MeasureNames/MeasureValues pair and the `_source_*` provenance columns, so a
+ * table counts the same whether that count comes from the fields or from
+ * listColumns (which also appends the provenance columns).
+ */
+const isTableColumn = (f: Field) =>
+  !f.is_virtual && !f.isSynthetic && !SOURCE_PROVENANCE_COLUMNS.has(f.columnName);
+
 function countColumnsForTable(
   availableFields: Field[] | undefined,
   tableName: string,
@@ -63,7 +73,7 @@ function countColumnsForTable(
   hasSecondaryTables: boolean
 ): number | undefined {
   if (!availableFields?.length) return undefined;
-  const physical = availableFields.filter((f) => !f.is_virtual);
+  const physical = availableFields.filter(isTableColumn);
   if (physical.length === 0) return undefined;
 
   const tagged = physical.filter((f) => f.sourceTable);
@@ -153,7 +163,7 @@ function useColumnCounts(
   /** Stable key that changes only when field-to-table attribution actually changes. */
   const fieldsKey = React.useMemo(() => {
     if (!availableFields?.length) return 'empty';
-    const physical = availableFields.filter((f) => !f.is_virtual);
+    const physical = availableFields.filter(isTableColumn);
     if (physical.length === 0) return 'empty';
     if (!physical.some((f) => f.sourceTable)) return 'untagged';
     return physical
@@ -175,7 +185,9 @@ function useColumnCounts(
   return useParallelFetch(
     needFetch,
     (api, { table, database }, signal) =>
-      api.listColumns(table, database || undefined, signal).then((r) => r.columns?.length ?? 0),
+      api.listColumns(table, database || undefined, signal).then(
+        (r) => r.columns?.filter((c) => !SOURCE_PROVENANCE_COLUMNS.has(c.name)).length ?? 0
+      ),
     fieldsKey
   );
 }
