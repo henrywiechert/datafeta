@@ -50,6 +50,7 @@ import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
+import { canRebaseLineSeries } from '../../../observable-plot-generator/chartTypes/lineChart/seriesRebase';
 import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
 import type { SheetCellSizes } from '../../../types/sheet';
 import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
@@ -228,6 +229,19 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     yAxisFields,
   });
 
+  // Line series rebase (index to first visible = 100): chart-only view state,
+  // never queried or persisted. The toggle shows only when a line cell exists.
+  const [rebaseSeries, setRebaseSeries] = useState(false);
+  const canRebaseSeries = useMemo(() => canRebaseLineSeries({
+    xFields: plannedX,
+    yFields: plannedY,
+    globalChartType,
+    colorField: channels.color.field,
+    fieldOverrides,
+    measureValuesSourceFields,
+    distributionVariant,
+  }), [plannedX, plannedY, globalChartType, channels.color.field, fieldOverrides, measureValuesSourceFields, distributionVariant]);
+
   const { grid, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
     useChartGeneration({
       xAxisFields,
@@ -250,6 +264,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
       viewportController,
+      rebaseSeries,
       overlays,
       densityParams: chartTypeParams?.density,
       viewSpec,
@@ -409,6 +424,9 @@ const ChartArea: React.FC<ChartAreaProps> = ({
     onZoomOut: handleZoomOut,
     onZoomReset: handleZoomReset,
     hasActiveZoomFilters,
+    canRebaseSeries,
+    rebaseSeries,
+    onToggleRebaseSeries: setRebaseSeries,
     tableRowsData,
     sidePanelsVisible,
     onToggleSidePanels,

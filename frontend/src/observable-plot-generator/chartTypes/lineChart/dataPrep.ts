@@ -20,7 +20,7 @@ function computeLineBudget(splitsSeries: boolean): LineBudget {
   };
 }
 
-function inferXKind(sampleValues: any[]): XKind {
+export function inferXKind(sampleValues: any[]): XKind {
   for (const v of sampleValues) {
     if (v instanceof Date) return 'time';
     if (typeof v === 'number' && Number.isFinite(v)) return 'number';

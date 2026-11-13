@@ -27,6 +27,10 @@ interface UseChartControlsPropsParams {
   onZoomOut: () => void;
   onZoomReset: () => void;
   hasActiveZoomFilters: boolean;
+  /** Line series rebase toggle: shown only when a line cell can be rebased. */
+  canRebaseSeries: boolean;
+  rebaseSeries: boolean;
+  onToggleRebaseSeries: (rebase: boolean) => void;
   tableRowsData: Pick<ReturnType<typeof useTableRowsQuery>, 'totalRows' | 'columns'>;
   sidePanelsVisible?: boolean;
   onToggleSidePanels?: () => void;
@@ -42,6 +46,9 @@ export function useChartControlsProps({
   onZoomOut,
   onZoomReset,
   hasActiveZoomFilters,
+  canRebaseSeries,
+  rebaseSeries,
+  onToggleRebaseSeries,
   tableRowsData,
   sidePanelsVisible,
   onToggleSidePanels,
@@ -123,6 +130,9 @@ export function useChartControlsProps({
     onZoomOut,
     onZoomReset,
     hasActiveZoomFilters,
+    canRebaseSeries,
+    rebaseSeries,
+    onToggleRebaseSeries,
     showTableRows,
     onToggleTableRows: handleToggleTableRows,
     showChartCaption,

@@ -218,6 +218,7 @@ export function buildCartesianPlotsConfig(
     measureValuesSourceFields: context.measureValuesSourceFields,
     bandThicknessScale: context.bandThicknessScale,
     chartViewport: context.chartViewport,
+    rebaseSeries: context.rebaseSeries,
     overlays: context.overlays,
     xTickFormat: buildCategoryTickFormatter('x', undefined, context.xAxisTickHeightPx),
     yTickFormat: buildCategoryTickFormatter('y', undefined, context.yAxisTickWidthPx),

@@ -31,6 +31,41 @@ export interface ResolvedCell {
   /** Chart type overrides handed to the pair chart builder */
   chartTypeOverrides?: ChartTypeOverrides;
   cellChartType: CellChartType;
+  /**
+   * Measure Values cell whose source measures carry per-measure overrides: it
+   * renders one mark layer per measure (generateMeasureValuesMultiMarkPlot)
+   * instead of a single `cellChartType` mark.
+   */
+  multiMark: boolean;
+}
+
+/**
+ * Check if source measures have any per-measure overrides that require multi-mark rendering.
+ * Returns true if at least one measure has a chart type, size, or color override.
+ */
+export function hasAnyMeasureOverrides(
+  measureValuesSourceFields: Field[] | undefined,
+  fieldOverrides: Record<string, FieldOverrideState> | undefined
+): boolean {
+  if (!measureValuesSourceFields?.length || !fieldOverrides) {
+    return false;
+  }
+
+  for (const sourceField of measureValuesSourceFields) {
+    const override = fieldOverrides[sourceField.id];
+    if (override) {
+      // Check for any override that affects rendering
+      if (override.chartType !== undefined ||
+          override.lineVariant !== undefined ||
+          override.manualSize !== undefined ||
+          override.manualColor !== undefined ||
+          override.sizeRange !== undefined) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -117,6 +152,8 @@ export function createCellChartTypeResolver(
       cellOverride,
       chartTypeOverrides,
       cellChartType: resolveChartTypeForPair(xField, yField, chartTypeOverrides),
+      multiMark: (isMeasureValuesField(xField) || isMeasureValuesField(yField)) &&
+        hasAnyMeasureOverrides(measureValuesSourceFields, fieldOverrides),
     };
   };
 }

@@ -7,10 +7,10 @@ import { createCellChartTypeResolver } from './cellChartType';
 import { getFieldColumnName } from '../helpers/fields';
 import { CartesianPlotsConfig } from '../types';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides, resolveContextColorChannel } from '../utils/colorSchemeUtils';
-import { isMeasureValuesField } from '../../utils/syntheticFields';
-import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
+import { generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 import { applyOverlays } from '../overlays';
 import { cellChartTypeToUserType } from '../overlays/types';
+import { rebaseLineCell } from '../chartTypes/lineChart/seriesRebase';
 
 export type CartesianPlot = {
   id: string;
@@ -47,6 +47,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     measureValuesSourceFields,
     bandThicknessScale,
     chartViewport,
+    rebaseSeries = false,
     overlays: overlayConfigs,
   } = config;
 
@@ -114,14 +115,11 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       const xField = xCandidates[c];
       const yField = yCandidates[r];
 
-      // Check if either axis has MeasureValues
-      const xIsMeasureValues = isMeasureValuesField(xField);
-      const yIsMeasureValues = isMeasureValuesField(yField);
-
       const {
         cellOverride,
         chartTypeOverrides: cellChartTypeOverrides,
         cellChartType: resolvedCellType,
+        multiMark: needsMultiMark,
       } = resolveCell(xField, yField);
 
       // Start from global encodings
@@ -178,13 +176,27 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         }
       }
 
-      // Check if we need multi-mark rendering for MeasureValues with per-measure overrides
-      const needsMultiMark = (xIsMeasureValues || yIsMeasureValues) && 
-        measureValuesSourceFields?.length && 
-        hasAnyMeasureOverrides(measureValuesSourceFields, fieldOverrides);
+      // Series rebase (index to first visible = 100): swap in rebased rows
+      // and an "(index)" measure label for line cells. Mixed-mark Measure
+      // Values cells are left alone (bars would be indexed too).
+      const rebased = rebaseSeries && !needsMultiMark
+        ? rebaseLineCell({
+            data,
+            xField,
+            yField,
+            cellChartType: resolvedCellType,
+            colorField: cellColorField,
+            lineColorMode: cellLineColorMode,
+            lineStyleField: lineStyle?.field,
+            chartViewport,
+          })
+        : null;
+      const cellData = rebased?.data ?? data;
+      const cellXField = rebased?.xField ?? xField;
+      const cellYField = rebased?.yField ?? yField;
 
       let options: Plot.PlotOptions;
-      
+
       if (needsMultiMark) {
         // Use multi-mark rendering for per-measure chart types
         // Pass the GLOBAL manualSize (not cellManualSize from combined overrides)
@@ -216,9 +228,9 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
 
         // Standard single-mark rendering
         options = generatePairChartOptions({
-          data,
-          xField,
-          yField,
+          data: cellData,
+          xField: cellXField,
+          yField: cellYField,
           sharedMeasureDomains: { ...sharedMeasureDomains, ...sharedNumeric },
           overrides: cellChartTypeOverrides,
           color: cellColor,
@@ -283,7 +295,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         // Determine orientation: dependent (value) axis — Y for most charts, X for barX/tickX/ganttX
         const depAxis: 'x' | 'y' = (resolvedCellType === 'barX' || resolvedCellType === 'tickX' || resolvedCellType === 'boxX' || resolvedCellType === 'ganttX') ? 'x' : 'y';
         options = applyOverlays(options, overlayConfigs, {
-          data,
+          data: cellData,
           xColumn: getFieldColumnName(xField),
           yColumn: getFieldColumnName(yField),
           chartType: userChartType,

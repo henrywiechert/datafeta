@@ -23,6 +23,11 @@ DataSlicer automatically selects the most appropriate chart type based on the fi
   and choose **Continuous** to put it on a timeline; the bars become a line.
 - Multiple lines appear when a Color Dimension is added.
 - Works well for comparing multiple measures using [Measure Groups](measure-groups.md).
+- To compare **growth** rather than absolute values (like a stock comparison chart), click the
+  **100** toggle in the chart toolbar. Every line is divided by its value at the left edge of
+  the view, so all lines start at 100 there (105 = +5 %). Panning or zooming re-anchors the lines
+  to the new left edge. This changes only the display, not the query. A line whose first
+  visible value is zero or negative can't be indexed and is hidden while the toggle is on.
 
 <video src="../../assets/snippets/line-chart.webm" poster="../../assets/snippets/line-chart.png" controls loop muted playsinline width="100%"></video>
 

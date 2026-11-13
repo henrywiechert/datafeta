@@ -75,6 +75,8 @@ export interface CartesianPlotsConfig {
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
   chartViewport?: ChartViewport | null;
+  /** Index line series to their first visible value (see ChartGenerationContext). */
+  rebaseSeries?: boolean;
   /** Statistical overlay configurations */
   overlays?: OverlayConfig[];
   xTickFormat?: (d: any) => string;
@@ -182,6 +184,11 @@ export interface ChartGenerationContext {
    * Charts that declare a viewport axis cull to it; applyChartViewport sets the domain.
    */
   chartViewport?: ChartViewport | null;
+  /**
+   * Line charts: index every series to its first visible value (= 100), see
+   * chartTypes/lineChart/seriesRebase. Presentation only, never queried.
+   */
+  rebaseSeries?: boolean;
   /**
    * Field display alias lookup map (columnName → displayAlias).
    * Used to show user-defined aliases in chart labels, legends, and tooltips.

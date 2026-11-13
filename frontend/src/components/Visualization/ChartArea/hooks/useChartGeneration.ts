@@ -59,6 +59,8 @@ interface UseChartGenerationProps {
   independentDomains?: { x?: boolean; y?: boolean };
   /** Pan/zoom state; commits re-render the chart on a light path (no loading UI). */
   viewportController?: ViewportController;
+  /** Index line series to their first visible value (= 100); presentation only. */
+  rebaseSeries?: boolean;
   overlays?: OverlayConfig[];
   densityParams?: DensityParams;
   viewSpec?: ViewSpec | null;
@@ -101,6 +103,7 @@ export const useChartGeneration = ({
   measureValuesSourceFields = [],
   independentDomains,
   viewportController,
+  rebaseSeries = false,
   overlays,
   densityParams,
   viewSpec,
@@ -318,6 +321,7 @@ export const useChartGeneration = ({
         measureValuesSourceFields,
         independentDomains,
         chartViewport: viewportController?.getCommitted(),
+        rebaseSeries,
         fieldAliasLookup,
         // Facet background encoding
         facetBackgroundField: facetBackgroundField || undefined,
@@ -409,6 +413,7 @@ export const useChartGeneration = ({
     independentDomains,
     doGenerateChart,
     viewportController,
+    rebaseSeries,
     fieldAliasLookup,
     overlays,
     densityParams,

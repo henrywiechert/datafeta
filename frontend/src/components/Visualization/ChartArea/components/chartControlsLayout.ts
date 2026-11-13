@@ -7,6 +7,7 @@ export interface ChartControlsVisibility {
   showInlineSwap: boolean;
   showInlineZoomOut: boolean;
   showInlineZoomReset: boolean;
+  showInlineRebase: boolean;
   showInlineRefresh: boolean;
   showInlineBand: boolean;
   showInlineSettings: boolean;
@@ -17,6 +18,7 @@ export interface ChartControlsVisibility {
   showOverflowSwap: boolean;
   showOverflowZoomOut: boolean;
   showOverflowZoomReset: boolean;
+  showOverflowRebase: boolean;
   showOverflowRefresh: boolean;
   showOverflowBand: boolean;
   showOverflowSettings: boolean;
@@ -28,7 +30,8 @@ export interface ChartControlsVisibility {
 
 export function resolveChartControlsVisibility(
   controlsWidth: number,
-  showTableRows: boolean
+  showTableRows: boolean,
+  canRebaseSeries: boolean = false
 ): ChartControlsVisibility {
   const hideLowPriorityInline = controlsWidth < 700;
   const hideTier2Inline = controlsWidth < 400;
@@ -38,6 +41,7 @@ export function resolveChartControlsVisibility(
   const showInlineSwap = !hideTier2Inline && !showTableRows;
   const showInlineZoomOut = !hideTier2Inline && !showTableRows;
   const showInlineZoomReset = !hideTier2Inline && !showTableRows;
+  const showInlineRebase = !hideTier2Inline && !showTableRows && canRebaseSeries;
   const showInlineRefresh = !hideLowPriorityInline;
   const showInlineBand = !hideLowPriorityInline && !showTableRows;
   const showInlineSettings = !hideLowPriorityInline;
@@ -49,6 +53,7 @@ export function resolveChartControlsVisibility(
   const showOverflowSwap = hideTier2Inline && !showTableRows;
   const showOverflowZoomOut = hideTier2Inline && !showTableRows;
   const showOverflowZoomReset = hideTier2Inline && !showTableRows;
+  const showOverflowRebase = hideTier2Inline && !showTableRows && canRebaseSeries;
   const showOverflowRefresh = hideLowPriorityInline;
   const showOverflowBand = hideLowPriorityInline && !showTableRows;
   const showOverflowSettings = hideLowPriorityInline;
@@ -61,6 +66,7 @@ export function resolveChartControlsVisibility(
     showOverflowSwap ||
     showOverflowZoomOut ||
     showOverflowZoomReset ||
+    showOverflowRebase ||
     showOverflowRefresh ||
     showOverflowBand ||
     showOverflowSettings ||
@@ -77,6 +83,7 @@ export function resolveChartControlsVisibility(
     showInlineSwap,
     showInlineZoomOut,
     showInlineZoomReset,
+    showInlineRebase,
     showInlineRefresh,
     showInlineBand,
     showInlineSettings,
@@ -87,6 +94,7 @@ export function resolveChartControlsVisibility(
     showOverflowSwap,
     showOverflowZoomOut,
     showOverflowZoomReset,
+    showOverflowRebase,
     showOverflowRefresh,
     showOverflowBand,
     showOverflowSettings,

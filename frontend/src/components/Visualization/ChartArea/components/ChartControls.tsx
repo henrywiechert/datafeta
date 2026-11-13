@@ -14,6 +14,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import HeightIcon from '@mui/icons-material/Height';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import StackedLineChartIcon from '@mui/icons-material/StackedLineChart';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import TitleIcon from '@mui/icons-material/Title';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -56,6 +57,10 @@ export interface ChartControlsProps {
   onZoomOut?: () => void;
   onZoomReset?: () => void;
   hasActiveZoomFilters?: boolean;
+  /** Line series rebase toggle (index to first visible = 100); hidden unless a line cell can be rebased. */
+  canRebaseSeries?: boolean;
+  rebaseSeries?: boolean;
+  onToggleRebaseSeries?: (rebase: boolean) => void;
   showTableRows?: boolean;
   onToggleTableRows?: (show: boolean) => void;
   showChartCaption?: boolean;
@@ -93,6 +98,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onZoomOut,
   onZoomReset,
   hasActiveZoomFilters = false,
+  canRebaseSeries = false,
+  rebaseSeries = false,
+  onToggleRebaseSeries,
   showTableRows = false,
   onToggleTableRows,
   showChartCaption = false,
@@ -207,6 +215,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     showInlineSwap,
     showInlineZoomOut,
     showInlineZoomReset,
+    showInlineRebase,
     showInlineRefresh,
     showInlineBand,
     showInlineSettings,
@@ -217,6 +226,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     showOverflowSwap,
     showOverflowZoomOut,
     showOverflowZoomReset,
+    showOverflowRebase,
     showOverflowRefresh,
     showOverflowBand,
     showOverflowSettings,
@@ -224,7 +234,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     showOverflowIndependentY,
     showOverflowReset,
     hasOverflowActions,
-  } = resolveChartControlsVisibility(controlsWidth, showTableRows);
+  } = resolveChartControlsVisibility(controlsWidth, showTableRows, canRebaseSeries);
 
   return (
     <Box
@@ -422,6 +432,29 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
+        {showInlineRebase && onToggleRebaseSeries && (
+          <Tooltip title={rebaseSeries ? 'Lines indexed to 100 at the left edge (click for actual values)' : 'Index lines to 100 at the left edge (compare growth)'}>
+            <IconButton
+              size="small"
+              onClick={() => onToggleRebaseSeries(!rebaseSeries)}
+              aria-pressed={rebaseSeries}
+              sx={{
+                color: rebaseSeries ? 'primary.main' : 'text.secondary',
+                backgroundColor: rebaseSeries ? T.accentTintStrong : 'transparent',
+                '&:hover': {
+                  backgroundColor: rebaseSeries ? T.accentTintEmphasis : 'action.hover',
+                },
+                minWidth: 32,
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                <StackedLineChartIcon sx={{ fontSize: 16 }} />
+                <Box component="span" sx={{ fontSize: '0.6rem', mt: -0.3 }}>100</Box>
+              </Box>
+            </IconButton>
+          </Tooltip>
+        )}
+
         {showInlineRefresh && onForceRefresh && (
           <Tooltip title="Refresh data (invalidate cache)">
             <IconButton
@@ -602,6 +635,13 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           <MenuItem disabled={!hasActiveZoomFilters} onClick={() => { onZoomReset(); handleOverflowClose(); }}>
             <ListItemIcon><CenterFocusStrongIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Reset zoom</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowRebase && onToggleRebaseSeries && (
+          <MenuItem onClick={() => { onToggleRebaseSeries(!rebaseSeries); handleOverflowClose(); }}>
+            <ListItemIcon><StackedLineChartIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{rebaseSeries ? 'Index lines to 100: on' : 'Index lines to 100: off'}</ListItemText>
           </MenuItem>
         )}
 

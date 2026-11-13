@@ -320,6 +320,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
       chartViewport: context.chartViewport,
+      rebaseSeries: context.rebaseSeries,
       overlays: context.overlays,
     });
 

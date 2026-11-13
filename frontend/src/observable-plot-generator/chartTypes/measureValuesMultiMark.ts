@@ -19,36 +19,6 @@ import { PREDEFINED_COLORS } from '../../config/colorSchemes';
 import { T } from '../../theme/tokens';
 
 /**
- * Check if source measures have any per-measure overrides that require multi-mark rendering.
- * Returns true if at least one measure has a chart type, size, or color override.
- */
-export function hasAnyMeasureOverrides(
-  measureValuesSourceFields: Field[] | undefined,
-  fieldOverrides: Record<string, FieldOverrideState> | undefined
-): boolean {
-  if (!measureValuesSourceFields?.length || !fieldOverrides) {
-    return false;
-  }
-
-  for (const sourceField of measureValuesSourceFields) {
-    const override = fieldOverrides[sourceField.id];
-    if (override) {
-      // Check for any override that affects rendering
-      if (override.chartType !== undefined ||
-          override.lineVariant !== undefined ||
-          override.manualSize !== undefined ||
-          override.manualColor !== undefined ||
-          override.sizeRange !== undefined) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-
-/**
  * Get the chart type for a specific measure, falling back to default.
  */
 function getMeasureChartType(
