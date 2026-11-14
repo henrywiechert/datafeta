@@ -13,10 +13,20 @@ import {
   CircularProgress,
   Checkbox,
   FormControlLabel,
+  Autocomplete,
+  MenuItem,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { SavedConnectionMetadata } from '../types';
+import { InfluxMeasurement, InfluxTimeMode, SavedConnectionMetadata } from '../types';
+import { apiService } from '../apiService';
+import { reconstructConnectionDetails } from '../services/configurationService';
+import {
+  DEFAULT_INFLUXDB_STATE,
+  influxDbStateFromDetails,
+  influxServerRequest,
+  validateInfluxTimeRange,
+} from './ConnectionForms/influxdbForm';
 import { dataFileAccept, SQLITE_FILE_ACCEPT } from '../utils/uploadFileTypes';
 import { useFileFormats } from '../contexts/AppConfigContext';
 
@@ -31,8 +41,28 @@ export interface ClickHouseOverrides {
   database?: string;
 }
 
+/** Time window loaded from InfluxDB; `start`/`end` are datetime-local values read as UTC. */
+export interface InfluxTimeRange {
+  mode: InfluxTimeMode;
+  last?: string;
+  start?: string;
+  end?: string;
+}
+
+/**
+ * InfluxDB database, measurements and time range to load instead of the saved
+ * ones. An empty `measurements` list loads every measurement of the database;
+ * without `timeRange` the saved one applies.
+ */
+export interface InfluxDbOverrides {
+  database: string;
+  measurements: string[];
+  timeRange?: InfluxTimeRange;
+}
+
 export interface ConnectionRestoreOptions {
   swapSameSchema?: boolean;
+  influxDb?: InfluxDbOverrides;
 }
 
 interface ConnectionRestoreDialogProps {
@@ -54,13 +84,7 @@ interface ConnectionRestoreDialogProps {
   onSkip: () => void;
 }
 
-function describeInfluxTimeRange(metadata: SavedConnectionMetadata): string {
-  if (metadata.influx_time_mode === 'last') return `Last ${metadata.influx_last}`;
-  if (metadata.influx_time_mode === 'between') {
-    return `${metadata.influx_start} to ${metadata.influx_end || 'now'} (UTC)`;
-  }
-  return 'All time';
-}
+const INFLUX_LAST_PRESETS = ['1h', '24h', '7d', '30d'];
 
 export default function ConnectionRestoreDialog({
   open,
@@ -84,6 +108,18 @@ export default function ConnectionRestoreDialog({
   const [user, setUser] = useState('');
   const [database, setDatabase] = useState('');
   const [swapSameSchema, setSwapSameSchema] = useState(false);
+
+  // InfluxDB database / measurement selection. `influxMeasurements` stays
+  // empty until "Load measurements"; the saved selection applies until then.
+  const [influxDatabase, setInfluxDatabase] = useState('');
+  const [influxDatabases, setInfluxDatabases] = useState<string[]>([]);
+  const [influxMeasurements, setInfluxMeasurements] = useState<InfluxMeasurement[]>([]);
+  const [influxSelected, setInfluxSelected] = useState<string[]>([]);
+  const [influxBusy, setInfluxBusy] = useState<'databases' | 'measurements' | null>(null);
+  const [influxTimeMode, setInfluxTimeMode] = useState<InfluxTimeMode>('last');
+  const [influxLast, setInfluxLast] = useState('');
+  const [influxStart, setInfluxStart] = useState('');
+  const [influxEnd, setInfluxEnd] = useState('');
 
   // Hive Parquet partition files (auto-populated from folder selection)
   const [hivePartitionFiles, setHivePartitionFilesLocal] = useState<Map<string, File[]>>(new Map());
@@ -110,6 +146,17 @@ export default function ConnectionRestoreDialog({
         setDatabase(databaseOverride || connectionMetadata.database || '');
       }
       setSwapSameSchema(Boolean(databaseOverride));
+
+      setInfluxDatabase(connectionMetadata.influx_database || '');
+      setInfluxDatabases([]);
+      setInfluxMeasurements([]);
+      setInfluxSelected(connectionMetadata.influx_measurements || []);
+      setInfluxBusy(null);
+      // A snapshot without a mode loaded everything (the server's default).
+      setInfluxTimeMode(connectionMetadata.influx_time_mode || 'all');
+      setInfluxLast(connectionMetadata.influx_last || DEFAULT_INFLUXDB_STATE.last);
+      setInfluxStart(connectionMetadata.influx_start || '');
+      setInfluxEnd(connectionMetadata.influx_end || '');
     }
   }, [open, connectionMetadata, databaseOverride]);
 
@@ -135,6 +182,61 @@ export default function ConnectionRestoreDialog({
   }, [isHiveParquet, hivePartitionsToRestore, hivePartitionFiles]);
 
   if (!connectionMetadata) return null;
+
+  const influxSecretMissing = influxNeedsToken && !password;
+
+  const discoverInflux = async (what: 'databases' | 'measurements') => {
+    if (influxSecretMissing) {
+      setError('Please provide the InfluxDB API token');
+      return;
+    }
+    const database = influxDatabase.trim();
+    if (what === 'measurements' && !database) {
+      setError('Enter or pick a database first');
+      return;
+    }
+    setInfluxBusy(what);
+    setError(null);
+    try {
+      const server = influxServerRequest(
+        influxDbStateFromDetails(reconstructConnectionDetails(connectionMetadata, password)),
+      );
+      if (what === 'databases') {
+        const result = await apiService.listInfluxDbDatabases(server);
+        setInfluxDatabases(result.databases);
+        if (result.databases.length === 0) {
+          setError('The server lists no databases. On InfluxDB 2.x, check the DBRP mappings.');
+        }
+      } else {
+        const result = await apiService.listInfluxDbMeasurements(server, database);
+        const names = result.measurements.map((m) => m.name);
+        // Keep the saved choice where it still exists; "all" stays all.
+        const kept = influxSelected.length > 0 ? names.filter((n) => influxSelected.includes(n)) : [];
+        setInfluxMeasurements(result.measurements);
+        setInfluxSelected(kept.length > 0 ? kept : names);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to list ${what}`);
+    } finally {
+      setInfluxBusy(null);
+    }
+  };
+
+  const changeInfluxDatabase = (value: string) => {
+    setInfluxDatabase(value);
+    // Measurements listed for another database no longer apply.
+    setInfluxMeasurements([]);
+  };
+
+  const toggleInfluxMeasurement = (name: string, checked: boolean) => {
+    const selected = new Set(influxSelected);
+    if (checked) selected.add(name);
+    else selected.delete(name);
+    setInfluxSelected(influxMeasurements.map((m) => m.name).filter((n) => selected.has(n)));
+  };
+
+  const allInfluxSelected =
+    influxMeasurements.length > 0 && influxSelected.length === influxMeasurements.length;
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -165,6 +267,25 @@ export default function ConnectionRestoreDialog({
       // For InfluxDB token auth, the token is required
       if (influxNeedsToken && !password) {
         setError('Please provide the InfluxDB API token');
+        setIsConnecting(false);
+        return;
+      }
+
+      if (isInfluxDb && !influxDatabase.trim()) {
+        setError('Enter or pick an InfluxDB database');
+        setIsConnecting(false);
+        return;
+      }
+      if (isInfluxDb && influxMeasurements.length > 0 && influxSelected.length === 0) {
+        setError('Select at least one measurement');
+        setIsConnecting(false);
+        return;
+      }
+      const influxTimeError = isInfluxDb
+        ? validateInfluxTimeRange({ timeMode: influxTimeMode, last: influxLast, start: influxStart, end: influxEnd })
+        : null;
+      if (influxTimeError) {
+        setError(influxTimeError);
         setIsConnecting(false);
         return;
       }
@@ -212,7 +333,21 @@ export default function ConnectionRestoreDialog({
         clickHouseOverrides,
         isHiveParquet ? hivePartitionFiles : undefined,
         isHiveParquet ? hiveFileStructure : undefined,
-        { swapSameSchema: swapSameSchema || undefined },
+        {
+          swapSameSchema: swapSameSchema || undefined,
+          influxDb: isInfluxDb
+            ? {
+                database: influxDatabase.trim(),
+                measurements: influxSelected,
+                timeRange: {
+                  mode: influxTimeMode,
+                  last: influxLast.trim(),
+                  start: influxStart,
+                  end: influxEnd,
+                },
+              }
+            : undefined,
+        },
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -581,18 +716,6 @@ export default function ConnectionRestoreDialog({
                   <strong>Server:</strong> {connectionMetadata.influx_url}
                   {connectionMetadata.influx_username ? ` (as ${connectionMetadata.influx_username})` : ''}
                 </Typography>
-                <Typography variant="body2">
-                  <strong>Database:</strong> {connectionMetadata.influx_database}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Measurements:</strong>{' '}
-                  {connectionMetadata.influx_measurements?.length
-                    ? connectionMetadata.influx_measurements.join(', ')
-                    : 'All'}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Time range:</strong> {describeInfluxTimeRange(connectionMetadata)}
-                </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Points are loaded again from the server, so recent data is included.
@@ -616,6 +739,169 @@ export default function ConnectionRestoreDialog({
                   disabled={isConnecting}
                 />
               )}
+
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mt: 1 }}>
+                <Autocomplete
+                  freeSolo
+                  fullWidth
+                  size="small"
+                  options={influxDatabases}
+                  // Show every database while the field holds one exactly
+                  // (e.g. the saved name); filter only while typing another.
+                  filterOptions={(options, { inputValue }) =>
+                    options.includes(inputValue)
+                      ? options
+                      : options.filter((o) => o.toLowerCase().includes(inputValue.trim().toLowerCase()))
+                  }
+                  inputValue={influxDatabase}
+                  onInputChange={(_, value) => changeInfluxDatabase(value)}
+                  disabled={isConnecting}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Database" placeholder="e.g. telegraf" />
+                  )}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => discoverInflux('databases')}
+                  disabled={isConnecting || influxBusy !== null || influxSecretMissing}
+                  sx={{ minWidth: 140, whiteSpace: 'nowrap' }}
+                >
+                  {influxBusy === 'databases' ? 'Listing...' : 'List databases'}
+                </Button>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mt: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>Measurements</Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => discoverInflux('measurements')}
+                  disabled={isConnecting || influxBusy !== null || influxSecretMissing || !influxDatabase.trim()}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  {influxBusy === 'measurements' ? 'Loading...' : 'Load measurements'}
+                </Button>
+                {influxMeasurements.length > 0 && (
+                  <FormControlLabel
+                    sx={{ ml: 0 }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={allInfluxSelected}
+                        onChange={(e) =>
+                          setInfluxSelected(e.target.checked ? influxMeasurements.map((m) => m.name) : [])
+                        }
+                        disabled={isConnecting}
+                      />
+                    }
+                    label={<Typography variant="body2">Select all</Typography>}
+                  />
+                )}
+              </Box>
+              {influxMeasurements.length === 0 ? (
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                  {influxSelected.length > 0
+                    ? `Loads: ${influxSelected.join(', ')}`
+                    : 'Loads every measurement in the database.'}
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    mt: 0.5,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  {influxMeasurements.map((m) => (
+                    <FormControlLabel
+                      key={m.name}
+                      sx={{ display: 'flex', mx: 0, px: 1 }}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={influxSelected.includes(m.name)}
+                          onChange={(e) => toggleInfluxMeasurement(m.name, e.target.checked)}
+                          disabled={isConnecting}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2">
+                          <strong>{m.name}</strong>{' '}
+                          <Typography component="span" variant="caption" color="text.secondary">
+                            {m.tag_count} tag{m.tag_count === 1 ? '' : 's'} · {m.field_count} field
+                            {m.field_count === 1 ? '' : 's'}
+                          </Typography>
+                        </Typography>
+                      }
+                    />
+                  ))}
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', mt: 2, flexWrap: 'wrap' }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Time range"
+                  value={influxTimeMode}
+                  onChange={(e) => setInfluxTimeMode(e.target.value as InfluxTimeMode)}
+                  disabled={isConnecting}
+                  sx={{ minWidth: 150 }}
+                >
+                  <MenuItem value="last">Last</MenuItem>
+                  <MenuItem value="between">Between (UTC)</MenuItem>
+                  <MenuItem value="all">All time</MenuItem>
+                </TextField>
+                {influxTimeMode === 'last' && (
+                  <Autocomplete
+                    freeSolo
+                    size="small"
+                    options={INFLUX_LAST_PRESETS}
+                    filterOptions={(options) => options}
+                    inputValue={influxLast}
+                    onInputChange={(_, value) => setInfluxLast(value)}
+                    disabled={isConnecting}
+                    sx={{ width: 140 }}
+                    renderInput={(params) => <TextField {...params} label="Duration" placeholder="7d" />}
+                  />
+                )}
+                {influxTimeMode === 'between' && (
+                  <>
+                    <TextField
+                      size="small"
+                      type="datetime-local"
+                      label="Start (UTC)"
+                      value={influxStart}
+                      onChange={(e) => setInfluxStart(e.target.value)}
+                      disabled={isConnecting}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      size="small"
+                      type="datetime-local"
+                      label="End (UTC)"
+                      value={influxEnd}
+                      onChange={(e) => setInfluxEnd(e.target.value)}
+                      disabled={isConnecting}
+                      InputLabelProps={{ shrink: true }}
+                      helperText="Empty loads up to now"
+                    />
+                  </>
+                )}
+              </Box>
+              {influxTimeMode === 'all' && (
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                  Loads every point; this can be a lot for long-lived databases.
+                </Typography>
+              )}
+
+              <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
+                Sheets keep their saved fields; a changed database or measurement set must contain them.
+              </Typography>
             </>
           )}
 
@@ -705,7 +991,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || ((isCsv || isSqlite) && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles) || (influxNeedsToken && !password)}
+          disabled={isConnecting || ((isCsv || isSqlite) && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles) || influxSecretMissing || influxBusy !== null}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}

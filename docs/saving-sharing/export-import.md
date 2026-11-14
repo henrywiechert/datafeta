@@ -29,6 +29,7 @@ When reconnecting to a saved configuration, you can keep all sheet layouts and t
 
 - **ClickHouse:** check **Same schema — swap database only**, change the database if needed, then connect. Table names must exist in the new database.
 - **CSV / file:** check **Same schema — swap file only**, pick the new file, then connect. Column headers must match.
+- **InfluxDB:** change the **Database** (or click **List databases** and pick one), and optionally click **Load measurements** to change which measurements are loaded, or change the **Time range**. The saved choices are preselected. The measurements your sheets use must exist in the new database.
 
 After connecting, a **Schema check** dialog appears only if referenced columns (or joined tables) are missing in the new source.
 

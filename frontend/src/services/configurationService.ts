@@ -12,7 +12,7 @@ import {
   ForeignKeyRelationship
 } from '../types';
 import { CONNECTION_TYPES } from '../types/connection';
-import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
+import type { ClickHouseOverrides, InfluxDbOverrides } from '../components/ConnectionRestoreDialog';
 import { refreshRelativeDateTimeFilters } from './relativeDateTimeFilters';
 
 const CURRENT_VERSION = '1.0.0';
@@ -451,14 +451,16 @@ export function readFileAsText(file: File): Promise<string> {
 /**
  * Reconstructs ConnectionDetails from SavedConnectionMetadata.
  * Note: Password/credentials must be provided separately by the user.
- * For ClickHouse, optional overrides can be provided for host, port, user, database.
+ * For ClickHouse, optional overrides can be provided for host, port, user, database;
+ * for InfluxDB, for the database, measurements and time range.
  */
 export function reconstructConnectionDetails(
   metadata: SavedConnectionMetadata,
   password?: string,
   kaggleUsername?: string,
   kaggleApiKey?: string,
-  clickHouseOverrides?: ClickHouseOverrides
+  clickHouseOverrides?: ClickHouseOverrides,
+  influxDbOverrides?: InfluxDbOverrides
 ): ConnectionDetails {
   const details: ConnectionDetails = {
     type: metadata.type,
@@ -513,12 +515,18 @@ export function reconstructConnectionDetails(
     details.influx_auth = metadata.influx_auth;
     if (metadata.influx_username) details.influx_username = metadata.influx_username;
     if (metadata.influx_verify_ssl !== undefined) details.influx_verify_ssl = metadata.influx_verify_ssl;
-    details.influx_database = metadata.influx_database;
-    if (metadata.influx_measurements) details.influx_measurements = metadata.influx_measurements;
-    details.influx_time_mode = metadata.influx_time_mode;
-    if (metadata.influx_last) details.influx_last = metadata.influx_last;
-    if (metadata.influx_start) details.influx_start = metadata.influx_start;
-    if (metadata.influx_end) details.influx_end = metadata.influx_end;
+    details.influx_database = influxDbOverrides?.database || metadata.influx_database;
+    // An override replaces the saved selection; an empty one loads every measurement.
+    const measurements = influxDbOverrides ? influxDbOverrides.measurements : metadata.influx_measurements;
+    if (measurements?.length) details.influx_measurements = measurements;
+    const time = influxDbOverrides?.timeRange;
+    details.influx_time_mode = time ? time.mode : metadata.influx_time_mode;
+    const last = time ? (time.mode === 'last' ? time.last : undefined) : metadata.influx_last;
+    const start = time ? (time.mode === 'between' ? time.start : undefined) : metadata.influx_start;
+    const end = time ? (time.mode === 'between' ? time.end : undefined) : metadata.influx_end;
+    if (last) details.influx_last = last;
+    if (start) details.influx_start = start;
+    if (end) details.influx_end = end;
     if (password && metadata.influx_auth === 'token') details.influx_token = password;
     else if (password) details.influx_password = password;
   } else if (metadata.type === 'hive_parquet') {
@@ -534,3 +542,28 @@ export function reconstructConnectionDetails(
   return details;
 }
 
+
+/**
+ * How an InfluxDB restore differs from the snapshot it came from. The connector
+ * reports the InfluxDB database as the data source database, so a different one
+ * means the saved selection has to move to it (`swapDatabase`). Any change to
+ * the database or measurements can leave sheets pointing at tables or fields
+ * that are no longer loaded, which a schema check reports (`changed`).
+ */
+export function describeInfluxRestoreChange(
+  metadata: SavedConnectionMetadata,
+  overrides: InfluxDbOverrides | undefined,
+): { swapDatabase?: string; changed: boolean } {
+  if (!overrides) return { changed: false };
+  const savedDatabase = metadata.influx_database || '';
+  const database = overrides.database || savedDatabase;
+  const saved = [...(metadata.influx_measurements ?? [])].sort();
+  const chosen = [...overrides.measurements].sort();
+  const measurementsChanged =
+    saved.length !== chosen.length || saved.some((name, i) => name !== chosen[i]);
+  const databaseChanged = database !== savedDatabase;
+  return {
+    swapDatabase: databaseChanged ? database : undefined,
+    changed: databaseChanged || measurementsChanged,
+  };
+}

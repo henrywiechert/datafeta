@@ -84,6 +84,22 @@ export function validateInfluxServer(state: InfluxDbFormState): string | null {
   return null;
 }
 
+/** Problems with the time window; null when it is usable. */
+export function validateInfluxTimeRange(
+  range: Pick<InfluxDbFormState, 'timeMode' | 'last' | 'start' | 'end'>,
+): string | null {
+  if (range.timeMode === 'last' && !DURATION_RE.test(range.last.trim())) {
+    return 'Enter a duration like 30m, 12h, 7d or 4w';
+  }
+  if (range.timeMode === 'between') {
+    if (!range.start) return 'Enter the start of the time range';
+    if (range.end && range.end <= range.start) {
+      return 'The end of the time range must be after its start';
+    }
+  }
+  return null;
+}
+
 export function validateInfluxDbForm(state: InfluxDbFormState): ValidationResult {
   const serverError = validateInfluxServer(state);
   if (serverError) return { isValid: false, errorMessage: serverError };
@@ -93,15 +109,8 @@ export function validateInfluxDbForm(state: InfluxDbFormState): ValidationResult
   if (state.measurements.length > 0 && state.selectedMeasurements.length === 0) {
     return { isValid: false, errorMessage: 'Select at least one measurement' };
   }
-  if (state.timeMode === 'last' && !DURATION_RE.test(state.last.trim())) {
-    return { isValid: false, errorMessage: 'Enter a duration like 30m, 12h, 7d or 4w' };
-  }
-  if (state.timeMode === 'between') {
-    if (!state.start) return { isValid: false, errorMessage: 'Enter the start of the time range' };
-    if (state.end && state.end <= state.start) {
-      return { isValid: false, errorMessage: 'The end of the time range must be after its start' };
-    }
-  }
+  const timeError = validateInfluxTimeRange(state);
+  if (timeError) return { isValid: false, errorMessage: timeError };
   return { isValid: true, errorMessage: null };
 }
 

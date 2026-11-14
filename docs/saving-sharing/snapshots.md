@@ -84,6 +84,6 @@ In the gallery, click a snapshot name. DataSlicer will:
 2. Restore all field assignments, filters, and chart properties.
 3. Open all sheets that were saved.
 
-When the connection dialog appears, use **Same schema — swap database only** (ClickHouse) or **Same schema — swap file only** (CSV) to reconnect to a different database or file while keeping your saved table selections and sheet layouts. See [Export & Import](./export-import.md#swapping-the-data-source-same-schema) for details.
+When the connection dialog appears, use **Same schema — swap database only** (ClickHouse) or **Same schema — swap file only** (CSV), or pick another **Database**, **Measurements** or **Time range** (InfluxDB), to reconnect to a different database or file while keeping your saved table selections and sheet layouts. See [Export & Import](./export-import.md#swapping-the-data-source-same-schema) for details.
 
 For ClickHouse, you can also share a [URL with a `database` parameter](./url-sharing.md#overriding-the-clickhouse-database) so recipients open the snapshot against a specific database without changing the saved snapshot.

@@ -21,7 +21,8 @@ import {
   exportConfiguration, 
   saveConfigFile, 
   validateConfiguration,
-  reconstructConnectionDetails 
+  reconstructConnectionDetails,
+  describeInfluxRestoreChange,
 } from './services/configurationService';
 import { apiService } from './apiService';
 import { SavedConfiguration, SavedConnectionMetadata, SnapshotMetadata } from './types';
@@ -500,7 +501,8 @@ function AppContent() {
           password,
           kaggleUsername,
           kaggleApiKey,
-          clickHouseOverrides
+          clickHouseOverrides,
+          restoreOptions?.influxDb
         );
 
         // Attempt to connect (pass files array for multi-file support)
@@ -508,13 +510,16 @@ function AppContent() {
 
         // If connection successful, restore the rest of the configuration
         setShowConnectionRestore(false);
+        const influxChange = connectionMetadata.type === 'influxdb'
+          ? describeInfluxRestoreChange(connectionMetadata, restoreOptions?.influxDb)
+          : undefined;
         const swapDatabase =
           restoreOptions?.swapSameSchema && connectionMetadata.type === 'clickhouse'
             ? (clickHouseOverrides?.database || connectionMetadata.database || '')
-            : undefined;
+            : influxChange?.swapDatabase;
         restoreConfigurationState(pendingConfig, {
           swapDatabase: swapDatabase || undefined,
-          requestSchemaCheck: restoreOptions?.swapSameSchema,
+          requestSchemaCheck: restoreOptions?.swapSameSchema || influxChange?.changed,
         });
 
         // Navigate to visualization page if not already there

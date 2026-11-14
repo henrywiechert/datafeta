@@ -183,7 +183,9 @@ Reconnect to pick up newer points.
 
 Only the default retention policy of the database is read. Credentials are used for the session
 only; saved configurations keep the URL, username, database, measurements and time range, and ask
-for the password or token again on restore.
+for the password or token again on restore. The restore dialog can also switch to another database,
+measurement selection (**List databases**, **Load measurements**) or time range; sheets keep their
+fields, so the measurements they use must exist there.
 
 | Variable | Default | Description |
 |---|---|---|
