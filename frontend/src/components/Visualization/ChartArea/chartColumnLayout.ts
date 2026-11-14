@@ -2,7 +2,9 @@
 import { PanelConstraints } from '../../Layout/usePanelSplit';
 
 /**
- * Size constraints for the chart column's two secondary panels.
+ * Size constraints for the chart area's two secondary panels: the legend sits
+ * beside the plot (above the chart controls, sharing the plot's height) and the
+ * debug drawer sits below plot + legend + controls.
  *
  * One declaration feeds both the `Panel` props and the drag gesture's clamping,
  * the same contract `SHELL_PANELS` uses for the three app columns — a handle can

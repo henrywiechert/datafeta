@@ -616,129 +616,132 @@ const ChartArea: React.FC<ChartAreaProps> = ({
         ref={fullscreenWrapperRef}
         className={`${styles.fullscreenWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
       >
-        <PanelGroup orientation="horizontal">
-          {/*
-            The plot column. Its own vertical group holds the debug drawer, so
-            the drawer's boundary is a real panel boundary — which is what lets
-            the chart, the legend and the drawer each be sized independently.
-          */}
-          <Panel minSize={`${PLOT_MIN_PX}px`} style={{ overflow: 'hidden' }}>
-            <PanelGroup orientation="vertical">
-              <Panel style={{ overflow: 'hidden' }}>
-                <div className={styles.chartWrapper}>
-          <ChartRenderer
-            grid={gridWithTooltipAction}
-            cellSizeOverrides={cellSizeOverrides}
-            onAutoCategoryTickMeasure={handleAutoCategoryTickMeasure}
-            queryResult={queryResult}
-            xAxisFields={xAxisFields}
-            yAxisFields={yAxisFields}
-            onPlotRenderComplete={handlePlotRenderComplete}
-            gantt={ganttProps}
-            viewport={viewportProps}
-            brush={brushProps}
-            showTableRows={showTableRows}
-            tableRowsData={showTableRows ? tableRowsData : undefined}
-            onTableCellFilterAction={handleTableCellFilterAction}
-            tableRefactorPagerData={tableRefactorPagerData}
-            onHeatmapSizeToolbarChange={handleHeatmapSizeToolbarChange}
-            labelStyles={labelStylesProps}
-            globalChartType={globalChartType}
-          />
+        {/*
+          Vertical split: the chart+legend row with the controls beneath it on
+          top, the debug drawer below. The legend lives inside the top panel, so
+          it shares the plot's height and the controls always span the full width.
+        */}
+        <PanelGroup orientation="vertical">
+          <Panel style={{ overflow: 'hidden' }}>
+            <div className={styles.chartWrapper}>
+              <div className={styles.plotRow}>
+                <PanelGroup orientation="horizontal">
+                  <Panel minSize={`${PLOT_MIN_PX}px`} style={{ overflow: 'hidden' }}>
+                    <div className={styles.chartWrapper}>
+                      <ChartRenderer
+                        grid={gridWithTooltipAction}
+                        cellSizeOverrides={cellSizeOverrides}
+                        onAutoCategoryTickMeasure={handleAutoCategoryTickMeasure}
+                        queryResult={queryResult}
+                        xAxisFields={xAxisFields}
+                        yAxisFields={yAxisFields}
+                        onPlotRenderComplete={handlePlotRenderComplete}
+                        gantt={ganttProps}
+                        viewport={viewportProps}
+                        brush={brushProps}
+                        showTableRows={showTableRows}
+                        tableRowsData={showTableRows ? tableRowsData : undefined}
+                        onTableCellFilterAction={handleTableCellFilterAction}
+                        tableRefactorPagerData={tableRefactorPagerData}
+                        onHeatmapSizeToolbarChange={handleHeatmapSizeToolbarChange}
+                        labelStyles={labelStylesProps}
+                        globalChartType={globalChartType}
+                      />
+                    </div>
+                  </Panel>
 
-          <ChartControls {...chartControlsProps} />
+                  {showLegend && (
+                    <SplitHandle
+                      inGroup
+                      orientation="vertical"
+                      panelSide="after"
+                      ariaLabel="Resize legend"
+                      getBounds={legendSplit.getBounds}
+                      onCommitPx={legendSplit.onCommitPx}
+                    />
+                  )}
+                  {showLegend && (
+                    <Panel
+                      panelRef={legendPanelRef}
+                      defaultSize={`${initialLegendWidth}px`}
+                      minSize={`${CHART_COLUMN_PANELS.legend.minPx}px`}
+                      maxSize={`${CHART_COLUMN_PANELS.legend.maxPercent}%`}
+                      style={{ overflow: 'hidden' }}
+                      onResize={(size) => persistLegendWidth(size.inPixels)}
+                    >
+                      <LegendStack>
+                        {showColorLegend && (
+                          <LegendPanel
+                            colorField={channels.color.field}
+                            queryResult={queryResult}
+                            colorScheme={channels.color.scheme}
+                            colorBias={channels.color.bias}
+                            colorReversed={channels.color.reversed}
+                            onFilterAction={
+                              channels.color.field?.flavour === 'discrete' ? handleLegendFilterAction : undefined
+                            }
+                            onHighlightChange={
+                              channels.color.field?.flavour === 'discrete' ? setHighlightedCategoryValues : undefined
+                            }
+                            clearSelectionRef={clearLegendSelectionRef}
+                          />
+                        )}
+                        {showBackgroundLegend && (
+                          <BackgroundLegendPanel
+                            backgroundField={channels.facetBackground.field}
+                            queryResult={queryResult}
+                            colorScheme={channels.facetBackground.scheme}
+                            opacity={channels.facetBackground.opacity}
+                          />
+                        )}
+                        {showShapeLegend && (
+                          <ShapeLegendPanel
+                            shapeField={channels.shape.field}
+                            queryResult={queryResult}
+                            onFilterAction={handleShapeLegendFilterAction}
+                          />
+                        )}
+                        {showLineStyleLegend && (
+                          <LineStyleLegendPanel
+                            lineStyleField={channels.lineStyle.field}
+                            queryResult={queryResult}
+                            onFilterAction={handleLineStyleLegendFilterAction}
+                          />
+                        )}
+                      </LegendStack>
+                    </Panel>
+                  )}
+                </PanelGroup>
+              </div>
 
-          {globalChartType === 'heatmap' && !showTableRows && (
-            <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
-          )}
+              <ChartControls {...chartControlsProps} />
 
-                </div>
-              </Panel>
-
-              {debugVisible && (
-                <SplitHandle
-                  inGroup
-                  orientation="horizontal"
-                  panelSide="after"
-                  ariaLabel="Resize debug view"
-                  getBounds={debugSplit.getBounds}
-                  onCommitPx={debugSplit.onCommitPx}
-                />
+              {globalChartType === 'heatmap' && !showTableRows && (
+                <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
               )}
-              {debugVisible && (
-                <Panel
-                  panelRef={debugPanelRef}
-                  defaultSize={`${initialDebugHeight}px`}
-                  minSize={`${CHART_COLUMN_PANELS.debug.minPx}px`}
-                  maxSize={`${CHART_COLUMN_PANELS.debug.maxPercent}%`}
-                  style={{ overflow: 'hidden' }}
-                  onResize={(size) => persistDebugHeight(size.inPixels)}
-                >
-                  <DebugPanel debugData={debugData} />
-                </Panel>
-              )}
-            </PanelGroup>
+            </div>
           </Panel>
 
-          {showLegend && (
+          {debugVisible && (
             <SplitHandle
               inGroup
-              orientation="vertical"
+              orientation="horizontal"
               panelSide="after"
-              ariaLabel="Resize legend"
-              getBounds={legendSplit.getBounds}
-              onCommitPx={legendSplit.onCommitPx}
+              ariaLabel="Resize debug view"
+              getBounds={debugSplit.getBounds}
+              onCommitPx={debugSplit.onCommitPx}
             />
           )}
-          {showLegend && (
+          {debugVisible && (
             <Panel
-              panelRef={legendPanelRef}
-              defaultSize={`${initialLegendWidth}px`}
-              minSize={`${CHART_COLUMN_PANELS.legend.minPx}px`}
-              maxSize={`${CHART_COLUMN_PANELS.legend.maxPercent}%`}
+              panelRef={debugPanelRef}
+              defaultSize={`${initialDebugHeight}px`}
+              minSize={`${CHART_COLUMN_PANELS.debug.minPx}px`}
+              maxSize={`${CHART_COLUMN_PANELS.debug.maxPercent}%`}
               style={{ overflow: 'hidden' }}
-              onResize={(size) => persistLegendWidth(size.inPixels)}
+              onResize={(size) => persistDebugHeight(size.inPixels)}
             >
-              <LegendStack>
-            {showColorLegend && (
-              <LegendPanel
-                colorField={channels.color.field}
-                queryResult={queryResult}
-                colorScheme={channels.color.scheme}
-                colorBias={channels.color.bias}
-                colorReversed={channels.color.reversed}
-                onFilterAction={
-                  channels.color.field?.flavour === 'discrete' ? handleLegendFilterAction : undefined
-                }
-                onHighlightChange={
-                  channels.color.field?.flavour === 'discrete' ? setHighlightedCategoryValues : undefined
-                }
-                clearSelectionRef={clearLegendSelectionRef}
-              />
-            )}
-            {showBackgroundLegend && (
-              <BackgroundLegendPanel
-                backgroundField={channels.facetBackground.field}
-                queryResult={queryResult}
-                colorScheme={channels.facetBackground.scheme}
-                opacity={channels.facetBackground.opacity}
-              />
-            )}
-            {showShapeLegend && (
-              <ShapeLegendPanel
-                shapeField={channels.shape.field}
-                queryResult={queryResult}
-                onFilterAction={handleShapeLegendFilterAction}
-              />
-            )}
-            {showLineStyleLegend && (
-              <LineStyleLegendPanel
-                lineStyleField={channels.lineStyle.field}
-                queryResult={queryResult}
-                onFilterAction={handleLineStyleLegendFilterAction}
-              />
-            )}
-              </LegendStack>
+              <DebugPanel debugData={debugData} />
             </Panel>
           )}
         </PanelGroup>

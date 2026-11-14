@@ -74,3 +74,11 @@
     background-color: var(--df-chart-canvas);
     padding: 16px;
 }
+
+/* Chart + legend row above the controls; the horizontal panel group fills it. */
+.plotRow {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+}

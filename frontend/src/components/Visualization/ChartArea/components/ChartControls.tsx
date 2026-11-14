@@ -24,7 +24,7 @@ import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
 import OptimizationSettingsDialog from './OptimizationSettingsDialog';
-import { resolveChartControlsVisibility } from './chartControlsLayout';
+import { CollapsibleChartControl, resolveChartControlsLayout } from './chartControlsLayout';
 import { T } from '../../../../theme/tokens';
 
 const DevSqlViewerControl =
@@ -209,36 +209,67 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     handleResetClick();
   };
 
-  const {
-    showInlineDevSql,
-    showInlineTableToggle,
-    showInlineSwap,
-    showInlineZoomOut,
-    showInlineZoomReset,
-    showInlineRebase,
-    showInlineRefresh,
-    showInlineBand,
-    showInlineSettings,
-    showInlineIndependentX,
-    showInlineIndependentY,
-    showInlineReset,
-    showOverflowTableToggle,
-    showOverflowSwap,
-    showOverflowZoomOut,
-    showOverflowZoomReset,
-    showOverflowRebase,
-    showOverflowRefresh,
-    showOverflowBand,
-    showOverflowSettings,
-    showOverflowIndependentX,
-    showOverflowIndependentY,
-    showOverflowReset,
-    hasOverflowActions,
-  } = resolveChartControlsVisibility(controlsWidth, showTableRows, canRebaseSeries);
+  const showChartOnlyControls = !showTableRows;
+  const availableControls: CollapsibleChartControl[] = [];
+  const addIf = (cond: unknown, id: CollapsibleChartControl) => { if (cond) availableControls.push(id); };
+  addIf(onToggleSidePanels, 'sidePanels');
+  addIf(isFullscreenSupported && onToggleFullscreen, 'fullscreen');
+  addIf(onUndo, 'undo');
+  addIf(onRedo, 'redo');
+  addIf(DevSqlViewerControl, 'devSql');
+  addIf(onToggleTableRows, 'tableToggle');
+  addIf(onToggleChartCaption, 'caption');
+  addIf(showChartOnlyControls && onSwapAxis, 'swap');
+  addIf(showChartOnlyControls && onZoomOut, 'zoomOut');
+  addIf(showChartOnlyControls && onZoomReset, 'zoomReset');
+  addIf(showChartOnlyControls && canRebaseSeries && onToggleRebaseSeries, 'rebase');
+  addIf(onForceRefresh, 'refresh');
+  addIf(showChartOnlyControls, 'band');
+  addIf(true, 'settings');
+  addIf(showChartOnlyControls, 'independentX');
+  addIf(showChartOnlyControls, 'independentY');
+  addIf(onResetWorkspace, 'reset');
+
+  const { inline, overflow, hasOverflowActions } = resolveChartControlsLayout({
+    availableWidth: controlsWidth,
+    available: availableControls,
+  });
+  const showInlineSidePanels = inline.has('sidePanels');
+  const showInlineFullscreen = inline.has('fullscreen');
+  const showInlineUndo = inline.has('undo');
+  const showInlineRedo = inline.has('redo');
+  const showInlineDevSql = inline.has('devSql');
+  const showInlineTableToggle = inline.has('tableToggle');
+  const showInlineCaption = inline.has('caption');
+  const showInlineSwap = inline.has('swap');
+  const showInlineZoomOut = inline.has('zoomOut');
+  const showInlineZoomReset = inline.has('zoomReset');
+  const showInlineRebase = inline.has('rebase');
+  const showInlineRefresh = inline.has('refresh');
+  const showInlineBand = inline.has('band');
+  const showInlineSettings = inline.has('settings');
+  const showInlineIndependentX = inline.has('independentX');
+  const showInlineIndependentY = inline.has('independentY');
+  const showInlineReset = inline.has('reset');
+  const showOverflowSidePanels = overflow.has('sidePanels');
+  const showOverflowFullscreen = overflow.has('fullscreen');
+  const showOverflowUndo = overflow.has('undo');
+  const showOverflowRedo = overflow.has('redo');
+  const showOverflowTableToggle = overflow.has('tableToggle');
+  const showOverflowCaption = overflow.has('caption');
+  const showOverflowSwap = overflow.has('swap');
+  const showOverflowZoomOut = overflow.has('zoomOut');
+  const showOverflowZoomReset = overflow.has('zoomReset');
+  const showOverflowRebase = overflow.has('rebase');
+  const showOverflowRefresh = overflow.has('refresh');
+  const showOverflowBand = overflow.has('band');
+  const showOverflowSettings = overflow.has('settings');
+  const showOverflowIndependentX = overflow.has('independentX');
+  const showOverflowIndependentY = overflow.has('independentY');
+  const showOverflowReset = overflow.has('reset');
 
   return (
     <Box
-      ref={controlsRef}
       className="chart-controls-toolbar"
       sx={{ 
       display: 'flex', 
@@ -252,8 +283,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       flexShrink: 0
     }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1, overflow: 'hidden' }}>
-        {onToggleSidePanels && (
+      <Box ref={controlsRef} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        {showInlineSidePanels && onToggleSidePanels && (
           <Tooltip title={sidePanelsVisible ? 'Hide side panels' : 'Show side panels'}>
             <IconButton
               onClick={onToggleSidePanels}
@@ -279,7 +310,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             <DevSqlViewerControl />
           </Suspense>
         )}
-        {isFullscreenSupported && onToggleFullscreen && (
+        {showInlineFullscreen && onToggleFullscreen && (
           <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
             <IconButton 
               onClick={onToggleFullscreen}
@@ -315,7 +346,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onToggleChartCaption && (
+        {showInlineCaption && onToggleChartCaption && (
           <Tooltip title={showChartCaption ? 'Hide chart title' : 'Show chart title'}>
             <IconButton
               onClick={() => onToggleChartCaption(!showChartCaption)}
@@ -352,7 +383,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
         
-        {onUndo && (
+        {showInlineUndo && onUndo && (
           <Tooltip title="Undo (Ctrl+Z)">
             <span>
               <IconButton 
@@ -372,7 +403,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
         
-        {onRedo && (
+        {showInlineRedo && onRedo && (
           <Tooltip title="Redo (Ctrl+Shift+Z)">
             <span>
               <IconButton 
@@ -605,6 +636,34 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
+        {showOverflowSidePanels && onToggleSidePanels && (
+          <MenuItem onClick={() => { onToggleSidePanels(); handleOverflowClose(); }}>
+            <ListItemIcon>{sidePanelsVisible ? <ViewSidebarIcon fontSize="small" /> : <ViewSidebarOutlinedIcon fontSize="small" />}</ListItemIcon>
+            <ListItemText>{sidePanelsVisible ? 'Hide side panels' : 'Show side panels'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowFullscreen && onToggleFullscreen && (
+          <MenuItem onClick={() => { onToggleFullscreen(); handleOverflowClose(); }}>
+            <ListItemIcon>{isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}</ListItemIcon>
+            <ListItemText>{isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowUndo && onUndo && (
+          <MenuItem disabled={!canUndo} onClick={() => { onUndo(); handleOverflowClose(); }}>
+            <ListItemIcon><UndoIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Undo</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowRedo && onRedo && (
+          <MenuItem disabled={!canRedo} onClick={() => { onRedo(); handleOverflowClose(); }}>
+            <ListItemIcon><RedoIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Redo</ListItemText>
+          </MenuItem>
+        )}
+
         {showOverflowTableToggle && onToggleTableRows && (
           <MenuItem
             onClick={() => {
@@ -614,6 +673,13 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           >
             <ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon>
             <ListItemText>{showTableRows ? 'Show chart' : 'Show data table'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowCaption && onToggleChartCaption && (
+          <MenuItem onClick={() => { onToggleChartCaption(!showChartCaption); handleOverflowClose(); }}>
+            <ListItemIcon><TitleIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{showChartCaption ? 'Hide chart title' : 'Show chart title'}</ListItemText>
           </MenuItem>
         )}
 
