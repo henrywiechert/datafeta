@@ -4,6 +4,7 @@ import { Menu, MenuItem } from '@mui/material';
 
 import { GridResultModel } from '../../../observable-plot-generator/gridModel';
 import FacetZoomDialog from './FacetZoomDialog';
+import type { CellContextMenuHandler, CellSourceSize, CellZoomHandler } from './PlotArea';
 import styles from './ChartGrid.module.css';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
 import { HeatmapSizeToolbarState, useHeatmapSizeToolbar } from './hooks/useHeatmapSizeToolbar';
@@ -161,20 +162,22 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   );
 
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)
-  const [contextMenu, setContextMenu] = useState<{ plotId: string; x: number; y: number } | null>(null);
-  const [zoomedPlotId, setZoomedPlotId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<
+    { plotId: string; x: number; y: number; sourceSize?: CellSourceSize } | null
+  >(null);
+  const [zoomed, setZoomed] = useState<{ plotId: string; sourceSize?: CellSourceSize } | null>(null);
   const [autoExpandPinnedComparison, setAutoExpandPinnedComparison] = useState(false);
   // Fullscreen-aware portal host: the context menu / zoom dialog must render
   // inside the fullscreen element, otherwise they are painted behind it.
   const portalTarget = useFullscreenPortalTarget();
 
-  const handleCellContextMenu = useCallback((plotId: string, clientX: number, clientY: number) => {
-    setContextMenu({ plotId, x: clientX, y: clientY });
+  const handleCellContextMenu = useCallback<CellContextMenuHandler>((plotId, clientX, clientY, sourceSize) => {
+    setContextMenu({ plotId, x: clientX, y: clientY, sourceSize });
   }, []);
 
   const handleZoomOpen = useCallback(() => {
     if (contextMenu) {
-      setZoomedPlotId(contextMenu.plotId);
+      setZoomed({ plotId: contextMenu.plotId, sourceSize: contextMenu.sourceSize });
     }
     setContextMenu(null);
   }, [contextMenu]);
@@ -186,10 +189,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   }, [resetCellSizes]);
 
   const { isTablet } = useTabletUi();
-  const handleCellZoom = useCallback((plotId: string) => setZoomedPlotId(plotId), []);
+  const handleCellZoom = useCallback<CellZoomHandler>((plotId, sourceSize) => setZoomed({ plotId, sourceSize }), []);
 
   const handleMenuClose = useCallback(() => setContextMenu(null), []);
-  const handleZoomClose = useCallback(() => setZoomedPlotId(null), []);
+  const handleZoomClose = useCallback(() => setZoomed(null), []);
 
   const heatmapToolbarState = useHeatmapSizeToolbar({
     enabled: globalChartType === 'heatmap',
@@ -282,10 +285,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({
             Reset Facet Sizes
           </MenuItem>
         </Menu>
-        {zoomedPlotId !== null && (
+        {zoomed !== null && (
           <FacetZoomDialog
             grid={grid}
-            plotId={zoomedPlotId}
+            plotId={zoomed.plotId}
+            sourceSize={zoomed.sourceSize}
             onClose={handleZoomClose}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}

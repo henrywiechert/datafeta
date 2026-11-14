@@ -11,6 +11,7 @@ import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { deOverlapSeriesLabels } from './deOverlapSeriesLabels';
 import { stampColorCategories } from './stampColorCategories';
 import { flattenSymbolTransforms } from './flattenSymbolTransforms';
+import { frameAreaFromOptions, scaleMarkSizes, type PlotSize } from './scaleMarkSizes';
 import { hoistPlotStyles } from './hoistPlotStyles';
 import { PREVIEW_LAYER_ATTR } from './ChartGrid/viewport/previewLayer';
 import { attachCrosshairSync, CrosshairSyncContext } from './crosshairSync';
@@ -26,6 +27,11 @@ interface ObservablePlotProps {
   onPlotReady?: (plot: SVGSVGElement | HTMLElement) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+  /**
+   * Size the marks were designed for. When the plot renders larger, dots and
+   * line strokes are enlarged accordingly (Zoom facet).
+   */
+  markScaleReference?: PlotSize;
 }
 
 const ObservablePlot: React.FC<ObservablePlotProps> = ({
@@ -35,7 +41,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   onPlotReady,
   autoExpandPinnedComparison = false,
   onAutoExpandPinnedComparisonChange,
+  markScaleReference,
 }) => {
+  const referenceWidth = markScaleReference?.width;
+  const referenceHeight = markScaleReference?.height;
   const containerRef = useRef<HTMLDivElement>(null);
   // Holds the plot; the live pan/zoom preview transforms it, not the svg.
   const layerRef = useRef<HTMLDivElement>(null);
@@ -89,6 +98,16 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       try {
         // Force Observable Plot to create fresh plot (no caching)
         const plot = Plot.plot(newOptions);
+
+        // Before flattenSymbolTransforms: symbol paths must still be 0,0-centred.
+        if (referenceWidth && referenceHeight) {
+          const target = { width: finalWidth, height: finalHeight };
+          scaleMarkSizes(plot, {
+            reference: { width: referenceWidth, height: referenceHeight },
+            target,
+            frameArea: frameAreaFromOptions(newOptions as Record<string, any>, target),
+          });
+        }
 
         // Detached-tree cleanups that keep a dense plot cheap to restyle and layerize.
         hoistPlotStyles(plot, layerRef.current.ownerDocument);
@@ -154,7 +173,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, crosshairSync]);
+  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, crosshairSync, referenceWidth, referenceHeight]);
 
   return (
     <>
@@ -192,6 +211,8 @@ export default React.memo(ObservablePlot, (prevProps, nextProps) => {
   return (
     prevProps.options === nextProps.options &&
     prevProps.autoExpandPinnedComparison === nextProps.autoExpandPinnedComparison &&
+    prevProps.markScaleReference?.width === nextProps.markScaleReference?.width &&
+    prevProps.markScaleReference?.height === nextProps.markScaleReference?.height &&
     prevProps.onAutoExpandPinnedComparisonChange === nextProps.onAutoExpandPinnedComparisonChange
   );
 }); 

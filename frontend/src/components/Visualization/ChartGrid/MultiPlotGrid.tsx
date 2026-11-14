@@ -19,7 +19,7 @@ import { ScrollSyncState } from './hooks/useScrollSync';
 import type { ViewportGridConfig } from './viewport/viewportController';
 import { Dimensions } from './hooks/useContainerDimensions';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
-import PlotArea, { PlotBrushEvent } from './PlotArea';
+import PlotArea, { CellContextMenuHandler, CellZoomHandler, PlotBrushEvent } from './PlotArea';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, TopFacetHeaderTitle, LeftFacetLabels } from './FacetLabels';
@@ -68,8 +68,8 @@ interface MultiPlotGridProps {
   isGanttChart?: boolean;
   /** Pan/zoom configuration for plot cells. */
   viewport?: ViewportGridConfig;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
-  onCellZoom?: (plotId: string) => void;
+  onCellContextMenu?: CellContextMenuHandler;
+  onCellZoom?: CellZoomHandler;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }

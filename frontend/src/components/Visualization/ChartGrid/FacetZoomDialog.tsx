@@ -9,6 +9,7 @@ import { formatNumericTick, isContinuousNumericDomain } from '../../../observabl
 import { computeZoomBandXAxis, computeZoomBandYAxis } from './utils/layoutUtils';
 import { rescaleZoomPlotAxes } from './utils/rescaleZoomAxes';
 import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
+import type { CellSourceSize } from './PlotArea';
 
 /**
  * Default a continuous numeric axis to the compact SI tick formatter, matching
@@ -26,6 +27,8 @@ interface FacetZoomDialogProps {
   grid: GridResultModel;
   plotId: string | null;
   onClose: () => void;
+  /** Rendered size of the source cell; marks are scaled up from it. */
+  sourceSize?: CellSourceSize;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -34,11 +37,13 @@ interface FacetZoomDialogProps {
  * Modal overlay that enlarges a single facet cell for closer inspection.
  * Renders the cell's plot with axes intact (no suppressAxes), rescaled to this
  * cell's data. No filter changes, no re-query — purely a client-side view.
+ * Dots and line strokes grow with the enlargement (see scaleMarkSizes).
  */
 const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   grid,
   plotId,
   onClose,
+  sourceSize,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -139,6 +144,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
           <ObservablePlot
             options={zoomedOptions}
             plotId={`zoom-${cell.id}`}
+            markScaleReference={sourceSize}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />

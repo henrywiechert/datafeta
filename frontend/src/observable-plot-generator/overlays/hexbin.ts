@@ -13,7 +13,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { OVERLAY_NO_HIGHLIGHT_CLASS, OverlayParams } from './types';
+import { MARK_FIXED_SIZE_CLASS, OVERLAY_NO_HIGHLIGHT_CLASS, OverlayParams } from './types';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 
 /**
@@ -44,7 +44,7 @@ export function buildHexbin(
     clip: true,
     // Hexagons are aggregates: their rows are bins, not the chart's rows, so
     // they can neither be stamped for highlighting nor carry a data tooltip.
-    className: `overlay-no-tooltip ${OVERLAY_NO_HIGHLIGHT_CLASS}`,
+    className: `overlay-no-tooltip ${OVERLAY_NO_HIGHLIGHT_CLASS} ${MARK_FIXED_SIZE_CLASS}`,
   };
 
   if (groupColumn) {

@@ -23,6 +23,12 @@ export type OverlayType = 'linearRegression' | 'movingAverage' | 'density' | 're
  */
 export const OVERLAY_NO_HIGHLIGHT_CLASS = 'overlay-no-highlight';
 
+/**
+ * Applied to marks whose pixel size must not be scaled up in the Zoom facet
+ * dialog (e.g. hexbin hexagons, which tile the plot at a fixed bin width).
+ */
+export const MARK_FIXED_SIZE_CLASS = 'mark-fixed-size';
+
 /** Summary statistics a reference line can mark. */
 export type ReferenceStat = 'mean' | 'median' | 'percentile' | 'min' | 'max';
 

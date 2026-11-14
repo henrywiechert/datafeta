@@ -38,6 +38,27 @@ export interface PlotBrushEvent {
   yField?: Field;
 }
 
+/** Rendered size of the cell, so Zoom facet can scale marks up from it. */
+export interface CellSourceSize {
+  width: number;
+  height: number;
+}
+
+export type CellContextMenuHandler = (
+  plotId: string,
+  clientX: number,
+  clientY: number,
+  sourceSize?: CellSourceSize,
+) => void;
+
+export type CellZoomHandler = (plotId: string, sourceSize?: CellSourceSize) => void;
+
+function measureCell(el: HTMLElement | null): CellSourceSize | undefined {
+  if (!el) return undefined;
+  const { width, height } = el.getBoundingClientRect();
+  return width > 0 && height > 0 ? { width, height } : undefined;
+}
+
 interface PlotAreaProps {
   grid: GridResultModel;
   plotsTranslateRef: React.RefObject<HTMLDivElement>;
@@ -51,9 +72,9 @@ interface PlotAreaProps {
   isGanttChart?: boolean;
   /** Pan/zoom (Alt+wheel, drag, double-click reset) on pannable axes. */
   viewport?: ViewportGridConfig;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  onCellContextMenu?: CellContextMenuHandler;
   /** Touch double tap on a cell (tablet Zoom facet) */
-  onCellZoom?: (plotId: string) => void;
+  onCellZoom?: CellZoomHandler;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
   /**
@@ -244,8 +265,8 @@ interface PlotCellProps {
   viewport?: ViewportGridConfig;
   /** The grid only re-applied a pan/zoom viewport (same data and cells). */
   viewportRefresh?: boolean;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
-  onCellZoom?: (plotId: string) => void;
+  onCellContextMenu?: CellContextMenuHandler;
+  onCellZoom?: CellZoomHandler;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
   horizontalScrollOffset?: number;
@@ -380,9 +401,9 @@ const PlotCell: React.FC<PlotCellProps> = ({
 
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
+    onCellContextMenu?.(cell.id, e.clientX, e.clientY, measureCell(wrapperRef.current));
   };
-  const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id)));
+  const doubleTap = useDoubleTap(onCellZoom && (() => onCellZoom(cell.id, measureCell(wrapperRef.current))));
 
   // Plot SVGs render with `overflow: visible` (see ObservablePlot), and with a
   // pan/zoom viewport marks extend past the visible domain (cull margin, bars
@@ -618,8 +639,8 @@ const GanttMeasurementOverlay: React.FC<{
 interface PieCellProps {
   cell: PieGridCellModel;
   onPlotRenderComplete?: (plotId: string) => void;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
-  onCellZoom?: (plotId: string) => void;
+  onCellContextMenu?: CellContextMenuHandler;
+  onCellZoom?: CellZoomHandler;
 }
 
 const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellContextMenu, onCellZoom }) => {
@@ -661,8 +682,8 @@ const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellCon
 
 interface TableCellProps {
   cell: TableGridCellModel;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
-  onCellZoom?: (plotId: string) => void;
+  onCellContextMenu?: CellContextMenuHandler;
+  onCellZoom?: CellZoomHandler;
 }
 
 /**

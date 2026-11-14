@@ -17,6 +17,9 @@ ChartGrid/
 ├── GridResizeOverlay.tsx    # Interactive column/row resize handles
 ├── GridResizeHandle.tsx     # Individual resize handle component
 ├── VirtualResizeLine.tsx    # Visual feedback line during resize
+├── FacetZoomDialog.tsx      # Zoom facet: one cell enlarged in a dialog;
+│                            #   dots/strokes scale up from the cell size
+│                            #   (../scaleMarkSizes.ts)
 ├── ChartGrid.module.css     # Grid layout styles
 ├── hooks/
 │   ├── useChartGridLayout   # Computes all layout dimensions
