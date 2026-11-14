@@ -35,15 +35,25 @@ export function normalizePercentile(p: number | undefined): number {
   return Math.round(Math.min(100, Math.max(0.1, p)) * 10) / 10;
 }
 
+export const MA_SMOOTHING_MIN = 1;
+export const MA_SMOOTHING_MAX = 50;
+export const MA_SMOOTHING_DEFAULT = 10;
+
+/** Clamp the moving-average smoothing percentage to the slider range. */
+export function normalizeSmoothing(s: number | undefined): number {
+  if (typeof s !== 'number' || !Number.isFinite(s)) return MA_SMOOTHING_DEFAULT;
+  return Math.round(Math.min(MA_SMOOTHING_MAX, Math.max(MA_SMOOTHING_MIN, s)));
+}
+
 // --- Per-overlay parameters (union bag — each builder picks what it needs) ----
 
 export interface OverlayParams {
   // Linear regression
   ci?: number;              // Confidence interval 0–0.99 (default 0.95)
 
-  // Moving average / Bollinger shared
-  windowSize?: number;      // k / n — rolling window size (default 20)
-  reduce?: string;          // 'mean' | 'median' | 'sum' | 'min' | 'max' (default 'mean')
+  // Moving average
+  smoothing?: number;       // Window as % of the points per series (default 10)
+  reduce?: string;          // 'mean' | 'median' (default 'mean'; other values fall back to mean)
   anchor?: 'start' | 'middle' | 'end';  // Window anchor (default 'middle')
 
   // Visual styling
@@ -100,7 +110,7 @@ export interface OverlayConfig {
 
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: DEFAULT_OVERLAY_COLOR, strokeWidth: 1.5, perGroup: false, showCI: true } },
-  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: DEFAULT_MANUAL_COLOR, strokeWidth: 2, perGroup: false } },
+  { type: 'movingAverage',    enabled: false, params: { smoothing: MA_SMOOTHING_DEFAULT, reduce: 'mean', anchor: 'middle', color: DEFAULT_MANUAL_COLOR, strokeWidth: 2, perGroup: false }, hideSourceData: false },
   { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: false },
   { type: 'marginalRug',      enabled: false, params: { rugAxes: 'both', rugLength: 8, opacity: 0.35, strokeWidth: 1, color: DEFAULT_MANUAL_COLOR, perGroup: false } },
   { type: 'hexbin',           enabled: false, params: { binWidth: 20, color: DEFAULT_MANUAL_COLOR, perGroup: false }, hideSourceData: true },

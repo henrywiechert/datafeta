@@ -12,7 +12,7 @@
  */
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Switch, Slider, Select, MenuItem, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Switch, Slider, Typography, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
@@ -32,6 +32,9 @@ import {
   ReferenceStat,
   withAllOverlays,
   normalizePercentile,
+  normalizeSmoothing,
+  MA_SMOOTHING_MIN,
+  MA_SMOOTHING_MAX,
 } from '../../../observable-plot-generator/overlays/types';
 import { Field } from '../../../types';
 import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
@@ -123,55 +126,44 @@ const MovingAverageControls: React.FC<{
   params: OverlayParams;
   onUpdate: (p: Partial<OverlayParams>) => void;
   hasDiscreteColor?: boolean;
-}> = ({ params, onUpdate, hasDiscreteColor }) => {
-  const committed = params.windowSize ?? 20;
-  const [raw, setRaw] = useState(String(committed));
+  hideSourceData?: boolean;
+  onToggleHideSource?: (v: boolean) => void;
+}> = ({ params, onUpdate, hasDiscreteColor, hideSourceData, onToggleHideSource }) => {
   const perGroup = params.perGroup ?? false;
-
-  // Keep local text in sync if the committed value changes externally
-  useEffect(() => { setRaw(String(committed)); }, [committed]);
-
-  const commit = () => {
-    const v = parseInt(raw, 10);
-    if (Number.isFinite(v) && v >= 2 && v <= 1000) {
-      onUpdate({ windowSize: v });
-    } else {
-      setRaw(String(committed)); // revert invalid input
-    }
-  };
 
   return (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography variant="caption" sx={{ minWidth: 46 }}>Window</Typography>
-      <TextField
+      <Typography variant="caption" sx={{ minWidth: 64 }}>Smoothing</Typography>
+      <Slider
         size="small"
-        variant="standard"
-        inputProps={{ style: { width: 40, fontSize: 12, textAlign: 'center', MozAppearance: 'textfield' } }}
-        value={raw}
-        onChange={e => setRaw(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commit(); } }}
+        min={MA_SMOOTHING_MIN}
+        max={MA_SMOOTHING_MAX}
+        step={1}
+        value={normalizeSmoothing(params.smoothing)}
+        onChange={(_, v) => onUpdate({ smoothing: v as number })}
+        valueLabelDisplay="auto"
+        valueLabelFormat={v => `${v}% of points`}
+        sx={{ flex: 1, minWidth: 60 }}
       />
-      <Select
+    </Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <ToggleButtonGroup
         size="small"
-        variant="standard"
-        value={params.reduce ?? 'mean'}
-        onChange={e => onUpdate({ reduce: e.target.value })}
-        sx={{ fontSize: 12, minWidth: 64 }}
+        exclusive
+        value={params.reduce === 'median' ? 'median' : 'mean'}
+        onChange={(_, v: 'mean' | 'median' | null) => { if (v) onUpdate({ reduce: v }); }}
+        sx={{ flex: 1, '& .MuiToggleButton-root': { py: 0.1, px: 0.75, fontSize: 11, textTransform: 'none', flex: 1 } }}
       >
-        <MenuItem value="mean">Mean</MenuItem>
-        <MenuItem value="median">Median</MenuItem>
-        <MenuItem value="sum">Sum</MenuItem>
-        <MenuItem value="min">Min</MenuItem>
-        <MenuItem value="max">Max</MenuItem>
-      </Select>
+        <ToggleButton value="mean">Mean</ToggleButton>
+        <ToggleButton value="median">Median</ToggleButton>
+      </ToggleButtonGroup>
       {!perGroup && (
         <InlineColorPicker value={params.color ?? DEFAULT_MANUAL_COLOR} onChange={c => onUpdate({ color: c })} />
       )}
     </Box>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography variant="caption" sx={{ minWidth: 18 }}>Px</Typography>
+      <Typography variant="caption" sx={{ minWidth: 64 }}>Px</Typography>
       <Slider
         size="small"
         min={0.5}
@@ -194,6 +186,15 @@ const MovingAverageControls: React.FC<{
         />
       </Box>
     )}
+    {/* Hide source data — show only the smoothed line */}
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Typography variant="caption">Hide source data</Typography>
+      <Switch
+        size="small"
+        checked={hideSourceData ?? false}
+        onChange={(_, v) => onToggleHideSource?.(v)}
+      />
+    </Box>
   </Box>
   );
 };
