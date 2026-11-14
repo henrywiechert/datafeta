@@ -49,6 +49,14 @@ export function isDataMarkElement(el: Element, root: Element): boolean {
 }
 
 /**
+ * Whether `el` renders a whole series (line/area path) rather than one row:
+ * Plot binds such paths to an array of row indices instead of a single index.
+ */
+export function isSeriesMarkElement(el: Element): boolean {
+  return Array.isArray((el as any).__data__);
+}
+
+/**
  * Resolve the datum Observable Plot attached to a mark element, falling back
  * to a positional lookup in `data` (by element index, or by an index value
  * stored directly on the element) when `__data__` isn't present.

@@ -14,7 +14,13 @@ import React from 'react';
 
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 import { T } from '../../../theme/tokens';
-import { isDataMarkElement, isDecorationElement, queryDataMarkElements, getMarkDatum } from '../ChartGrid/utils/markElementUtils';
+import {
+  isDataMarkElement,
+  isDecorationElement,
+  isSeriesMarkElement,
+  queryDataMarkElements,
+  getMarkDatum,
+} from '../ChartGrid/utils/markElementUtils';
 import { RECT_HOVER_PROXY_CLASS } from '../../../observable-plot-generator/utils/tooltipUtils';
 import { useTooltipPreferencesStore } from '../../../stores/tooltipPreferencesStore';
 
@@ -339,8 +345,12 @@ export function addTooltipListeners(
   // mouseover/mouseout on a mark fire exactly where mouseenter/mouseleave did.
   const hoverDisabled = () => useTooltipPreferencesStore.getState().hoverDisabled;
 
+  // Line/area paths stand for a whole series, not a row, so they get no
+  // point tooltip; their per-point hover dots provide it instead.
   const markFor = (target: EventTarget | null): Element | null =>
-    target instanceof Element && isDataMarkElement(target, plot) ? target : null;
+    target instanceof Element && isDataMarkElement(target, plot) && !isSeriesMarkElement(target)
+      ? target
+      : null;
 
   // Both built on first need, not per redraw. Element positions are only the
   // datum fallback for marks without a Plot binding; the colour index is only
