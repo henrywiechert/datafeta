@@ -194,7 +194,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
           open={tooltipOpen}
           onOpen={handleTooltipOpen}
           onClose={handleTooltipClose}
-          disableInteractive
           disableFocusListener
           disableHoverListener={isDragging}
           arrow

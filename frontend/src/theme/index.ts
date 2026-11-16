@@ -186,6 +186,19 @@ const denseTheme = extendTheme({
     borderRadius: 4,
   },
   components: {
+    /**
+     * Tooltips close the moment the pointer leaves their trigger and never
+     * catch the pointer themselves (`pointer-events: none` on the popper).
+     * An interactive tooltip lingers over neighbouring controls — often the
+     * next button the user is heading for — and swallows its hover. Opt back
+     * in per tooltip with `disableInteractive={false}` only for one whose
+     * content must be clickable.
+     */
+    MuiTooltip: {
+      defaultProps: {
+        disableInteractive: true,
+      },
+    },
     MuiMenu: {
       defaultProps: {
         MenuListProps: { dense: true },

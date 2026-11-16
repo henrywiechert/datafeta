@@ -327,7 +327,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           {isSwitchingDatabase ? (
             <CircularProgress size={14} />
           ) : onDatabaseSwitch ? (
-            <Tooltip title={switchTooltip} placement="right" disableInteractive>
+            <Tooltip title={switchTooltip} placement="right">
               <span>
                 <IconButton
                   size="small"
@@ -345,7 +345,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         {/* Rightmost slot: add. Aligns with the Table row's add button. */}
         <Box sx={actionColumnSx}>
           {onAddDatabase ? (
-            <Tooltip title={addDatabaseTooltip} placement="right" disableInteractive>
+            <Tooltip title={addDatabaseTooltip} placement="right">
               <span>
                 <IconButton
                   size="small"
@@ -404,7 +404,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             The slot stays when the button is hidden so the Table field keeps its width. */}
         <Box sx={actionColumnSx}>
           {showAddEverywhere ? (
-            <Tooltip title={addEverywhereTooltip} placement="right" disableInteractive>
+            <Tooltip title={addEverywhereTooltip} placement="right">
               <span>
                 <IconButton
                   size="small"
@@ -423,7 +423,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           <Tooltip
             title={canAdd ? 'Add table' : 'Select DB and table'}
             placement="right"
-            disableInteractive
           >
             <span>
               <IconButton

@@ -297,7 +297,6 @@ function TableRow({
           {onRemoveDatabase && (
             <Tooltip
               title={`Remove all ${removeDatabaseCount} tables from ${database}`}
-              disableInteractive
             >
               <IconButton
                 size="small"
@@ -310,7 +309,7 @@ function TableRow({
             </Tooltip>
           )}
           {onRemove && (
-            <Tooltip title={`Remove ${hasDb ? `${database}.` : ''}${table}`} disableInteractive>
+            <Tooltip title={`Remove ${hasDb ? `${database}.` : ''}${table}`}>
               <IconButton
                 size="small"
                 edge="end"
