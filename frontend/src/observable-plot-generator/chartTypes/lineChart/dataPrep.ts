@@ -66,6 +66,84 @@ export function toXNumber(v: any, kind: XKind): number | null {
   return null;
 }
 
+type BinAcc = { first: any; sumX: number; sumY: number; cnt: number };
+
+/** The averaged point of a bin; other columns come from the bin's first row. */
+function binPoint(acc: BinAcc, xColumn: string, yColumn: string, xKind: XKind): any {
+  const xAvg = acc.sumX / acc.cnt;
+  return { ...acc.first, [xColumn]: xKind === 'time' ? new Date(xAvg) : xAvg, [yColumn]: acc.sumY / acc.cnt };
+}
+
+/**
+ * Width of a pan-stable grid cell: `span / cells`, rounded up to a
+ * quarter-octave step. It depends on the viewport span only, so panning keeps
+ * the grid, and small zoom steps mostly do too.
+ */
+function stableGridWidth(span: number, cells: number): number {
+  return Math.pow(2, Math.ceil(Math.log2(span / cells) * 4) / 4);
+}
+
+/**
+ * Bin-aggregate a sorted line series on a grid of `width` anchored at 0, so a
+ * bin's point depends only on the rows inside that bin, never on where the
+ * series or the cull window starts.
+ */
+function binOnGrid(rowsSorted: any[], xColumn: string, yColumn: string, xKind: XKind, width: number): any[] {
+  const out: any[] = [];
+  let acc: BinAcc | null = null;
+  let accBin = NaN;
+  for (const row of rowsSorted) {
+    const x = toXNumber(row?.[xColumn], xKind);
+    const y = row?.[yColumn];
+    if (x == null || typeof y !== 'number' || !Number.isFinite(y)) continue;
+    const bin = Math.floor(x / width);
+    if (acc && bin === accBin) {
+      acc.sumX += x;
+      acc.sumY += y;
+      acc.cnt += 1;
+    } else {
+      if (acc) out.push(binPoint(acc, xColumn, yColumn, xKind));
+      acc = { first: row, sumX: x, sumY: y, cnt: 1 };
+      accBin = bin;
+    }
+  }
+  if (acc) out.push(binPoint(acc, xColumn, yColumn, xKind));
+  return out;
+}
+
+/** First row per grid cell of `width` (plus the last row), for pan-stable dot thinning. */
+function sampleOnGrid(rowsSorted: any[], xColumn: string, xKind: XKind, width: number): any[] {
+  const out: any[] = [];
+  let lastCell = NaN;
+  for (const row of rowsSorted) {
+    const x = toXNumber(row?.[xColumn], xKind);
+    if (x == null) continue;
+    const cell = Math.floor(x / width);
+    if (cell !== lastCell) {
+      out.push(row);
+      lastCell = cell;
+    }
+  }
+  // ensure last point present (helps hover at end)
+  const last = rowsSorted[rowsSorted.length - 1];
+  if (last && out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
+/** Keys of the series with more than `limit` rows. */
+function seriesWithMoreRowsThan(rows: any[], seriesColumns: readonly string[], limit: number): Set<string> {
+  const dense = new Set<string>();
+  if (rows.length <= limit) return dense;
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = seriesKeyOf(row, seriesColumns);
+    const count = (counts.get(key) ?? 0) + 1;
+    counts.set(key, count);
+    if (count > limit) dense.add(key);
+  }
+  return dense;
+}
+
 /**
  * Bin-aggregate a line series so we end up with ~one point per x "position".
  * This makes line charts readable (unlike scatter) and avoids vertical hairballs when x has many distinct values.
@@ -125,8 +203,7 @@ function binAggregateLine(
   const bins = Math.min(maxBins, n);
   const binWidth = span / bins;
 
-  type Acc = { sumX: number; sumY: number; cnt: number };
-  const accs: Acc[] = Array.from({ length: bins }, () => ({ sumX: 0, sumY: 0, cnt: 0 }));
+  const accs: BinAcc[] = Array.from({ length: bins }, () => ({ first: null, sumX: 0, sumY: 0, cnt: 0 }));
 
   for (let i = 0; i < n; i++) {
     const xNum = xs[i];
@@ -137,19 +214,15 @@ function binAggregateLine(
     if (b < 0) b = 0;
     if (b >= bins) b = bins - 1;
     const a = accs[b];
+    if (a.cnt === 0) a.first = rowsSorted[i];
     a.sumX += xNum;
     a.sumY += y;
     a.cnt += 1;
   }
 
   const out: any[] = [];
-  for (let b = 0; b < bins; b++) {
-    const a = accs[b];
-    if (a.cnt === 0) continue;
-    const xAvg = a.sumX / a.cnt;
-    const yAvg = a.sumY / a.cnt;
-    const xVal = xKind === 'time' ? new Date(xAvg) : xAvg;
-    out.push({ ...rowsSorted[0], [xColumn]: xVal, [yColumn]: yAvg });
+  for (const a of accs) {
+    if (a.cnt > 0) out.push(binPoint(a, xColumn, yColumn, xKind));
   }
 
   return out;
@@ -292,15 +365,32 @@ export function prepareLineData(params: {
   // reveals detail; the edge rows are added back unbinned afterwards.
   let windowSorted = cleanSorted;
   let edgeRows: any[] = [];
+  let cullSpan: number | null = null;
   if (viewport && (axisKind === 'time' || axisKind === 'number')) {
-    const culled = cullSortedToWindow(cleanSorted, independentColumn, axisKind, seriesColumns, cullRange(viewport));
+    const cullWindow = cullRange(viewport);
+    const culled = cullSortedToWindow(cleanSorted, independentColumn, axisKind, seriesColumns, cullWindow);
     windowSorted = culled.inside;
     edgeRows = culled.edges;
+    cullSpan = cullWindow.max - cullWindow.min;
   }
 
   const maxBins = budget.maxPoints;
   let budgetedSorted = windowSorted;
-  if (windowSorted.length > maxBins) {
+  if (cullSpan != null) {
+    // Panning must not move points that stay in view: bin on a grid fixed by
+    // the viewport span, and pick the series to bin by their full row count
+    // (not the count inside the moving window).
+    const dense = seriesWithMoreRowsThan(cleanSorted, seriesColumns, maxBins);
+    if (dense.size > 0) {
+      const width = stableGridWidth(cullSpan, maxBins);
+      const reduced: any[] = [];
+      for (const [key, arr] of Array.from(groupRowsBySeries(windowSorted, seriesColumns).entries())) {
+        if (dense.has(key)) reduced.push(...binOnGrid(arr, independentColumn, dependentColumn, axisKind, width));
+        else reduced.push(...arr);
+      }
+      budgetedSorted = reduced.sort(compareByColumn(independentColumn));
+    }
+  } else if (windowSorted.length > maxBins) {
     if (splitsSeries) {
       // Group by series, bin-aggregate each group separately
       const groups = groupRowsBySeries(windowSorted, seriesColumns);
@@ -333,7 +423,18 @@ export function prepareLineData(params: {
   // Use the actual total dot count to decide whether sampling is needed at all;
   // if the data already fits within the budget, show every point.
   let dotData: any[];
-  if (seriesGroups) {
+  if (cullSpan != null) {
+    // Same reasoning as the line bins: thin on a grid fixed by the viewport
+    // span, and decide by the full data, so a pan never swaps dots around.
+    if (clean.length <= budget.maxDots) {
+      dotData = budgetedSorted;
+    } else {
+      const groups = seriesGroups ? Array.from(seriesGroups.values()) : [budgetedSorted];
+      const width = stableGridWidth(cullSpan, Math.max(2, Math.floor(budget.maxDots / groups.length)));
+      dotData = [];
+      for (const arr of groups) dotData.push(...sampleOnGrid(arr, independentColumn, axisKind, width));
+    }
+  } else if (seriesGroups) {
     if (budgetedSorted.length <= budget.maxDots) {
       // All points fit within budget — no need to sample
       dotData = budgetedSorted;
