@@ -1,6 +1,8 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { getAggregationSpec } from '../../aggregations';
 import { TooltipField, Field } from '../../types';
+import type { ChartGenerationContext } from '../types';
+import { resolveContextColorChannel } from './colorSchemeUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 import { formatDateTimeDisplay } from '../../datetime/datetimeDisplayFormat';
@@ -83,6 +85,22 @@ export function formatTooltipValue(val: any, sourceField?: Field): string {
 }
 
 /**
+ * Find the Field in a chart context (axes, color, tooltip dropzone) that produced
+ * a result column, so tooltip rows can carry `sourceField` (needed for filter icons).
+ */
+export function resolveFieldByColumn(context: ChartGenerationContext, columnName?: string): Field | undefined {
+  if (!columnName) return undefined;
+  const color = resolveContextColorChannel(context);
+  const candidates = [
+    ...context.xFields,
+    ...context.yFields,
+    ...(color.field ? [color.field] : []),
+    ...(context.tooltipFields || []),
+  ];
+  return candidates.find((field) => getResultColumnName(field) === columnName || field.columnName === columnName);
+}
+
+/**
  * Create tooltip field configuration for chart types
  * 
  * @param mainFields - Primary fields to show (e.g., X, Y, dimension).
@@ -137,6 +155,8 @@ export function createTooltipFieldsGetter(
           sourceField,
           rawValue: value,
         });
+        // A field also dropped in the tooltip zone must not be listed twice
+        exclude.add(column);
       }
     });
     

@@ -509,10 +509,42 @@ class TestVirtualColumnExpressionBuilder:
             name='malicious',
             expression='__import__("os").system("ls")'
         )
-        
-        with pytest.raises(QueryGenerationError, match='cannot contain'):
+
+        with pytest.raises(QueryGenerationError, match='Unsupported attribute'):
             self.builder.register_virtual_column(vc)
-    
+
+    @pytest.mark.parametrize('expression', [
+        # Reaches real builtins via a generator frame without a single '__'
+        # outside string literals.
+        "((((CASE().nodes_()).gi_frame).f_globals).get('__builtins__')).get('__import__')",
+        "(revenue).__class__",
+        "''.__class__",
+        "{'a': 1}['a']",
+        "[x for x in (revenue, cost)]",
+        "(lambda: revenue)()",
+        "(y := revenue)",
+        "f'{revenue}'",
+    ])
+    def test_python_sandbox_escapes_rejected(self, expression):
+        """Constructs outside the expression grammar never reach eval."""
+        vc = VirtualColumnDefinition(name='malicious', expression=expression)
+        with pytest.raises(QueryGenerationError, match='Unsupported'):
+            self.builder.register_virtual_column(vc)
+
+    @pytest.mark.parametrize('expression, expected', [
+        ('rows__sumNs / rows__count', '"rows__sumNs"/"rows__count"'),
+        ('ROUND(rows__sumNs, 2)', 'ROUND("rows__sumNs",2)'),
+        ('"rows__avg ns" * 2', '"rows__avg ns"*2'),
+        ("CASE WHEN rows__count > 0 THEN rows__sumNs ELSE 0 END",
+         'CASE WHEN "rows__count">0 THEN "rows__sumNs" ELSE 0 END'),
+    ])
+    def test_double_underscore_column_names_allowed(self, expression, expected):
+        """Column names containing '__' (e.g. flattened nested fields) are valid."""
+        vc = VirtualColumnDefinition(name='avgIns', expression=expression)
+        term = self.builder.register_virtual_column(vc)
+        assert term.get_sql(quote_char='"') == expected
+        assert all('__' in f for f in self.builder.get_source_fields('avgIns'))
+
     # ========================================================================
     # Virtual Column References (Not Allowed)
     # ========================================================================
@@ -1012,7 +1044,7 @@ class TestLinkColumnExpressions:
         "cell_id -- comment",
         "cell_id /* comment */ + 1",
         "DELETE FROM t",
-        "cell_id.__class__",
+        "(cell_id).__class__",
         "CREATE TABLE x",
         "CONCAT('a','b'); DROP TABLE t",
         "CONCAT('ok') -- trailing",

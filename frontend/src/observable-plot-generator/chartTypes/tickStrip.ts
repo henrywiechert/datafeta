@@ -6,7 +6,7 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
-import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { createTooltipFieldsGetter, resolveFieldByColumn } from '../utils/tooltipUtils';
 
 type Domains = Record<string, [number, number] | [Date, Date] | any[]> | undefined;
 
@@ -28,6 +28,7 @@ function applyColorScale(opts: Plot.PlotOptions, colorScale: any): void {
  * Add custom tooltip configuration to plot options (color is read directly from DOM)
  */
 function addCustomTooltip(
+  context: ChartGenerationContext,
   opts: Plot.PlotOptions,
   data: any[],
   dimensionColumn: string,
@@ -38,12 +39,16 @@ function addCustomTooltip(
   sizeField: Field | undefined,
   tooltipFields: Field[] | undefined
 ): void {
-  const mainFields: { label: string; column: string }[] = [
-    { label: dimensionLabel, column: dimensionColumn }
+  const mainFields: { label: string; column: string; sourceField?: Field }[] = [
+    { label: dimensionLabel, column: dimensionColumn, sourceField: resolveFieldByColumn(context, dimensionColumn) }
   ];
   
   if (categoryDimensionColumn && categoryLabel) {
-    mainFields.push({ label: categoryLabel, column: categoryDimensionColumn });
+    mainFields.push({
+      label: categoryLabel,
+      column: categoryDimensionColumn,
+      sourceField: resolveFieldByColumn(context, categoryDimensionColumn),
+    });
   }
   
   (opts as any).__customTooltip = {
@@ -115,6 +120,7 @@ function createHoverDotConfig(
  * Build plot options for tick strip chart
  */
 function buildPlotOptions(
+  context: ChartGenerationContext,
   orientation: 'x' | 'y',
   data: any[],
   dimensionColumn: string,
@@ -206,7 +212,7 @@ function buildPlotOptions(
   }
   
   applyColorScale(opts, colorScale);
-  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
+  addCustomTooltip(context, opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
   
   return opts;
 }
@@ -364,6 +370,7 @@ export function tickStrip(
 
   // Build and return plot options
   return buildPlotOptions(
+    context,
     orientation,
     data,
     dimensionColumn,

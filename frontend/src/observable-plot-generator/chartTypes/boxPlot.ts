@@ -5,7 +5,7 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/cha
 import { ColorScaleInfo, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
-import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
+import { createTooltipFieldsGetter, formatTooltipValue, resolveFieldByColumn } from '../utils/tooltipUtils';
 import { Field, TooltipField } from '../../types';
 
 const BOX_PLOT_COLOR_COLUMN = '__box_plot_color';
@@ -207,18 +207,6 @@ function buildColorizedRawBoxData(
     }),
     colorColumnName: BOX_PLOT_COLOR_COLUMN,
   };
-}
-
-function resolveFieldByColumn(context: ChartGenerationContext, columnName?: string): Field | undefined {
-  if (!columnName) return undefined;
-  const color = resolveContextColorChannel(context);
-  const candidates = [
-    ...context.xFields,
-    ...context.yFields,
-    ...(color.field ? [color.field] : []),
-    ...(context.tooltipFields || []),
-  ];
-  return candidates.find((field) => getResultColumnName(field) === columnName || field.columnName === columnName);
 }
 
 function createBoxTooltipFieldsGetter(

@@ -453,7 +453,7 @@ function buildTickStripOptions(
   }
   
   // Add custom tooltip configuration
-  addTickStripTooltip(options, cellData, dimCol, categoryColumnName, colorField, tooltipFields, facetFields);
+  addTickStripTooltip(options, cellData, dimCol, categoryColumnName, colorField, tooltipFields, facetFields, dimensionField, categoryField);
   
   return options;
 }
@@ -520,11 +520,19 @@ function addTickStripTooltip(
   categoryColumnName: string | undefined,
   colorField: Field | null | undefined,
   tooltipFields: Field[] | undefined,
-  facetFields?: Field[]
+  facetFields?: Field[],
+  dimensionField?: Field,
+  categoryField?: Field | null
 ): void {
-  const mainFields: { label: string; column: string }[] = [{ label: dimCol, column: dimCol }];
+  const mainFields: { label: string; column: string; sourceField?: Field }[] = [
+    { label: dimCol, column: dimCol, sourceField: dimensionField },
+  ];
   if (categoryColumnName) {
-    mainFields.push({ label: categoryColumnName, column: categoryColumnName });
+    mainFields.push({
+      label: categoryColumnName,
+      column: categoryColumnName,
+      sourceField: categoryField ?? undefined,
+    });
   }
   (options as any).__customTooltip = {
     enabled: true,

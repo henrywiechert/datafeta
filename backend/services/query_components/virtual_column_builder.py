@@ -2,6 +2,7 @@
 """Builder for virtual column expressions using Pypika."""
 
 from typing import Any, Dict, List, Optional, Set, Tuple
+import ast
 import re
 import logging
 
@@ -37,6 +38,25 @@ _NARROW_INT_TYPES: frozenset = frozenset({
 # "numeric" hint and only apply casts for explicit SQL types.
 _LOGICAL_OUTPUT_TYPES_NO_CAST: frozenset = frozenset({'numeric'})
 _BUILTIN_SOURCE_FIELDS: frozenset = frozenset({'_source_database', '_source_table'})
+
+# Python syntax an expression may use once rewritten for eval(): column names,
+# literals, calls to the namespace functions, the operators pypika overloads,
+# and tuples/lists as call arguments. Anything else (subscripts, comprehensions,
+# lambdas, walrus, f-strings, ...) is rejected before eval runs.
+_ALLOWED_EVAL_NODES: Tuple[type, ...] = (
+    ast.Expression, ast.Load, ast.Name, ast.Constant, ast.Call, ast.keyword,
+    ast.Attribute, ast.Tuple, ast.List,
+    ast.BinOp, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow,
+    ast.BitAnd, ast.BitOr, ast.BitXor,
+    ast.UnaryOp, ast.USub, ast.UAdd, ast.Invert,
+    ast.Compare, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+)
+# Attribute access is the sandbox-escape vector (``x.nodes_().gi_frame.f_globals``
+# reaches real builtins without any dunder), so only the CASE builder methods
+# (written directly or produced by _convert_sql_case_to_pypika) are allowed.
+# Dotted column names never reach eval as attributes: they are rewritten to
+# plain ``table__column`` names first.
+_ALLOWED_EVAL_ATTRIBUTES: frozenset = frozenset({'when', 'else_'})
 
 
 # Custom function classes for functions not directly available in Pypika
@@ -306,10 +326,19 @@ class VirtualColumnExpressionBuilder:
                 eval_expression = eval_expression.replace(col_ref, safe_name)
         
         logger.debug(f"Eval expression: '{eval_expression}', namespace keys: {list(namespace.keys())}")
-        
+
+        # Validate the parsed tree and evaluate that same tree, so the check
+        # sees exactly what runs (no text-level masking that could disagree
+        # with Python's tokenizer).
+        try:
+            tree = ast.parse(eval_expression, mode='eval')
+        except SyntaxError as e:
+            raise ValueError(f"Failed to evaluate expression: {e}")
+        self._validate_eval_tree(tree)
+
         # Evaluate expression
         try:
-            result = eval(eval_expression, {"__builtins__": {}}, namespace)
+            result = eval(compile(tree, '<virtual column>', 'eval'), {"__builtins__": {}}, namespace)
             
             if not isinstance(result, Term):
                 # Wrap literals
@@ -426,10 +455,28 @@ class VirtualColumnExpressionBuilder:
             if token in expr_scanned:
                 raise ValueError(f"Forbidden keyword in expression: {token}")
 
-        # Check for suspicious patterns
-        if '__' in expr_scanned:  # Python special methods
-            raise ValueError("Expression cannot contain '__'")
-    
+        # Python-level safety (dunders, attribute chains, ...) is enforced on
+        # the parsed expression by _validate_eval_tree, not here: a textual
+        # '__' ban rejected legitimate column names such as ``rows__sumNs``.
+
+    @staticmethod
+    def _validate_eval_tree(tree: ast.Expression) -> None:
+        """Reject any Python construct outside the virtual-column grammar.
+
+        Raises:
+            ValueError: If the tree contains a disallowed node or attribute
+        """
+        for node in ast.walk(tree):
+            if not isinstance(node, _ALLOWED_EVAL_NODES):
+                raise ValueError(
+                    f"Unsupported syntax in expression: {type(node).__name__}"
+                )
+            if isinstance(node, ast.Attribute) and node.attr not in _ALLOWED_EVAL_ATTRIBUTES:
+                raise ValueError(
+                    f"Unsupported attribute access in expression: '.{node.attr}' "
+                    f"(only CASE().when(...).else_(...) is supported)"
+                )
+
     def _extract_column_references(self, expression: str) -> List[str]:
         """
         Extract column names from expression.

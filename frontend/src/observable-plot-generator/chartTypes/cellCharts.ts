@@ -335,8 +335,8 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       : getResultColumnName({ ...xMeasure!, aggregation: xMeasure!.aggregation || 'sum' } as any);
     return tickStrip(
       { 
-        xFields: [], 
-        yFields: [], 
+        xFields: [xf],
+        yFields: [yf],
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
         color: ctx.color,
         sizeField: ctx.sizeField,
@@ -359,8 +359,8 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     const xCategory = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null;
     return tickStrip(
       { 
-        xFields: [], 
-        yFields: [], 
+        xFields: [xf],
+        yFields: [yf],
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
         color: ctx.color,
         sizeField: ctx.sizeField,
@@ -398,8 +398,8 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       : getResultColumnName({ ...yMeasure!, aggregation: yMeasure!.aggregation || 'sum' } as any);
     return tickStrip(
       {
-        xFields: [], 
-        yFields: [], 
+        xFields: [xf],
+        yFields: [yf],
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
         color: ctx.color,
         sizeField: ctx.sizeField,
@@ -424,8 +424,8 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     const yCategory = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null;
     return tickStrip(
       { 
-        xFields: [], 
-        yFields: [], 
+        xFields: [xf],
+        yFields: [yf],
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
         color: ctx.color,
         sizeField: ctx.sizeField,

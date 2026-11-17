@@ -35,4 +35,32 @@ describe('tickStrip', () => {
     expect(opts.y?.type).toBe('band');
     expect(opts.y?.tickFormat).toBeUndefined();
   });
+  describe('tooltip filterability', () => {
+    const categoryField: any = {
+      id: 'cat', columnName: 'category', type: 'dimension', flavour: 'discrete',
+    };
+    const makeCtx = (tooltipFields: any[] = []): ChartGenerationContext => ({
+      queryResult: { rows: [{ value: 10, category: 'A' }], columns: [], row_count: 1 } as any,
+      xFields: [categoryField],
+      yFields: [],
+      tooltipFields,
+      color: { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
+      sizeField: undefined,
+    });
+
+    test('category row carries its source field so it gets filter icons', () => {
+      const opts: any = tickStrip(makeCtx(), 'y', 'value', 'category', { dimension: 'Value', category: 'Category' });
+      const rows = opts.__customTooltip.getFields({ value: 10, category: 'A' });
+      const category = rows.find((r: any) => r.label === 'Category');
+      expect(category.sourceField).toBe(categoryField);
+      expect(category.rawValue).toBe('A');
+    });
+
+    test('same field in tooltip dropzone is not listed twice', () => {
+      const opts: any = tickStrip(makeCtx([categoryField]), 'y', 'value', 'category', { dimension: 'Value', category: 'Category' });
+      const rows = opts.__customTooltip.getFields({ value: 10, category: 'A' });
+      expect(rows.filter((r: any) => r.rawValue === 'A')).toHaveLength(1);
+      expect(rows.find((r: any) => r.rawValue === 'A').sourceField).toBe(categoryField);
+    });
+  });
 });
