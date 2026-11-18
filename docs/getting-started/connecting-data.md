@@ -39,6 +39,11 @@ JSON files are automatically flattened on connect so nested structures become re
 
 The result is materialised as Parquet internally, so queries are fast regardless of the original file size. Large single-object files (such as Chrome Trace Format `.json` files) are fully supported.
 
+A single JSON object holding several independent collections (e.g. a git statistics report with
+many arrays and maps) is a **document**: choose its **sections** in the **Select Sections** dialog,
+and each becomes its own table (`file_section`). See
+[JSON / NDJSON / JSONL Files](../reference/data-sources.md#json-ndjson-jsonl-files) for the details.
+
 ### Excel / OpenDocument workbooks
 
 After you click **Connect** (or **Add Files**), a **Select Sheets** dialog lists every sheet of each

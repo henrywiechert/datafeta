@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Sequence
 
 from backend.exceptions import FileProcessingError, InvalidInputError
 
-from .base import CSV_OPTIONS, DATE_FORMAT_OPTIONS, BaseFileHandler, FileFormat
+from .base import CSV_OPTIONS, DATE_FORMAT_OPTIONS, BaseFileHandler, FileFormat, quote_identifier
 
 _CSV_SNIFF_BYTES = 16384
 
@@ -120,9 +120,11 @@ class CsvFileHandler(BaseFileHandler):
 
         numeric_cols = set()
         if varchar_cols:
+            q = quote_identifier
             checks = ", ".join(
-                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL AND TRY_CAST(TRIM("{c}") AS DOUBLE) IS NULL) AS "{c}__bad", '
-                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL) AS "{c}__present"'
+                f'COUNT(*) FILTER (WHERE {q(c)} IS NOT NULL AND TRY_CAST(TRIM({q(c)}) AS DOUBLE) IS NULL) '
+                f'AS {q(c + "__bad")}, '
+                f'COUNT(*) FILTER (WHERE {q(c)} IS NOT NULL) AS {q(c + "__present")}'
                 for c in varchar_cols
             )
             check_result = con.execute(f"SELECT {checks} FROM {raw_view};").fetchone()
@@ -134,7 +136,8 @@ class CsvFileHandler(BaseFileHandler):
             }
 
         return [
-            f'TRY_CAST(TRIM("{row[0]}") AS DOUBLE) AS "{row[0]}"' if row[0] in numeric_cols else f'"{row[0]}"'
+            f'TRY_CAST(TRIM({quote_identifier(row[0])}) AS DOUBLE) AS {quote_identifier(row[0])}'
+            if row[0] in numeric_cols else quote_identifier(row[0])
             for row in describe
         ]
 

@@ -20,6 +20,12 @@ CSV_OPTIONS = "csv"              # delimiter, header, separators, sampling, whit
 DATE_FORMAT_OPTIONS = "date_formats"  # date / timestamp patterns for dates stored as text
 
 
+def quote_identifier(name: str) -> str:
+    """Quote a DuckDB identifier. Column names come from file content (CSV
+    headers, JSON keys) and may themselves contain double quotes."""
+    return '"' + name.replace('"', '""') + '"'
+
+
 @dataclass(frozen=True)
 class FileFormat:
     """Public description of an uploadable file format."""
@@ -29,6 +35,7 @@ class FileFormat:
     mime_types: FrozenSet[str] = frozenset()
     options: FrozenSet[str] = frozenset()
     # Singular noun for selectable parts (e.g. "sheet"); None = one table per file.
+    # Files of a format with parts may still be a single table (list_parts None).
     part_label: Optional[str] = None
 
     def to_public(self) -> Dict[str, Any]:
@@ -110,10 +117,10 @@ class BaseFileHandler(ABC):
 
         Hook for per-format column fixes (e.g. CSV numeric whitespace).
         """
-        return [f'"{row[0]}"' for row in describe]
+        return [quote_identifier(row[0]) for row in describe]
 
     def list_parts(self, path: str) -> Optional[List[PartInfo]]:
-        """Selectable parts of the file, or None when the file is always one table."""
+        """Selectable parts of the file, or None when the file is one table."""
         return None
 
     def open(

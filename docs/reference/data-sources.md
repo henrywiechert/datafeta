@@ -49,7 +49,20 @@ Upload JSON files alongside CSV and Parquet in the same **File** connection type
 
 The flattened data is materialised as Parquet internally so all queries run at full columnar speed — no re-parsing on each query.
 
-**Large single-object files** (e.g. Chrome Trace Format, where all records live inside one top-level array) are supported. The outer object's scalar fields are repeated on every row produced by the array UNNEST.
+**Single-object files that wrap one array** (e.g. Chrome Trace Format, where all records live inside one top-level array, or an API response with `data` and `total`) load as one table. The outer object's other fields are repeated on every row produced by the array UNNEST.
+
+**JSON documents:** any other single-object file (several top-level arrays, or more than 64 KB of other content, such as a git statistics report) is split into **sections**, one table per top-level key, chosen in the **Select Sections** dialog:
+
+| Section value | Table rows |
+|---|---|
+| Object `{"churn": {"a.h": 3, "b.h": 5}}` | One per key: `key`, `value` (or the value's fields as columns) |
+| Nested object of objects `{"author_files": {"ada": {"a.h": 3}}}` | One per inner key: `key`, `key_2`, `value` when the inner objects have many distinct keys (200+ together); otherwise the inner keys become columns |
+| Array `{"tags": [{"name": "v1"}, …]}` | One per element: `index` (1-based), the element's fields (or `value`) |
+| Top-level scalars `{"total": 42, …}` | Collected into one `summary` row |
+
+Tables are named `file_section` (or just `file` when only one section has data). Empty sections are listed but cannot be selected. Saved workspaces remember which sections were loaded.
+
+**Keys are data:** object keys that differ only in letter case (`onlineConfig/x.hpp`, `onlineconfig/x.hpp`) are kept apart — such objects load as key → value maps. They are rejected with a clear error only when their values have incompatible types.
 
 ---
 

@@ -127,4 +127,5 @@ class TestHandlerContract:
         if handler_cls.FORMAT.part_label is None:
             assert parts is None
         else:
-            assert parts and all(p.name for p in parts)
+            # A format with parts may still find this file to be a single table.
+            assert parts is None or (parts and all(p.name for p in parts))

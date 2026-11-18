@@ -90,6 +90,22 @@ class TestCsvConnect:
         assert connector._files[0].handler.config["delimiter"] == ";"
         assert connector._files[0].handler.config["decimal_separator"] == ","
 
+    @pytest.mark.parametrize("trim_numeric_whitespace", [False, True])
+    def test_header_containing_double_quote(self, tmp_path, trim_numeric_whitespace):
+        """Header names are data; a literal double quote must not break the view SQL."""
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text('id,"say ""hi""",n\n1,a,2 \n')
+
+        connector = FileConnector()
+        connector.connect({
+            "file_path": str(csv_path),
+            "original_filename": "test.csv",
+            "csv_trim_numeric_whitespace": trim_numeric_whitespace,
+        })
+
+        _, rows = connector.fetch_data('SELECT * FROM "test"')
+        assert rows[0]['say "hi"'] == "a"
+
 
 class TestParquetConnect:
     """Tests for Parquet file connection."""
@@ -586,6 +602,192 @@ class TestJsonFlattenPreservesRows:
             'WHERE "id" = 1 ORDER BY "frames__index"'
         )
         assert [(r["frames__fn"], r["frames__ln"]) for r in rows] == [("a", 10), ("b", 20)]
+
+
+class TestJsonUnusualKeys:
+    """JSON keys are data (file paths, names) and may be anything a JSON string can be.
+
+    Regression: a gitstats report failed to load because DuckDB struct field names
+    are case-insensitive ("onlineConfig/x.hpp" vs "onlineconfig/x.hpp"), a key
+    contained a double quote ('nokia.com"'), and a key was empty (files without
+    an extension).
+    """
+
+    def _connect(self, tmp_path, records):
+        import json
+
+        path = tmp_path / "keys.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+        connector = FileConnector()
+        connector.connect({"file_path": str(path), "original_filename": "keys.jsonl"})
+        return connector
+
+    def test_case_colliding_keys_load_as_map(self, tmp_path):
+        """Keys differing only in case become a MAP keeping both values; other
+        small structs stay expanded into columns."""
+        connector = self._connect(tmp_path, [
+            {"id": 1, "files": {"Foo.h": 1, "foo.h": 2, "bar.h": 3}, "pt": {"x": 1.5, "y": 2.5}},
+            {"id": 2, "files": {"bar.h": 5}, "pt": {"x": 1.0, "y": 2.0}},
+        ])
+
+        types = {c.name: c.data_type for c in connector.list_columns(table="keys")}
+        assert types["files"].startswith("MAP(")
+        assert {"pt__x", "pt__y"} <= types.keys()
+
+        _, rows = connector.fetch_data(
+            '''SELECT "files"['Foo.h'] AS upper, "files"['foo.h'] AS lower FROM "keys" WHERE "id" = 1'''
+        )
+        assert rows == [{"upper": 1, "lower": 2}]
+
+    def test_case_colliding_keys_with_mixed_value_types_are_rejected(self, tmp_path):
+        """No MAP can hold BIGINT and VARCHAR values: fail with a clear 4xx error."""
+        with pytest.raises(InvalidInputError, match="differ only in letter case"):
+            self._connect(tmp_path, [{"id": 1, "x": {"Foo": 1, "foo": "text"}}])
+
+    def test_keys_containing_double_quotes_expand(self, tmp_path):
+        connector = self._connect(tmp_path, [{"id": 1, "domains": {"nokia.com": 1, 'nokia.com"': 2}}])
+
+        _, rows = connector.fetch_data('SELECT * FROM "keys"')
+        assert rows[0]["domains__nokia.com"] == 1
+        assert rows[0]['domains__nokia.com"'] == 2
+
+    def test_struct_with_empty_key_is_kept_whole(self, tmp_path):
+        """DuckDB cannot extract an empty-named field, so the struct stays one
+        column instead of failing the whole upload; its data is preserved."""
+        connector = self._connect(tmp_path, [
+            {"id": 1, "ext": {"md": 1, "": 2}, "frames": [{"fn": "a", "": 3}]},
+        ])
+
+        _, rows = connector.fetch_data('SELECT "ext", "frames" FROM "keys"')
+        assert rows == [{"ext": {"md": 1, "": 2}, "frames": {"fn": "a", "": 3}}]
+
+
+class TestJsonDocuments:
+    """A single JSON object with several collections loads one table per section.
+
+    Regression: a git statistics report (two top-level arrays plus large maps)
+    was flattened as one record, zipping the arrays and repeating every map on
+    each row - 3.5 billion values, 32 GB of memory, then a crash.
+    """
+
+    def _write(self, tmp_path, doc, name="doc.json"):
+        import json
+
+        path = tmp_path / name
+        path.write_text(json.dumps(doc))
+        return str(path)
+
+    def _connect(self, path, parts=None):
+        connector = FileConnector()
+        connector.connect({"file_paths": [{
+            "file_path": path, "original_filename": os.path.basename(path), "parts": parts,
+        }]})
+        return connector
+
+    def _parts(self, path):
+        from backend.connectors.file_handlers import handler_for
+
+        parts = handler_for(path).list_parts(path)
+        return None if parts is None else [(p.name, p.selectable) for p in parts]
+
+    def test_wrapper_with_one_array_stays_one_table(self, tmp_path):
+        """Chrome Trace Format: small metadata repeats on every event row (documented)."""
+        path = self._write(tmp_path, {
+            "traceEvents": [{"name": "a", "ts": 1}, {"name": "b", "ts": 2}],
+            "displayTimeUnit": "ns",
+            "otherData": {"version": "v8"},
+        }, "trace.json")
+        assert self._parts(path) is None
+
+        _, rows = self._connect(path).fetch_data(
+            'SELECT "traceEvents__name", "displayTimeUnit", "otherData__version" FROM "trace" '
+            'ORDER BY "traceEvents__index"'
+        )
+        assert rows == [
+            {"traceEvents__name": "a", "displayTimeUnit": "ns", "otherData__version": "v8"},
+            {"traceEvents__name": "b", "displayTimeUnit": "ns", "otherData__version": "v8"},
+        ]
+
+    def test_sections_become_tables(self, tmp_path):
+        path = self._write(tmp_path, {
+            "project": "rt",
+            "total": 2,
+            "authors": ["ada", "bob"],
+            "tags": [{"name": "v1", "commits": 3}, {"name": "v2", "commits": 5}],
+            "churn": {"a.h": 1, "A.h": 2},
+            "extensions": {"md": {"files": 1, "lines": 9}, "": {"files": 2, "lines": 4}},
+        })
+        assert self._parts(path) == [
+            ("summary", True), ("authors", True), ("tags", True), ("churn", True), ("extensions", True),
+        ]
+
+        connector = self._connect(path)
+        assert [t.name for t in connector.list_tables()] == [
+            "doc_summary", "doc_authors", "doc_tags", "doc_churn", "doc_extensions",
+        ]
+        assert connector.fetch_data('SELECT * FROM "doc_summary"')[1] == [{"project": "rt", "total": 2}]
+        assert connector.fetch_data('SELECT * FROM "doc_authors"')[1] == [
+            {"index": 1, "value": "ada"}, {"index": 2, "value": "bob"},
+        ]
+        assert connector.fetch_data('SELECT * FROM "doc_tags"')[1] == [
+            {"index": 1, "name": "v1", "commits": 3}, {"index": 2, "name": "v2", "commits": 5},
+        ]
+        # Keys are data: case-different and empty keys are separate rows.
+        assert connector.fetch_data('SELECT * FROM "doc_churn"')[1] == [
+            {"key": "a.h", "value": 1}, {"key": "A.h", "value": 2},
+        ]
+        assert connector.fetch_data('SELECT * FROM "doc_extensions"')[1] == [
+            {"key": "md", "files": 1, "lines": 9}, {"key": "", "files": 2, "lines": 4},
+        ]
+
+    def test_map_values_explode_into_long_format(self, tmp_path):
+        """author -> file -> count becomes (key, key_2, value) rows; an author
+        without files keeps a row."""
+        files = {f"src/f{i}.cpp": i for i in range(250)}  # enough keys to be a MAP
+        path = self._write(tmp_path, {
+            "author_files": {"ada": files, "bob": {"src/f1.cpp": 7}, "eve": {}},
+            "head_files": ["src/f1.cpp"],
+            "authors": ["ada"],
+        })
+
+        connector = self._connect(path, parts=["author_files"])
+        _, rows = connector.fetch_data(
+            '''SELECT "key", "key_2", "value" FROM "doc_author_files"
+               WHERE "key" <> 'ada' OR "key_2" = 'src/f3.cpp' ORDER BY "key"'''
+        )
+        assert rows == [
+            {"key": "ada", "key_2": "src/f3.cpp", "value": 3},
+            {"key": "bob", "key_2": "src/f1.cpp", "value": 7},
+            {"key": "eve", "key_2": None, "value": None},
+        ]
+
+    def test_large_object_beside_one_array_is_a_document(self, tmp_path):
+        """Big non-array content would repeat on every array row: split instead."""
+        path = self._write(tmp_path, {
+            "items": [1, 2, 3],
+            "index": {f"key{i:05d}": i for i in range(10000)},
+        })
+        assert self._parts(path) == [("items", True), ("index", True)]
+
+    def test_empty_sections_are_listed_but_not_selectable(self, tmp_path):
+        path = self._write(tmp_path, {"a": [1, 2], "b": [], "c": {}})
+        assert self._parts(path) == [("a", True), ("b", False), ("c", False)]
+
+        # The only loadable section: the table is named after the file.
+        connector = self._connect(path)
+        assert [t.name for t in connector.list_tables()] == ["doc"]
+        with pytest.raises(InvalidInputError, match="not found or not loadable"):
+            self._connect(path, parts=["b"])
+
+    def test_summary_name_avoids_a_section_called_summary(self, tmp_path):
+        path = self._write(tmp_path, {"version": 1, "summary": [1], "rows": [2]})
+        assert self._parts(path) == [("summary_1", True), ("summary", True), ("rows", True)]
+
+    def test_records_files_have_no_sections(self, tmp_path):
+        assert self._parts(self._write(tmp_path, [{"a": [1]}, {"a": [2]}])) is None
+        ndjson = tmp_path / "rows.json"
+        ndjson.write_text('{"a": [1], "b": [2]}\n{"a": [3], "b": [4]}\n')
+        assert self._parts(str(ndjson)) is None
 
 
 def _write_workbook(path, sheets, hidden=()):

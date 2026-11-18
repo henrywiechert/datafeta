@@ -87,6 +87,36 @@ class TestStageFiles:
         assert result["uploads"][0]["format"] == "csv"
         assert result["uploads"][0]["parts"] is None
 
+    def test_json_document_sections_are_picked_like_sheets(self, tmp_path):
+        doc = {"total": 2, "authors": ["ada", "bob"], "churn": {"a.h": 1}, "empty": []}
+        service = _make_service(tmp_path)
+
+        result = run_async(service.stage_files(
+            [_upload("stats.json", json.dumps(doc).encode(), "application/json")], "s1"
+        ))
+        entry = result["uploads"][0]
+        assert entry["part_label"] == "section"
+        assert [(p["name"], p["selectable"]) for p in entry["parts"]] == [
+            ("summary", True), ("authors", True), ("churn", True), ("empty", False),
+        ]
+
+        run_async(service.connect_multipart(
+            CSV_DETAILS, [], "s1", _staged((entry["upload_id"], ["authors", "churn"]))
+        ))
+        tables = [t.name for t in service.state_manager.current_connector.list_tables()]
+        assert tables == ["stats_authors", "stats_churn"]
+        # Section entry files are intermediate: only the upload and the tables' Parquet remain.
+        assert not [name for name in _session_files(tmp_path) if name.endswith(".ndjson")]
+
+    def test_json_records_are_staged_without_sections(self, tmp_path):
+        service = _make_service(tmp_path)
+
+        result = run_async(service.stage_files(
+            [_upload("rows.json", b'[{"id": 1}, {"id": 2}]', "application/json")], "s1"
+        ))
+
+        assert result["uploads"][0]["parts"] is None
+
     def test_zip_members_staged_individually(self, tmp_path):
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as archive:

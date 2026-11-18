@@ -8,7 +8,7 @@ import type { FileFormatInfo } from '../services/api/appConfigApi';
 export const TEST_FILE_FORMATS: FileFormatInfo[] = [
   { key: 'csv', label: 'CSV', extensions: ['.csv'], options: ['csv', 'date_formats'], partLabel: null },
   { key: 'parquet', label: 'Parquet', extensions: ['.parquet'], options: [], partLabel: null },
-  { key: 'json', label: 'JSON', extensions: ['.json', '.ndjson', '.jsonl'], options: [], partLabel: null },
+  { key: 'json', label: 'JSON', extensions: ['.json', '.ndjson', '.jsonl'], options: [], partLabel: 'section' },
   {
     key: 'workbook',
     label: 'Excel',
