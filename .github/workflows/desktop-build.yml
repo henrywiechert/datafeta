@@ -73,7 +73,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
           - os: windows-latest
           # Oldest supported runner: the AppImage needs a glibc at least as new as the build host's.
           - os: ubuntu-22.04
