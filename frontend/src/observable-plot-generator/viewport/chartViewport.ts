@@ -15,6 +15,7 @@
  *   (`getViewportAxes`) to know which axes are pannable and how far.
  */
 import type * as Plot from '@observablehq/plot';
+import { epochUnitToPreciseDate } from '../../datetime/datetimeDisplayFormat';
 
 export interface ViewportRange {
   min: number;
@@ -64,14 +65,22 @@ export function getViewportAxes(options: Plot.PlotOptions | undefined | null): V
   return (options as any)?.[VIEWPORT_KEY];
 }
 
-/** Numeric value of a domain endpoint or data value (Dates → epoch ms). */
+/**
+ * Numeric value of a domain endpoint or data value (Dates → epoch ms, with the
+ * sub-millisecond fraction a PreciseDate carries).
+ */
 export function toViewportNumber(value: unknown): number | null {
   if (value instanceof Date) {
-    const t = value.getTime();
+    const t = value.valueOf();
     return Number.isFinite(t) ? t : null;
   }
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   return null;
+}
+
+/** Date for a temporal viewport value; keeps a sub-millisecond fraction (PreciseDate). */
+export function viewportDate(ms: number): Date {
+  return epochUnitToPreciseDate(ms, 'ms') ?? new Date(ms);
 }
 
 /** Extent of a two-element numeric/Date domain, or null when not continuous. */
@@ -139,7 +148,7 @@ export function applyChartViewport(
 
       const options = plot.options as any;
       const scale = options[axis] ?? (options[axis] = {});
-      scale.domain = temporal ? [new Date(min), new Date(max)] : [min, max];
+      scale.domain = temporal ? [viewportDate(min), viewportDate(max)] : [min, max];
       scale.nice = false;
     }
   }

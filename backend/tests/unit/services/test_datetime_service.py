@@ -163,7 +163,7 @@ class TestDateTimeStringSourceParsing:
         )
         sql = expr.get_sql(quote_char="`")
 
-        assert "parseDateTime64BestEffort(`datetime`, 3)" in sql
+        assert "parseDateTime64BestEffort(`datetime`, 6)" in sql
         assert "toStartOfYear" in sql
         assert "toTimeZone" in sql
 
@@ -228,6 +228,17 @@ class TestDateTimeStringSourceParsing:
         assert 'to_timestamp("start_ts")' in sql
         assert "timezone('UTC'" in sql
         assert "date_trunc('month'" in sql
+
+    def test_clickhouse_numeric_epoch_source_keeps_microseconds(self):
+        """Regression: epoch-seconds REALs were converted with DateTime64(3), so
+        points in the same millisecond merged; DuckDB's to_timestamp keeps µs."""
+        t = Table("statistics")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.start_ts, "millisecond", "timeline", "clickhouse", source_type="Float64"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "toDateTime64(`start_ts`,6,'UTC')" in sql
 
     def test_duckdb_string_source_uses_flexible_timestamp_parse(self):
         """A text column overridden to DateTime is parsed with TRY_CAST first

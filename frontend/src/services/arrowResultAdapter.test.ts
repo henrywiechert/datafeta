@@ -27,6 +27,26 @@ describe('arrowTableToRows temporal units', () => {
   });
 });
 
+describe('arrowTableToRows sub-millisecond timestamps', () => {
+  test('keeps two same-millisecond microsecond values apart', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const data = Arrow.makeData({
+        type: new Arrow.TimestampMicrosecond(),
+        length: 2,
+        nullCount: 0,
+        data: new BigInt64Array([BigInt('1700000000123100'), BigInt('1700000000123400')]),
+      });
+      const rows = arrowTableToRows(new Arrow.Table({ ts: Arrow.makeVector(data) }));
+      const [a, b] = rows.map((r) => r.ts as Date);
+      expect(a.getTime()).toBe(b.getTime());
+      expect(+b - +a).toBeCloseTo(0.3, 3);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+});
+
 describe('normalizeArrowValue', () => {
   test('coerces numeric strings for numeric Arrow fields', () => {
     const result = normalizeArrowValue('"42.5"', { typeId: Type.Float } as any, 'value');

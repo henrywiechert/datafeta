@@ -51,7 +51,7 @@ function lastRowByColumn(rows: any[], column: string): any | null {
   for (const row of rows) {
     const raw = row?.[column];
     const value = raw instanceof Date
-      ? raw.getTime()
+      ? raw.valueOf() // µs-precise for a PreciseDate
       : typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
     if (value == null) continue;
     if (value > bestValue) {
@@ -116,7 +116,8 @@ function createMarksForType(
   // MeasureValues plots can accidentally try to render 100k+ points per mark layer.
   // Observable Plot can stack overflow in those cases. We apply a lightweight reduction for line marks.
   const toComparable = (v: any): number | string | null => {
-    if (v instanceof Date) return v.getTime();
+    // valueOf keeps a PreciseDate's µs, so same-millisecond points stay in order.
+    if (v instanceof Date) return v.valueOf();
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v === 'string') {
       const num = Number.parseFloat(v);

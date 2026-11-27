@@ -203,10 +203,23 @@ reset on every existing sheet.
 
 ### Display precision
 
-`epochToPreciseDate()` carries the sub-millisecond fraction in a non-enumerable
-slot on the `Date`, because a JS `Date` only holds milliseconds while our sources
-(ClickHouse `DateTime64(6)`, `Timestamp(p)`) carry more. Tooltips format with
-`precision: 'auto'`, which shows only what the value actually carries.
+A JS `Date` only holds milliseconds, while our sources (ClickHouse `DateTime64(6)`,
+`Timestamp(p)`) carry more. `epochUnitToPreciseDate()` / `epochToPreciseDate()`
+return a `PreciseDate` for values with a sub-millisecond part: a real `Date`
+(getters, `getTime()`, `toISOString()` stay at the whole millisecond) whose
+numeric value (`valueOf`, i.e. `+d`, comparisons, d3/Plot scales) is the
+fractional epoch millisecond. That is what makes two points in the same
+millisecond sort apart and plot at distinct positions on a time axis. Viewport
+code reads temporal values with `valueOf` (not `getTime`) and builds temporal
+domains with `viewportDate()` so a zoomed window keeps its fraction.
+Whole-millisecond values stay plain `Date`s.
+
+The backend keeps µs too: ClickHouse text/epoch columns overridden to DateTime
+are parsed to `DateTime64(6)` (`DATETIME64_PRECISION`), matching DuckDB's
+`TIMESTAMP`.
+
+Tooltips format with `precision: 'auto'`, which shows only what the value
+actually carries.
 
 Axis ticks deliberately stay at `'second'`: `formatDateTick` output feeds
 `toBandLabel`, which rewrites row values used as band-scale keys **and therefore

@@ -15,6 +15,7 @@ import type * as Plot from '@observablehq/plot';
 import {
   domainExtent,
   getViewportAxes,
+  viewportDate,
   type ViewportRange,
 } from '../../../../observable-plot-generator/viewport/chartViewport';
 import type { ViewportController } from './viewportController';
@@ -32,7 +33,7 @@ export function liveAxisDomain(
   if (!info || !controller) return domain;
   const range = controller.get(info.column) ?? info.natural;
   if (!range) return domain;
-  return info.temporal ? [new Date(range.min), new Date(range.max)] : [range.min, range.max];
+  return info.temporal ? [viewportDate(range.min), viewportDate(range.max)] : [range.min, range.max];
 }
 
 /**

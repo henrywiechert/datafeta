@@ -83,7 +83,7 @@ class TestClickHouseDialect:
 
     def test_wrap_datetime_comparison_with_datetime_string(self, dialect: ClickHouseDialect):
         result = dialect.wrap_datetime_comparison('2024-01-15 10:30:00.123', is_datetime_string=True)
-        assert result == "parseDateTime64BestEffort('2024-01-15 10:30:00.123', 3)"
+        assert result == "parseDateTime64BestEffort('2024-01-15 10:30:00.123', 6)"
 
     def test_wrap_datetime_comparison_with_non_datetime(self, dialect: ClickHouseDialect):
         result = dialect.wrap_datetime_comparison('hello', is_datetime_string=False)

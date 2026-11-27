@@ -5,7 +5,9 @@ import {
   declareViewportAxis,
   getViewportAxes,
   sameChartViewport,
+  toViewportNumber,
 } from './chartViewport';
+import { epochUnitToPreciseDate } from '../../datetime/datetimeDisplayFormat';
 
 function plot(axis: 'x' | 'y', column: string, extent?: [number, number], temporal = false, domain?: any[]) {
   const options: any = { [axis]: { domainKey: column, domain } };
@@ -80,5 +82,23 @@ describe('cullRange / sameChartViewport', () => {
     expect(sameChartViewport({ a: { min: 1, max: 2 } }, { a: { min: 1, max: 3 } })).toBe(false);
     expect(sameChartViewport({}, { a: { min: 1, max: 2 } })).toBe(false);
     expect(sameChartViewport({}, undefined)).toBe(true);
+  });
+});
+
+describe('sub-millisecond temporal values', () => {
+  const T = 1_700_000_000_123; // whole ms
+
+  test('toViewportNumber keeps the microseconds of a PreciseDate', () => {
+    const d = epochUnitToPreciseDate(T * 1000 + 400, 'us')!;
+    expect(toViewportNumber(d)).toBeCloseTo(T + 0.4, 3);
+  });
+
+  test('a fractional viewport becomes a domain that keeps its fraction', () => {
+    const p = plot('x', 'ts', [T - 10, T + 10], true);
+    applyChartViewport([p], { ts: { min: T + 0.25, max: T + 1.25 } });
+    const [lo, hi] = (p.options as any).x.domain as Date[];
+    expect(lo).toBeInstanceOf(Date);
+    expect(+lo).toBeCloseTo(T + 0.25, 3);
+    expect(+hi).toBeCloseTo(T + 1.25, 3);
   });
 });

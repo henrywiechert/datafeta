@@ -17,7 +17,7 @@ import {
   resolveManualShapeOption,
 } from '../utils/shapeUtils';
 import { formatDateAxisTick } from '../utils/dateFormatUtils';
-import { cullRange, declareViewportAxis, domainExtent, toViewportNumber } from '../viewport/chartViewport';
+import { cullRange, declareViewportAxis, domainExtent, toViewportNumber, viewportDate } from '../viewport/chartViewport';
 import type { ChartViewport, ViewportRange } from '../viewport/chartViewport';
 
 type ScatterResultBudget = {
@@ -389,12 +389,14 @@ export function scatterChart(
     return [min - pad, max + pad];
   };
   const buildDateDomain = (values: Date[]): [Date, Date] => {
-    const timestamps = values.map(d => d.getTime());
+    // valueOf, not getTime: keeps the µs of PreciseDates so same-millisecond
+    // points stay inside the domain and apart.
+    const timestamps = values.map(d => d.valueOf());
     const minTs = Math.min(...timestamps);
     const maxTs = Math.max(...timestamps);
     const range = maxTs - minTs;
     const pad = range * DOMAIN_PAD_RATIO;
-    return [new Date(minTs - pad), new Date(maxTs + pad)];
+    return [viewportDate(minTs - pad), viewportDate(maxTs + pad)];
   };
 
   if (options?.domain?.x) {

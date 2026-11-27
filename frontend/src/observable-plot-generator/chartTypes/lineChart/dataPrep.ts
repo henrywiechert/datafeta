@@ -36,9 +36,14 @@ export function inferXKind(sampleValues: any[]): XKind {
   return 'other';
 }
 
+/**
+ * Numeric x value for sorting, binning and extents. Dates use valueOf, not
+ * getTime: a PreciseDate carries µs there, and same-millisecond points must
+ * keep their order or the line zig-zags back and forth within the millisecond.
+ */
 export function toXNumber(v: any, kind: XKind): number | null {
   if (kind === 'time') {
-    if (v instanceof Date) return v.getTime();
+    if (v instanceof Date) return v.valueOf();
     if (typeof v === 'string') {
       const ts = Date.parse(v);
       return Number.isNaN(ts) ? null : ts;
@@ -51,12 +56,12 @@ export function toXNumber(v: any, kind: XKind): number | null {
       const num = Number.parseFloat(v);
       return Number.isFinite(num) ? num : null;
     }
-    if (v instanceof Date) return v.getTime();
+    if (v instanceof Date) return v.valueOf();
     return null;
   }
   // other: try best-effort numeric conversion, else null
   if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (v instanceof Date) return v.getTime();
+  if (v instanceof Date) return v.valueOf();
   if (typeof v === 'string') {
     const ts = Date.parse(v);
     if (!Number.isNaN(ts)) return ts;
@@ -240,10 +245,11 @@ function sampleEvery<T>(arr: T[], maxCount: number): T[] {
 
 /**
  * Convert a value to a comparable form for sorting (number, string, or null).
- * Handles Date, number, and string (with numeric/date parsing).
+ * Handles Date (µs-precise via valueOf, see toXNumber), number, and string
+ * (with numeric/date parsing).
  */
 function toComparable(v: any): number | string | null {
-  if (v instanceof Date) return v.getTime();
+  if (v instanceof Date) return v.valueOf();
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   if (typeof v === 'string') {
     const num = Number.parseFloat(v);

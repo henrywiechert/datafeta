@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { prepareLineData } from './dataPrep';
+import { epochUnitToPreciseDate } from '../../../datetime/datetimeDisplayFormat';
 import type { ViewportRange } from '../../viewport/chartViewport';
 
 /** Deterministic jagged series: neighbouring points differ a lot, so any re-binning shows. */
@@ -84,5 +85,25 @@ describe('prepareLineData with a viewport', () => {
       expect(group.length).toBeLessThanOrEqual(1_000 + 2); // + one edge row on each side
     }
     expect(budgetedSorted.length).toBeGreaterThan(0);
+  });
+});
+
+describe('prepareLineData with microsecond timestamps', () => {
+  test('orders points within the same millisecond by their microseconds', () => {
+    // Rows arrive with each same-millisecond pair reversed; a millisecond
+    // comparison keeps that order and the line zig-zags back within the ms.
+    const US = 1_700_000_000_123_000;
+    const micros = [US + 700, US + 200, US + 1_800, US + 1_300];
+    const data = micros.map((us, i) => ({ x: epochUnitToPreciseDate(us, 'us'), y: i }));
+
+    const { budgetedSorted } = prepareLineData({
+      data,
+      independentColumn: 'x',
+      dependentColumn: 'y',
+      seriesColumns: [],
+      orientation: 'horizontal',
+    });
+
+    expect(budgetedSorted.map((r) => r.y)).toEqual([1, 0, 3, 2]);
   });
 });

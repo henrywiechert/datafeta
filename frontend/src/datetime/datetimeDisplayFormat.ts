@@ -62,71 +62,93 @@ export function epochToComponents(num: number): { ms: number; microsFraction: nu
   return Number.isFinite(d.getTime()) ? { ms, microsFraction } : null;
 }
 
-/**
- * Slot carrying the sub-millisecond fraction alongside a Date.
- *
- * A JS Date only holds millisecond resolution, but our sources (ClickHouse
- * DateTime64(6), Timestamp(p), epoch-µs/ns columns) carry more. Rather than
- * change the row schema for a display-only concern, we hang the fraction off
- * the Date itself in a NON-ENUMERABLE slot, so it is invisible to `{...row}`
- * spreads, `Object.keys`, `JSON.stringify`, memo comparators and cache hashes.
- *
- * The annotation is lost if the Date is reconstructed (e.g. by an Observable
- * Plot bin/interval transform). Callers then degrade to millisecond precision,
- * which is the right answer for a binned value anyway.
- */
-const MICROS_FRACTION = '__microsFraction';
-
-/** Read the sub-millisecond fraction carried by `epochToPreciseDate`, if any. */
-export function readMicrosFraction(d: Date): number | undefined {
-  const v = (d as any)[MICROS_FRACTION];
-  return typeof v === 'number' ? v : undefined;
-}
-
-/**
- * Epoch -> Date, carrying the microsecond fraction of the second so display
- * formatters can recover precision a Date cannot hold. See MICROS_FRACTION.
- */
-export function epochToPreciseDate(num: number): Date | null {
-  const c = epochToComponents(num);
-  if (!c) return null;
-  return annotatedDate(c.ms, c.microsFraction);
-}
-
-function annotatedDate(ms: number, microsFraction: number): Date | null {
-  const d = new Date(ms);
-  if (!Number.isFinite(d.getTime())) return null;
-  Object.defineProperty(d, MICROS_FRACTION, {
-    value: microsFraction,
-    enumerable: false,
-    writable: false,
-    configurable: true,
-  });
-  return d;
-}
-
-export type EpochUnit = 's' | 'ms' | 'us' | 'ns';
+const SUB_MS_MICROS = Symbol('subMillisecondMicros');
 
 const mod = (a: number, b: number): number => ((a % b) + b) % b;
 
 /**
- * Epoch -> Date for a KNOWN unit (e.g. from the Arrow schema). Unlike the
- * magnitude heuristic in `epochToComponents`, this is correct for every date,
- * including those within ~30 years of 1970 where the units overlap in magnitude.
+ * A Date that keeps the microseconds a JS Date cannot hold.
+ *
+ * A JS Date only has millisecond resolution, but our sources (ClickHouse
+ * DateTime64(6), Timestamp(p), epoch-µs/ns columns) carry more. A PreciseDate
+ * is a real Date: getters, `getTime()`, `toISOString()` and JSON stay at the
+ * whole millisecond. Its NUMERIC value (`valueOf`, hence `+d`, `d < e`, d3 /
+ * Observable Plot scales, InternMap keys) is the fractional epoch millisecond,
+ * so two values in the same millisecond sort apart and plot at distinct
+ * positions on a time axis. Float64 resolves ~0.25 µs at present-day epochs.
+ *
+ * Only values with a sub-millisecond part are PreciseDates; whole-millisecond
+ * values stay plain Dates, so data without µs is untouched.
+ *
+ * The precision is lost when a Date is reconstructed (`new Date(d)`, an
+ * Observable Plot bin/interval transform, a JSON round trip). Callers then
+ * degrade to millisecond precision, which is the right answer for a binned
+ * value anyway.
+ */
+export class PreciseDate extends Date {
+  constructor(wholeMs: number, subMillisecondMicros: number) {
+    super(wholeMs);
+    // Symbol slot rather than a class field: invisible to Object.keys/JSON,
+    // and independent of how Babel/tsc emit field declarations.
+    (this as unknown as Record<symbol, number>)[SUB_MS_MICROS] = subMillisecondMicros;
+  }
+
+  /** Microseconds past `getTime()` (1-999). */
+  get subMillisecondMicros(): number {
+    return (this as unknown as Record<symbol, number>)[SUB_MS_MICROS];
+  }
+
+  valueOf(): number {
+    return this.getTime() + this.subMillisecondMicros / 1000;
+  }
+}
+
+/** Microsecond-of-second (0-999999) carried by a PreciseDate; undefined for a plain Date. */
+export function readMicrosFraction(d: Date): number | undefined {
+  return d instanceof PreciseDate
+    ? mod(d.getTime(), 1000) * 1000 + d.subMillisecondMicros
+    : undefined;
+}
+
+function preciseDate(wholeMs: number, subMillisecondMicros: number): Date | null {
+  const d = subMillisecondMicros === 0 ? new Date(wholeMs) : new PreciseDate(wholeMs, subMillisecondMicros);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+function dateFromEpochMicros(micros: number): Date | null {
+  const us = Math.round(micros);
+  const wholeMs = Math.floor(us / 1000);
+  return preciseDate(wholeMs, us - wholeMs * 1000);
+}
+
+/** Epoch number of unknown unit -> Date, keeping microseconds (see PreciseDate). */
+export function epochToPreciseDate(num: number): Date | null {
+  const c = epochToComponents(num);
+  if (!c) return null;
+  // The heuristic's fraction is magnitude-based, so only trust it after 1970.
+  return preciseDate(Math.trunc(c.ms), c.ms >= 0 ? c.microsFraction % 1000 : 0);
+}
+
+export type EpochUnit = 's' | 'ms' | 'us' | 'ns';
+
+/**
+ * Epoch -> Date for a KNOWN unit (e.g. from the Arrow schema), keeping
+ * microseconds (see PreciseDate); a fractional 'ms' value keeps its fraction.
+ * Unlike the magnitude heuristic in `epochToComponents`, this is correct for
+ * every date, including those within ~30 years of 1970 where the units overlap
+ * in magnitude.
  */
 export function epochUnitToPreciseDate(num: number, unit: EpochUnit): Date | null {
   if (!Number.isFinite(num)) return null;
   switch (unit) {
     case 's':
-      return annotatedDate(num * 1000, 0);
-    case 'ms': {
-      const ms = Math.floor(num);
-      return annotatedDate(ms, mod(ms, 1000) * 1000);
-    }
+      return dateFromEpochMicros(num * 1_000_000);
+    case 'ms':
+      return dateFromEpochMicros(num * 1000);
     case 'us':
-      return annotatedDate(Math.floor(num / 1000), mod(num, 1_000_000));
+      return dateFromEpochMicros(num);
     case 'ns':
-      return annotatedDate(Math.floor(num / 1_000_000), Math.floor(mod(num, 1_000_000_000) / 1000));
+      return dateFromEpochMicros(Math.floor(num / 1000));
   }
 }
 

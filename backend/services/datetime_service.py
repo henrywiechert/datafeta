@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Callable, Optional, Union
 from pypika.terms import Function
 
 from backend.dialects import engine_name
+from backend.dialects.clickhouse import DATETIME64_PRECISION
 from backend.exceptions import QueryGenerationError
 from backend.services.query_components.terms import (
     CustomFunction,
@@ -103,8 +104,8 @@ class DateTimeService:
         downstream functions (toTimeZone / date_trunc / EXTRACT) require a datetime.
         """
         if normalized_db_type == 'clickhouse':
-            # Best-effort parser handles ISO8601 incl. trailing 'Z'; precision 3 (ms).
-            return CustomFunction('parseDateTime64BestEffort', [field_term, 3])
+            # Best-effort parser handles ISO8601 incl. trailing 'Z'; keeps µs.
+            return CustomFunction('parseDateTime64BestEffort', [field_term, DATETIME64_PRECISION])
         # DuckDB / standard SQL: TRY_CAST accepts ISO8601 (drops 'Z'); try_strptime
         # is a fallback for non-standard layouts CAST rejects (e.g. dashes in the
         # time component). Unparseable values become NULL rather than erroring.
@@ -116,7 +117,7 @@ class DateTimeService:
     def _parse_epoch_to_datetime(field_term: Any, normalized_db_type: str) -> Any:
         """Convert a numeric epoch-seconds source to a real datetime."""
         if normalized_db_type == 'clickhouse':
-            return Function('toDateTime64', field_term, 3, 'UTC')
+            return Function('toDateTime64', field_term, DATETIME64_PRECISION, 'UTC')
         return Function('to_timestamp', field_term)
 
     @staticmethod

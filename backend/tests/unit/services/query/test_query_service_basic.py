@@ -135,7 +135,7 @@ def test_clickhouse_full_datetime_string_column_reads_the_column_not_its_alias(
 ) -> None:
     """Regression: ClickHouse binds a bare name to a same-named SELECT alias first.
 
-    The SELECT emits ``parseDateTime64BestEffort(startdate, 3) AS startdate``; an
+    The SELECT emits ``parseDateTime64BestEffort(startdate, 6) AS startdate``; an
     unqualified GROUP BY / WHERE copy then parsed the already-parsed DateTime64
     (ILLEGAL_TYPE_OF_ARGUMENT). The column inside the wrapper must be qualified.
     """
@@ -147,7 +147,7 @@ def test_clickhouse_full_datetime_string_column_reads_the_column_not_its_alias(
         connector=_TypedConnector({"startdate": "String", "category": "String"}),
     )
 
-    parsed = "parseDateTime64BestEffort(`sales`.`startdate`, 3)"
+    parsed = "parseDateTime64BestEffort(`sales`.`startdate`, 6)"
     assert f"{parsed} AS `startdate`" in sql
     assert f"WHERE {parsed}>=" in sql
     assert sql.endswith(f"GROUP BY `category`,{parsed}")
@@ -606,7 +606,7 @@ def test_binning_full_datetime_string_column_parses_once(query_service: QuerySer
 
     field_sql = select_result.fields[0].get_sql(quote_char="`", with_alias=True)
     assert field_sql == (
-        "toStartOfDay(toTimeZone(parseDateTime64BestEffort(`sales`.`startdate`, 3),'UTC'))"
+        "toStartOfDay(toTimeZone(parseDateTime64BestEffort(`sales`.`startdate`, 6),'UTC'))"
         " `startdate`"
     )
 

@@ -17,6 +17,12 @@ _PROFILE_AGGREGATE_NAMES = {
 }
 
 
+# Sub-second digits of the DateTime64 produced when parsing text or epoch
+# numbers into datetimes. Microseconds: what DuckDB TIMESTAMP holds and what the
+# frontend can place on a time axis (see PreciseDate).
+DATETIME64_PRECISION = 6
+
+
 # Mapping of common type names to ClickHouse types for NULL casting
 CLICKHOUSE_TYPE_MAPPING = {
     'DOUBLE': 'Float64',
@@ -152,7 +158,7 @@ class ClickHouseDialect(SqlDialect):
 
     def wrap_datetime_comparison(self, value: Any, is_datetime_string: bool) -> Any:
         if is_datetime_string and isinstance(value, str):
-            return f"parseDateTime64BestEffort('{value}', 3)"
+            return f"parseDateTime64BestEffort('{value}', {DATETIME64_PRECISION})"
         return value
 
     def count_star_sql(self) -> str:

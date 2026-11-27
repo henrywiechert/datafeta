@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { epochToPreciseDate, formatDateTimeDisplay } from './datetimeDisplayFormat';
+import { epochToPreciseDate, epochUnitToPreciseDate, formatDateTimeDisplay, PreciseDate } from './datetimeDisplayFormat';
 
 // 1_700_000_000 s = 1_700_000_000_000 ms = 2023-11-14T22:13:20Z
 const SECONDS = 1_700_000_000;
@@ -101,6 +101,49 @@ describe('sub-millisecond precision carried on the Date', () => {
   it('falls back to millisecond resolution for a plain Date', () => {
     const plain = new Date('2023-11-14T22:13:20.123Z');
     expect(formatDateTimeDisplay(plain, { precision: 'us' })).toBe('2023-11-14 22:13:20.123000');
+  });
+});
+
+describe('PreciseDate numeric value', () => {
+  // Two points 300 µs apart in the same millisecond: a plain Date makes them one
+  // value, so a time axis plots them on top of each other.
+  const a = epochUnitToPreciseDate(MICROS, 'us')!;
+  const b = epochUnitToPreciseDate(MICROS + 300, 'us')!;
+
+  it('keeps the microseconds in valueOf, so same-millisecond values order and plot apart', () => {
+    expect(a.getTime()).toBe(b.getTime());
+    expect(+a).toBeCloseTo(1_700_000_000_123.456, 3);
+    expect(+b - +a).toBeCloseTo(0.3, 3);
+    expect(a < b).toBe(true);
+  });
+
+  it('stays a whole-millisecond Date everywhere else', () => {
+    expect(a).toBeInstanceOf(Date);
+    expect(a.toISOString()).toBe('2023-11-14T22:13:20.123Z');
+    expect(new Date(a).getTime()).toBe(a.getTime());
+  });
+
+  it('is only used when there is a sub-millisecond part', () => {
+    expect(epochUnitToPreciseDate(MICROS - 456, 'us')).not.toBeInstanceOf(PreciseDate);
+    expect(epochUnitToPreciseDate(MILLIS + 123, 'ms')).not.toBeInstanceOf(PreciseDate);
+    expect(epochUnitToPreciseDate(MICROS, 'us')).toBeInstanceOf(PreciseDate);
+  });
+
+  it('round-trips a fractional epoch-ms value at microsecond resolution', () => {
+    const d = epochUnitToPreciseDate(+b, 'ms')!;
+    expect(formatDateTimeDisplay(d, { precision: 'us' })).toBe('2023-11-14 22:13:20.123756');
+  });
+
+  it('keeps nanosecond sources at microsecond resolution', () => {
+    const d = epochUnitToPreciseDate(NANOS + 123_456_789, 'ns')!;
+    expect(formatDateTimeDisplay(d, { precision: 'us' })).toBe('2023-11-14 22:13:20.123456');
+  });
+
+  it('handles pre-1970 values with a known unit', () => {
+    const d = epochUnitToPreciseDate(-1_500, 'us')!; // 1969-12-31T23:59:59.998500Z
+    expect(d.getTime()).toBe(-2);
+    expect(+d).toBeCloseTo(-1.5, 6);
+    expect(formatDateTimeDisplay(d, { precision: 'us' })).toBe('1969-12-31 23:59:59.998500');
   });
 });
 

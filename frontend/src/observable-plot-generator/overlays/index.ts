@@ -102,7 +102,8 @@ export function applyOverlays(
   const sortCol = meta.orientation === 'y' ? meta.xColumn : meta.yColumn;
   const sorted = [...meta.data].sort((a, b) => {
     const va = a[sortCol], vb = b[sortCol];
-    if (va instanceof Date && vb instanceof Date) return va.getTime() - vb.getTime();
+    // valueOf keeps a PreciseDate's µs, so same-millisecond points stay in order.
+    if (va instanceof Date && vb instanceof Date) return va.valueOf() - vb.valueOf();
     if (va < vb) return -1;
     if (va > vb) return 1;
     return 0;

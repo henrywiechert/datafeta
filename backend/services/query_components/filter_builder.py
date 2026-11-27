@@ -11,6 +11,7 @@ from pypika import Criterion
 from pypika.functions import Cast
 
 from backend.dialects import get_dialect
+from backend.dialects.clickhouse import DATETIME64_PRECISION
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
 from backend.services.query_components.aggregation_builder import (
@@ -303,7 +304,7 @@ class FilterBuilder:
                 "Wrapping datetime value '%s' with parseDateTime64BestEffort for ClickHouse",
                 value
             )
-            return CustomFunction("parseDateTime64BestEffort", [value, 3])
+            return CustomFunction("parseDateTime64BestEffort", [value, DATETIME64_PRECISION])
         
         return value
     
