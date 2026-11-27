@@ -59,6 +59,19 @@ class SqlDialect(ABC):
         """
         return False
 
+    @property
+    def select_aliases_shadow_columns(self) -> bool:
+        """
+        Whether a bare identifier anywhere in a query binds to a same-named
+        SELECT alias before the table column.
+
+        True for ClickHouse: with ``SELECT f(col) AS col ... GROUP BY f(col)``
+        the GROUP BY (and WHERE) copy reads ``col`` as the alias, i.e. computes
+        ``f(f(col))``. Query builders then qualify the column inside such
+        expressions (``t.col``), which never matches an alias.
+        """
+        return False
+
     @abstractmethod
     def random_func_name(self) -> str:
         """

@@ -3,7 +3,7 @@
 
 import pytest
 
-from backend.models.data_source import TableJoinDefinition, VirtualTableDefinition
+from backend.models.data_source import Column, TableJoinDefinition, VirtualTableDefinition
 from backend.models.query import Dimension, Filter, Measure, QueryDescription
 from backend.services.query_service import QueryService
 
@@ -93,11 +93,107 @@ def test_cast_and_datetime_part_match_in_select_and_group_by(
         with_optimization=False,
     )
 
-    expr = "toDateTime64(toStartOfYear(toTimeZone(CAST(`ts` AS DateTime),'UTC')),0,'UTC')"
+    expr = "toDateTime64(toStartOfYear(toTimeZone(CAST(`sales`.`ts` AS DateTime),'UTC')),0,'UTC')"
     # Cast is present (applied before datetime extraction) ...
     assert expr in sql
     # ... and the GROUP BY uses the identical cast+datetime expression.
     assert f"GROUP BY {expr}" in sql
+
+
+class _TypedConnector:
+    """Reports fixed physical column types (for DateTime-override parsing)."""
+
+    def __init__(self, types: dict) -> None:
+        self._types = types
+
+    def list_columns(self, database=None, table=None):
+        return [Column(name=name, data_type=dtype) for name, dtype in self._types.items()]
+
+
+def _full_datetime_on_string_column(**overrides) -> QueryDescription:
+    """A String column overridden to "Full DateTime", grouped alongside a measure."""
+    return _make_base_description(
+        dimensions=[
+            Dimension(field="category", flavour="discrete"),
+            Dimension(field="startdate", flavour="continuous", date_mode="timeline"),
+        ],
+        measures=[Measure(field="revenue", aggregation="sum", alias="total")],
+        filters=[
+            Filter(
+                field="startdate",
+                operator=">=",
+                value="2026-11-21T00:00:00.000Z",
+                date_mode="timeline",
+            )
+        ],
+        **overrides,
+    )
+
+
+def test_clickhouse_full_datetime_string_column_reads_the_column_not_its_alias(
+    query_service: QueryService,
+) -> None:
+    """Regression: ClickHouse binds a bare name to a same-named SELECT alias first.
+
+    The SELECT emits ``parseDateTime64BestEffort(startdate, 3) AS startdate``; an
+    unqualified GROUP BY / WHERE copy then parsed the already-parsed DateTime64
+    (ILLEGAL_TYPE_OF_ARGUMENT). The column inside the wrapper must be qualified.
+    """
+    sql, _ = query_service.translate_to_sql(
+        query_desc=_full_datetime_on_string_column(),
+        table_name="sales",
+        db_type="clickhouse",
+        with_optimization=False,
+        connector=_TypedConnector({"startdate": "String", "category": "String"}),
+    )
+
+    parsed = "parseDateTime64BestEffort(`sales`.`startdate`, 3)"
+    assert f"{parsed} AS `startdate`" in sql
+    assert f"WHERE {parsed}>=" in sql
+    assert sql.endswith(f"GROUP BY `category`,{parsed}")
+    assert "parseDateTime64BestEffort(`startdate`" not in sql
+
+
+def test_duckdb_full_datetime_string_column_stays_unqualified(
+    query_service: QueryService,
+) -> None:
+    """DuckDB resolves table columns before SELECT aliases: no qualification needed."""
+    sql, _ = query_service.translate_to_sql(
+        query_desc=_full_datetime_on_string_column(),
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+        connector=_TypedConnector({"startdate": "VARCHAR", "category": "VARCHAR"}),
+    )
+
+    assert '"sales"."startdate"' not in sql
+    assert 'TRY_CAST("startdate"' in sql
+
+
+def test_clickhouse_cast_dimension_group_by_reads_the_column_not_its_alias(
+    query_service: QueryService,
+) -> None:
+    """``CAST(v AS Int64) AS v`` grouped by an unqualified copy is NOT_AN_AGGREGATE on
+    ClickHouse (the copy reads the alias); the cast must read ``sales.v``."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(field="category", flavour="discrete"),
+            Dimension(field="units", flavour="continuous"),
+        ],
+        measures=[Measure(field="revenue", aggregation="sum", alias="total")],
+        column_casts={"units": {"cast_type": "Int64"}},
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="sales",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    cast = "CAST(`sales`.`units` AS Int64)"
+    assert f"{cast} AS `units`" in sql
+    assert sql.endswith(f"GROUP BY `category`,{cast}")
 
 
 def test_metadata_structure_present_without_optimizer(query_service: QueryService) -> None:
@@ -484,6 +580,35 @@ def test_binning_config_clickhouse_month_is_not_date_typed(query_service: QueryS
     assert "toStartOfMonth(" in field_sql
     assert "toDateTime64(" in field_sql
     assert "`event_time`" in field_sql
+
+
+def test_binning_full_datetime_string_column_parses_once(query_service: QueryService) -> None:
+    """Regression: binning already runs the datetime pipeline, so the later
+    "Full DateTime" step re-parsed the binned DateTime64 on ClickHouse
+    (ILLEGAL_TYPE_OF_ARGUMENT for parseDateTime64BestEffort)."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(field="startdate", flavour="continuous", date_mode="timeline")
+        ]
+    )
+
+    context = query_service._build_table_context(description, "clickhouse", "events")
+    select_result = query_service._build_select_clause(
+        description,
+        context.table_map,
+        context.default_table,
+        "clickhouse",
+        rounding_config={},
+        binning_config={"startdate": "day"},
+        use_category_dedup=False,
+        column_types={"startdate": "String"},
+    )
+
+    field_sql = select_result.fields[0].get_sql(quote_char="`", with_alias=True)
+    assert field_sql == (
+        "toStartOfDay(toTimeZone(parseDateTime64BestEffort(`sales`.`startdate`, 3),'UTC'))"
+        " `startdate`"
+    )
 
 
 def test_parse_field_reference_retains_nested_name(query_service: QueryService) -> None:

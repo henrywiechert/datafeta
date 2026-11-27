@@ -25,6 +25,7 @@ import {
   useSplitDrag,
 } from './useSplitDrag';
 import { useTabletUi } from '../../hooks/useTabletUi';
+import { useFullscreenPortalTarget } from '../../hooks/useFullscreenPortalTarget';
 
 /**
  * Whether the handle sits between two panel *cards* or divides two regions of
@@ -96,6 +97,9 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
 }) => {
   const isVertical = orientation === 'vertical';
   const { isTablet } = useTabletUi();
+  // In native fullscreen only the fullscreen element's subtree is painted, so
+  // a drag overlay on `document.body` would be invisible.
+  const portalTarget = useFullscreenPortalTarget();
   // Hover-revealed, so there is nothing to reveal it on a touch screen; tablet
   // mode has its own side-panel toggle in the chart toolbar.
   const showCollapseButton = !!collapseLabel && !!onToggle && !isTablet;
@@ -318,7 +322,7 @@ const SplitHandle: React.FC<SplitHandleProps> = ({
             style={{ position: 'absolute' }}
           />
         </Box>,
-        document.body,
+        portalTarget,
       )}
       {inGroup ? (
         <Separator

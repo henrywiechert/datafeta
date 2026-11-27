@@ -102,6 +102,10 @@ class ClickHouseDialect(SqlDialect):
     def requires_database(self) -> bool:
         return True
 
+    @property
+    def select_aliases_shadow_columns(self) -> bool:
+        return True
+
     def random_func_name(self) -> str:
         return 'rand'
 

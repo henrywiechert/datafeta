@@ -3,7 +3,7 @@
 
 from typing import Any, List, Optional
 
-from pypika.terms import Term
+from pypika.terms import Field, Term
 
 
 class ExtractTerm(Term):
@@ -49,6 +49,21 @@ class QuotedField(Term):
         """Return the field name with quotes (handles spaces and special characters)."""
         quote_char = kwargs.get("quote_char", '"')
         return f"{quote_char}{self.name}{quote_char}"
+
+
+class TableQualifiedField(Field):
+    """Column reference that always renders with its table prefix (`t`.`col`).
+
+    Plain fields render unqualified in single-table queries. On engines where a
+    bare name binds to a same-named SELECT alias first (see
+    ``SqlDialect.select_aliases_shadow_columns``), the column inside an
+    expression aliased back to its own name must be qualified to keep reading
+    the physical column.
+    """
+
+    def get_sql(self, **kwargs) -> str:
+        kwargs["with_namespace"] = True
+        return super().get_sql(**kwargs)
 
 
 class CastField(Term):

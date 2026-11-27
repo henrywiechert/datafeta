@@ -87,7 +87,10 @@ class SelectClauseBuilder:
                 # Skip optimization binning if user has explicitly selected a datetime part
                 # User's explicit selection takes precedence over automatic optimization
                 has_explicit_datetime_part = dim.date_part and dim.date_mode
-                
+                # Binning already ran the datetime pipeline (incl. parsing a text
+                # column); a second pass would parse the binned timestamp again.
+                datetime_applied = False
+
                 if (
                     binning_config
                     and dim.field in binning_config
@@ -106,6 +109,7 @@ class SelectClauseBuilder:
                         groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
                     field_term = binned_expr.as_(dim.field)
                     all_aliases.add(dim.field)
+                    datetime_applied = True
                     logger.debug("Applied datetime binning to %s with unit %s", dim.field, unit)
                 elif binning_config and dim.field in binning_config and has_explicit_datetime_part:
                     logger.debug(
@@ -150,9 +154,10 @@ class SelectClauseBuilder:
 
                 # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
                 if dim.date_mode:
-                    field_term = resolver.apply_datetime(
-                        field_term, dim.field, dim.date_part, dim.date_mode
-                    )
+                    if not datetime_applied:
+                        field_term = resolver.apply_datetime(
+                            field_term, dim.field, dim.date_part, dim.date_mode
+                        )
                     # "Full DateTime" (mode but no part) keeps the plain field name so
                     # the alias matches what the client requests; explicit parts get the
                     # "<field>_<part>_<mode>" suffix.
